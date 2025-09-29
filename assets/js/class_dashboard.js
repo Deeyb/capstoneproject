@@ -1,0 +1,268 @@
+document.addEventListener('DOMContentLoaded', () => {
+  // Wire navigation tabs
+  document.querySelectorAll('.nav-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-section').forEach(sec => sec.classList.remove('active'));
+      const target = document.getElementById('tab-' + tab);
+      if (target) target.classList.add('active');
+
+      if (tab === 'lessons') {
+        loadLessons();
+      }
+      if (tab === 'submissions') {
+        loadSubmissions();
+      }
+    });
+  });
+
+  // Sidebar options
+  document.querySelectorAll('.sidebar-option').forEach(option => {
+    option.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-option').forEach(o => o.classList.remove('active'));
+      option.classList.add('active');
+    });
+  });
+
+  // Topic toggles
+  document.querySelectorAll('.topic-toggle').forEach(toggle => {
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const icon = toggle;
+      const isExpanded = icon.classList.contains('expanded');
+      
+      if (isExpanded) {
+        icon.classList.remove('expanded');
+        icon.style.transform = 'rotate(0deg)';
+      } else {
+        icon.classList.add('expanded');
+        icon.style.transform = 'rotate(180deg)';
+      }
+    });
+  });
+
+  // Action buttons
+  const click = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  click('createActivityBtn', () => alert('Create Activity functionality coming soon!'));
+  click('menuBtn', () => alert('Menu options coming soon!'));
+  click('startLessonBtn', () => switchToTab('lessons'));
+  click('openGradesBtn', () => switchToTab('grades'));
+  click('reviewDraftsBtn', () => switchToTab('lessons'));
+
+  // fetch class details and populate header
+  loadDetails();
+  loadOverview();
+  
+  // Force center the lesson header (backup solution)
+  setTimeout(() => {
+    const lessonHeader = document.querySelector('.lesson-header');
+    const lessonTitle = document.querySelector('.lesson-title');
+    const lessonMainTitle = document.querySelector('.lesson-main-title');
+    
+    if (lessonHeader) {
+      lessonHeader.style.textAlign = 'center';
+      lessonHeader.style.display = 'flex';
+      lessonHeader.style.flexDirection = 'column';
+      lessonHeader.style.alignItems = 'center';
+    }
+    if (lessonTitle) {
+      lessonTitle.style.textAlign = 'center';
+      lessonTitle.style.margin = '0 0 8px 0';
+    }
+    if (lessonMainTitle) {
+      lessonMainTitle.style.textAlign = 'center';
+      lessonMainTitle.style.margin = '0';
+    }
+  }, 100);
+});
+
+function loadDetails() {
+  const id = window.__CLASS_ID__;
+  fetch('class_view_api.php?action=get_details&id=' + encodeURIComponent(id), { credentials: 'same-origin' })
+    .then(r => r.json()).then(data => {
+      if (!data || !data.success) return;
+      const cls = data.class;
+      
+      // Update class name in top navigation (main display)
+      const codeEl = document.getElementById('courseCode');
+      if (codeEl) {
+        // Show "Introduction to Computer Programming" as the main title
+        codeEl.textContent = 'Introduction to Computer Programming';
+      }
+      
+      // Update lesson title with module name (secondary display)
+      const lessonTitle = document.querySelector('.lesson-main-title');
+      if (lessonTitle) {
+        lessonTitle.textContent = 'Introduction to Computer Programming';
+      }
+      
+      // Update class type in logo
+      const logoIcon = document.querySelector('.logo-icon i');
+      if (logoIcon) {
+        if (cls.name && cls.name.toLowerCase().includes('lab')) {
+          logoIcon.className = 'fas fa-flask';
+        } else {
+          logoIcon.className = 'fas fa-graduation-cap';
+        }
+      }
+      
+    }).catch(()=>{});
+}
+
+function loadOverview() {
+  const id = window.__CLASS_ID__;
+  fetch('class_view_api.php?action=get_overview&id=' + encodeURIComponent(id), { credentials: 'same-origin' })
+    .then(r => r.json()).then(data => {
+      if (!data || !data.success) return;
+      const ov = data.overview || {};
+      const progress = document.getElementById('overviewProgress');
+      if (progress) progress.style.width = (ov.progress_percent || 0) + '%';
+      // Teaching today
+      const teaching = document.getElementById('teachingToday');
+      if (teaching) teaching.textContent = ov.today_title ? (ov.today_title + ' • ' + (ov.today_time || '')) : 'No lesson planned for today.';
+      // Needs grading
+      const needList = document.getElementById('needsGradingList');
+      if (needList) {
+        const arr = Array.isArray(ov.needs_grading) ? ov.needs_grading : [];
+        needList.innerHTML = arr.length ? arr.map(a => `<li>${a.activity}: ${a.count} submission(s)</li>`).join('') : '<li>Nothing pending</li>';
+      }
+      // Unpublished
+      const drafts = document.getElementById('unpublishedList');
+      if (drafts) {
+        const arr = Array.isArray(ov.unpublished) ? ov.unpublished : [];
+        drafts.innerHTML = arr.length ? arr.map(d => `<li>${d.type}: ${d.title}</li>`).join('') : '<li>No drafts</li>';
+      }
+    }).catch(()=>{});
+}
+
+// Settings tab: delete class (dev only)
+function deleteCurrentClass() {
+  const id = window.__CLASS_ID__;
+  if (!id) return;
+  if (!confirm('Delete this class? This cannot be undone.')) return;
+  fetch('class_manage.php?action=delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    credentials: 'same-origin',
+    body: 'id=' + encodeURIComponent(id)
+  }).then(r => r.json()).then(data => {
+    if (data && data.success) {
+      alert('Class deleted');
+      // If inside iframe, navigate parent back to list
+      if (window.top && window.top.exitEmbeddedClass) {
+        window.top.exitEmbeddedClass();
+      } else {
+        window.location.href = 'teacher_dashboard.php?section=dashboard';
+      }
+    } else {
+      alert(data.message || 'Failed to delete class');
+    }
+  }).catch(() => alert('Network error'));
+}
+
+function loadLessons() {
+  const id = window.__CLASS_ID__;
+  const container = document.querySelector('#tab-lessons .card');
+  // Lessons workspace uses panes; we can populate modules tree later
+  fetch('class_view_api.php?action=list_lessons&id=' + encodeURIComponent(id), { credentials: 'same-origin' })
+    .then(r => r.json()).then(data => {
+      if (!data || !data.success) { if (container) container.textContent = 'Failed to load lessons.'; return; }
+      const list = data.lessons || [];
+      const tree = document.getElementById('modulesTree');
+      if (tree) {
+        if (list.length === 0) tree.innerHTML = '<div class="empty-state">No modules yet. Click "Add Lesson" to start.</div>';
+        else tree.innerHTML = '<ul class="simple-list">' + list.map(l => `<li>${l.title}</li>`).join('') + '</ul>';
+      }
+    }).catch(() => { if (container) container.textContent = 'Failed to load lessons.'; });
+}
+
+function switchToTab(tab) {
+  const btn = document.querySelector(`.nav-tab[data-tab="${tab}"]`);
+  if (btn) btn.click();
+}
+
+function copyJoinCode() {
+  const codeEl = document.getElementById('courseCode');
+  const text = codeEl ? codeEl.textContent : '';
+  if (!text) return;
+  navigator.clipboard && navigator.clipboard.writeText(text).then(() => {
+    alert('Class name copied');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); alert('Class name copied'); } catch (e) {}
+    document.body.removeChild(ta);
+  });
+}
+
+function loadSubmissions() {
+  const tbody = document.querySelector('#submissionsTable tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#6c757d;">Loading…</td></tr>';
+  // Placeholder: will be wired to backend later
+  setTimeout(() => {
+    const rows = [
+      { student:'Juan Dela Cruz', activity:'Loops 101', status:'passed', runtime:'0.34s', memory:'18MB', submitted:'2025-09-19 10:33' },
+      { student:'Maria Clara', activity:'Arrays', status:'compile_error', runtime:'—', memory:'—', submitted:'2025-09-19 10:28' },
+      { student:'Ibarra', activity:'Pointers', status:'failed', runtime:'0.89s', memory:'22MB', submitted:'2025-09-19 09:58' }
+    ];
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.student}</td>
+        <td>${r.activity}</td>
+        <td><span class="status-chip chip-${r.status}">${labelForStatus(r.status)}</span></td>
+        <td>${r.runtime}</td>
+        <td>${r.memory}</td>
+        <td>${r.submitted}</td>
+      </tr>
+    `).join('');
+  }, 400);
+}
+
+function labelForStatus(s) {
+  switch (s) {
+    case 'passed': return 'Passed';
+    case 'failed': return 'Failed';
+    case 'timeout': return 'Timeout';
+    case 'compile_error': return 'Compile Error';
+    default: return s;
+  }
+}
+
+// Exercise Functions (Placeholder)
+function startSelfCheck() {
+  alert('Self-Check Questions - Coming Soon!\n\n15 multiple choice questions covering all 7 topics');
+}
+
+function startMainQuiz() {
+  alert('30-Item Quiz - Coming Soon!\n\nComprehensive assessment of all module topics');
+}
+
+function startBoardRecitation() {
+  alert('Board Recitation - Coming Soon!\n\nInteractive number system conversion practice');
+}
+
+function startHardwareID() {
+  alert('Hardware Identification - Coming Soon!\n\nIdentify and match computer hardware components');
+}
+
+function startNumberConverter() {
+  alert('Number System Converter - Coming Soon!\n\nPractice converting between different number systems');
+}
+
+function startHardwareWorksheet() {
+  alert('Hardware Worksheet - Coming Soon!\n\nMatch hardware components with their functions');
+}
+
+// Expose functions globally
+window.startSelfCheck = startSelfCheck;
+window.startMainQuiz = startMainQuiz;
+window.startBoardRecitation = startBoardRecitation;
+window.startHardwareID = startHardwareID;
+window.startNumberConverter = startNumberConverter;
+window.startHardwareWorksheet = startHardwareWorksheet;
+
+

@@ -1,0 +1,45 @@
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+
+# Logs
+*.log
+logs/
+
+# Cache
+cache/
+tmp/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+
+# Composer
+vendor/
+composer.lock
+
+# Node modules (if using any frontend build tools)
+node_modules/
+
+# Uploaded files
+uploads/
+user_uploads/
+
+# Session files
+sessions/
+
+# Configuration files with sensitive data
+config/local.php
+config/production.php 

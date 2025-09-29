@@ -1,0 +1,1308 @@
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  Course Modules in  
+ 
+ 
+COMP102: COMPUTER 
+ 
+ 
+PROGRAMMING 1    
+ 
+   
+ 
+   
+ 
+ 
+ 
+ 
+ 
+   
+ 
+   
+ 
+   
+ 
+ 
+MODULE  4 :  
+ 
+ 
+  Topic:  Java Programming 
+ 
+ 
+  Language and Programming 
+ 
+ 
+  Fundamentals  
+ 
+ 
+   
+ 
+ 
+70  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Week Number   4  
+Chapter/Unit Number   4  
+Topic Title   Java  L anguage and Programming Fundamentals  
+Course Outcomes   CO3  Demonstrate  foundational  programming  skills  using  Java,  implementing 
+core  programming  constructs  such  as  data  types,  variables,  operators,  and 
+input/output operations.  
+CO6  Create  well - structured  Java  applications  incorporating  proper  coding 
+standards, documentation, and error handling.  
+Intended Learning  Lecture:  
+Outcomes    
+At the end of the chapter, the students will be able to:  
+1.   Identify the history and evolution of Java.  
+2.   List key features that make Java a widely used language.   
+3.   Outline the steps involved in the Java development process.  
+4.   Discuss the relevance of Java in today’s programming industry.   
+5.   Apply Java syntax rules (case sensitivity, semicolons, braces).  
+6.   Declare variables with appropriate data types (int, double, String).  
+7.   Explain the concept of memory allocation for variables.  
+8.   Use constants and reserved words correctly.  
+9.   Identify  and  categorize  common  programming  errors  (syntax,  runtime, 
+logical).  
+ 
+Laboratory:  
+ 
+At the end of the chapter, the students will be able to:  
+1.   Write  a  Java  program  that  declares  variables  and  performs  basic 
+operations.  
+2.   Debug syntax and logical errors in a given Java code snippet.  
+3.   Experiment with different data types and observe their behavior.  
+4.   Create a program that uses constants and reserved words.  
+5.   Demonstrate the impact of incorrect memory allocation in variable usage.  
+SDG and KLD REGAL100  SDG 8: Decent Work and Economic Growth  
+Integration   SDG 9: Industry, Innovation and Infrastructure  
+SDG 11: Sustainable Cities and Communities  
+REGAL 100:  Responsible Digital Citizens: Technology, Research Ethics, and Online 
+Etiquette  
+Discussion:  
+ 
+IV. Java Programming Language and Programming Fundamentals  
+ 
+This chapter introduces the fundamental concepts requisite for proficiency in Java programming. We will 
+systematically  explore  Java's  historical  context  and  its  salient  characteristics  that  have  established  its 
+prominence in the software industry. Detailed   attention will be given to the standard Java development 
+process, from code compilation to execution. A primary aim is to impart a comprehensive understanding of 
+71  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+core programming constructs: essential Java syntax, the proper declaration and application of data types and 
+variables, and the principles governing memory management. Concluding this foundational module, we will 
+categorize and analyze common programming e rrors, equipping the learner with critical diagnostic skills. This 
+chapter  is  designed  to  provide  the  indispensable  building  blocks  for  all  subsequent  topics  in  Java 
+development.  
+ 
+1.   History of Java  
+ 
+I magine a programming language that could run anywhere, on any device. That was the ambitious vision 
+behind Java, a language born in the early 1990s at Sun Microsystems. Spearheaded by James Gosling as part 
+of the "Green Project," Java was initially conceiv ed for interactive television and embedded devices. Its original 
+name was "Oak," inspired by an oak tree outside Gosling's office.  
+ 
+ 
+However, the internet's explosive growth in the mid - 90s provided Java with its true calling. Its key principle, 
+"Write Once, Run Anywhere" (WORA), perfectly aligned with the need for platform - independent applications 
+on  the  burgeoning  World  Wide  Web.  By  19 95,  Sun  Microsystems  officially  released  Java,  quickly  gaining 
+traction due to its robustness, security features, and object - oriented nature.  
+ 
+Over  the  years,  Java  has  continuously  evolved  with  numerous  updates  and  editions,  including  Java  SE 
+(Standard Edition), Java EE (Enterprise Edition), and Java ME (Micro Edition), catering to diverse application 
+domains.  In  2010,  Oracle  acquired  Sun  Microsy stems,  taking  over  the  stewardship  of  Java.  Today,  Java 
+remains a dominant force in the programming world, powering everything from enterprise - level systems to 
+mobile applications  
+ 
+2.   Features of Java  
+ 
+Java's enduring popularity isn't accidental; it's a testament to its powerful and practical features:  
+ 
+•   Platform Independent.   This is Java's most celebrated feature. Java source code is compiled into an 
+intermediate format called bytecode. This bytecode can then be executed on any device that has a 
+Java Virtual Machine (JVM) installed, regardless of the underlying operating syst em. This means a Java 
+program written on Windows can run seamlessly on macOS or Linux, a true embodiment of WORA.  
+•   Object - Oriented.    Java is a purely object - oriented programming (OOP) language. This paradigm 
+organizes  software  design  around  "objects"  rather  than  functions  and  logic.  OOP  concepts  like 
+encapsulation, inheritance, and polymorphism promote modular, reusable, and maintaina ble code.  
+•   Simple.   Compared to its predecessor, C++, Java was designed to be simpler and easier to learn. It 
+removes complex features like explicit pointers and operator overloading, reducing the likelihood of 
+common programming errors.  
+•   Secure.    Java  has  built - in  security  features  that  make  it  suitable  for  developing  network - centric 
+applications. The JVM's "sandbox" model provides a secure environment for running untrusted code, 
+protecting the user's system from malicious programs.  
+•   Robust.    Java emphasizes strong memory management and error handling. It features automatic 
+garbage collection, which reclaims memory no longer in use, preventing memory leaks. Its robust 
+exception handling mechanism allows developers to gracefully manage runtime   errors.  
+72  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   Multithreaded.   Java  supports  multithreading,  enabling  programs  to  perform  multiple  tasks 
+concurrently.  This  is  crucial  for  creating  responsive  user  interfaces  and  efficient  server - side 
+applications.  
+•   High Performance.    While Java bytecode is interpreted by the JVM, modern JVMs utilize Just - In - Time 
+(JIT) compilers. A JIT compiler converts bytecode into native machine code at runtime, significantly 
+improving performance for frequently executed code sections.  
+•   Distributed.   Java's  networking  capabilities  are  inherent,  making  it  easy  to  create  distributed 
+applications that can communicate across networks.  
+ 
+3.   The Java Programming Language Specification, API, JDK and IDE  
+ 
+Java is an object - oriented programming language with a built - in application programming interface (API) 
+that can   contains predefined classes   and interfaces and that can be used to create applications .  
+ 
+Sun releases each version with of a  Java Development Toolkit (JDK)   version .  
+o   JDK 1.02 (1995)  
+o   JDK 1.1 (1996)  
+o   JDK 1.2 (1998)  
+o   JDK 1.3 (2000)  
+o   JDK 1.4 (2002)  
+o   JDK 1.5 (2004) = JDK 5 or Java 5  
+o   JDK 1.6 (2006) = JDK 6 or Java 6  
+o   JDK 1.7 (2011) = JDK 7 or Java 7  
+o   Java SE 8 (2014)  
+o   Java SE 9 (2017)  
+o   Java SE 10, 11 (2018)  
+o   Java SE 12,13 (2019)  
+o   Java SE 14, 15 (2020)  
+o   Java SE 16,17 (2021)  
+o   Java 19 SE   (2023)  
+ 
+Java Development Toolkit (JDK) Editions  
+•   Java Standard Edition (Java SE).     Java SE can be used to develop client - side standalone applications 
+or applets.  
+•   Java Enterprise Edition (Java EE).   Java EE can be used to develop server - side applications such as 
+Java servlets and Java Server Pages.  
+•   Java Micro Edition (Java ME).   Java ME can be used to develop applications for mobile devices such 
+as cell phones.  
+ 
+JDK   consists of a set of separate programs for developing and testing Java programs, each of which is 
+invoked from a command line.  
+ 
+There are tools that provide an Integrated Development Environment (IDE) for rapidly developing Java 
+programs. Editing, compiling, building, debugging, and online help are integrated in one GUI.  
+•   NetBeans Open Source by Sun (www.netbeans.org)  
+73  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   Eclips e , Open Source by IBM (www.eclips.org)  
+•   JCreator LE (www.jcreator.com)  
+•   JEdit (www.jedit.org)  
+•   BlueJ ( www.bluej.org )  
+ 
+4.   Relevance in Today's Industry  
+ 
+Java's  influence  in  the  software  industry  is  immense  and  continues  to  grow.  Its  versatility  and  robust 
+ecosystem make it a go - to language for a vast array of applications:  
+•   Enterprise Applications.   Java is the backbone of countless large - scale enterprise systems, including 
+financial services, e - commerce platforms, and supply chain management. Frameworks like Spring and 
+Hibernate are central to building robust and scalable enterprise solutions.  
+•   Android App Development.   Java is the primary language for developing native Android applications. 
+Millions  of  apps  on  Google  Play  Store  are  built  using  Java,  making  it  a  crucial  skill  for  mobile 
+developers.  
+•   Big Data Technologies.  Many popular Big Data tools and frameworks, such as Apache Hadoop and 
+Apache Spark, are written in Java or have strong Java APIs, making Java essential for processing and 
+analyzing massive datasets.  
+•   Web Applications.   While JavaScript dominates the frontend, Java remains a strong contender for 
+backend web development, powering complex web services and APIs.  
+•   Internet  of  Things  (IoT).    Java's  small  footprint  and  platform  independence  make  it  suitable  for 
+developing applications for IoT devices, ranging from smart home appliances to industrial sensors.  
+•   Scientific Applications.   Its strong numerical capabilities and vast libraries make Java a choice for 
+scientific computing and research  
+ 
+5.   Java Development Process  
+ 
+To start programming in Java, you need to download and install the  Java Development Kit (JDK)   from 
+the company called Oracle, which makes releases and updates of Java versions. The full name of the 
+software to download is Java SE Development Kit. You may download the latest version available or use 
+other version of Java SE Development Kit.  
+ 
+ 
+ 
+ 
+Figure 43.  Java SE Development Kit 17.0.1 Downloads Page on the Oracle Website .  
+ 
+ 
+74  
+  Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+Ask ChatGPT  
+ 
+ 
+
+ 
+  After installing the software, check if the bin directory  C: \ Program Files \ Java \ jdk - 17.0.1 \ bin   from 
+Java folder or the  pathname  C: \ Program Files \ Common Files \ Oracle \ Java \ javapat h are included in 
+the list of system variables under the variable PATH, otherwise you need add these pathname. Click on 
+the  menu  Start,  Control  Panel,  System  and  search  for  Environment  Variables.  You’ll  see  all  system 
+variables that exist in your OS As sho wn on the screenshot Windows OS  -   System Variables. If you have 
+administrator ’s rights onto your Windows PC, you can set user variables that will apply only when a 
+certain user logs into your PC, or system variables that will apply to all users.   
+ 
+ 
+ 
+Figure 44.  Setting the Java path in Windows environment variables .  
+ 
+   
+  Press  Edit  and  add  the  bin  directory  C: \ Program  Files \ Java \ jdk - 17.0.1 \ bin   from  your  JDK  or 
+ 
+C: \ Program Files \ Common Files \ Oracle \ Java \ javapath   at the beginning of the Path variable value. For 
+example, add  c: \ Program Files \ java \ jdk1.8.0 \ bin ; if this is where your JDK is installed:    
+ 
+Ask ChatGPT  
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+ 
+ 
+Figure 45.  Modifying the system environment variable to include the Java installation path .  
+ 
+   
+ 
+ 
+  75  
+Course Modules in  COMP102 :   
+Ask ChatGPT   COMPUTER PROGRAMMING 1  
+ 
+ 
+
+ 
+Three Main Steps in Java Programming  
+  To develop Java programs, we break the process down into three steps.   
+1.   Write the program in Java and save it in a file.  
+2.   Compile  the  program  to  translate  it  from  Java  language  into  a  special  byte  code  that  JVM 
+understands.  
+3.   Run the program.  
+ 
+Step 1  –   Write the Program  
+  In  writing  java  program,  you  may  use  any  text  editor  such  as  Notepad,  Notepad++,  TextEdit, 
+Sublime Text , etc or by using any  Integrated Development Environment (IDE)   to type the code. After 
+typing the code, save the file with an extension of .java.  
+  For example, if you want to write a program called HelloWorld, enter its code in a text editor. Here is 
+the program that prints the words Hello World! on your computer’s screen:  
+   
+public class  HelloWorld{  
+ 
+public static void main( String[] args){  
+ 
+System.out.println("Hello World!");  
+ 
+}  
+}  
+   
+Save the above code with the name HelloWorld.java in the folder practice. Keep in mind that you are not 
+allowed to use blank spaces in Java file names.  
+   
+Compile the Program  
+ 
+  Now you need to compile this program. A compiler is an application that translates a program from 
+the Java language to a language more suitable for executing on the computer. You’ll be using the  javac  
+program as Java compiler which is installed on your computer as part of the JDK and can be located in 
+the  C: \ Program Files \ Java \ jdk - 17.0.1 \ bin and C: \ Program Files \ Common Files \ Oracle \ Java \ javapath.  
+   
+The compiler takes a file with a .java extension as input (your program) and produces a file with the same 
+name but with a  .class   extension (the computer - language version). To use your Java compiler, type in a 
+terminal window the   javac   command followed by the file name of the program you want to compile.  
+   
+Let’s say that you save your program in the directory called c: \ practice. Select the menus Start, Run and 
+enter the word  cmd   to open the command window.   
+   
+76  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+ 
+Figure 46.  Launching the Command Prompt for Java program execution .  
+  Please take note of the following command that you might use:  
+     
+Opening the directory  
+          cd   -   change directory       example:  cd practice      
+            
+Ask ChatGPT  
+Closing the directory  
+        cd .. or cd \    -    .. (current directory) ,  \   (all directory)    
+       
+ 
+Creating a directory  
+        Mkdir     -   make directory    
+       
+Ask ChatGPT         Display Directory  
+        dir   
+     
+In your command line proceed to c: \ practice , then type  javac HelloWorld.java.  
+ 
+ 
+ 
+ 
+Figure 47.  Using the javac command to compile HelloWorld.java in the Command Prompt .  
+ 
+   
+If you have encountered an error “ javac is not recognized as an internal or external command, 
+ 
+operable program or batch file ”, this means the path for Java JDK commands was not set properly in 
+the system variables.   Ask ChatGPT  
+ 
+   
+ 
+77    
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1   Ask ChatGPT  
+ 
+
+ 
+ 
+ 
+You may set the path at our command line by typing  path = C: \ Program Files \ Java \ jdk - 17.0.1 \ bin.  
+   
+ 
+ 
+Figure 48.  Command Prompt showing setting the Java JDK path and compiling the HelloWorld.java file  
+ 
+You won’t see any confirmation message that your program HelloWorld has been compiled successfully. 
+  Having no messages means there no problems occurred during compilation. Type a command dir on 
+Windows and you’ll see the list of files in folder practice.  
+Ask ChatGPT  
+ 
+You should see a new file named  HelloWorld.class . This proves that your program has been successfully   
+compiled. Your original file HelloWorld.java can also be found there.  
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+   
+Figure 49.  Command Prompt showing Java compilation and directory listing of HelloWorld files .  
+   
+If the program has syntax errors, for example you forgot to type the last curly brace or semicolon at the   
+end of the line, Java compiler will print an error message. Now you’d need to fix the error, and recompile 
+Ask ChatGPT   the program again. If you have several erro rs, you may need to repeat these actions more than once 
+until the file HelloWorld.class is created.  
+ 
+ 
+78  
+Course Modules in  COMP102 :     
+COMPUTER PROGRAMMING 1  
+  Ask ChatGPT  
+
+ 
+ 
+ 
+Figure 50.  Compilation error in Command Prompt due to missing semicolon in HelloWorld.java .  
+   
+Step 3  –   Run the Program    
+ 
+Ask ChatGPT   Once you compile the program, you can run it. With Java, you write the program once, and compile the 
+source program into a special type of object code, known as bytecode.  
+ 
+The  bytecode   can then run on any computer with a Java Virtual Machine (JVM). Java Virtual Machine is 
+software that  interprets   Java bytecode.    
+   
+ 
+Now let’s run the program. In the same Command or Terminal window enter the following:  
+      Ask ChatGPT  
+java HelloWorld  
+ 
+After running this command, you’ll see the text Hello World! printed in the Terminal window as shown in 
+Running HelloWorld.  
+ 
+ 
+ 
+Figure 51.  Java program compiled and run successfully in Command Prompt .  
+   
+ 
+79   Ask ChatGPT  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1    
+ 
+ 
+
+ 
+Keep in mind that Java does not treat capital and small letters the same, which means that if you originally 
+named  the  program  HelloWorld  with  a  capital  H  and  a  capital  W,  do  not  try  to  start  the  program 
+helloworld or helloWorld  –   the JRE will signal an er ror. The file name should match the class name as 
+well. Typically, each file of your application contains the code of one class.  
+ 
+ 
+Figure 52.  Steps involved in creating, compiling, and executing a Java program .  
+   
+Task   Tool to  U se   Output    
+Write the program   Any text editor   File with .java extension  
+Ask ChatGPT   Compile the program   Java Compiler   File with .class extension (Java bytecodes)  
+Run the program   Java Interpreter   Program Output  
+ 
+ 
+  Table 2.  Steps to Write, Compile, and Run a Java Program  
+ 
+Ask ChatGPT  
+ 
+ 
+Figure 53.  Flow of Java program execution from source code to output .  
+ 
+80  
+Ask ChatGPT   Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+   
+ 
+
+ 
+ 
+ 
+Writing  Java  Programs Using   NetBeans IDE  
+ 
+•   Create an IDE Project  
+•   To create an IDE project:  
+•   Launch the NetBeans IDE.  
+•   In the NetBeans IDE, choose File | New Project....  
+ 
+ 
+ 
+Figure 54.  Creating a New Project in NetBeans IDE 8.0 .  
+  •   In the   New Project   wizard, expand the   Java   category and select   Java Application  
+Ask ChatGPT  
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+ 
+Figure 55.  Selecting a Java Project Type in NetBeans IDE  
+Ask ChatGPT  
+81    
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1    
+ 
+ 
+
+ 
+ 
+•   In the Name and Location page of the wizard, do the following   
+•   In the Project Name field, type Hello World App.  
+•   In the Create Main Class field, type helloworldapp.HelloWorldApp.  
+ 
+ 
+ 
+Figure 56.  Configuring Project Name, Location, and Main Class in NetBeans Java Application Wizard  
+  •   Click  Finish.  The  project  is  created  and  opened  in  the  IDE.  You  should  see  the  following 
+components:    
+•   The Projects window , which contains a tree view of the components of the project, including 
+  source files, libraries that your code depends on, and so on.  
+•   The   Source Editor   window with a file called HelloWorldApp.java open.  
+Ask ChatGPT  
+•   The   Navigator window , which you can use to quickly navigate between elements within the 
+selected class.  
+ 
+ 
+Figure 57.  NetBeans IDE displaying Java source code and project files  
+ 
+82    
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1   Ask ChatGPT  
+ 
+
+ 
+ 
+•   Compile the Source File into a .class File .  To compile your source file, choose Run | Build 
+Project (Hello World App) from the IDE's main menu.  
+ 
+ 
+ 
+Figure 58.  NetBeans workspace with Java source and build results.  
+Ask ChatGPT    
+•   Run the Program.   From the IDE's menu bar, choose Run | Run Main Project.  
+ 
+Some Tips On Using The IDE   
+ 
+•   Once you have created a project in the IDE, you can add files to the project using the New File 
+wizard. Choose File | New File, and then select a template in the wizard  
+•   You can compile and run an individual file (as opposed to a whole project) using the IDE's 
+Compile File (F9) and Run File (Shift - F6) commands.  
+•   You might want to create separate IDE projects for sample applications that include more than 
+one source file.  
+•   As you are typing in the IDE, a code completion box might periodically appear.  
+•   If you want to rename the node for a source file in the Projects window, choose Refactor from 
+IDE's main menu  
+ 
+ 
+ 
+ 
+ 
+ 
+83  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+6.   Anatomy of Java Program  
+ 
+ 
+Figure 59.  Breakdown of a  b asic Java  p rogram  s tructure  
+Ask ChatGPT    
+Comments   -   In Java, comments are preceded by  two slashes (//)   in a line, or  enclosed between /* and 
+*/   in one or multiple lines. When the compiler sees //, it ignores all text after // in the same line. When it 
+sees /*, it scans for the next */ and ignores any text between /* and */.  
+ 
+Example:  
+ 
+//This is just a comment  
+   
+  /* This is just a comment */  
+ 
+/*  
+  This is just a comment  
+*/  
+ 
+Another type of comment is  Javadoc comment . It is represented by  /** and */ . It is used to generate 
+code documentation.  
+ 
+Example:  /**    
+    * Application that converts inches to centimeters.    
+                     *    
+                      * @author  Lodel Millo     
+                     * @version 01/21/20 25     
+                     */  
+ 
+Reserved Words   -   Reserved words or keywords are words that have a specific meaning to the compiler 
+and cannot be used for other purposes in the program.  
+ 
+84  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+abstract   else   interface   switch  
+assert   enum   long   synchronized  
+boolean   extends   native   this  
+break   false   new   throw  
+byte   final   null   throws  
+case   finally   package   transient  
+catch   float   private   true  
+char   for   protected   try  
+class   if   public   void  
+continue   implements   return   volatile  
+default   import   short   while  
+do   instanceof   static    
+double   int   super    
+abstract   else   interface    
+ 
+Table 3.  Valid Java  r eserved  k eywords  
+White Space   –   Spaces, blanks lines and tabs are called white space. White space is used to separate 
+words and symbols in a program. Extra white space is ignored. A valid Java program can be formatted 
+many ways. Programs should be formatted to enhance readability, usi ng consistent indentation.  
+ 
+Identifiers   –   These are words a programmer uses in a program. An  identifier  can be made up of letters, 
+digits, the underscore character (_) and the dollar sign. Identifiers cannot begin with a digit and reserved 
+words cannot be used as identifiers. Java is case sensitive: Total, total and TOTAL are different identifiers. 
+By conven tion, for class name, the identifier should start with the capital letter for every word in the title. 
+While for variable and method name, the first letter of the word should start with the lower case while 
+the first letter of the second word should start  with a upper case letter. For constant, the letter should 
+be written in all uppercase.  
+ 
+Example : public class  HelloWorld   -   class name  
+       final double  MAXIMUM   = 50;  -   constant variable name  
+       String  lastName   = “Dela Cruz”;  -   variable name  
+       public static void  main (String [] args)  –   method name  
+ 
+Modifiers   -   Java uses certain reserved words called modifiers that specify the properties of the data, 
+methods, and classes and how they can be used.   Examples of modifiers are  public   and  static . Other 
+modifiers are  private ,  final ,  abstract , and  protected . A  public dat a , method, or class   can be accessed 
+by other classes. A  private dat a   or method   cannot be accessed by other classes.  
+ 
+Statements   -   A  statement  represents  an  action  or  a  sequence  of  actions.  The  statement 
+System.out.println("Welcome  to  Java!")   in  the  program  is  a  statement  to  display  the  greeting 
+"Welcome to Java!" Every statement in Java ends with a  semicolon (;).  
+ 
+85  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Blocks   -   A pair of braces in a program forms a block that groups components of a program. In Java, each 
+block begins with an  open brace ({ )   and ends with a  closing brace (}) . Every class has a class block that 
+groups the data and methods of the class. Every class has a method block that groups the statements in 
+the method. Blocks can be nested, meaning that one block can be placed within another.  
+ 
+Classes   -   The class is the essential Java construct. A  class   is a template or blueprint for objects. To 
+program in Java, you must understand classes and be able to write and use them. For now, though, 
+understand that a program is defined by using one or more classes. The program file must end with the 
+extension .ja va and should have the exact same name as the public class name. So the file name must 
+be HelloWorld.java. Every Java program has at least one class.  
+ 
+Methods  
+ 
+What is  System.out.println?   System.out   is known as the standard output object.  println   is a  method : 
+a collection of statements that performs a sequence of operations to display a message on the 
+console . It can be used even without fully understanding the details of how it works. It is used by invoking 
+a statement with a string argument. The string argument is enclosed within parentheses. In this case, 
+the argument is "Hello World!" You can call the same   println method with a different argument to print 
+a di fferent message.    
+ 
+The  main  Method   -   The  main  method  provides  the  control  of  program  flow.  The  Java  interpreter 
+executes the application by invoking the main method. Every Java application must have a user - declared 
+main method that defines where the program begins. The main method looks li ke this:   
+ 
+public static void main(String[] args) {   
+ 
+// Statements;   
+ 
+}   
+ 
+Literals .  Literals are tokens that do not change or are constant. The different types of literals in Java are: 
+Integer Literals, Floating - Point Literals, Boolean Literals, Character Literals and String Literals.  
+•   Integer Literals  -   Integer literals represent whole number like 123 (decimal), o12 (octal), 0xC 
+(hexadecimal) , 124L (long)  
+•   Floating - Point Literals  -   represent decimals with fractional parts. An example is 3.1415 or 3.2F 
+(float)  
+•   Boolean Literals  – it have only two values, true or false.  
+•   Character Literals  -   Character Literals represent single Unicode characters and it is enclose in 
+single quote delimiters like ‘a’  
+•   String Literals  -   represent multiple characters and are enclosed by double quotes. An example 
+of a string literal is, “Hello World”.  
+ 
+Constants  -   A constant is a variable whose value cannot be changed once it has been initialized. In Java, 
+you  declare  a  constant  using  the  final  keyword.  By  convention,  constant  names  are  written  in 
+UPPER_CASE with underscores separating word  
+86  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+final double PI = 3.14159; // Declaring a constant for PI  
+final int MAX_ATTEMPTS = 3; // Another constant  
+ 
+// PI = 3.14; // ERROR! Cannot assign a value to a final variable  
+ 
+7.   Variable   and Data Types  
+ 
+At the heart of any program is the ability to store and manipulate data.  Variables  are named memory 
+locations  used  to  hold  data.  Think  of  them  as  labeled  boxes  where  you  can  put  different  kinds  of 
+information.  
+ 
+Before you can use a variable, you must declare it, specifying its data type and a name.  
+The  data type   determines the kind of data a variable can hold (e.g., whole numbers, decimal numbers, 
+text, true/false values) and the amount of memory it will occupy.  
+ 
+Variable Naming Conventions  
+ 
+While  Java  allows  flexibility  in  naming  variables,  following  naming  conventions  is  crucial  for  writing 
+readable and maintainable code.  
+•   camelCase .   For variables and methods, the first word is lowercase, and subsequent words start 
+with an uppercase letter (e.g., firstName, calculateTotalPrice).  
+•   PascalCase (or UpperCamelCase).   For class names, each word starts with an uppercase letter 
+(e.g., MyClass, ShoppingCart).  
+•   Names should be descriptive and meaningful.  
+•   Avoid using reserved words   
+•   Variable names can start with a letter, _, or $, but traditionally start with a letter. Subsequent 
+characters can be letters, digits, _, or $.  
+ 
+Declaring and Initializing Variables  
+ 
+   ;     
+    [initial value];  
+   
+Example:   
+ 
+  int num;                                     - > primitive variable  
+              String name = “Hello”;             - >reference variable  
+ 
+Memory Allocation of Variable  
+ 
+Understanding how variables are stored in memory is fundamental to grasping how Java manages 
+data. Java primarily uses two areas of memory: the Stack and the Heap.  
+ 
+87  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Stack Memory.   This is where primitive data types (like int, double, boolean) and references to objects 
+are stored.   It operates on a Last - In, First - Out (LIFO) principle, similar to a stack of plates.  
+Heap  Memory.   This  is  where  objects  (instances  of  classes)  are  stored.    When  you  use  the  new  
+keyword (e.g., new String("..."), new Scanner(...)), memory for the object is allocated on the heap.   Heap 
+memory is dynamically allocated at runtime, meaning its size can grow or shrink as needed.  
+ 
+ 
+Figure 60.  Representation of Memory Addressing in a Computer System  
+ 
+Data Types   in  Java has two general kinds of data types.   Primitive Types and Reference Type  
+ 
+Primitive Data Types  
+ 
+Java has eight primitive data types, which are the most basic types of data.  
+ 
+Data Type   Description   Default Value   Size (Bytes)   Example Literals  
+byte   Whole numbers, very small range   0   1   10,  - 128, 127  
+short   Whole numbers, small range   0   2   1000,  - 32768, 
+32767  
+int   Whole numbers, common choice   0   4   100000,  - 2*10^9, 
+2*10^9  
+long   Whole numbers, very large range   0L   8   10000000000L  
+float   Single - precision   floating - point  0.0f   4   3.14f, 2.5F  
+numbers  
+double   Double - precision   floating - point  0.0d   8   3.14159, 2.71828D  
+numbers  
+char   Single character (Unicode)   \ u0000   2   'A', 'b', '5', ' \ n'  
+boolean   Logical values: true or false   false   1 (approx)   true, false  
+ 
+Table 4.  Common Data Types in Programming: Description, Defaults, Sizes, and Examples  
+ 
+// Declaration:  
+int score;  
+double price;  
+88  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+boolean isLoggedIn;  
+ 
+// Initialization (assigning a value for the first time):  
+score = 100;  
+price = 19.99;  
+isLoggedIn = true;  
+ 
+// Declaration and Initialization in one line:  
+String firstName = "Alice"; // String is a reference type, but commonly used like primitive for simplicity  
+char grade = 'A';  
+ 
+Reference Data Types  
+ 
+Unlike primitive types that store their actual value directly,  reference data   types (like String or any 
+object) store a reference (memory address) to where the actual data is located in memory.  
+ 
+String.   Used to store sequences of characters (text). While not a primitive, it's used so frequently that it 
+often feels like one.  
+ 
+String message =  "Hello, world!" ;  
+ 
+Objects.   We'll delve deeper into objects in later chapters, but for now, understand that when you create 
+an instance of a class (e.g., Scanner for input), you are creating an object, which is a reference type.  
+ 
+Scanner input = new Scanner(System.in);  
+ 
+8.   Errors  -   Even experienced programmers make mistakes. Understanding the different types of errors is 
+the first step toward effective debugging.  
+ 
+•   Syntax Errors.   Syntax errors are violations of the Java language's grammar rules. These are 
+typically caught by the compiler (javac) before your program can even run. The compiler will 
+provide error messages indicating the file, line number, and a description of the issu e.  
+Common causes:  
+o   Missing semicolons (;) at the end of statements.  
+o   Misspellings of keywords or variable names (remember, Java is case - sensitive!).  
+o   Unmatched braces ({, }, (, ), [, ]).  
+o   Incorrect use of operators.  
+o   Trying to use a reserved word as a variable name.  
+•   Runtime  Errors  (Exceptions).   Runtime  errors,  also  known  as  exceptions,  occur  while  the 
+program is executing. These errors are not caught by the compiler but appear during program 
+execution, often causing the program to terminate unexpectedly. Java has a robust exception 
+handling mecha nism to deal with these, but if unhandled, they lead to a crash.  
+Common causes:  
+o   ArithmeticException: Attempting to divide by zero (10 / 0).  
+89  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+o   ArrayIndexOutOfBoundsException:  Trying  to  access  an  element  in  an  array  using  an 
+index that is outside its valid range (e.g., accessing the 5th element of a 3 - element array).  
+o   NullPointerException: Attempting to use a reference variable that points to null (nothing).  
+o   FileNotFoundException: Trying to open a file that does not exist.  
+ 
+•   Logical Errors.  Logical errors are the trickiest to find because they do not cause the program to 
+crash or trigger compiler warnings. A program with a logical error will run successfully, but it will 
+produce  incorrect  or  unintended  results.  The  program's  logic  simply  does n't  do  what  you 
+intended it to do.  
+Common causes:  
+o   Incorrect mathematical formulas.  
+o   Flawed conditions in if statements or loops.  
+o   Incorrect order of operations.  
+o   Misunderstanding the problem requirements.  
+ 
+ 
+Laboratory   Exercises  
+ 
+Applying Java Fundamentals  
+You are tasked with creating a Java application for a school that needs to process student information and 
+calculate their final grade for a specific subject. The application should also demonstrate an understanding 
+of different data types and basic error  handling principles  
+ 
+Activity 1.  Grade Calculation and Basic Information Display  
+ 
+Project Setup:  
+ 
+1.   Launch your chosen IDE (NetBeans, Eclipse, etc.).  
+2.   Create a new Java Project named StudentGradeApp.  
+3.   Inside this project, create a new Java class named GradeProcessor. Ensure it contains the standard 
+main method.  
+ 
+Declare and Initialize Variables:  
+ 
+Inside your main method, declare appropriate variables to store the following student information. Choose 
+the most suitable data type for each:  
+1.   Student's Full Name (e.g., "Juan Dela Cruz")  
+2.   Student's ID Number (e.g., "2023 - 0001")  
+3.   Subject Name (e.g., "Object - Oriented Programming")  
+4.   Scores for three quizzes (e.g., 85, 92, 78)  -   Use integer type for individual scores.  
+5.   Score for a midterm exam (e.g., 88)  
+6.   Score for a final exam (e.g., 90)  
+7.   Initialize each variable with your chosen example values.  
+ 
+Define Constants:  
+90  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Declare constants using the final keyword for the weighting of each component in the final grade calculation. 
+Follow Java's naming convention for constants (ALL_CAPS_WITH_UNDERSCORES):  
+ 
+1.   QUIZ_WEIGHT (e.g., 0.30 for 30%)  
+2.   MIDTERM_WEIGHT (e.g., 0.30 for 30%)  
+3.   FINAL_WEIGHT (e.g., 0.40 for 40%)  
+4.   Define a constant for the PASSING_GRADE (e.g., 75.0).  
+ 
+Perform Calculations:  
+ 
+1.   Calculate the average quiz score. Store this in a double variable.  
+2.   Calculate the final numerical grade using the formula:  
+3.   Final Grade = (Average Quiz Score * QUIZ_WEIGHT) + (Midterm Score * MIDTERM_WEIGHT) + (Final 
+Exam Score * FINAL_WEIGHT)  
+4.   Store this in a double variable.  
+5.   Determine if the student passed or failed the subject. This should be a boolean variable (hasPassed) 
+based on whether the Final Grade is greater than or equal to the PASSING_GRADE constant.  
+ 
+Display Output:  
+ 
+1.   Print all the student's declared information (Name, ID, Subject, individual scores).  
+2.   Print the calculated average quiz score.  
+3.   Print the final numerical grade.  
+4.   Print whether the student passed or failed the subject (e.g., "Did the student pass? true" or "Did the 
+student pass? false").  
+5.   Ensure  your  output  is  clear,  well - labeled,  and  easy  to  read,  incorporating  appropriate  text 
+descriptions.  
+ 
+Activity 2: Simple Employee Payroll Calculator  
+ 
+Objectives:   
+1.   To implement a Java program that calculates employee payroll using various data types and 
+arithmetic operations.   
+2.   To effectively use constants for values that do not change, such as tax rates.   
+3.   To choose appropriate data types for financial calculations.  
+ 
+Materials:  
+•   Computer with Java Development Kit (JDK) installed.  
+•   Integrated Development Environment (IDE) like NetBeans or Eclipse.  
+ 
+Scenario:  
+ 
+91  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+You need to create a simple payroll system for a small company. The system should calculate an employee's 
+gross pay, tax deduction, and net pay based on their hourly wage and hours worked. A fixed tax rate applies 
+to all employees.  
+ 
+Instructions:  
+ 
+Project Setup:  
+1.   Create a new Java Project in your IDE named PayrollCalculatorApp.  
+2.   Create a new Java class named EmployeePayroll.  
+ 
+Declare Employee Data:  
+1.   Declare a String variable for employeeName (e.g., "Alice Wonderland").  
+2.   Declare an int variable for hoursWorked (e.g., 40).  
+3.   Declare a double variable for hourlyRate (e.g., 25.50).  
+ 
+Define Constants:  
+1.   Declare a constant named TAX_RATE (e.g., 0.15 for 15%) as a final double.  
+2.   Declare a constant named OVERTIME_THRESHOLD (e.g., 40) as a final int.  
+3.   Declare a constant named OVERTIME_MULTIPLIER (e.g., 1.5) as a final double.  
+ 
+ 
+Perform Calculations:  
+1.   Calculate grossPay before taxes. Consider if hoursWorked exceeds OVERTIME_THRESHOLD. If so, 
+calculate overtime pay (hours over threshold * overtime multiplier * hourly rate) and add to 
+regular pay. Otherwise, grossPay is simply hoursWorked * hourlyRate.  
+2.   Calculate taxDeduction (grossPay * TAX_RATE).  
+3.   Calculate netPay (grossPay  -   taxDeduction).  
+ 
+Display Results:  
+1.   Print the employeeName, hoursWorked, and hourlyRate.  
+2.   Print the calculated grossPay, taxDeduction, and netPay.  
+3.   Ensure all monetary values are displayed with appropriate precision (e.g., two decimal places).  
+ 
+Activity 3: Geometric Shape Properties  
+ 
+Objectives:  
+1.   To write a Java program that calculates properties of basic geometric shapes.  
+2.   To apply knowledge of different numerical data types (int, double) and their precision.  
+3.   To use constants for mathematical values like PI.  
+ 
+Materials:  
+•   Computer with Java Development Kit (JDK) installed.  
+•   Integrated Development Environment (IDE) like NetBeans or Eclipse.  
+ 
+92  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Scenario:  
+•   You  are  developing  a  utility  tool  for  architects  to  quickly  calculate  the  area  and 
+perimeter/circumference of common shapes like rectangles and circles.  
+ 
+Instructions:  
+ 
+Project Setup:  
+•   Create a new Java Project named GeometryCalcApp.  
+•   Create a new Java class named ShapeProperties.  
+ 
+Declare Shape Dimensions:  
+•   For a Rectangle: Declare int variables rectLength (e.g., 15) and rectWidth (e.g., 8).  
+•   For a Circle: Declare a double variable circleRadius (e.g., 7.25).  
+ 
+Define Constants:  
+•   Declare a constant named PI (e.g., 3.14159) as a final double.  
+ 
+Perform Calculations:  
+•   Rectangle:  
+o   Calculate areaRectangle (rectLength * rectWidth).  
+o   Calculate perimeterRectangle (2 * (rectLength + rectWidth)).  
+•   Circle:  
+o   Calculate areaCircle (PI * circleRadius * circleRadius).  
+o   Calculate circumferenceCircle (2 * PI * circleRadius).  
+Display Results:  
+•   Print the dimensions for each shape (length, width, radius).  
+•   Print the calculated area and perimeter/circumference for each shape, clearly labeled.  
+•   Ensure floating - point results show appropriate precision.  
+ 
+Activity 4: Shopping Cart Totalizer  
+Objectives:  
+1.   To build a program that calculates a total bill for a shopping cart, incorporating discounts and sales 
+tax.  
+2.   To reinforce the use of double for monetary values and prevent precision issues.  
+3.   To effectively use constants for discount rates and tax percentages.  
+4.   To demonstrate variable interaction and value updates conceptually.  
+ 
+Materials:  
+•   Computer with Java Development Kit (JDK) installed.  
+•   Integrated Development Environment (IDE) like NetBeans or Eclipse.  
+ 
+Scenario:  
+•   You're helping a small online store prototype a simple shopping cart totalizer. It needs to list a few 
+items, calculate a subtotal, apply a discount, then add sales tax to get the final total.  
+ 
+93  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Instructions:  
+•   Project Setup:  
+o   Create a new Java Project named ShoppingCartApp.  
+o   Create a new Java class named CartTotalizer.  
+ 
+•   Declare Item Variables:  
+o   Declare variables for at least three different items, each with a String for its name, an int for 
+its quantity, and a double for its unitPrice.  
+Example: itemName1 = "Laptop", itemQty1 = 1, itemPrice1 = 1200.00  
+Example: itemName2 = "Mouse", itemQty2 = 2, itemPrice2 = 25.50  
+Example: itemName3 = "Keyboard", itemQty3 = 1, itemPrice3 = 75.00  
+ 
+Define Constants:  
+•   Declare constants using the final keyword:  
+o   DISCOUNT_RATE (e.g., 0.10 for 10% off)  
+o   SALES_TAX_RATE (e.g., 0.08 for 8% sales tax)  
+ 
+Perform Calculations:  
+o   Calculate the subtotal for each item (quantity * unitPrice).  
+o   Calculate the grandSubtotal (sum of all item subtotals).  
+o   Calculate the discountAmount (grandSubtotal * DISCOUNT_RATE).  
+o   Calculate subtotalAfterDiscount (grandSubtotal  -   discountAmount).  
+o   Calculate taxAmount (subtotalAfterDiscount * SALES_TAX_RATE).  
+o   Calculate the finalTotal (subtotalAfterDiscount + taxAmount).  
+ 
+Demonstrate Variable Update :  
+•   Before calculating the finalTotal, declare a double variable named promoBalance = grandSubtotal;.  
+•   Then, apply the discount to promoBalance directly (promoBalance  - = discountAmount;).  
+•   Print promoBalance at this step.  
+ 
+•   Comment on how promoBalance reflects the current state of the calculation, demonstrating that 
+variable values can be updated incrementally and how intermediate results affect the final outcome.  
+ 
+Display Detailed Receipt:  
+•   Print the name, quantity, and unit price for each item.  
+•   Print the grandSubtotal.  
+•   Print the discountAmount.  
+•   Print the subtotalAfterDiscount.  
+•   Print the taxAmount.  
+•   Print the finalTotal.  
+•   Ensure all monetary values are formatted to two decimal places.  
+ 
+ 
+ 
+94  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Outcomes - Based  Output 1. Self - Check  
+Assessment    
+1.   Which company was originally responsible for the creation of Java in the early 
+1990s?  
+a) IBM  
+b) Microsoft  
+c) Sun Microsystems  
+d) Oracle  
+2.   What  is  the  primary  benefit  of  Java's  "Write  Once,  Run  Anywhere"  (WORA) 
+principle?  
+a) It makes Java programs faster to execute.  
+b) It allows Java programs to run on any device with a JVM, regardless of the 
+operating system.  
+c) It simplifies the process of writing code by removing syntax rules.  
+d) It ensures that Java is the most secure programming language.  
+3.   Which of the following is typically the last step in the Java programming process 
+when using a command - line interface?  
+a) Writing the .java file  
+b) Compiling the .java file into bytecode  
+c) Saving the file with a .class extension  
+d) Running the .class file using the JVM  
+4.   Which Java primitive data type is used to store single characters?  
+a) String  
+b) int  
+c) char  
+d) boolean  
+5.   What type of error is typically indicated by a message from the javac compiler?  
+a) Runtime error  
+b) Logical error  
+c) Syntax error  
+d) Semantic error  
+6.   Which Java primitive data type is used to store single characters?  
+a) String  
+b) int  
+c) char  
+d) boolean  
+7.   Which of the following is an example of a reference data type in Java?  
+a) int  
+b) double  
+c) boolean  
+d) String  
+8.   In Java, a block of code is typically enclosed by which symbols?  
+a) ( )  
+b) [ ]  
+c) { }  
+95  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+d) < >  
+9.   What is the correct way to end a statement in Java?  
+a) A colon (:)  
+b) A period (.)  
+c) A semicolon (;)  
+d) A comma (,)  
+10.   True  /  False:  Java  is  a  case - sensitive  language,  meaning  myVariable  and 
+MyVariable are treated as different identifiers.  
+11.   True / False: The Java Development Kit (JDK) only contains the Java Runtime 
+Environment (JRE) and does not include a compiler.  
+12.   True / False: A constant in Java is declared using the const keyword.  
+13.   True / False: White space (spaces, blank lines, tabs) is ignored by the Java 
+compiler and is primarily used to enhance code readability.  
+14.   In Java, what is the purpose of the main method?  
+15.   What is the standard naming convention (e.g., camelCase, PascalCase) for 
+variable names in Java? Provide an example.  
+ 
+Output  2 .  Applying Java Fundamentals  
+ 
+Student Deliverables  
+Component   Description  
+1.   Activity 1: Grade  C reate a Java program to store student details 
+Calculation and Basic  and grades, calculate an average, and display all 
+Information Display   information.  
+ 
+2.   Simple Employee Payroll  D evelop a Java program to compute gross and 
+Calculator   net  pay  using  employee  data,  including 
+calculations with variables and constants.  
+3.   Activity 3: Geometric  W rite a Java program to calculate and display 
+Shape Properties   properties  (e.g.,  area,  perimeter)  of  basic 
+geometric shapes using variables, data types, and 
+mathematical operations.  
+4.   Activity 4: Shopping Cart  C reate a Java program to calculate the total cost 
+Totalizer   of items in a simple shopping cart, practicing 
+variable declaration, arithmetic, and output.  
+ 
+Rubrics  
+Criteria   Exemplary    (4  Proficient (3 points)   Developing   (2  Beginning (1 point)  
+points)   points)  
+Project   Setup,  Project    and  Project    and  Project  or  class  Project  or  class 
+Structure  &  Code  class(es)    are  class(es)    are  setup  has  minor  setup is incorrect or 
+Organization   flawlessly set up in  correctly  set  up.  issues    (e.g.,  incomplete. Code is 
+the  IDE  (e.g.,  Code  is  generally  incorrect  naming,  highly disorganized, 
+NetBeans,  Eclipse)  well - organized and  missing    main  illogical,     or 
+with  the  standard  logical,  method).   Code  practically 
+main method. Code  demonstrating  organization   is  unreadable, 
+is   exceptionally  good readability.   inconsistent   or  showing little to no 
+well - organized,  somewhat  difficult  adherence to basic 
+logical, and easy to  to follow in parts.   structure.  
+96  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+navigate, 
+demonstrating best 
+practices    in 
+modularity   and 
+readability.  
+Variable & Constant  All  variables  are  All  variables  are  Some variables are  Variables    are 
+Declaration  (Data  declared using the  declared   with  declared  with  less  incorrectly 
+Types & Naming)   most  suitable  and  suitable data types  suitable data types,  declared  or  use 
+precise  data types  for  their  purpose,  potentially  leading  inappropriate  data 
+(e.g.,  String,  int,  with     minor  to minor precision  types,  leading  to 
+double,  boolean)  exceptions    in  issues or inefficient  significant errors in 
+for  their  intended  optimal  precision.  memory   usage.  calculation or data 
+purpose, effectively  Constants   are  Constants   may  representation. 
+preventing  defined  correctly  have  minor  errors  Constants   are 
+precision issues for  with  final  and  in  definition  or  missing,  incorrect, 
+financial    or  mostly follow Java  inconsistent  or   show   no 
+floating - point  naming  naming  adherence to final 
+values.     All  conventions.   conventions.   keyword or naming 
+constants    are  conventions.  
+correctly  defined 
+u sing  final  and 
+adhere  strictly  to 
+Java    naming 
+conventions 
+(ALL_CAPS).  
+Calculations  All   calculations  All calculations are  One  or  more  Calculations 
+Accuracy & Logic   required  by  the  mathematically  calculations contain  contain  significant 
+activity    are  accurate    and  minor  mathematical 
+mathematically  logically  mathematical  errors  or  major 
+flawless    and  implemented,  errors  or  logical  logical    flaws, 
+logically  handling   most  flaws,  or  fail  to  rendering  results 
+implemented,  specified  correctly  handle  incorrect  or  the 
+effectively handling  conditions  specific conditions,  program   non -
+all    specified  correctly.  leading     to  functional  for  its 
+conditions  (e.g.,  Intermediate  and  occasionally  intended  purpose. 
+overtime   pay,  final  results  are  incorrect results.   Many  conditions 
+pass/fail   logic,  generally accurate.   are not handled.  
+discounts,   tax). 
+Intermediate  and 
+final  results  are 
+consistently 
+accurate.  
+Output   Display,  All    required  All    required  Some   required  Output  is 
+Formatting    &  information  and  information  and  information   or  incomplete, 
+Clarity   results     are  results     are  results are missing,  unformatted,  or 
+displayed  displayed  clearly  poorly  labeled,  or  extremely  difficult 
+exceptionally  with good labeling.  inconsistently  to   understand. 
+clearly,  concisely,  Most   monetary  formatted,  making  Monetary  values 
+and with excellent,  values     are  the  output  harder  are  not  formatted 
+consistent labeling.  formatted correctly  to read or interpret.  or show significant 
+Monetary  values  to   appropriate  Monetary  values  precision  issues. 
+are    flawlessly  decimal   places.  may lack consistent  Key  information  is 
+formatted    to  Output is generally  appropriate  missing     or 
+appropriate  easy to read.   precision.   misleading.  
+decimal   places 
+(e.g.,  two  decimal 
+places  for 
+currency),  and  all 
+output  is  easy  to 
+read and interpret.    
+ 
+ 
+97  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+References/Resources:  
+ 
+Schildt, H. (2022). Java: A beginner's guide (9th ed.). McGraw - Hill Education.  
+ 
+Ploetz, A. (2024). Code with Java 21. BPB Publications. https://www.perlego.com/book/4334809  
+ 
+Lowe, D. (2023). Java all - in - one for dummies (7th ed.). For Dummies. 
+https://www.perlego.com/book/3815078  
+ 
+Kanetkar,    Y.    (2020).    Let    us    Java    [Edition    unavailable].    BPB    Publications. 
+https://www.perlego.com/book/2028289  
+ 
+Other Suggested Readings:   
+ 
+W3Schools. (n.d.). Java  -   Get started. https://www.w3schools.com/java/java_getstarted.asp  
+ 
+Oracle. (n.d.). Getting started with Java. https://docs.oracle.com/javase/tutorial/getStarted/index.html  
+ 
+Programiz. (2021). Install Java and setup environment. https://www.programiz.com/java -
+programming/installation  
+ 
+TutorialsPoint. (n.d.). Java environment setup. https://www.tutorialspoint.com/java/java_environment.htm  
+ 
+GeeksforGeeks. (n.d.). Introduction to Java. https://www.geeksforgeeks.org/introduction - to - java/  
+ 
+Guru99. (2021). How to install Java. https://www.guru99.com/how - to - install - java.html  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+98  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 

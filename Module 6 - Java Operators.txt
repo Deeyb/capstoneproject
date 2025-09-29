@@ -1,0 +1,977 @@
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  Course Modules in  
+ 
+ 
+COMP102: COMPUTER 
+ 
+ 
+PROGRAMMING 1    
+ 
+   
+ 
+   
+ 
+ 
+ 
+ 
+ 
+   
+ 
+   
+ 
+   
+ 
+ 
+MODULE 6:  
+ 
+ 
+  Topic:  Java  Operators  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+121  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Week Number   6  
+Chapter/Unit Number   6  
+Topic Title   Java  Operators  
+Course Outcomes   CO3  Demonstrate  foundational  programming  skills  using  Java,  implementing 
+core  programming  constructs  such  as  data  types,  variables,  operators,  and 
+input/output operations.  
+CO4 Utilize Java libraries and built - in functions to enhance program functionality.  
+CO6  Create  well - structured  Java  applications  incorporating  proper  coding 
+standards, documentation, and error handling.  
+Intended Learning  Lecture  
+Outcomes    
+At the end of the chapter, the students will be able to:  
+1.   Identify Java operators and their types.  
+2.   Evaluate expressions using operator precedence.  
+3.   Show combining multiple operators in expressions.  
+4.   Demonstrate implicit and explicit typecasting in Java.  
+5.   Discuss  potential  data  loss  or  precision  issues  when  performing 
+typecasting.  
+ 
+Laboratory:  
+ 
+At the end of the chapter, the students will be able to:  
+1.   Create a program that evaluates and applies various expressions using 
+different operators.  
+2.   Utilize operator precedence to ensure correct expression evaluation.  
+3.   Create  programs  that  handle  and  evaluate  complex  expressions 
+effectively.  
+ 
+SDG and KLD REGAL100  SDG 8: Decent Work and Economic Growth  
+Integration   SDG 9: Industry, Innovation and Infrastructure  
+SDG 11: Sustainable Cities and Communities  
+REGAL 100:  Responsible Digital Citizens: Technology, Research Ethics, and Online 
+Etiquette  
+Discussion  
+ 
+VI. Java Operators  
+ 
+In Java programming, operators are special symbols that perform  operations on one or more operands 
+(values  or  variables).  They  are  fundamental  building  blocks  for  constructing  expressions  and  controlling 
+program flow. Understanding operators is crucial for   writing effective and efficient Java code, enabling you to 
+manipulate data, make decisions, and perform calculations.  
+ 
+This lesson will provide a comprehensive overview of various operator types in Java, their functionalities, and 
+the rules governing their evaluation. By the end of this chapter, you will be equipped with the foundational 
+programming skills necessary to eff ectively utilize operators in your Java applications.  
+122  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Operator Types in Java  
+Java categorizes operators based on the type of operation they perform and the number of operands they 
+require.  
+ 
+1.   Arithmetic Operators  
+ 
+Arithmetic operators are used to perform mathematical calculations.    
+ 
+Operator   Description   Example   Result  
++   Addition   10 + 5   15  
+-   Subtraction   10  –   5   5  
+*   Multiplication   10 * 5   50  
+/   Division   10 / 5   2  
+%   Modulo   10 % 3   1  
+ 
+Table 8.  Basic  a rithmetic  o perators and  e xamples  
+ 
+Example:  
+ 
+public class ArithmeticOperators {  
+     public static void main(String[] args) {  
+         int a = 20;  
+         int b = 7;  
+ 
+         System.out.println("a + b = " + (a + b)); // Output: 27  
+         System.out.println("a  -   b = " + (a  -   b)); // Output: 13  
+         System.out.println("a * b = " + (a * b)); // Output: 140  
+         System.out.println("a / b = " + (a / b)); // Output: 2 (integer division)  
+         System.out.println("a % b = " + (a % b)); // Output: 6  
+     }  
+}  
+ 
+2.   Increment Operator (++)  
+ 
+The increment operator increases the value of its operand by 1. It can be used in two forms:  
+•   Prefix increment (++variable): Increments the value before using it in the expression.  
+•   Postfix increment (variable++): Increments the value after using it in the expression.  
+ 
+Example:  
+ 
+public class IncrementOperator {  
+     public static void main(String[] args) {  
+         int x = 5;  
+         int y = 5;  
+123  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+         // Prefix increment  
+         int result1 = ++x; // x becomes 6, then result1 becomes 6  
+         System.out.println("Prefix Increment: x = " + x + ", result1 = " + result1); // Output: x = 6, result1 = 6  
+ 
+         // Postfix increment  
+         int result2 = y++; // result2 becomes 5, then y becomes 6  
+         System.out.println("Postfix Increment: y = " + y + ", result2 = " + result2); // Output: y = 6, result2 = 5  
+     }  
+}  
+ 
+3 . Decrement Operator ( -- )  
+ 
+The decrement operator decreases the value of its operand by 1. Similar to the increment operator, it also 
+has prefix and postfix forms:  
+•   Prefix decrement ( -- variable): Decrements the value before using it in the expression.  
+•   Postfix decrement (variable -- ): Decrements the value after using it in the expression.  
+ 
+Example:  
+ 
+public class DecrementOperator {  
+     public static void main(String[] args) {  
+         int x = 10;  
+         int y = 10;  
+ 
+         // Prefix decrement  
+         int result1 =  -- x; // x becomes 9, then result1 becomes 9  
+         System.out.println("Prefix Decrement: x = " + x + ", result1 = " + result1); // Output: x = 9, result1 = 9  
+ 
+         // Postfix decrement  
+         int result2 = y -- ; // result2 becomes 10, then y becomes 9  
+         System.out.println("Postfix Decrement: y = " + y + ", result2 = " + result2); // Output: y = 9, result2 = 10  
+     }  
+}  
+ 
+4 . Assignment Operators  
+ 
+Assignment operators are used to assign a value to a variable. The most basic assignment operator is =. 
+Compound assignment operators combine an arithmetic operation with assignment.  
+ 
+Operator   Example   Equivalent  
+=   a = 10   a = 10  
++=   a += 5   a = a + 5  
+- =   a  - = 5   a = a  -   5  
+*=   a */ 5   a = a * 5  
+124  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+/=   a /= 5   a = a / 5  
+%=   a %= 3   a = a % 5  
+ 
+Table 9.  Assignment  o perator  s yntax and  e quivalents  
+ 
+Example:  
+ 
+public class AssignmentOperators {  
+     public static void main(String[] args) {  
+         int a = 10;  
+         System.out.println("Initial a: " + a); // Output: 10  
+ 
+         a += 5; // a = 10 + 5 = 15  
+         System.out.println("a after a += 5: " + a); // Output: 15  
+ 
+         a  - = 3; // a = 15  -   3 = 12  
+         System.out.println("a after a  - = 3: " + a); // Output: 12  
+ 
+         a *= 2; // a = 12 * 2 = 24  
+         System.out.println("a after a *= 2: " + a); // Output: 24  
+ 
+         a /= 4; // a = 24 / 4 = 6  
+         System.out.println("a after a /= 4: " + a); // Output: 6  
+ 
+         a %= 5; // a = 6 % 5 = 1  
+         System.out.println("a after a %= 5: " + a); // Output: 1  
+     }  
+}  
+ 
+5. Relational Operators  
+ 
+Relational operators (also known as comparison operators) are used to compare two operands and return a 
+boolean result (true or false).  
+ 
+Operator   Description   Example   Result   (a=3, b=3)  
+==   Equal to   a == b   True  
+!=   Not Equal to   a != b   False  
+>   Greater than   a > b   False  
+<   Less than   a < b   False  
+>=   Greater than or Equal to   a >= b   True  
+<=   Less than or Equal to   a <= b   True  
+ 
+Table 10.  Relational  o perators and  t heir  e xamples  
+ 
+ 
+125  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Example:  
+ 
+public class RelationalOperators {  
+     public static void main(String[] args) {  
+         int x = 15;  
+         int y = 10;  
+ 
+         System.out.println("x == y: " + (x == y)); // Output: false  
+         System.out.println("x != y: " + (x != y)); // Output: true  
+         System.out.println("x > y: " + (x > y));   // Output: true  
+         System.out.println("x < y: " + (x < y));   // Output: false  
+         System.out.println("x >= y: " + (x >= y)); // Output: true  
+         System.out.println("x <= y: " + (x <= y)); // Output: false  
+     }  
+}  
+ 
+6. Logical Operators  
+ 
+Logical operators are used to combine multiple boolean expressions or to negate a boolean expression.  
+ 
+Operator   Description   Example   Result  
+&&   Logical AND   A && B   True if both A and B are True  
+||   Logical OR   A || B   True if either A and B are True  
+!   Logical NOT   !A   true if A is false, and false if A is true  
+ 
+Table 11. Logiocal operators and their examples.  
+ 
+Short - Circuiting:  
+ 
+•   && (Logical AND) is  a short - circuit operator. If the left operand is false, the right operand is not 
+evaluated because the entire expression will be false regardless.  
+•   || (Logical OR) is also a short - circuit operator. If the left operand is true, the right operand is not 
+evaluated because the entire expression will be true regardless.  
+ 
+Example:  
+ 
+public class BooleanOperators {  
+     public static void main(String[] args) {  
+         boolean isSunny = true;  
+         boolean isWarm = false;  
+         int age = 25;  
+         int minAge = 18;  
+ 
+         // Combining relational and logical operators  
+         boolean canVote = (age >= minAge) && (age < 65); // true && true = true  
+126  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+         System.out.println("Can vote: " + canVote); // Output: true  
+ 
+         boolean goOutside = isSunny || isWarm; // true || false = true  
+         System.out.println("Go outside: " + goOutside); // Output: true  
+ 
+         boolean notSunny = !isSunny; // !true = false  
+         System.out.println("Not sunny: " + notSunny); // Output: false  
+ 
+         // Example of short - circuiting  
+         int num = 10;  
+         boolean check = (num > 5) || (++num > 10); // (true) || (expression not evaluated)  
+         System.out.println("Check: " + check); // Output: true  
+         System.out.println("num after short - circuit: " + num); // Output: 10 (num was not incremented)  
+     }  
+}  
+ 
+7. Rules of Precedence  
+ 
+When multiple operators are present in an expression, Java follows a strict set of rules, known as operator 
+precedence, to determine the order in which operations are performed. Operators with higher precedence 
+are  evaluated  before  operators  with  lower  pre cedence.  If  operators  have  the  same  precedence,  their 
+associativity (left - to - right or right - to - left) determines the order.  
+ 
+Parentheses ()   can be used to override the default precedence, forcing certain operations to be evaluated 
+first.  
+ 
+Common Operator Precedence (Highest to Lowest):  
+•   Postfix operators: expr++, expr --  
+•   Prefix operators: ++expr,  -- expr, +expr,  - expr, ~, !  
+•   Multiplicative: *, /, %  
+•   Additive: +,  -  
+•   Shift: <<, >>, >>>  
+•   Relational: <, >, <=, >=, instanceof  
+•   Equality: ==, !=  
+•   Bitwise AND: &  
+•   Bitwise XOR: ^  
+•   Bitwise OR:  \ |  
+•   Logical AND: &&  
+•   Logical OR: ||  
+•   Ternary (Conditional): ? :  
+•   Assignment: =, +=,  - =, *=, /=, %=, &=, ^=, |=, <<=, >>=, >>>=  
+ 
+Example:  
+ 
+public class OperatorPrecedence {  
+127  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+     public static void main(String[] args) {  
+         int result;  
+ 
+         // Example 1: Multiplication and Addition  
+         // 2 + 3 * 4  => 2 + 12 => 14 (Multiplication has higher precedence)  
+         result = 2 + 3 * 4;  
+         System.out.println("2 + 3 * 4 = " + result); // Output: 14  
+ 
+         // Example 2: Using parentheses to override precedence  
+         // (2 + 3) * 4 => 5 * 4 => 20  
+         result = (2 + 3) * 4;  
+         System.out.println("(2 + 3) * 4 = " + result); // Output: 20  
+ 
+         // Example 3: Mixed operators  
+         // 10 / 2 + 5  -   1 * 3  
+         // 5 + 5  -   3  (Division and Multiplication first)  
+         // 10  -   3     (Addition next)  
+         // 7          (Subtraction last)  
+         result = 10 / 2 + 5  -   1 * 3;  
+         System.out.println("10 / 2 + 5  -   1 * 3 = " + result); // Output: 7  
+ 
+         // Example 4: Logical and Relational  
+         boolean condition = (5 > 3) && (10 < 20 || 7 == 7);  
+         // (true) && (true || true)  
+         // (true) && (true)  
+         // true  
+         System.out.println("(5 > 3) && (10 < 20 || 7 == 7) = " + condition); // Output: true  
+     }  
+}  
+ 
+8.  Type Casting in Java  
+ 
+Type casting   is the process of converting a value from one data type to another. Java supports two types of 
+casting: implicit and explicit. This concept is crucial for managing data types effectively and avoiding potential 
+data loss.  
+ 
+Implicit Type Casting (Widening Conversion)  
+ 
+Implicit type casting, also known as widening conversion, occurs automatically when:  
+•   Converting a smaller data type to a larger data type.  
+•   There is no loss of data.  
+•   The target type can accommodate the source type's value without any precision issues.  
+ 
+Order of widening conversion:  
+ 
+128  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+byte  - > short  - > char  - > int  - > long  - > float  - > double  
+ 
+Example:  
+ 
+public class ImplicitCasting {  
+     public static void main(String[] args) {  
+         int myInt = 100;  
+         double myDouble = myInt; // Implicit casting from int to double  
+         System.out.println("Original int: " + myInt);    // Output: 100  
+         System.out.println("Implicitly casted double: " + myDouble); // Output: 100.0  
+ 
+         char myChar = 'A';  
+         int charToInt = myChar; // Implicit casting from char to int (ASCII value)  
+         System.out.println("Original char: " + myChar);  // Output: A  
+         System.out.println("Implicitly casted int from char: " + charToInt); // Output: 65  
+     }  
+}  
+ 
+Explicit Type Casting (Narrowing Conversion)  
+ 
+Explicit type casting, also known as narrowing conversion, occurs when:  
+•   Converting a larger data type to a smaller data type.  
+•   It requires a cast operator () to explicitly tell the compiler that you intend to perform the conversion.  
+•   There is a potential for data loss or precision issues if the value of the larger type exceeds the range 
+of the smaller type.  
+ 
+Example:  
+ 
+public class ExplicitCasting {  
+     public static void main(String[] args) {  
+         double myDouble = 10.99;  
+         int myInt = (int) myDouble; // Explicit casting from double to int (truncates decimal)  
+         System.out.println("Original double: " + myDouble);  // Output: 10.99  
+         System.out.println("Explicitly casted int: " + myInt); // Output: 10 (data loss: .99 is lost)  
+ 
+         int largeInt = 200;  
+         byte myByte = (byte) largeInt; // Explicit casting from int to byte  
+         System.out.println("Original int: " + largeInt); // Output: 200  
+         System.out.println("Explicitly casted byte: " + myByte); // Output:  - 56 (data loss: byte range is  - 128 to 127, 
+overflow occurs)  
+ 
+         // Example of precision loss with float/double  
+         float f = 123.456789f;  
+         double d = f; // Widening, no immediate loss  
+         System.out.println("Float: " + f); // Output: 123.45679  
+129  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+         System.out.println("Double from Float: " + d); // Output: 123.456787109375  
+ 
+         double largeValue = 1234567890123456789.0;  
+         long castedLong = (long) largeValue; // Potential loss of precision for very large numbers  
+         System.out.println("Original large double: " + largeValue);  
+         System.out.println("Casted long: " + castedLong); // May not be exact due to double's precision limits  
+     }  
+}  
+ 
+Potential Data Loss or Precision Issues:  
+•   Truncation .   When casting a floating - point number (float or double) to an integer type (byte, short, 
+int, long), the decimal part is simply truncated, not rounded.  
+•   Overflow/Underflow .   When casting a value from a larger integer type to a smaller integer type, if the 
+value exceeds the range of the smaller type, it will wrap around (overflow or underflow), leading to an 
+incorrect value.  
+•   Loss of Precision .   While casting from float to double is widening, casting from double to float can 
+result in loss of precision, as float has fewer significant digits than double. Similarly, very large long 
+values might lose precision when cast to float or double due to the ir internal representation.  
+ 
+Laboratory   Exercises  
+ 
+Java Operators in Practice  
+ 
+Activity 1: Simple Interest and Total Loan Amount Calculator  
+ 
+Objective:  
+•   Create a Java program that calculates the simple interest and the total amount due for a loan, based 
+on user - provided principal, annual interest rate, and loan duration.  
+ 
+Requirements:  
+•   Prompt the user to enter the principalAmount (e.g., 10000.0), annualRate as a percentage (e.g., 7.5), 
+and loanYears (e.g., 3).  
+•   Use Scanner to read these values as double (for principal and rate) and int (for years).  
+•   Calculate the Simple Interest (SI) using the formula: SI = (principalAmount * (annualRate / 100.0) * 
+loanYears).  
+•   Calculate the Total Amount Due using the formula: Total Amount Due = principalAmount + SI.  
+•   Display both the Simple Interest and Total Amount Due using System.out.printf(), formatted to two 
+decimal places.  
+•   Include appropriate labels for the output (e.g., "Simple Interest:", "Total Amount Due:").  
+ 
+Example Interaction:  
+ 
+Enter the principal amount: 10000.0  
+Enter the annual interest rate (%): 7.5  
+Enter the loan duration in years: 3  
+130  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Simple Interest: 2250.00  
+Total Amount Due: 12250.00  
+ 
+Activity 2: Approximate Monthly Loan Payment  
+ 
+Objective:  
+•   Extend the loan calculator to approximate the monthly payment based on the previously calculated 
+total amount and loan duration.  
+ 
+Requirements:  
+ 
+•   This  activity  builds  upon  the  results  of  Activity  1.  Assume  Total  Amount  Due  and  loanYears  are 
+available from the previous calculation or re - prompt if doing as a standalone activity.  
+•   Calculate the Monthly Payment using the formula: Monthly Payment = Total Amount Due / (loanYears 
+* 12).  
+•   Display the Monthly Payment using System.out.printf(), formatted to two decimal places.  
+•   Include an appropriate label for the output (e.g., "Approximate Monthly Payment:").  
+ 
+Example Interaction (following Activity 1):  
+ 
+Enter the principal amount: 10000.0  
+Enter the annual interest rate (%): 7.5  
+Enter the loan duration in years: 3  
+Simple Interest: 2250.00  
+Total Amount Due: 12250.00  
+Approximate Monthly Payment: 340.28  
+ 
+Activity 3: Road Trip Fuel Cost & Time Calculator  
+ 
+Objective:  
+•   Create a Java program that calculates the estimated fuel cost and total travel time for a road trip, given 
+user - provided details.  
+ 
+Requirements:  
+•   Prompt the user to enter:  
+o   tripDistanceKm (double): Total distance of the trip in kilometers.  
+o   fuelEfficiencyLitersPer100Km (double): Car's fuel efficiency in liters per 100 kilometers.  
+o   fuelPricePerLiter (double): Current fuel price per liter.  
+o   averageSpeedKmPerHour (double): Estimated average driving speed in kilometers per hour.  
+•   Use Scanner to read these values as double.  
+•   Calculate the totalFuelNeededLiters using the formula:  
+o   totalFuelNeededLiters = (tripDistanceKm / 100.0) * fuelEfficiencyLitersPer100Km  
+•   Calculate the totalFuelCost using the formula:  
+o   totalFuelCost = totalFuelNeededLiters * fuelPricePerLiter  
+•   Calculate the totalTravelHours using the formula:  
+131  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+o   totalTravelHours = tripDistanceKm / averageSpeedKmPerHour  
+•   From totalTravelHours, derive fullHours (integer part) and remainingMinutes (decimal part converted 
+to minutes, rounded to nearest integer).  
+o   fullHours = (int) totalTravelHours  
+o   remainingMinutes = (int) ((totalTravelHours  -   fullHours) * 60)  
+•   Display the Total Fuel Cost and Estimated Travel Time clearly.  
+•   Total Fuel Cost should be formatted to two decimal places.  
+•   Estimated Travel Time should show full hours and remaining minutes (e.g., "5 hours and 30 minutes").  
+ 
+Example Interaction:  
+ 
+Enter trip distance in km: 500.0  
+Enter fuel efficiency (liters per 100 km): 8.5  
+Enter fuel price per liter: 75.0  
+Enter average driving speed in km/h: 80.0  
+Estimated Total Fuel Needed: 42.50 liters  
+Estimated Total Fuel Cost: 3187.50  
+Estimated Travel Time: 6 hours and 15 minutes  
+ 
+Activity 4: Employee Net Salary Calculator  
+ 
+Objective:  
+•   Create a Java program that calculates an employee's net salary after deducting tax and social security 
+contributions, based on their gross salary and given rates.  
+ 
+Requirements:  
+•   Prompt the user to enter:  
+o   grossSalary (double): The employee's gross monthly salary.  
+o   taxRatePercentage (double): The tax rate as a percentage (e.g., 10.0 for 10%).  
+o   socialSecurityRatePercentage (double): The social security contribution rate as a percentage 
+(e.g., 5.0 for 5%).  
+•   Use Scanner to read these values as double.  
+•   Calculate the taxAmount using the formula: taxAmount = grossSalary * (taxRatePercentage / 100.0).  
+•   Calculate  the  socialSecurityAmount  using  the  formula:  socialSecurityAmount  =  grossSalary  * 
+(socialSecurityRatePercentage / 100.0).  
+•   Calculate   the   netSalary   using   the   formula:   netSalary   =   grossSalary  -   taxAmount  -  
+socialSecurityAmount.  
+•   Display the Gross Salary, Tax Amount, Social Security Amount, and Net Salary clearly, formatted to 
+two decimal places.  
+ 
+Example Interaction:  
+ 
+Enter Gross Salary: 25000.0  
+Enter Tax Rate (%): 10.0  
+Enter Social Security Rate (%): 5.0  
+132  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Gross Salary: 25000.00  
+Tax Amount: 2500.00  
+Social Security Amount: 1250.00  
+Net Salary: 21250.00  
+ 
+ 
+Activity  5 : Store Discount Calculator  
+ 
+Objective:  
+•   Develop a Java program that calculates the final price of an item after applying both a percentage 
+discount and a fixed amount discount.  
+ 
+Requirements:  
+•   Prompt the user to enter:  
+o   originalPrice (double): The initial price of the item.  
+o   percentageDiscount (double): The discount percentage (e.g., 15.0 for 15%).  
+o   fixedDiscountAmount (double): A fixed amount discount (e.g., 50.0).  
+•   Use Scanner to read these values as double.  
+•   Calculate the priceAfterPercentageDiscount first:  
+o   priceAfterPercentageDiscount = originalPrice  -   (originalPrice * (percentageDiscount / 100.0))  
+•   Then, apply the fixedDiscountAmount to this price:  
+o   finalPrice = priceAfterPercentageDiscount  -   fixedDiscountAmount  
+•   Ensure the finalPrice does not go below zero (if discounts exceed price, minimum price is 0). Use a 
+conditional operator (? :) or Math.max() for this.  
+•   Display  the  Original  Price,  Percentage  Discount  Applied,  Fixed  Discount  Applied,  and  Final  Price 
+clearly, formatted to two decimal places.  
+ 
+Example Interaction:  
+ 
+Enter original price: 1500.0  
+Enter percentage discount (%): 10.0  
+Enter fixed discount amount: 50.0  
+Original Price: 1500.00  
+Price After Percentage Discount: 1350.00  
+Fixed Discount Applied: 50.00  
+Final Price: 1300.00  
+ 
+Outcomes - Based  Output 1. Self - Check  
+Assessment    
+Part 1: Multiple Choice  
+ 
+1.  Which operator is used to calculate the remainder of a division?  
+a) /  
+b) *  
+c) %  
+133  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+d) //  
+ 
+2.  If int x = 5; int y = x++;, what are the values of x and y after this statement?  
+a) x = 6, y = 5  
+b) x = 5, y = 6  
+c) x = 6, y = 6  
+d) x = 5, y = 5  
+ 
+3.  Which of the following is an example of a compound assignment operator?  
+a) ==  
+b) ++  
+c) +=  
+d) &&  
+ 
+4.  What type of result does a relational operator always return?  
+a) int  
+b) String  
+c) boolean  
+d) double  
+ 
+5.  In the expression (A && B), if A is false, B will not be evaluated. This behavior is 
+known as:  
+a) Type casting  
+b) Operator precedence  
+c) Short - circuiting  
+d) Associativity  
+ 
+6.  Which of these operators has the highest precedence?  
+a) + (addition)  
+b) * (multiplication)  
+c) == (equality)  
+d) && (logical AND)  
+ 
+7.  Converting a byte to an int is an example of:  
+a) Explicit type casting  
+b) Narrowing conversion  
+c) Implicit type casting  
+d) Data loss  
+ 
+8.  When casting a double value 10.99 to an int, what will be the result?  
+a) 11 (rounded)  
+b) 10 (truncated)  
+c) 10.0  
+d) A compile - time error  
+ 
+134  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+9.  Which of the following data type conversions will likely result in an overflow if 
+the source value is too large?  
+a) int to long  
+b) double to float  
+c) long to byte  
+d) char to int  
+ 
+10.  Parentheses () in an expression are used to:  
+a) Define a method  
+b) Declare a variable  
+c) Override default operator precedence  
+d) Perform logical NOT operation  
+ 
+Part 2: True or False  
+ 
+Indicate whether each statement is True or False.  
+11.  The ++ operator can be applied to a boolean variable.   (True/False)  
+12.  In Java, all operators have the same associativity (left - to - right).   (True/False)  
+13.  Explicit type casting always guarantees no data loss.   (True/False)  
+ 
+Part 3: Fill in the Blanks / Short Answer  
+13.   The || operator is known as the Logical __________.  
+14.   When  a  larger  data  type  is  converted  to  a  smaller  data  type,  it  is  called 
+__________ type casting or narrowing conversion.  
+ 
+Output  2.  Board  Recitation  Activity:  Java  Operators  -   Evaluation  of 
+Expressions  
+Objectives:  
+•   To assess students' ability to meticulously evaluate Java expressions step -
+by - step,  demonstrating  a  thorough  understanding  of  operator 
+precedence and associativity.  
+•   To reinforce the practical application of various Java operators in complex 
+expressions.  
+•   To encourage clear articulation of the evaluation process.  
+ 
+Instructions:  
+ 
+The instructor will randomly select students to come to the board and evaluate 
+one of the following Java expressions step - by - step. Students should clearly show 
+all intermediate results and explain the application of operator precedence at 
+each stage.  
+ 
+Evaluation of Expressions (Step - by - Step):  
+ 
+Expression  1 :  
+135  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+int a = 20;  
+int b = 5;  
+int c = 2;  
+int resultA = a / b * c + (a % b);  
+ 
+Expression  2 :  
+int p = 10;  
+int q = 3;  
+boolean conditionB = (p > q) && (q != 0) || (p % q == 0);  
+ 
+Expression  3 :  
+int val = 8;  
+int resultC = val++ * 3  -   -- val;  
+ 
+Expression  4 :  
+int x = 12;  
+int y = 4;  
+boolean finalCondition = (x % y == 0) && (x / y > 2) || (y++ > 5);  
+ 
+Expression  5 :  
+double price = 10.50;  
+int quantity = 3;  
+int discount = 2;  
+double finalPrice = (price * quantity)  -   (double)discount / 2;  
+ 
+Output  3 . Trace the Output Activity   -   Java Operators  
+ 
+Objectives:  
+•   To assess students' ability to predict the exact console output of Java 
+programs  involving  various  operators,  operator  precedence,  and  type 
+casting.  
+•   To reinforce understanding of how expressions are evaluated and the 
+effects of type conversions.  
+ 
+Instructions:  
+ 
+For each of the following Java code snippets, carefully analyze the code and write 
+down the exact output that will be displayed on the console. Pay close attention 
+to  operator  precedence,  increment/decrement  side  effects,  and  type  casting 
+rules.  
+ 
+Snippet 1: Arithmetic and Increment/Decrement  
+ 
+public class OperatorTrace1 {  
+     public static void main(String[] args) {  
+136  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+         int a = 10;  
+         int b = 3;  
+         System.out.println("Result 1: " + (a / b));  
+         System.out.println("Result 2: " + (a % b));  
+ 
+         int x = 5;  
+         int y = x++;  
+         int z = ++x;  
+         System.out.println("x: " + x + ", y: " + y + ", z: " + z);  
+     }  
+}  
+ 
+Snippet 2: Assignment and Relational Operators  
+ 
+public class OperatorTrace2 {  
+     public static void main(String[] args) {  
+         int val = 20;  
+         val += 5; // val = 25  
+         val /= 3; // val = 8  
+         System.out.println("Final val: " + val);  
+ 
+         int p = 15;  
+         int q = 15;  
+         System.out.println("p == q: " + (p == q));  
+         System.out.println("p > q: " + (p > q));  
+     }  
+}  
+ 
+Snippet 3: Logical Operators and Short - Circuiting  
+ 
+public class OperatorTrace3 {  
+     public static void main(String[] args) {  
+         boolean cond1 = true;  
+         boolean cond2 = false;  
+         System.out.println("AND: " + (cond1 && cond2));  
+         System.out.println("OR: " + (cond1 || cond2));  
+         System.out.println("NOT: " + (!cond1));  
+ 
+         int count = 0;  
+         boolean check = (10 < 5) && (++count > 0);  
+         System.out.println("Check result: " + check + ", Count: " + count);  
+     }  
+}  
+ 
+Snippet 4: Operator Precedence  
+137  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+public class OperatorTrace4 {  
+     public static void main(String[] args) {  
+         int result1 = 5 + 3 * 2  -   1;  
+         System.out.println("Result 1: " + result1);  
+ 
+         int result2 = (5 + 3) * 2  -   1;  
+         System.out.println("Result 2: " + result2);  
+ 
+         double result3 = 10 / 4 + 2.5; // Integer division then addition with double  
+         System.out.println("Result 3: " + result3);  
+     }  
+}  
+ 
+Output  4 .  Java Operators in Practice  
+ 
+Student Deliverables  
+Component   Description  
+1.   Activity 1: Simple Interest  Develop a Java program to compute the simple 
+and Total Loan Amount  interest and total amount due for a loan, based 
+Calculator   on user - provided principal, annual interest rate, 
+and loan duration.  
+2.   Activity 2: Approximate  Extend the loan calculator from Activity 1 to 
+Monthly Loan Payment   estimate the monthly loan payment, using the 
+previously  calculated  total  amount  and  loan 
+duration.  
+3.   Activity 3: Road Trip Fuel  Create  a  Java  program  that  calculates  the 
+Cost & Time Calculator   estimated fuel cost and total travel time for a 
+road trip, given the trip distance, fuel efficiency, 
+fuel price, and average driving speed.  
+4.   Activity 4: Employee Net  Build a Java program to calculate an employee's 
+Salary Calculator   net salary by deducting tax and social security 
+contributions from their gross salary, using user -
+defined rates.  
+5.   Activity 5: Store Discount  Design a Java program to determine the final 
+Calculator   price of an item after applying both a percentage -
+based discount and a fixed amount discount. The 
+final price should not be less than zero.  
+ 
+Rubrics  
+Criteria   Excellent (4 points)   Good (3 points)   Satisfactory   (2  Needs 
+points)   Improvement  (1 
+point)  
+Correctness   Program  compiles  Program  compiles  Program  compiles  Program  does  not 
+and  runs  without  and  runs  with  but  has significant  compile  or  has 
+errors.  All  minor logical errors  logical  errors  or  major    errors 
+requirements  are  or   incomplete  missing    key  preventing 
+met accurately.   functionality.   functionality.   execution.  
+138  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Output Formatting   Output is perfectly  Output  is  mostly  Output  formatting  Output  is 
+formatted  as  per  formatted  is  inconsistent  or  unformatted   or 
+requirements (e.g.,  correctly,   with  deviates  difficult to read.  
+decimal   places,  minor  significantly  from 
+labels, newlines).   inconsistencies.   requirements.  
+Input Handling   Correct  Scanner  Mostly   correct  Incorrect  Scanner  Significant 
+methods  are  used  Scanner   usage,  usage  leading  to  problems   with 
+for all input types,  with  minor  issues  some input issues.   input   handling, 
+including  newline  (e.g.,  occasional  making    the 
+trap handling.   newline trap).   program difficult to 
+use.  
+Code  Structure  &  Code  is  well - Code  is  generally  Code is somewhat  Code  is 
+Readability   organized,  clean,  well - structured and  organized but lacks  disorganized, 
+and    includes  commented,  with  sufficient  poorly commented, 
+meaningful  minor  areas  for  comments  or  is  and very difficult to 
+comments.   improvement.   hard to follow.   understand.  
+Adherence   to  All    specified  Most requirements  Several  Many requirements 
+Requirements   requirements  for  are met, with one  requirements  are  are not met, or the 
+the  exercise  are  or  two  minor  partially  met  or  program  does  not 
+fully met.   omissions.   missing.   address  the  core 
+problem.    
+ 
+References/Resources:  
+ 
+Schildt, H. (2022). Java: A beginner's guide (9th ed.). McGraw - Hill Education.  
+ 
+Ullenboom, C. (2022). Java: The comprehensive guide. SAP PRESS. https://www.perlego.com/book/3774066  
+ 
+Dar,   M.   A.   (2020).   JAVA   Programming   Simplified.   BPB   Publications.   Retrieved   from  
+https://www.perlego.com/book/1681503.  
+ 
+Raza, M. R. (2022). Getting skilled with Java. BPB Publications. https://www.perlego.com/book/3448928  
+ 
+Other Suggested Readings:   
+ 
+W3Schools. (n.d.). Java strings. https://www.w3schools.com/java/java_strings.asp  
+ 
+Programiz. (2021). Java String (With Examples). https://www.programiz.com/java - programming/string  
+ 
+GeeksforGeeks. (n.d.). String in Java. https://www.geeksforgeeks.org/strings - in - java/  
+ 
+Oracle. (n.d.). The String class. https://docs.oracle.com/javase/tutorial/java/data/strings.html  
+ 
+TutorialsPoint. (n.d.). Java  –   Strings class. https://www.tutorialspoint.com/java/java_strings.htm  
+ 
+Guru99. (2021). Java string tutorial. https://www.guru99.com/java - string.html  
+ 
+ 
+ 
+ 
+ 
+139  
+Course Modules in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 

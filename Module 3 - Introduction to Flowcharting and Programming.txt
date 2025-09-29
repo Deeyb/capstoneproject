@@ -1,0 +1,1109 @@
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  Course Module   in  
+ 
+ 
+COMP102: COMPUTER 
+ 
+ 
+PROGRAMMING 1    
+ 
+   
+ 
+   
+ 
+ 
+ 
+ 
+ 
+   
+ 
+   
+ 
+   
+ 
+ 
+MODULE 3:  
+ 
+ 
+  Topic:  Introduction to 
+ 
+ 
+  Flowcharting and 
+ 
+ 
+  Programming  
+ 
+ 
+   
+ 
+ 
+42  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+ 
+Week Number   2 - 3  
+Chapter/Unit Number   3  
+Topic Title   Introduction to Flowcharting and Programming  
+Course Outcomes   CO2 Apply problem - solving techniques and the software development life cycle by 
+analyzing  and  interpreting  source  code,  flowcharts,  and  algorithms  to  design 
+efficient programming solutions.  
+Intended Learning  Lecture:  
+Outcomes    
+At the end of the chapter, the students will be able to:  
+1.   Define algorithm, pseudocode, and flowchart with examples.  
+2.   Construct algorithms using pseudocode for simple computational tasks.  
+3.   Diagram problem - solving logic using standard flowchart symbols.  
+4.   Translate a given algorithm into a corresponding flowchart representation  
+ 
+Laboratory:  
+1.   Construct pseudocode or flowcharts representing a logical plan for solving a 
+problem.  
+2.   Evaluate a given flowchart for logical correctness.  
+ 
+SDG and KLD  SDG 8: Decent Work and Economic Growth  
+REGAL100 Integration   SDG 9: Industry, Innovation and Infrastructure  
+SDG 11: Sustainable Cities and Communities  
+REGAL 100:  Responsible Digital Citizens: Technology, Research Ethics, and Online 
+Etiquette  
+Discussion  
+ 
+III. Introduction to Flowcharting and Programming  
+ 
+Every task, big or small, that a computer performs, from launching an application to playing a complex video 
+game, relies on a series of precise instructions. These instructions, when organized logically to solve a specific 
+problem, form the foundation of  what we call an algorithm. Before we even begin to write a single line of 
+code in any programming language, we must first understand what needs to be done and how it should be 
+done. This initial phase of problem - solving and planning is crucial and is where   algorithms , pseudocode   and 
+flowcharts come into play. They serve as blueprints, guiding us through the process of transforming a real -
+world problem into a set of instructions that a computer can understand and execute.  
+ 
+1.   What is an Algorithm?  
+ 
+An algorithm is a finite set of well - defined, unambiguous instructions to solve a problem or accomplish a task. 
+Think of it as a recipe: it provides a step - by - step guide on how to prepare a dish. Similarly, an algorithm 
+provides a step - by - step guide on how   to achieve a desired outcome using a computer.  
+ 
+Key characteristics of a good algorithm:  
+43  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   Finite.   It must terminate after a finite number of steps. It cannot go on forever.  
+•   Well - defined/Unambiguous.  Each   step  must  be  clear  and  precise,  leaving  no  room  for 
+misinterpretation. There should be only one way to interpret each instruction.  
+•   Input.   It must accept zero or more inputs.  
+•   Output.   It must produce one or more outputs.  
+•   Effective.   Each step must be sufficiently basic that it can, in principle, be done exactly and in a finite 
+amount of time by a person using pencil and paper.  
+ 
+Example   1 .   A simple algorithm for making a cup of coffee.  
+ 
+1.   Boil water.  
+2.   Place coffee grounds in a filter.  
+3.   Place filter in coffee maker.  
+4.   Pour hot water over coffee grounds.  
+5.   Wait for coffee to brew.  
+6.   Pour coffee into a cup.  
+7.   Add sugar and milk (optional).  
+8.   Enjoy your coffee.  
+ 
+Example 2 .   Finding a Book in a Library .  
+ 
+1.   Go to the library's catalog system (computer or card catalog).  
+2.   Search for the book by title or author.  
+3.   Note down the call number of the book.  
+4.   Go to the section of the library corresponding to the first part of the call number.  
+5.   Locate the specific shelf using the rest of the call number.  
+6.   Find the book on the shelf.  
+7.   If found, take the book. If not, recheck the call number or ask for assistance.  
+ 
+Example 3.  Getting the Product of Two Numbers .  
+1.   Take the first number as input.  
+2.   Take the second number as input.  
+3.   Multiply the first number by the second number.  
+4.   The result of the multiplication is the product.  
+5.   Display the product.  
+ 
+Example  4 .  Checking if a Number is Even or Odd .  
+ 
+1.   Take an integer number as input.  
+2.   Divide the number by 2.  
+3.   Check the remainder of the division.  
+4.   If the remainder is 0, the number is even.  
+5.   If the remainder is not 0 (it will be 1 for integers), the number is odd.  
+44  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Example  5 .   Write a solution on how to find the average grades of a class of 10 students  
+ 
+1.   Identify the grades of the 10 students.  
+2.   Add all the grades.  
+3.   Divide the total of the grades by 10.  
+4.   Round off the answer by two decimal places.  
+5.   Show the result.  
+ 
+2.   Formulating Algorithms using Pseudocode  
+ 
+Pseudocode  is an artificial and informal language that helps programmers develop algorithms. It is a "text -
+based" representation that describes the steps of an algorithm without strictly adhering to the syntax rules 
+of any programming language. It acts as a bridge be tween human language and programming language, 
+making it easier to translate the algorithm into actual code.  
+ 
+Key characteristics of Pseudocode:  
+•   Easy for humans to understand.  
+•   Avoids unnecessary details.  
+•   Uses common control structures like IF - THEN - ELSE, WHILE, FOR, DO - WHILE, etc., to represent 
+decision - making and repetition.  
+•   Not tied to any specific programming language.  
+ 
+General Guidelines for Writing Pseudocode:  
+ 
+•   Use simple, clear English statements.  
+•   Indent code blocks to show hierarchy and structure (e.g., inside loops or conditional statements).  
+•   Use keywords for control structures (e.g., START, END, READ, WRITE, IF, ELSE, WHILE, FOR, 
+FUNCTION).  
+•   Variables should be descriptive.  
+ 
+Common Pseudocode Constructs:  
+ 
+Variables   -   DECLARE variable_name AS data_type (e.g., DECLARE age AS INTEGER)  
+ 
+Assignment   -   SET variable_name TO value or variable_name = value (e.g., SET total TO 0)  
+ 
+Input  -   GET input_variable or READ input_variable (input)  
+ 
+Output  -   DISPLAY output_variable or PRINT output_variable (output)  
+ 
+Conditional Statements:  
+ 
+IF condition THEN  
+// statements if condition is true  
+45  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ELSE  
+// statements if condition is false  
+END IF  
+ 
+ 
+Looping Constructs:  
+ 
+While Loop:  
+ 
+WHILE condition DO  
+// statements to repeat  
+END WHILE  
+ 
+For Loop:  
+ 
+FOR counter FROM start_value TO end_value STEP increment DO  
+// statements to repeat  
+END FOR  
+ 
+Repeat - Until Loop:  
+ 
+REPEAT  
+// statements to repeat  
+UNTIL condition  
+ 
+Functions/Procedures:  
+ 
+FUNCTION function_name(parameters)  
+// statements  
+RETURN value  
+END FUNCTION  
+ 
+Example  1 : Algorithm to find the sum of two numbers.  
+ 
+START  
+     READ number1  
+     READ number2  
+     CALCULATE sum = number1 + number2  
+     DISPLAY sum  
+END  
+ 
+Example 2: Algorithm to determine the area of rectangle.  
+ 
+BEGIN  
+     INPUT length  
+46  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+     INPUT width  
+     CALCULATE area = length * width  
+     PRINT area  
+END  
+ 
+Example  3 : Algorithm to determine if a student passed or failed (passing score is 70).  
+ 
+START  
+     READ student_score  
+     IF student_score >= 70 THEN  
+         DISPLAY "Passed"  
+     ELSE  
+         DISPLAY "Failed"  
+     END IF  
+END  
+ 
+Example 4: Algorithm to determine if the number is Positive, Negative or equals to Zero  
+ 
+BEGIN  
+     INPUT number  
+     IF number > 0 THEN  
+         PRINT "Positive"  
+     ELSE IF number < 0 THEN  
+         PRINT "Negative"  
+     ELSE  
+         PRINT "Zero"  
+     END IF  
+END  
+ 
+Example   5 : Algorithm to Calculate the  Product   of Two Numbers using Pseudocode  
+ 
+// Algorithm:  Product _Two_Numbers  
+// Description: This algorithm reads two numbers from the user and calculates their  product .  
+ 
+START  
+ 
+     DECLARE num1 AS INTEGER  
+     DECLARE num2 AS INTEGER  
+     DECLARE sum AS INTEGER  
+ 
+     DISPLAY "Enter the first number: "  
+     GET num1  
+ 
+     DISPLAY "Enter the second number: "  
+     GET num2  
+47  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+     SET sum TO num1  *   num2  
+ 
+     DISPLAY "The  product   is: ", sum  
+ 
+END  
+ 
+Example   6 : W HILE Loop  -   Summing numbers until a negative input  
+ 
+BEGIN  
+     SET total_sum = 0  
+     INPUT number  
+     WHILE number >= 0 DO  
+         total_sum = total_sum + number  
+         INPUT number  
+     END WHILE  
+     PRINT "Sum of non - negative numbers:", total_sum  
+END  
+ 
+Example   7 :  FOR Loop  -   Printing numbers from 1 to 5  
+ 
+BEGIN  
+     FOR counter FROM 1 TO 5 STEP 1 DO  
+         PRINT counter  
+     END FOR  
+END  
+ 
+Example   8 :  REPEAT...UNTIL Loop  -   Input validation  
+ 
+BEGIN  
+     DECLARE password AS STRING  
+     REPEAT  
+         PRINT "Enter password:"  
+         INPUT password  
+     UNTIL password IS EQUAL TO "secret123"  
+     PRINT "Access granted."  
+END  
+ 
+3.  Formulating Algorithms using Flowchart  
+ 
+While algorithms describe  what   and how in a textual format, flowcharts provide a graphical representation 
+of an algorithm. They use standard symbols to depict the different types of operations and the flow of control 
+within an algorithm. Flowcharts are invaluable tools for visualizing  the logic of a program, making it easier to 
+understand, debug, and communicate complex processes.  
+ 
+48  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Advantages of using Flowcharts  
+•   Provides a clear and visual representation of the logic, making it easier to explain complex 
+processes to others.  
+•   Helps in analyzing the logic of a problem, identifying potential bottlenecks, redundancies, or errors 
+before coding.  
+•   Facilitates debugging by allowing programmers to trace the flow of control and identify where 
+errors might occur.  
+•   Serves as a valuable form of program documentation, aiding in maintenance and future 
+modifications.  
+•   Promotes efficient coding by encouraging a systematic approach to problem - solving.  
+Common Flowcharting Symbols  
+ 
+ 
+ 
+Figure 28.    Flowchart symbols with names and functions used in algorithm design.  
+  Constructing a Flowchart: Step - by - Step  
+   
+•   Understand the Problem. Clearly define what the algorithm needs to achieve.  
+  •   Identify Inputs and Outputs. What data is needed, and what results should be produced?  
+ 
+49  
+Ask ChatGPT  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   Break Down the Problem. Divide the problem into smaller, manageable steps.  
+•   Determine the Sequence. Arrange the steps in a logical order.  
+•   Use Appropriate Symbols. Select the correct flowchart symbol for each step.  
+•   Connect Symbols with Flow Lines. Use arrows to show the direction of execution.  
+•   Test the Flowchart. Mentally trace the flow of control with different inputs to ensure it works 
+correctly.  
+ 
+The following rules should be followed while creating program flowcharts  
+•   Only the standard symbols should be used in program flowcharts.  
+•   The program logic should depict the flow from top to bottom and from left to right.  
+•   Each symbol used in a program flowchart should contain only one entry point and one exit point, 
+except for the decision symbol. This is known as the single rule.  
+•   The operations shown within a symbol of a program flowchart should be expressed independently 
+of any programming language.  
+•   All decision branches should be well - labeled.  
+•   On - page connectors are referenced using numbers  
+•   Off - page connectors are referenced using alphabets  
+•   Arrows should not cross each other  
+ 
+Flowchart Example  –   Sum of Two Numbers  
+ 
+ 
+Figure 29.    Example flowchart illustrating the addition of two numbers (529 and 256).  
+ 
+  50  
+Course Module in  COMP102 :   
+ 
+COMPUTER PROGRAMMING 1  
+  Ask ChatGPT  
+
+ 
+ 
+ 
+Flowchart Example  –   Compute the Area of Circle  
+The flowchart example below shows  an algorithm to compute the area of circle.  
+ 
+ 
+Figure 30.    Flowchart for calculating the area of a circle given its radius.  
+  Flowchart Example  –   Temperature Conversion  
+   
+The flowchart example below shows  an algorithm to covert temperature from Fahrenheit to Celsius.  
+   
+Ask ChatGPT  
+ 
+ 
+Figure 31.    Flowchart for converting temperature from Fahrenheit to Celsius.  
+ 
+51    
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1    
+ 
+Ask ChatGPT  
+
+ 
+Flowcharts for decision making  
+ 
+Computers are used extensively for performing various types of analysis. The decision symbol is used in 
+flowcharts to indicate it.   The general format of steps for flowcharting is as follows:  
+•   Perform the test of the condition.  
+•   If condition evaluates true branch to Yes steps.  
+•   If condition evaluates false branch to No steps.  
+ 
+ 
+Figure 3 2 .  Decision - making flowchart symbol directing flow based on a Yes or No response.  
+   
+Flowchart showing a decision symbol with two selection options    
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+Figure 33.  Flowchart illustrating conditional branching for true and false outcomes .  
+   
+   
+ 
+  Flowchart showing multiple selections options  
+ 
+52  
+Ask ChatGPT   Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+ 
+ 
+
+ 
+ 
+Figure 34.  Flowchart depicting a   s equential  e valuation of  m ultiple  c onditions  u sing If - Else  l ogic .  
+   
+Flowchart Example  –   Calculate Profit and Loss    
+The flowchart example below shows how profit and loss can be calculated.  
+     
+ 
+Ask ChatGPT  
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+ 
+ 
+Figure 35.  Flowchart to calculate profit or loss based on income and cost.  
+ 
+  53  
+Course Module in  COMP102 :   
+  COMPUTER PROGRAMMING 1  
+   
+Ask ChatGPT  
+
+ 
+Flowchart Example: High est Number  
+The flowchart example below shows   algorithm   to determine which is highest between two number.  
+ 
+ 
+ 
+Figure 36.  Flowchart to compare two numbers and print the greater one.  
+  Flowchart Example: Passed or Failed  
+The flowchart example shows algorithm to determine the student final grade if Passed or Failed.    
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+ 
+Figure 37.  Flowchart to calculate the average of prelim, midterm, and final grades and determine if the student passed .  
+ 
+54  
+ 
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+ 
+ 
+
+ 
+ 
+Flowchart Example: Types of Triangles  
+ 
+The flowchart example shows algorithm to check if triangle is equilateral, isosceles or scalene.  
+ 
+ 
+ 
+Figure 3 8 .  Flowchart to determine the type of triangle based on the lengths of its sides .  
+ 
+  55  
+Course Module in  COMP102 :   
+  COMPUTER PROGRAMMING 1  
+ 
+ 
+
+ 
+ 
+ 
+ 
+ 
+ 
+Flowcharts for Loops  
+ 
+Looping refers to the repeated use of one or more steps. i.e. the statement or block of statements within 
+the loop are executed repeatedly. There are two types of loops.   
+•   One is known as the fixed loop where the operations are repeated a fixed number of times. In this 
+case, the values of the variables within the loop have no effect on the number of times the loop is to 
+be executed.   
+•   In the other type which is known as the variable loop, the operations are repeated until a specific 
+condition is met. Here, the number of times the loop is repeated can vary.  
+ 
+The loop process in general includes :  
+•   Setting and initializing a counter  
+•   Execution of operations  
+•   Testing the completion of operations  
+•   Incrementing the counter  
+•   The test could either be to determine whether the loop has executed the specified number of times, 
+or whether a specified condition has been met.  
+ 
+ 
+Figure  39 .  Flowchart showing a loop that executes while a condition is true .  
+ 
+  56  
+Course Module in  COMP102 :   
+  COMPUTER PROGRAMMING 1  
+   
+Ask ChatGPT  
+
+ 
+ 
+Example: Flowchart to print numbers from 1 to 10  
+ 
+ 
+  (a)  
+(b)  
+ 
+ 
+Figure  40 .  Flowcharts representing (a) a  pre - test loop   and (b) a  post - test   loop for outputting numbers from 1 to 
+ 
+10  
+ 
+  Example: Flowchart to compute the sum of numbers from 1 to 5.  
+ 
+ 
+Ask ChatGPT  
+ 
+ 
+ 
+Ask ChatGPT  
+ 
+ 
+ 
+Figure 41.  Flowchart to calculate the sum of numbers from 1 to 5 using a loop .  
+ 
+   
+ 
+ 
+ 
+ 
+57  
+Ask ChatGPT   Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+ 
+ 
+
+ 
+Example: Flowchart to print all the even numbers from 1  to 15.  
+ 
+ 
+ 
+ 
+Figure 42.  Flowchart to display even numbers between 1 and 15 using a counter and remainder check .  
+ 
+   
+ 
+ 
+Laboratory   Exercises  
+   
+Applied Flowcharting and Problem - Solving  
+Ask ChatGPT    
+Activity 1: Problem - Solving Blueprint Challenge    
+ 
+  I nstructions: For each of your assigned problems, you will develop a complete logical plan in two formats: 
+Pseudocode and a Flowchart. Ensure your solutions are clear, unambiguous, use standard conventions, and   
+correctly solve the given problem.  
+Ask ChatGPT    
+Materials: Computer with flowcharting software (e.g., Draw.io, Lucidchart), pen/pencil, paper.  
+ 
+Procedure:  
+ 
+1.   Read your assigned problems carefully.  
+2.   First, develop the Pseudocode: Write the step - by - step algorithm in pseudocode format.  
+3.   Second, create the Flowchart: Translate your pseudocode into a visual flowchart using standard 
+flowcharting symbols. Use the designated flowcharting software.  
+58  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+4.   Submit both your pseudocode (typed or clearly written) and your flowchart (digital file).  
+Problem Set for Lab Activity 1:  
+ 
+Problem 1: Simple Calculator (Addition, Subtraction, Multiplication, Division)  
+Design a logical plan that takes two numbers and an operator (+,  - , *, /) as input. It should then perform the 
+specified operation and display the result. Handle division by zero (display an error message if the second 
+number is zero and the operator is di vision).  
+ 
+Problem 2: Student Grade Classifier  
+Design a logical plan that takes a student's numerical score (0 - 100) as input. It should then output "Pass" if 
+the score is 60 or above, and "Fail" if the score is below 60. Additionally, if the score is 90 or above, also 
+output "With Honors".  
+ 
+Problem 3: Sum of Positive Numbers  
+Design a logical plan that continuously takes numbers as input from the user. The process should stop 
+when the user enters a negative number. At that point, it should display the sum of all the positive numbers 
+entered.  
+ 
+Problem 4: Count Vowels in a Word  
+Design a logical plan that takes a single word (string) as input. It should count how many vowels (a, e, i, o, u, 
+case - insensitive) are present in the word and display the total count.  
+ 
+Problem 5: Even or Odd Number Checker with Loop  
+Design a logical plan that repeatedly asks the user to enter an integer. For each number entered, it should 
+determine and display whether the number is "Even" or "Odd". The process should continue until the user 
+enters 0.  
+ 
+b.   Activity 2: Flowchart Evaluation and Debugging  
+Instructions:  C arefully examine each of the provided flowcharts. Each flowchart has one or more logical 
+errors or adherence issues. Your task is to:  
+ 
+•   Understand what the flowchart is attempting to do.  
+•   Identify and clearly describe ALL errors or issues you find.  
+•   Propose a correction for each identified error.  
+ 
+Recreate the original faulty flowchart in your software, then make the necessary corrections to produce a 
+logically sound and correct flowchart. Submit both your written analysis and your corrected flowchart file.  
+ 
+Materials: Lab Handout with faulty flowcharts, computer with flowcharting software, pen/pencil, paper.  
+ 
+ 
+ 
+ 
+ 
+ 
+59  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Faulty Flowcharts for Lab Activity 2  
+ 
+Faulty Flowchart 1: Average Calculator   
+ 
+ 
+ 
+Faulty Flowchart  2 : Age Eligibility  ( Child/Teen <18, Adult >=18. Senior >59)   
+ 
+ 
+ 
+ 
+60  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Faulty Flowchart  3 : Login System   
+ 
+ 
+ 
+ 
+Faulty Flowchart  4 : Number Counter    (Print numbers from 10 to 50 with 5 step increment)  
+ 
+ 
+ 
+Activity 3: Algorithm Optimization Challenge  
+ 
+Instructions: For each of the problems below, you are given a description and an existing (but possibly 
+inefficient) pseudocode/flowchart solution. Your task is to:  
+61  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+•   Analyze the provided solution .  What is it trying to do? Are there any obvious inefficiencies or 
+unnecessary complexities?  
+•   Critique .  Write down your observations and point out specific areas where the solution could be 
+improved.  
+•   Optimize .  Design and create a new, optimized pseudocode and flowchart that solves the problem 
+more efficiently or clearly.  
+ 
+Materials: Computer with flowcharting software, pen/pencil, paper.  
+ 
+Problem Set for Lab Activity 3:  
+ 
+Problem 1: Number Sign Checker   
+Problem Description: Determine if a given number is positive, negative, or zero.  
+ 
+START  
+     READ number  
+     IF number > 0 THEN  
+         DISPLAY "Positive"  
+     END IF  
+     IF number < 0 THEN  
+         DISPLAY "Negative"  
+     END IF  
+     IF number = 0 THEN  
+         DISPLAY "Zero"  
+     END IF  
+END  
+ 
+Problem 2: Simple Product Calculation   
+Problem Description: Calculate the product of 5 numbers provided by the user.  
+START  
+     DECLARE product AS INTEGER = 1  
+     DECLARE count AS INTEGER = 0  
+     WHILE count < 5 DO  
+         DISPLAY "Enter a number:"  
+         READ num  
+         product = product * num  
+         count = count + 1  
+         DISPLAY "Current product is: ", product   
+     END WHILE  
+     DISPLAY "Final Product is: ", product  
+END  
+ 
+ 
+ 
+62  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Activity 4: Story to Logic Challenge  
+ 
+Instructions: Your group will receive a "story problem" that describes a scenario needing a logical solution. 
+Work collaboratively to design a robust algorithm for this problem.  
+ 
+Materials: Lab Handout, large paper/whiteboard, markers, computer with flowcharting software.  
+ 
+Procedure:  
+ 
+•   Understand the Story .   Read your assigned story problem multiple times. What is the main goal? 
+What information do you need (inputs)? What results should be produced (outputs)? What are the 
+conditions or repeated actions?  
+•   Brainstorm & Outline .   On paper or whiteboard, brainstorm the key steps. Don't worry about perfect 
+syntax yet, just get the logic down.  
+•   Develop Pseudocode .   Translate your outlined steps into detailed pseudocode, using appropriate 
+constructs (IF/ELSE, WHILE/FOR, etc.).  
+•   Create  Flowchart .   Using   the flowcharting software, draw the complete flowchart that visually 
+represents your pseudocode.  
+ 
+Story Problem  Set  for Lab Activity 4:  
+ 
+Story Problem 1: The Coffee Shop Order System  
+"A small coffee shop wants to automate its ordering process. A customer can order either a small (P100), 
+medium (P120), or large (P140) coffee. They can also add milk (+P20) or sugar (+P10) to their order, or both. 
+After an order is placed, the system shou ld ask if the customer wants to add another item (e.g., a pastry at 
+P50). This should repeat until the customer says 'no'. Finally, the system should display the total cost of 
+their order."  
+ 
+Story Problem 2: Library Book Fine Calculator  
+"The local library charges fines for overdue books. For the first 5 days overdue, the fine is P10 per day. For 
+days 6 to 10 overdue, the fine is P20 per day. For any days beyond 10, the fine is P50 per day. If a book is 
+returned within 24 hours of its due  date, there is no fine. Design a system that takes the number of days a 
+book is overdue and calculates the total fine."  
+ 
+Story Problem 3: Basic ATM Withdrawal  
+"An ATM allows a user to withdraw money. The user first inputs their desired withdrawal amount. The ATM 
+needs to check two things: 1) Is the amount a multiple of P100 (since it only dispenses P100 bills)? 2) Does 
+the user have sufficient balance in their a ccount (assume a fixed balance of P5000 for this exercise)? If both 
+conditions are met, the ATM dispenses the cash and displays 'Transaction Approved. Remaining Balance: 
+[new balance]'. Otherwise, it displays an appropriate error message ('Invalid amount'  or 'Insufficient 
+Balance')."  
+ 
+ 
+ 
+63  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Outcomes - Based  Output 1. Self - Check  
+Assessment    
+1.   An algorithm is best described as:  
+a) A type of computer program  
+b) A set of ambiguous instructions to solve a problem  
+c) A finite set of well - defined, unambiguous instructions to solve a problem or 
+accomplish a task  
+d) A graphical representation of program logic  
+2.   Pseudocode is:  
+a) A programming language like Python or Java  
+b) An informal, high - level description of an algorithm, typically in English - like 
+syntax  
+c) A diagram using standard symbols to show program flow  
+d) The final compiled version of a program  
+3.   A flowchart is primarily used for:  
+a) Writing actual programming code  
+b) Graphically representing the step - by - step logic of an algorithm  
+c) Executing instructions on a computer  
+d) Debugging syntax errors in a program  
+4.   True or False: A good algorithm must terminate after a finite number of steps.  
+a) True  
+b) False  
+5.   Which characteristic of an algorithm ensures that each step is clear and precise, 
+leaving no room for misinterpretation?  
+a) Finite  
+b) Input  
+c) Output  
+d) Well - defined/Unambiguous  
+6.   True or False: An algorithm can only have one output.  
+a) True  
+b) False  
+7.   The initial phase of problem - solving and planning before writing code involves 
+which of the following?  
+a) Debugging and testing  
+b) Algorithms, pseudocode, and flowcharts  
+c) Compiling and linking  
+d) Deployment and maintenance  
+ 
+Part 2: Flowchart Symbols (Matching / Identification)  
+ 
+Match the flowchart symbol on the left with its correct name/function on the right.  
+ 
+Symbol   Name/Function  
+8.   Oval   A.   Process  
+9.   Parallelogram   B.   Start/End/Terminator  
+64  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+10.   Rectangle   C.   Decision  
+11.   Diamond   D.   Input/Output  
+12.   Arrow   E.   On - page connector  
+13.   Small Circle   F.   Flowline  
+ 
+Part 3: Short Answer / Application  
+ 
+14.   Consider  the  following  simple  process:  " Convert  Philippine  Peso  to  Dollar”.  
+Write a basic algorithm (step - by - step instructions).  
+15.   What is the main advantage of using pseudocode before writing actual code?  
+ 
+Output 2.  Board Recitation  
+ 
+Objective :  To  provide  a  dynamic  and  interactive  environment  for  students  to 
+demonstrate their ability to construct algorithms using pseudocode, translate logic 
+into flowcharts, and critically evaluate logical designs in real - time.  
+ 
+Instruction:  
+•   You will be given a problem description.  
+•   Clearly write the pseudocode on the board, including START/END, variable 
+declarations (if appropriate), input/output statements, and any necessary 
+control structures (IF/ELSE, loops).  
+•   Translate  pseudocode  into  flowcharts  by  drawing  the  corresponding 
+standard  symbols  (Terminator,  Process,  Input/Output,  Decision,  Flow 
+Lines, Connectors).  
+•   Ensure the flow lines accurately represent the sequence of operations and 
+decisions.  
+ 
+•   Be prepared to explain the pseudocode and the meaning of each symbol 
+you used on your flowchart.  
+ 
+Sample Problems:  
+ 
+Problem   1 : Calculate Body Mass Index (BMI)  
+Write pseudocode that takes a person's weight in kilograms and height in meters 
+as input. It should then calculate their BMI using the formula: BMI = weight / (height 
+* height). Finally, display the calculated BMI.  
+ 
+Problem 2 : Number Sign and Parity  
+Write pseudocode that takes an integer as input. It should first determine if the 
+number is positive, negative, or zero. Then, if the number is not zero, it should also 
+determine and display if it's "Even" or "Odd".  
+ 
+Problem   3 : Eligibility for Discount  
+65  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+A  store  offers  a  15%  discount  if  a  customer's  total  purchase  is  over  P500. 
+Additionally,  if  the  customer  is  a  senior  citizen  (input  'Y'  or  'N'),  they  get  an 
+additional 5% discount (total 20%) regardless of the total. Write pseudocode to 
+calculate the final   amount a customer has to pay.  
+ 
+Problem   4 : Traffic Light Status  
+Write pseudocode that takes a single character input ('R' for Red, 'Y' for Yellow, 'G' 
+for Green). Based on the input, it should display a message: "STOP", "PREPARE TO 
+STOP", or "GO". If an invalid character is entered, display "Invalid Input".  
+ 
+Problem   5 : Sum of Numbers in a Range  
+Write pseudocode that takes two integers as input: start_num and end_num. It 
+should  then  calculate  and  display  the  sum  of  all  integers  from  start_num  to 
+end_num  (inclusive).  Assume  start_num  will  always  be  less  than  or  equal  to 
+end_num.  
+ 
+Problem   6 : Password Validation with Retries  
+Write pseudocode that repeatedly prompts the user to "Enter password:" until the 
+correct password "secret123" is entered. If the user makes 3 incorrect attempts, 
+the program should display "Account Locked!" and terminate. Otherwise, display 
+"Access Granted !".  
+ 
+Problem   7 : Average of N Student Scores  
+Write pseudocode that first asks the user "How many students?". Then, it should 
+use a loop to prompt the user to enter the score for each student. After all scores 
+are entered, it should calculate and display the average score.  
+ 
+Output 3.  30 items  Quiz 2   on  Problem Solving and Software Development, and 
+Introduction to Flowcharting and Programming  
+Objective:  A  summative  assessment  to  comprehensively  evaluate  students' 
+understanding and application of problem - solving techniques, algorithm design, 
+and  flowcharting,  connecting  to  the  broader  Software  Development  Life  Cycle 
+(SDLC) context .  
+ 
+Output   4.  Applied Flowcharting and Problem - Solving  
+ 
+Student Deliverables  
+Component   Description  
+1.   Problem - Solving  Tackle complex problems by designing clear, step - by -
+Blueprint Challenge   step solution roadmaps and outlining your thought 
+process.  
+2.   Flowchart  Evaluation  Analyze and fix errors in flowcharts, ensuring they 
+and Debugging   accurately represent processes and lead to correct 
+outcomes.  
+66  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+3.   Algorithm  Refine and enhance existing algorithms for improved 
+Optimization  efficiency, reduced resource consumption, and better 
+Challenge   performance.  
+4.   Story   to   Logic  Translate  everyday  stories  into  structured  logical 
+Problems   puzzles by identifying variables, relationships, and 
+constraints  
+ 
+Rubrics for Activity1 - 3  
+ 
+Criteria   Exemplary (4 points)   Proficient (3 points)   Developing (2 points)   Beginning (1 point)  
+Logical  Plan  Pseudocode   and  Pseudocode   and  Pseudocode    or  Pseudocode    or 
+Correctness &  flowchart    are  flowchart    are  flowchart  has  minor  flowchart  contains 
+Completeness  flawlessly   logical,  logically sound, solve  logical errors, misses  significant   logical 
+(Pseudocode  completely solve the  the     problem  some edge cases, or  errors,  fails  to  solve 
+& Flowchart)   problem, and handle  correctly, and handle  doesn't fully solve the  the  problem,  or  is 
+all  specified  edge  most specified edge  problem. One or both  largely  incomplete. 
+cases  or  conditions.  cases.  Both  formats  formats  may  be  Major inconsistencies 
+Both  formats  are  are mostly complete  incomplete  or  have  between   formats 
+comprehensive  and  and well - aligned.   inconsistencies.   exist.  
+perfectly aligned.  
+Adherence to  Solutions    are  Solutions    are  Solutions have some  Solutions are unclear, 
+Conventions  exceptionally  clear,  generally    clear,  ambiguities    or  ambiguous,   and 
+& Clarity   unambiguous,  and  unambiguous,  and  inconsistencies   in  demonstrate 
+strictly adhere to all  mostly  adhere  to  clarity or convention  significant  deviations 
+standard  standard  adherence,  making  from    standard 
+pseudocode   and  conventions.  them   occasionally  conventions,  making 
+flowcharting  Relatively  easy  to  difficult to follow.   them very difficult to 
+conventions  follow  and  understand.  
+(symbols, formatting,  understand.  
+etc.). Easy to follow 
+and understand.  
+Problem  Demonstrates   a  Demonstrates a good  Demonstrates   a  Provides  little  to  no 
+Analysis   &  comprehensive  and  analysis,  identifying  limited   analysis,  meaningful  analysis, 
+Critique  insightful analysis of  most     errors,  identifying   some  failing  to  identify 
+(Activities 2 &  given  problems  or  inefficiencies,   or  errors/inefficiencies  major  issues  or 
+3)   solutions,  precisely  areas  for  but missing others or  opportunities   for 
+identifying all errors,  improvement.   providing  superficial  improvement.  
+inefficiencies,   or  observations.  
+areas  for 
+improvement.  
+Proposed  Proposes  perfectly  Proposes logical and  Proposes    some  Proposes  few  to  no 
+Solutions  &  logical, effective, and  effective  corrections/solutions,  corrections/solutions, 
+Optimization  optimized  corrections/solutions  but  they  may  be  or they are incorrect, 
+(Activities 2 &  corrections/solutions  for  most  identified  incomplete,  illogical,  ineffective,  or  make 
+3)   for  all  identified  issues,     with  or lack clear rationale.  the  problem  worse. 
+issues, with clear and  reasonable rationale.  Optimization may be  Lacks  understanding 
+compelling rationale.  Shows     clear  minimal or introduce  of optimization.  
+Demonstrates  improvement   in  new minor flaws.  
+significant  efficiency  or  clarity 
+improvement   in  over the original.  
+efficiency or clarity.  
+   
+Rubric for Activity 4  
+Criteria   Exemplary    (4  Proficient (3 points)   Developing    (2  Beginning (1 point)  
+points)   points)  
+Understanding  the  Demonstrates   a  Demonstrates   a  Demonstrates   a  Demonstrates   a 
+Story  &  deep and complete  good understanding  partial  limited 
+Requirements   understanding  of  of   the   story  understanding,  understanding, 
+the story problem,  problem,  missing  some  key  failing  to  identify 
+67  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+accurately  identifying   most  inputs,   outputs,  major  components 
+identifying    all  inputs,   outputs,  conditions,    or  of   the   story 
+inputs,   outputs,  conditions,   and  constraints.   problem.  
+conditions,   and  constraints.  
+constraints.  
+Algorithm  Design  Designed algorithm  Designed algorithm  Designed algorithm  Designed algorithm 
+(Pseudocode)   (pseudocode)   is  (pseudocode)   is  (pseudocode)  has  (pseudocode) 
+robust,  handles  all  generally  robust,  minor logical flaws  contains  significant 
+scenarios and edge  handles    most  or missed scenarios,  logical  errors,  fails 
+cases,  is  highly  scenarios,    is  some inefficiencies,  to  address  the 
+efficient,    and  efficient, and clear.   or  is  occasionally  problem, or is highly 
+exceptionally clear.   unclear.   inefficient/unclear.  
+Flowchart  Flowchart  is  a  Flowchart is a good  Flowchart   has  Flowchart    is 
+Representation   perfect    visual  visual  minor  inconsistent  with 
+representation  of  representation  of  inconsistencies with  the  pseudocode, 
+the  pseudocode,  the  pseudocode,  the  pseudocode,  poorly organized, or 
+highly  organized,  well - organized, and  some organizational  demonstrates 
+and strictly adheres  mostly  adheres  to  issues, or occasional  major  convention 
+to    standard  standard  deviations   from  violations.  
+conventions.   conventions.   conventions.  
+Collaboration   &  Group  effectively  Group collaborated  Group collaboration  Group collaboration 
+Teamwork   collaborated,  well,  with  good  was  limited,  with  was  poor,  with 
+demonstrating  division of labor and  some    uneven  significant issues in 
+excellent division of  mutual   support,  participation   or  participation, 
+labor,    mutual  leading to effective  minor difficulties in  division of labor, or 
+support,    and  problem - solving.   reaching consensus.   problem - solving.  
+cohesive  problem -
+solving.    
+ 
+References/Resources:  
+ 
+Ahmad, M. S. (2024). Fundamentals of programming. Toronto Academic Press. 
+https://www.perlego.com/book/4501018  
+ 
+Chaudhuri, A. (2020). Flowchart and algorithm basics [Edition unavailable]. Mercury Learning and 
+Information. https://www.perlego.com/book/3026682  
+ 
+McAllister, W., & Fritz, S. J. (2021). Programming fundamentals using JAVA (2nd ed.). Mercury Learning and 
+Information. https://www.perlego.com/book/3026716  
+ 
+Other Suggested Readings:   
+ 
+GeeksforGeeks. (n.d.). Algorithm and flowchart basics. https://www.geeksforgeeks.org/algorithm - flowchart/  
+ 
+Programiz. (2021). Pseudocode, algorithm, and flowchart. https://www.programiz.com/article/pseudocode -
+algorithm - flowchart  
+ 
+TutorialsPoint. (n.d.). Flowchart in programming. 
+https://www.tutorialspoint.com/software_engineering/software_engineering_flowcharts.htm  
+ 
+Guru99. (2021). Flowchart tutorial. https://www.guru99.com/flowchart.html  
+ 
+ 
+68  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 

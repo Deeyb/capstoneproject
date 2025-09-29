@@ -1,0 +1,2120 @@
+ 
+KOLEHIYO NG LUNGSOD NG DASMARI Ñ AS  
+Institute of  Computing and Digital Innovation  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+   
+Course Module   
+in  
+COMP102 :  Computer Programming 1  
+i  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+LETTER TO THE READERS   AND USERS  
+ 
+Welcome to COMP 102: Computer Programming 1 — a foundational course 
+designed to equip you with the essential skills in programming using Java, one of 
+the world’s most widely used and versatile programming languages.   
+ 
+This module acts as your entry point into programming, providing you with 
+essential  theoretical  knowledge  and  practical  skills  necessary  to  begin  your 
+journey  as  a  developer.  Whether  your  goal  is  software  development,  systems 
+analysis, data science, or any   computing - related field, the concepts and exercises 
+included here will lay the foundation for your technical expertise.  
+ 
+Throughout this module, you will learn how to write, compile, and run Java 
+programs, understand fundamental programming constructs such as variables, 
+data  types,  control  structures,  and  arrays.  Our  goal  is  to  make  programming 
+approachable, engaging, and pr actical so you can apply these skills to real - world 
+problems.   Specifically, this module will cover the following topics:  
+ 
+Introduction to Computer Programming   –   Understand the basic  components  
+of computers, and various programming paradigms and languages.  
+ 
+Problem  Solving  and  Software  Development   –   Learn  how  to  break  down 
+complex problems and apply the Software Development Life Cycle (SDLC).  
+ 
+Introduction  to  Flowcharting  and  Programming   –   Develop  logical  solutions 
+using pseudocode and flowcharts to build a solid foundation for coding.  
+ 
+Introduction to Java   La ng uage and Programming Fu ndamentals   –   Dive into 
+the  language’s  history,  features,  development  environment,  and  how  Java 
+programs are built and executed.   Gain proficiency in syntax, data types, variables, 
+constants, operators, and memory handling.  
+ 
+Input and Outpu t in Java –   Master basic console input and output operations 
+including formatting, escape sequences, and placeholders.  
+ 
+ii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Java  Operators   –   Perform arithmetic and logical operations and convert data 
+types appropriately.  
+ 
+Strings  and  Built - in  Libraries   –   Work  with  text  and  use  built - in  functions  to 
+manipulate data more effectively.  
+ 
+Selection  and Iterative Structures   –   Implement decision - making using selection 
+structures and loops to control the flow of your programs.  
+ 
+Arrays  –   Store and manage collections of data efficiently using one - dimensional 
+and multi - dimensional arrays.  
+ 
+Our goal is to help you develop computational thinking, strengthen your 
+logical reasoning, and enable you to construct meaningful solutions using Java.  
+ 
+As you progress through the lessons,  I   encourage you to actively participate 
+in hands - on activities, engage with practice problems, and work on programming 
+exercises provided in both lecture and laboratory settings.  
+ 
+This module is aligned with outcome - based education principles, ensuring 
+that every activity and assessment is designed to foster higher - order thinking, 
+problem - solving ability, and practical application of knowledge.  
+ 
+I   hope this module serves as a strong foundation for your future studies 
+and inspires you to further explore the exciting field of software development.    
+ 
+Happy coding!  
+ 
+Lode l io   D.   Millo  
+Main   Author  
+   
+iii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+TABLE OF CONTENTS  
+ 
+  Page  
+Letter to the Readers and Users       ..................... . ........................... ................. ..............................................   ii  
+Table of Contents     .............................................. . ............................................................... ................. ..........   iv  
+KLD  Vision     ......................................................... .. .................................................................................. .........     vi i  
+KLD  Mission     ................................................... .. ..................................................................................... .........   vi i  
+KLD  Core Values   and Beliefs       ............................................................................................................... ........   vi i  
+KLD  General Goals     ... .. .......................................................................................................................... ........   vii i  
+Institute   Goals     ... .. ................................. ........ ......................................................................................... ........   ix  
+Department/Section Objectives       ... .. ........................ ..... ....................................................................... ........   x  
+KLD  Strategic Directions     ................................................................................................................. .............   xii  
+KLD  Official Logo Symbols and Meanings     .................................................................................... ............   xx  
+KLD History       .......................................................................................................................... ..........................   xxi  
+KLD Hymn     ..................................................................................................................... .. ........... ....................   xxii  
+Course General Guidelines       ...... . ................................................................................. .. ........... ....................   x xi ii  
+Course Specific Guidelines       .................. .. ..................................................................... .. ........... ....................   x xi v  
+   
+MODULE   1   Introduction to Computer Programming   1  
+    The Computer System s ........................ .....................................................................   3  
+    Analog vs. Digital Computers ........................... ...... ..................... ............................ .   7  
+    Programming Languages ........................... ... ......... ... ......... ... ................................. ...   8  
+    Scripting Languages   .............................. ......... ... ......................................................,.   12  
+    Programming Paradigm   ... ...................................................... ... ...............................   12  
+    Number Systems     ... ...................................................... ... ...........................................   15  
+    Number System Conversion   ... ................................................................................   17  
+    Laboratory Exercises   ................................................................................................   2 2  
+    Outcomes - Based Assessment   Activities   ...............................................................   2 4  
+MODULE 2   Problem Solving and Software Development   2 9  
+    Solving a Programming Problem ........................... .. ................................. ..............   31  
+    The Software Development Life Cycle (SDLC)   .................................... ............ ..... .   3 4  
+    Laboratory Exercises ............... ......................................................... ............ .............   3 6  
+    Outcome - Based Assessment Activities   ............................................................ .....   3 8  
+MODULE 3   Introduction to Flowcharting and Programming   4 2  
+    What is Algorithm?     ........................... ......................................................... ..............   4 3  
+    Formulating Algorithms using Pseudocode   . .......................................... ..............   4 5  
+    Formulating Algorithms using Flowchart   .................................... ............ ..............   4 8  
+    Laboratory Exercises   ................................................................................................   5 9  
+    Outcome - Based Assessment Activities   .................................................................   6 5  
+MODULE 4   Java Programming Language and Programming Fundamentals   69  
+    History of Java ............................. ............................................................... ............ .... .   7 1  
+    Features of Java       ......................................... ............... .... ........................... ..............   7 1  
+    The Java Programming Language Specification, API, JDK and IDE   ... ... ..............   7 2  
+    Relevance in Today's Industry   ................................................................................   7 3  
+    Java Development Process   ......................................................................................   7 3  
+    Anatomy of Java Program   ........................................................................................   8 3  
+    Variable and Data Types   ..........................................................................................   8 6  
+    Errors   ..........................................................................................................................   8 8  
+    Laboratory Exercises   ................................................................................................   89  
+iv  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+    Outcome - Based Assessment Activities   ....................................... ..........................   9 4  
+MODULE 5   Input and Output in Java     9 8  
+    Output Operations ......................................... ............................................. ..............   10 0  
+    Basic Escape Sequences ....................................... .................................... ................   10 1  
+    String Concatenation ................................. ............................................. ...................   10 2  
+    Formatted Output with printf() and Placeholders   ............................................. ..   10 2  
+    Input Operations     ...................................................................................................... .   10 4  
+    Laboratory Exercises   ................................................................................................   10 7  
+    Outcome - Based Assessment Activities   ......................................................   ...........   11 3  
+MODULE 6   Java Operators   1 2 0  
+    Arithmetic Operators   ................................... ............................................. ............ ...   12 2  
+    Increment Operator (++) ....................................... .................................... ............ ... .   12 2  
+    Decrement Operator ( -- ) ........................... ............................................. ............ ...... .   12 3  
+    Assignment Operators   .......................................................................................... ...   12 3  
+    Relational Operators   .......................................................................................... ......   12 4  
+    Logical Operators   ......................................................................................................   12 5  
+    Rules of Precedence   ................................................................................................ .   12 6  
+    Type Casting in Java    ................................................................................................ .   12 7  
+    Laboratory Exercises   ................................................................................................   1 29  
+    Outcome - Based Assessment Activities   ......................................................   ...........   13 2  
+MODULE 7   String and Built - in Libraries   1 39  
+    Strings   ......................................... ............................................................... ............ .....   1 4 1  
+    User Input Strings   ......................................... ............................................................   1 4 1  
+    String Methods  ... ...................................... ............................................................... ..   14 2  
+    Built - in Libraries   ........................................................................................................   14 4  
+    Using import   ..............................................................................................................   14 4  
+    Pre - defined Character Functions (The Character Class)  .....................................   14 5  
+    Pre - defined Math Functions (The Math Class)   .....................................................   14 6  
+    Laboratory Exercises   ................................................................................................   14 8  
+    Outcome - Based Assessment Activities   ......................................................   ...........   1 5 2  
+MODULE 8   Selection Structures   15 8  
+    Overview of Different Control Structures   ... ...................................... .................. ..   1 6 0  
+    The if Statement   ......................................... ............................................................ ...   1 6 1  
+    The if...else Statement ......................................... ......................................................   1 6 1  
+    The if...else if...else Statement (Multi - Branch Decisions)   ....................................   16 2  
+    The switch Statement   .......................................................................................... .....   16 4  
+    Nested Decisions   ...................................................................................................... .   1 69  
+    The Ternary Operator (? :)     .......................................................................................   17 2  
+    Integrating User Validation through Branching Logic   ....................................... ..   17 3  
+    Laboratory Exercises   ................................................................................................   17 4  
+    Outcome - Based Assessment Activities   ......................................................   ...........   1 79  
+MODULE 9   Iterative Structures   18 8  
+    Iterative Structures (Loops) ......................................... .............................................   1 9 0  
+    While Loop ......................................... ............................................................... ...... ....   1 9 0  
+    Do - While Loop ......................................... ............................................................... ....   1 9 1  
+    For Loop   .. ..............................   .. .............................. .. ................................................ ..   19 3  
+    Loop Counters and Sentinel Values   ... .. ......... .. ......... .. ......... .. ......... .. ......... .. ......... ..   19 4  
+    Nested Loops     ......... .. ............... .. ............... .. ............... .. ............... .. ............... .. ............   19 6  
+    While Loop Vs Do - While Loop Vs For Loop   ......... .. ............... .. ............... .. ............ ..   19 6  
+    Break Statement   ......... .. ............... .. ............... .. ............... .. ............... .. ............... .. ...... .   19 7  
+    Continue Statement   ......... .. ............... .. ............... .. ............... .. ............... .. ............... ...   19 8  
+v  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+    Laboratory Exercises   ................................................................................................   19 9  
+    Outcome - Based Assessment Activities   ......................................................   ...........   20 4  
+MODULE 10   Arrays   2 1 1  
+    What is Arrays?   ......................................... ............................................................ ....   21 3  
+    One - Dimensional Array   ......................................... ................................................ ..   21 4  
+    Multidimensional Array   ......................................... ...................................................   21 6  
+    Array Traversal   ..........................................................................................................   21 8  
+    Array Bounds and ArrayIndexOutOfBoundsException .......................................   22 1  
+    Arrays vs. Other Data Structures (e.g., ArrayList)   ................................................   22 2  
+    Arrays in Sorting and Searching Algorithms   .........................................................   22 3  
+    Laboratory Exercises   ................................................................................................   2 3 4  
+    Outcome - Based Assessment Activities   ......................................................   ...........   2 4 1  
+   
+ 
+APPENDICES    
+   
+A .   Course Syllabus       ....................................... ..................................... ........................ .....................   2 5 0  
+B.   IMREDI Certification       ................................................ .......... ................................. .......................   25 1  
+     
+   
+vi  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+KLD VISION  
+ 
+A transformative institution of higher learning that strategically contributes to 
+the knowledge  –   based economy of the City of Dasmariñas and proactively 
+responds to the needs of the community.  
+ 
+ 
+KLD  MISSION  
+ 
+Committed to promoting quality and equity in higher education that upholds 
+transformative leadership, community  –   benefited outputs, and research  –  
+oriented academic programs imbued with the onward  –   forward principle   
+of the City of Dasmariñas.  
+ 
+ 
+KLD  CORE VALUES AND BELIEFS  
+ 
+Each KLD Graduate shall exhibit the following qualities:   
+ 
+Knowledge   
+An innovator who significantly contributes his/her ideas and knowledge for the 
+continuous improvement of the city and of humanity.   
+ 
+Leadership   
+A good steward and role model who consistently demonstrates integrity, 
+accountability, and empathy.   
+ 
+Dedication   
+A dedicated servant who wholeheartedly commits himself/herself to achieving 
+the vision, mission, and goals of Kolehiyo ng Lungsod ng Dasmariñas.  
+ 
+ 
+ 
+vii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+KLD  GENERAL GOALS  
+ 
+The Kolehiyo ng Lungsod ng Dasmariñas commits itself to carry out the following 
+goals:   
+ 
+1.   Educate the Dasmarineños to become holistically - developed learners.   
+The Kolehiyo ng Lungsod ng Dasmariñas shall utilize a holistic approach in 
+learning  to  cultivate  students'  intellectual,  moral,  and  socio - cultural 
+consciousness for their personal growth and development relevant to nation -
+building.   
+ 
+2.   Empower the Dasmarineños to become potential leaders of the future.   
+The Kolehiyo ng Lungsod ng Dasmariñas shall develop intellectual training and 
+academic - related programs to nurture students' leadership potentials needed 
+for securing the integrity of the community and for the sustainable future of 
+the City.   
+ 
+3.   Engage  the  Dasmarineños  in  service  learning  to  become  contributors  to  the 
+continuous improvement of the City.   
+The Kolehiyo ng Lungsod ng Dasmariñas shall create research and extension 
+activities to strengthen students' commitment in preserving the core values of 
+the  institution  and  contributing  to  societal  improvement  towards  a 
+competitive human capital relevant t o the onward - forward principle of the 
+City.  
+   
+viii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+INSTITUTE   GOALS  
+ 
+ 
+The Institute of Computing and Digital Innovation (ICDI) aims to:  
+Goal 1: Enhance Curriculum Relevance and Innovation  
+Goal 2: Cultivate Technologically and Scientifically Proficient Graduates  
+Goal 3: Strengthen Industry Linkages and Employability  
+Goal 4: Foster Transformative Computing Education for Community and Economic 
+Impact  
+Goal 5: Establish Centers of Excellence and Specialization  
+Goal 6: Expand Global Engagement and Internationalization Initiatives  
+Goal 7: Engage Alumni and Stakeholders in Institute Development    
+ix  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+DEPARTMENT/SECTION OBJECTIVES  
+ 
+Supporting Strategic Goal 1: Enhance Curriculum Relevance and Innovation   
+•   Regularly review and update curriculum based on CHED Memorandum 
+Orders and PQF, ensuring alignment with Philippine Development Plan 
+priorities and local industry needs.   
+•   Integrate  affordable  or  free  industry  certifications  (e.g.,  TESDA, 
+Microsoft Learn   
+•   free certifications) accessible to students without added fees.   
+•   Leverage government and partner support for capstone projects and 
+internships  addressing  Philippine  digital  economy  and  community 
+needs.   
+Supporting Strategic Goal 2: Cultivate Skilled and Responsible Graduates   
+•   Embed Filipino ethical standards, data privacy laws (Data Privacy Act), 
+and digital citizenship within courses.   
+•   Promote  interdisciplinary,  project - based  learning  that  addresses  real 
+local community problems, encouraging collaboration among students 
+from different disciplines.   
+•   Organize  low - cost  or  grant - funded  workshops  and  hackathons  with 
+local  tech  hubs  or  government  ICT  programs  to  enhance  problem -
+solving skills.   
+Supporting Strategic Goal 3: Strengthen Industry Linkages and Employability   
+•   Establish  partnerships  with  Philippine  government  agencies  (DICT, 
+DOST),  local  ICT  firms,  and  NGOs  to  provide  free  or  subsidized 
+internship slots and mentorship.   
+•   Create a centralized internship office to coordinate student placements 
+with  government - supported  programs  (e.g.,  TESDA  OJT,  DOLE 
+internships).   
+•   Host free career fairs and employability skills seminars supported by 
+government and industry partners.   
+Supporting  Strategic  Goal  4:  Foster  Community  Impact  and  Inclusive 
+Education   
+x  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   Develop ICT extension programs targeting underserved local communities, 
+focusing  on  digital  literacy,  e - governance,  and  sustainable  development 
+goals.   
+•   Encourage service - learning and research projects that directly benefit local 
+communities, supported by government grants or partnerships.   
+•   Mobilize student volunteers and faculty to implement low - cost, high - impact 
+ICT solutions in nearby barangays or municipalities.   
+•   Provide  comprehensive  support  programs  for  struggling  students  and 
+promote  participation  of  excellent  students  in  local  and  international 
+competitions.   
+Supporting  Strategic  Goal  5:  Build  Centers  of  Excellence  with  Limited 
+Resources   
+•   Develop specialized labs focusing on priority areas such as cybersecurity 
+and data analytics using government grants and donated equipment.   
+•   Pursue  CHED  and  PAASCU  accreditation  emphasizing  quality  within 
+resource constraints, aiming for Center of Development status.   
+•   Organize  annual  academic  events  showcasing  student  work,  leveraging 
+online platforms to reduce costs.   
+Supporting Strategic Goal 6: Expand Global and Regional Linkages   
+•   Pursue  partnerships  with  ASEAN  institutions  and  government - funded 
+international  programs  to  provide  low - cost  or  scholarship - supported 
+exchange opportunities.   
+•   Facilitate virtual international collaboration projects to expose students to 
+global perspectives without travel costs.   
+Supporting  Strategic  Goal  7:  Engage  Alumni  and  Stakeholders  for 
+Sustainable Support   
+•   Build  a  strong  alumni  network  focused  on  mentorship  and  resource 
+sharing,   encouraging volunteerism and in - kind support.   
+•   Coordinate  with  local  government  units  and  private  donors  to  fund  
+scholarships, learning materials, and technology access for students.   
+•   Conduct regular stakeholder forums to align program development with  
+community and industry needs.     
+xi  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+KLD STRATEGIC DIRECTIONS  
+ 
+K ey to  L evel Up the  D ynamism  
+Roadmap to Competitive and Sustainable Kolehiyo ng Lungsod ng Dasmariñas  
+ 
+ 
+      A  truly  great  educational  institution  is  determined  through  its  academic 
+excellence, as measured by the quality of the research, scholarship and graduates 
+it  produces  along  with  their  shared  effect  on  the  grander  society.  To  be  an 
+exemplary  academic  i nstitution,  the  fundamental  culture  must  demand 
+excellence  in  all  endeavors.  That  excellence  can  only  be  achieved  when  all 
+members of the KLD  -   administration, faculty, staff, parents, local government 
+unit, benefactors, students, and  alumni  -   are committ ed to the highest standards 
+of performance.  
+ON QUALITY  
+ 
+The KLD is committed to:  
+STRATEGY 1.  Complying with the statutory, regulatory and vertical and horizontal 
+typology requirements set by the Commission on Higher Education and other 
+accrediting  bodies  for  state  colleges,  ASEAN  University  Network - Quality 
+Assurance  Associate  Membersh ip  and  Program  and  Institutional  Level 
+Assessments and ISO Certification  
+1.   We will become a UNIVERSITY.   
+2.   We  will  become  a  member  of  the  Association  of  Local  Colleges  and  
+Universities (ALCU) in the country.   
+3.   We will be accredited by the Accrediting Agency of Chartered Colleges and 
+Universities in the Philippines (AACUP).   
+4.   We  will  become  a  member  of  the  ASEAN  University  Network - Quality  
+Assurance (AUN - QA).   
+xii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+5.   We will undergo the Program and Institutional Level Assessments of AUN - QA 
+specifically the BS Information Systems, BS Midwifery, BS  Psychology, BS 
+Civil Engineering, and BS Nursing.   
+6.   We will become an ISO Certified school.   
+7.   We will apply for CHED Centers of Development and Excellence in Midwifery, 
+Nursing, Information Systems, Psychology, and Engineering programs.   
+8.   We will partner with the Pan - Asia Simulation Society in Healthcare (PASSH).    
+STRATEGY 2.  Achieving Above the National Passing Rate and 100% Passing Rate 
+in the Licensure Examinations beginning SY 2023 - 2024.  
+1.   We will become one of the top performing schools in the City, Province and 
+the Region in the licensure examinations for Midwifery, Psychology, Nursing, 
+and Civil Engineering.   
+2.   We will implement competency appraisal of students in all levels.   
+3.   We will employ remediation program for students - at - risks.   
+4.   We will ensure tracking of unsuccessful examinees.   
+5.   We will conduct an in - house review program and supplemental online review 
+program for our students scheduled to take the licensure examinations.   
+6.   We will implement coaching and mentoring.   
+7.   We will train our faculty in simulation - based education program.  
+STRATEGY 3.  Achieving Continuous Quality Improvement and compliance with 
+the policies, standards and guidelines set by the College  
+1.   We  will  consistently  submit  and  comply  with  performance  evaluation 
+including the Customer Feedback Form; Document Review Checklist; and 
+Conduct of Performance Evaluation for Academic Administrators, Academic 
+Teaching Faculty, Academic Service Faculty, and  Staff.   
+2.   We will provide orientation and training on the practice of 6S in collaboration 
+with the Center for Quality Assurance, Accreditation, and Certification.   
+xiii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+3.   We will integrate environmental awareness and protection related programs 
+and  initiatives  in  the  different  teaching - learning  experiences  across 
+programs and disciplines.   
+4.     We  will  ensure  continuous  integration  of  Character  Education  and 
+Citizenship,  Information  Literacy  Program,  Environment  Protection  and 
+Sustainability,  and  Gender  Awareness,  Sensitivity,  Responsiveness,  and 
+Accountability into the curricula of all Institut es across programs.   
+5.   We  will  ensure  100%  vertical  alignment  of  post - graduate  programs  and 
+training  of  Academic  Teaching  Faculty,  Academic  Service  Faculty,  and 
+eventually the Non - Teaching Personnel should they pursue further studies.  
+ON EXCELLENCE  
+ 
+STRATEGY 4.  Providing relevant academic programs, admitting quality students, 
+creating  space  for  educational  technology  integration,  using  educational 
+technology  to  optimize  student  learning,  and  producing  graduates  with  the 
+highest standards of performan ce.  
+1.      We will offer creative pre - med and other undergraduate programs leading 
+to Doctor of Medicine and graduate programs, among others.  
+          To  wit:  BS  Radiologic  Technology,  BS  Physical  Therapy,  BS  Occupational 
+Therapy,    BS  Speech  and  Language  Pathology,  BS  Medical  Laboratory 
+Science, BS Pharmacy, AB Political Science, BS Clinical Psychology, BS Social 
+Work  with  concentrations  on  Clin ical  Practice,  Health  Management,  BS 
+Entrepreneurial  Management,  AB  English  Language  Studies,  BS  Life  and 
+Health Science with specialization in Human Biology and Medical Biology, BS 
+Accountancy,  BS  Clinical  Nutrition,  BS  Architecture,  BS  Industrial 
+Enginee ring,   BS   Mechanical   Engineering,   BS   Disaster   Emergency 
+Management,  BS  Manufacturing  and  Mechatronics  Engineering,  BS 
+Entertainment  and  Multimedia  Computing  with  specialization  in  Digital 
+Animation  Technology,    Bs  Cybersecurity,  BS  Computer  Science  with 
+spe cialization  in  Artificial  Intelligence  and  Robotics,  BS  Data  Science,  BS 
+Interdisciplinary Studies with STEM Concentration, BS Clinical Psychology, AB 
+Psychology,  MS  Nursing,  MS  Gerentology,  MS  Health  Management,  MS 
+Biology, MS Clinical Psychology, MS STEM   Teaching, Master of Public Health, 
+xiv  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Masters  in  Business  Administration,  PhD  by  Research,  PhD  in  Nursing, 
+Doctor of Public Health, Doctor of Medicine, and Bachelor of Laws.  
+2.   We will become one of the Top 3 Higher Education Institutions in the City of 
+Dasmarinas in 2033 and one of the Top 7 Higher Education Institutions in the 
+Province of Cavite in 2040.   
+3.   We will achieve outstanding library print and online collections.   
+4.   We will strengthen the Records Management System of the KLD to better 
+protect  and  preserve  important  documents  of  students/graduates  and 
+employees.   
+5.   We will provide and allot additional spaces in the Learning Resource Center 
+devoted for technology integration and utilization.   
+6.   We will have Learning Commons in the Learning Resource Center.   
+7.   We will hold recognition ceremonies for the students who have excelled in 
+their respective fields and those who have won in different competitions 
+together with the awarding of certificates/plaques of recognition to Institute 
+honor’s list and College honor ’s list.  
+8.   We  will  intensify  student  development  programs  such  as  the  leadership 
+formation program, sports and development, research, and participation in 
+different national and international competitions.   
+9.   We will strengthen the institutional student organizations and the Student 
+Council  in  the  College  and  establish  strong  partnership  between  and 
+amongst the officers and members of the said organizations.   
+10.   We will intensify the academic programming, advising and career counseling 
+for our students.   
+11.   We will recognize Outstanding Faculty and Non - Teaching Staff in Students’ 
+Performance Evaluation, Research Presentations, Awards and Recognitions, 
+International Speaking Engagements, Officers of National and International 
+Professional Organizations, Perfec t Attendance, etc.  
+ 
+ON INTERNALIZATION  
+xv  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+STRATEGY  5.    Establishing  national  and  international  partnerships  and 
+collaborations   
+1.      We will strengthen the national and international affiliations for the 
+research and teaching engagements of academic staff and internship and 
+externship programs of the students across levels.   
+2.      We will develop programs that would strengthen the relations between the 
+KLD  and  Pagamutan  ng  Dasmarinas,  CHOs,  and  affiliating  centers, 
+particularly  in  the  areas  of  student  internship,  clinical  preceptorship, 
+research in tropical medicine, and inf ectious diseases.   
+ 
+ON RESEARCH PRODUCTIVITY & ENGAGEMENTS  
+ 
+STRATEGY 6.   Achieving success in sponsored research    in  collaboration  with 
+the  different  research  agencies  and  higher  education  institutions  locally  and 
+internationally   
+1.   We will increase by 25% the number of Academic Teaching Faculty, Academic 
+Service Faculty and Non - Teaching Staff doing research, publishing research, 
+presenting papers and enrolling in post - graduate programs and trainings 
+and other certificate programs.   
+2.   We will achieve publications and citations as well as patents and licenses in 
+different areas of specializations.   
+3.   We will launch the KLD online journal.   
+4.   We will launch the President’s Award for Research Productivity.  
+5.   We will develop the Clinical Research Department and Academic Research 
+Department  to  draw  the  line  between  clinical - sponsored  research  and 
+academic research across the KLD.   
+6.   We will strengthen the operations of the Institutional Ethics Board.   
+7.   We will strengthen the operations of the Center for Intellectual Property and 
+Technology Licensing.  
+xvi  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+ON COMPETITIVENESS & SUSTAINABILITY  
+ 
+STRATEGY  7.    Maintaining  and  Sustaining  the  Creative  Programs  of  KLD  in 
+Response  to  the  Needs  and  Demands  of  the  City,  Province,  Region,  and  the 
+Country.  
+1.   We will establish the following Centers/Institutes: Institute of Student Affairs, 
+Character Education and Citizenship which shall handle all activities related 
+to Student Affairs,  Welfare and Development, NSTP, Sports  and Wellness 
+Development,  Guidance  and   Career  Development,  Student  Discipline, 
+Admissions  and  Testing,  Alumni  Affairs  and  Placement,  Student  Activities 
+and  Development,  Center  for  Gender  and  Development,  Dasmarinas 
+Heritage  and  Cultural  Affairs,  Center  for  Quality  Assurance,  Accreditation 
+and  Certification, Center for Philanthropic and Resource Generation, Center 
+for Public Affairs and Strategic Communications, Center for Curriculum and 
+Pedagogical  Innovations,  Linkages  and  External  Affairs,  Knowledge 
+Management,  Institute  of  Engineering,  Insti tute  of  Nursing,  Institute  of 
+Midwifery,  Institute  of  Human  Potential  and  Development,  Institute  of 
+Applied Sciences, Institute of Information and Computing Sciences, Institute 
+of Allied Health, Institute of Medicine, Institute of Law, Institute of Graduat e 
+Studies, and among others.   
+2.   We  will  create  the  following  committees:  Personnel  Service  and  Human 
+Resource  Management  Committee,  Personnel  Evaluation  and  Selection 
+Committee,  Academic  Administrators  Selection  Committee,  Materials  and 
+Equipment   Acquisition   Committee,   Talent   Acquisition   Committee, 
+Employees’  Training  and  Development  Committee,  Operations  Manual 
+Committee,   Culture  of   Research  Committee,   Academic   Programs 
+Committee, and among others.  
+3.   We will create the Inventory Management System for proper monitoring of 
+all KLD Assets and Supplies.   
+4.   We will exhibit stewardship and creativity in the management of all available 
+resources.   
+5.   We  will  develop,  enhance  and  sustain  the  branding  and  positioning 
+strategies of KLD.  
+xvii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+6.   We will need to receive more and spend less meaning we need potential for 
+scholarships, donations for infrastructure developments, funding for faculty 
+and  staff  development  programs  including  research  productivity  and 
+engagements,  and  investment  for  studen t  success  programs.  We 
+continuously  believe  that  while  reaching  our  goal  is  not  just  a  matter  of 
+resources, everything will be possible with additional resources  –   along with 
+continuously  enhanced  efficiency  and  effectiveness,  greater  productivity, 
+and an  ongoing reallocation of funds based on current priorities.  
+ 
+ON COMMUNITY ENGAGEMENTS & SOCIAL ADVOCACY  
+ 
+STRATEGY  8.    Strengthening  Transformative  and  Sustainable  Social  Action 
+Programs.  
+1.   We will support the public schools and other non - government organizations 
+in the areas of literacy programs and teacher training programs.   
+2.   We  will  conduct  orientation  and  training  on  service - learning  programs, 
+community  extension/service  and  community  outreach  programs  to  all 
+concerned.   
+3.   We  will  conduct  situational  analysis  and  community  diagnosis  to  obtain 
+substantial  information  about  the  kind  of  sustainable  economic 
+development program needed by the potential adopted communities.   
+4.   We will utilize the principles and concepts of participatory action research as 
+a  strategy  to  ensure  success  of  program  initiated  in  the  adopted 
+communities.  
+5.   We will have to continuously make significant contributions in healthcare 
+delivery services and our growing support for the public health system. We 
+need to be a source of great strength through a well - intentioned partnership 
+with the Pagamutan ng Dasmariñ as.  
+ 
+ 
+ 
+xviii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+STRATEGY 9.   Strengthening the Alumni Relations and Placement Programs of KLD  
+1.   We will hold the First Alumni Homecoming for all former students that will 
+center on the themes of “giving back”, “paying it forward”, “seeing success in 
+the light of humble beginnings”, “nurturing the foundation built”, “making a 
+difference”, and “fulfill ing the mission”.  
+2.   We will establish an Alumni Endowment Fund for KLD scholars.   
+3.   We will establish the alumni data base and online portal of the College.   
+ 
+4.   We  will  strengthen  our  partnership  with  the  City  Government’s  Public 
+Employment Service Office (PESO) for the deployment of our students for 
+their OJT/internship program and employment after graduation.  
+   
+xix  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+KLD  OFFICIAL LOGO SYMBOLS AND MEANINGS  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+TORCH   represents the vision of the institution to sustainability provide quality 
+education to the youth of Dasmariñas.  
+OPEN  BOOK  represents  the  dedication  of  the  institution  in  providing  quality 
+education and sharing knowledge through transformative leadership.  
+LAUREL  WREATH  represents  the  institution’s  success  and  victory  in  terms  of 
+producing holistically developed learners, leaders of the future, and preservers of 
+development to the City of Dasmariñas.  
+KLD  in  Baybayin  represents  the  institution’s  commitment  in  maintaining  the 
+authentic Filipino and Dasmariñero heritage which lives forever in the hearts and 
+minds of Dasmariñeros.  
+COLORS  OF  GREEN  AND  YELLOW   represent  the  continuous  support  of  the 
+institution to the green economy and sustainable living in the City of Dasmariñas.  
+YEAR 2021  is the founding year of the Kolehiyo ng Lungsod ng Dasmariñas.  
+ 
+xx  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+KLD   HISTORY  
+ 
+The Kolehiyo ng Lungsod ng Dasmariñas started as a dream, but this dream has turned 
+into reality. The late Cong. Elpidio F. Barzaga Jr. and Mayor Jennifer Austria - Barzaga have 
+always  envisioned  the  free  tertiary  education  to  every  qualified  and  deserving 
+D asmarineño.  
+It was on September 22, 2018, when the groundbreaking ceremony happened which 
+signaled the beginning of this dream. The City Government allocated funds which would 
+be used in establishing the institution, then to be named as Pamantasan ng Lungsod ng 
+Dasmar iñas.  Ar.  Jose  Siao  Ling  and  Associates  designed  the  building  with  Monolith 
+Construction  and  Development  Corporation  as  the  main  contractor.  They  closely 
+worked  with  Cong.  Pidi  Barzaga  and  Mayor  Jenny  Austria - Barzaga  in  ensuring  the 
+success of this milesto ne infrastructure.  
+The creation, establishment, and operation of the Kolehiyo ng Lungsod ng Dasmariñas 
+was signified through Ordinance No. 01 - S - 2021, dated February 2, 2021.   
+Various programs were initially proposed during the inception of the College, but only 
+BS Psychology, BS Information Systems and Diploma in Midwifery were offered. As KLD 
+progresses, the BS Nursing and BS Civil Engineering were offered in AY 2023 - 2024, whi le 
+the  Diploma  in  Midwifery  is  now  a  Bachelor’s  degree.  In  the  Midwifery  Licensure 
+Examination  held  last  November  2023,  KLD  received  a  passing  rate  of  85.71%  and 
+became the Top 10 Performing Midwifery School in the Philippines.   
+KLD  also  witnessed  various  successes  in  terms  of  its  involvement  in  research  and 
+linkages where faculty members are engaged in presentations and publications. The 
+institution  is  committed  to  pursuing  and  fulfilling  its  Vision  and  Mission  as  a 
+transformativ e higher learning institution.   
+KLD, through the direction set by the late Cong. Elpidio F. Barzaga, Jr. and under the 
+supervision of Mayor Jennifer Austria  -   Barzaga, and the management of Dr. Juanito O. 
+Cabanias,  President/College  Administrator,  is  truly  committed  in  building  the 
+found ations for the Dasmarineños.  
+ 
+ 
+ 
+xxi  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+KLD HYMN  
+The Pillar of Wisdom  
+Composed by: Martin John L. Arellano  
+ 
+I  
+We proclaim with grateful hearts  
+The fealty to our school  
+As we stand together as one  
+To fulfill our sacred duties  
+II  
+We vow to uphold your values:  
+Knowledge, Leadership and Dedication  
+By spreading your vision and mission  
+And transform the lives of all Dasmariñeros!  
+CHORUS:  
+KOLEHIYO NG LUNGSOD NG DASMARIÑAS  
+The pillar of wisdom!  
+Let your rich history be our guiding light  
+Imbued with the grace of the almighty!  
+March on to the future  
+And aflame our hearts with compassion  
+All hail to our institution   
+KOLEHIYO NG LUNGSOD NG DASMARIÑAS  
+III  
+With God in our center  
+We will never fail  
+As we raise your glorious symbol  
+Now, until the end of time!  
+CHORUS:  
+KOLEHIYO NG LUNGSOD NG DASMARIÑAS  
+The pillar of wisdom!  
+Let your rich history be our guiding light  
+Imbued with the grace of the almighty!  
+March on to the future  
+And aflame our hearts with compassion  
+All hail to our institution   
+KOLEHIYO NG LUNGSOD NG DASMARIÑAS  
+CODA:  
+ALL HAIL TO OUR INSTITUTION  
+KOLEHIYO NG LUNGSOD NG DASMARIÑAS    
+xxii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+COURSE  GENERAL GUIDELINES  
+ 
+Compliance with Academic Regulations  
+ 
+All students must adhere to the academic rules and procedures outlined in the KLD 
+Student  Manual  and  institutional  policies.  These  include  attendance,  conduct, 
+submission protocols, and online learning engagement standards.  
+ 
+Attendance and Participation  
+ 
+Regular  attendance  and  active  participation  are  expected  in  both  onsite  and 
+asynchronous sessions.  Students arriving more than 15 minutes late for a 90 - minute 
+class or 30 minutes for a longer session will be marked tardy.  Absences beyond the 
+allowable limit may result in academic penalties as prescribed by the institutional 
+attendance policy.    
+ 
+Academic Integrity  
+ 
+Academic honesty is strictly enforced. Cheating, plagiarism, or any form of dishonesty 
+in examinations, assignments, or projects shall be subject to disciplinary action.  
+ 
+Flexible Learning Modality  
+ 
+The  course  employs  blended  learning,  which  integrates  online  and  face - to - face 
+components. Students are expected to have access to necessary devices and internet 
+connectivity to participate effectively.  
+ 
+Consultation and Support  
+ 
+Faculty consultation hours will be provided for academic support and guidance. We 
+strongly  encourage  you  to  utilize  these  sessions  to  clarify  course  concepts,  seek 
+assistance with challenging topics, or discuss any course - related concerns. Details on 
+how t o schedule a consultation will be shared in the syllabus .    
+xxiii  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+COURSE  SPECIFIC GUIDELINES  
+ 
+Programming Language  
+ 
+The course uses Java as the primary language for instruction and laboratory work. 
+Students are expected to install and become familiar with development tools such 
+Java D evelopment  K it (JDK)   and IDEs (e.g., IntelliJ IDEA, Eclipse, or NetBeans).  
+ 
+Laboratory & Project Submissions  
+Completion of laboratory exercises and hands - on activities is mandatory to reinforce 
+lecture topics. All submissions must adhere to the following:  
+•   Properly structured source code  
+•   Well - commented programs  
+•   Screenshots or screen recordings (when required)  
+•   Output documentation  
+ 
+Strict  adherence  to  file  naming  conventions  and  output  instructions  is  required. 
+Submissions must be uploaded via Google Classroom or other instructor - approved 
+platforms.  Code originality  will  be  checked  using plagiarism  detection  tools  when 
+applicable.  
+ 
+Assessment and Grading  
+ 
+This course employs an outcomes - based assessment framework to evaluate your 
+learning  and  mastery  of  course  objectives.  Your  final  grade  will  be  determined 
+through a combination of:  
+•   Quizzes. To assess comprehension of theoretical concepts.  
+•   Programming Assignments. Practical application of learned concepts.  
+•   Hands - on  Lab  Work.  Demonstrating  problem - solving  skills  in  a  laboratory 
+setting.  
+•   Performance - Based  Assessments.  Including  but  not  limited  to  board  work, 
+recitations,  and  project  presentations,  designed  to  evaluate  your  ability  to 
+articulate and defend your work.  
+ 
+xxiv  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+All evaluations are aligned with the comprehensive Assessment Plan detailed 
+in the syllabus and adhere strictly to institutional grading policies. Please refer 
+to the syllabus for a detailed breakdown of grade components and weights.  
+ 
+Code Ethics and Originality  
+ 
+All submitted programming exercises must be original. Collaboration on concepts is 
+allowed when permitted, but direct copying of code is not. If using external libraries 
+or references, proper citation and explanation are required. Violations will be dealt 
+with as per the school’s plagiarism policy.  
+ 
+Lab Assessment and Debugging  
+ 
+Students are expected to analyze, write, test, and debug their code independently. 
+Marks are given not just for correct output, but also for structure, logic, and problem -
+solving approach. Students may be required to explain their code in oral assessments 
+or walkthroughs.  
+ 
+Use of AI Tools and Online Assistance  
+ 
+AI - based  code  helpers  (e.g.,  ChatGPT,  GitHub  Copilot)  may  only  be  used  with 
+disclosure and approval. Students must demonstrate full understanding of any code 
+submitted with AI assistance. Misuse may be considered academic dishonesty.  
+ 
+Collaboration Policy  
+ 
+While  collaboration  is  encouraged  for  peer  learning,  all  submitted  outputs  must 
+reflect individual understanding and effort unless explicitly stated as group work.  
+ 
+Use of Technology  
+ 
+Students  must  observe  responsible  digital  citizenship  in  accordance  with  KLD’s 
+REGAL100  values,  including  proper  conduct  in  online  platforms  and  respect  for 
+intellectual property .  
+ 
+ 
+ 
+xxv  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Course Module in  
+ 
+ 
+COMP102 :  Computer 
+ 
+ 
+Programming 1    
+ 
+   
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+   
+ 
+   
+ 
+ 
+ 
+ 
+ 
+MODULE 1:  
+ 
+ 
+Topic:   Introduction to   
+ 
+  Computer Programming  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+1  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Week Number   1  
+Chapter/Unit Number   1  
+Topic Title   Introduction to Computer Programming  
+•   The Computer System  
+•   Analog vs. Digital Computers  
+•   Programming Languages  
+•   Scripting Languages  
+•   Programming Paradigms  
+•   Number Systems  
+•   Number System Conversion  
+Course Outcomes   CO1:  Analyze  the  fundamental  components  of  computer  systems  and 
+programming paradigms, differentiating between various language types and 
+their translation processes.  
+Intended Learning  Lecture:  
+Outcomes    
+At the end of the chapter, the students will be able to:  
+1. Categorize the primary components of a computer system.   
+2.  Differentiate  between  analog  and  digital  computers  based  on  their 
+characteristics.   
+3. Classify types of programming and scripting languages.   
+4. Identify and compare different programming paradigms.   
+5.  Convert  numbers  between  various  number  systems  (e.g.,  binary,  octal, 
+decimal, hexadecimal).  
+ 
+Laboratory:  
+ 
+At the end of the chapter, the students will be able to:  
+1.  Identify  functional  components  of  a  computer  system  through  visual 
+inspection or simulated environments.  
+2.    Apply  number  system  conversion  techniques  to  solve  given  numerical 
+problems.  
+ 
+SDG and KLD REGAL100  SDG  8 :  Decent Work and Economic Growth  
+Integration   SDG  9 :  Industry, Innovation and Infrastructure  
+SDG 1 1 :  Sustainable Cities and Communities  
+REGAL  100:  Responsible  Digital  Citizens:  Technology,  Research  Ethics,  and 
+Online Etiquette  
+Discussion  
+ 
+I.  Introduction to Computer Programming  
+ 
+Computer programming   is the process of designing, writing, testing, debugging, and maintaining the source 
+code  of  computer  programs.  This  source  code  is  written  in  a  programming  language.  The  purpose  of 
+programming is to create a set of instructions that tell a computer how t o perform a specific task or solve a 
+problem.  
+2  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Why is programming important?  
+ 
+•   Automation .   It allows us to automate repetitive tasks, saving time and reducing errors.  
+•   Problem  Solving .   It  provides  a  structured  way  to  break  down  complex  problems  into  smaller, 
+manageable steps.  
+•   Innovation .  It's the foundation for all software, apps, websites, and digital technologies that drive our 
+modern world.  
+•   Logical Thinking .  It develops critical thinking, logic, and analytical skills.  
+ 
+1.   The Computer System  
+ 
+A  computer  is an electronic data processing device, which accepts and stores data input, processes the data 
+input, and generates the output in a required format.  
+ 
+A  computer system   is an integrated system consisting of hardware and software designed to process data 
+into information.  
+ 
+Components of a Computer System  
+ 
+•   Hardware  –   Physical components (CPU, RAM, storage, input/output devices).  
+•   Software  –   Programs that instruct hardware (Operating System, applications).  
+•   Data  –   Raw facts processed by the computer.  
+•   User  –   The person interacting with the computer.  
+ 
+A. Hardware  
+ 
+Hardware represents the physical and tangible components of a computer, i.e. the components that can be 
+seen and touched.  
+ 
+Examples of Hardware are the following −  
+ 
+•   Input devices − keyboard, mouse, etc.  
+•   Output devices − printer, monitor, etc.  
+•   Secondary storage devices − Hard disk, CD, DVD, etc.  
+•   Internal components − CPU, motherboard, RAM, etc.  
+ 
+ 
+ 
+ 
+Figure  1.  Example  of  computer  Central Processing Unit  
+hardware components.    
+Central Processing Unit (CPU) consists of the following features −  
+•   CPU is considered as the brain of the computer.  
+3  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   CPU  performs  all  types  of  data  processing 
+operations.  
+•   It  stores  data,  intermediate  results,  and 
+instructions (program).  
+•   It controls the operation of all parts of the 
+computer.  
+ 
+CPU itself has following three components.  
+•   Memory or Storage Unit  
+•   Control Unit  
+•   ALU (Arithmetic Logic Unit)  
+Figure 2.  The Central Processing Unit (CPU) components .    
+Input Devices  
+ 
+Following are some of the important input devices which are used in a computer −  
+•   Keyboard  
+•   Mouse  
+•   Joystick  
+•   Light pen  
+•   Track Ball  
+•   Scanner  
+•   Graphic Tablet  
+•   Microphone  
+•   Magnetic Ink Card Reader (MICR)  
+•   Optical Character Reader (OCR)  
+•   Bar Code Reader   Figure 3.  Examples of input devices.  
+•   Optical Mark Reader (OMR)  
+ 
+Output Devices  
+ 
+Following are some of the important output devices used in a computer.  
+ 
+•   Monitors  
+•   Graphic Plotter  
+•   Printer  
+•   Projector  
+•   Speaker  
+ 
+ 
+Figure 4.  Examples of output devices.    
+ 
+Memory  
+ 
+It is used to store data and instructions. Computer memory is the storage space in the computer, where data 
+is to be processed and instructions required for processing are stored. The memory is divided into large 
+4  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+number of small parts called  cells . Each location or cell has a  unique address , which varies from zero to 
+memory size minus one.  
+ 
+Memory is primarily of three types −  
+•   Cache Memory   -   It acts as a buffer between the CPU 
+and the main memory. It is used to hold those parts of data 
+and program which are most frequently used by the CPU.   
+•   Primary Memory/Main Memory   -   Primary memory 
+holds  only  those  data  and  instructions  on  which  the 
+computer is currently working. It has a limited capacity, and 
+data is lost when power is switched off. It is divided into two 
+subcategories RAM and ROM.  
+•   Secondary  Memory   -   This  type  of  memory  is  also 
+known as external memory or non - volatile. It is slower than 
+the   main   memory.   These   are   used   for   storing 
+data/information permanently.  
+Figure 5.  Examples of storage devices.  
+ 
+ 
+Motherboard  
+ 
+The  motherboard   serves as a single platform to connect all the parts 
+of a computer together. It connects the CPU, memory, hard drives, 
+optical drives, video card, sound card, and other ports and expansion 
+cards directly or via cables. It can be considered as the backbone   of a 
+computer.  
+ 
+A motherboard comes with following features −   Figure 6.  The motherboard.  
+•   Motherboard  varies  greatly  in  supporting  various  types  of 
+components.  
+•   Motherboard supports a single type of CPU and few types of 
+memories.  
+•   Video cards, hard disks, sound cards have to be compatible with 
+the motherboard to function properly.  
+•   Motherboards, cases, and power supplies must be compatible 
+to work properly together.  
+ 
+Memory Units  
+ 
+Memory unit is the amount of data that can be stored in the storage 
+unit. This storage capacity is expressed in terms of Bytes.    
+ 
+•   Bit (Binary Digit).   A binary digit is logical 0 and 1 representing a 
+Figure 7.  The memory units .   passive or an active state of a component in an electric circuit.  
+•   Nibble.   A group of 4 bits is called nibble.  
+5  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   Byte.   A group of 8 bits is called byte. A byte is the smallest unit, which can represent a data item or a 
+character.  
+•   Word.   A computer word, like a byte, is a group of fixed number of bits processed as a unit, which 
+varies from computer to computer but is fixed for each computer. The length of a computer word is 
+called word - size or word length. It may be as small as 8 bits or  may be as long as 96 bits. A computer 
+stores the information in the form of computer words.     
+ 
+Ports  
+ 
+A port is a physical docking point using which an external 
+device can be connected to the computer. It can also be 
+programmatic docking point through which information 
+flows from a program to the computer or over the Internet.  
+ 
+A port has the following characteristics −  
+•   External devices are connected to a computer using 
+cables and ports.  
+•   Ports are slots on the motherboard into which a 
+cable of external device is plugged in.  
+•   Examples of external devices attached via ports are 
+the mouse, keyboard, monitor, microphone, 
+speakers, etc.  
+ 
+B. Software   Figure 8.  The computer ports.  
+ 
+Software   is a set of programs, which is designed to perform a well - defined function. A  program   is a sequence 
+of instructions written to solve a particular problem.  
+ 
+There are two types of software −  
+ 
+•   System  Software  -   comprises  the  programs  that  you  use  to  manage  your 
+computer, including operating systems such as Windows, Linux, or UNIX for 
+larger computers and Google Android and Apple iOS for smartphones  
+ 
+•   Application Software  -   comprises all the programs you apply to a task  —   word -
+processing  programs,  spreadsheets,  payroll  and  inventory  programs,  and 
+even games.  
+ 
+Operating Systems  
+ 
+The Operating System is a program with the following features −  
+ 
+Figure 9.  The operating  •   An operating system is a program that acts as an interface between the 
+system layer.   software and the computer hardware.  
+6  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   It is an integrated set of specialized programs used to manage overall resources and operations of 
+the computer.  
+•   It is a specialized software that controls and monitors the execution of all other programs that reside 
+in the computer, including application programs and other system software.  
+ 
+A Layered View of the Computer  
+ 
+ 
+ 
+Figure 10.  The layer view of the computer.    
+ 
+How a Computer Executes a Program  
+ 
+•   Input  -   Data is entered (keyboard, mouse).  
+•   Processing  -   CPU executes instructions.  
+•   Output  -   Results are displayed (monitor, printer).  
+•   Storage  -   Data is saved for future use.  
+ 
+2.   Analog vs. Digital Computers  
+ 
+Analog  computers  are  devices  that  perform  calculations  and  process  data  using  continuous  physical 
+quantities. These quantities can vary smoothly within a range and are used to model or simulate real - world 
+phenomena.  
+ 
+How They Work  
+ 
+•   They use physical quantities such as electrical voltages, currents, mechanical movements, or fluid 
+pressures.  
+•   Data is represented by the magnitude of these quantities, which can take on any value within a given 
+range.  
+•   Operations are performed through the physical manipulation of these quantities using components 
+like resistors, capacitors, amplifiers, and mechanical parts.  
+ 
+Applications  
+ 
+•   Historically  used  in  scientific  and  engineering  calculations  such  as  differential  equations,  flight 
+simulations, and control systems.  
+•   Examples include slide rule, voltmeters, oscilloscopes, and early analog computers like the Differential 
+Analyze  
+7  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Advantages  
+ 
+•   Capable  of  real - time  processing  of  continuous  data,  making  them  suitable  for  dynamic  system 
+simulations.  
+•   Faster for certain types of calculations involving physical systems.  
+•   Useful in applications where approximate solutions are sufficient.  
+ 
+Disadvantages  
+ 
+•   Limited accuracy due to noise, signal degradation, and component tolerances.  
+•   Difficult to store, reproduce, or modify data once set.  
+•   Not easily programmable or adaptable to different tasks.  
+•   Large size and maintenance requirements.  
+ 
+Digital  computers   process  data  in  discrete  steps  using  binary  code  (combinations  of  0s  and  1s).  They 
+manipulate digital signals that represent information in binary form.  
+ 
+How They Work  
+•   Data is encoded as binary numbers.  
+•   They perform operations using logic gates, microprocessors, and memory units.  
+•   Instructions are stored as programs, allowing for complex, flexible, and precise operations.  
+ 
+Applications:  
+•   Used  in  virtually  all  modern  technology:  personal  computers,  smartphones,  servers,  embedded 
+systems, and more.  
+•   Suitable for tasks requiring high accuracy, data storage, complex calculations, and automation.  
+ 
+Advantages  
+•   High precision and accuracy in calculations.  
+•   Easy to store, retrieve, and manipulate data electronically.  
+•   Highly programmable and adaptable to a wide range of tasks.  
+•   Less susceptible to noise and external interference.  
+•   Compact and energy - efficient compared to analog counterparts.  
+ 
+Disadvantages:  
+•   Can be slower in real - time processing of continuous signals compared to analog systems.  
+•   Complexity and cost can be higher for certain specialized applications.  
+•   Requires software and programming expertise.  
+ 
+3.   Programming Languages  
+ 
+A  programming language   is a formal set of instructions used to communicate with a computer and create 
+software programs. They allow humans to write code that computers can execute.  
+ 
+8  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Example: Visual Basic, C++, C#, Java, Assembly Language  
+ 
+Three   fundamental concepts   of programming language:   syntax, grammar, and semantics.  
+•   Syntax -   refers to the set of rules that define the correct structure of statements or expressions in a 
+programming language. It governs how symbols, keywords, and other elements should be arranged 
+to form valid and meaningful code.  
+•   Semantics  -   Semantics deals with the meaning or interpretation of code. It focuses on whether the 
+code, once executed, behaves as intended and produces the desired results.   
+•   Grammar   -   refers  to  the  rules  that  define  the structure  and  composition of  valid  statements  or 
+expressions in a programming language. It encompasses both syntax and semantics, providing a 
+comprehensive set of rules for how code should be written and how it should   behave.  
+ 
+Uses  o f Programming Languages  
+ 
+Programming languages are used for a wide range of applications across many industries, including:  
+•   Software  Development.   Programming  languages  are  primarily  used  for  software  development. 
+Developers use programming languages to write code for applications, systems software, and other 
+computer programs.  
+•   Web  Development.   Programming  languages  like  HTML,  CSS,  and  JavaScript  are  used  for  web 
+development to create dynamic and interactive websites.  
+•   Data Science and Analytics.   Programming languages like Python and R are popular in data science 
+and analytics to analyze and interpret data, and to build machine learning models.  
+•   Scientific  Computing.   Programming  languages  like  Fortran  and  MATLAB  are  used  for  scientific 
+computing to solve complex mathematical and scientific problems.  
+•   Game Development.   Programming languages like C++ and C# are used for game development to 
+create video games and other interactive media.  
+•   Mobile  App  Development.   Programming  languages  like  Java and  Swift  are  used  for  mobile  app 
+development to create apps for iOS and Android platforms.  
+•   Artificial  Intelligence  and  Robotics.   Programming  languages  like  Python  and  C++  are  used  in 
+artificial intelligence and robotics to build intelligent systems that can learn, reason, and interact with 
+the physical world.  
+•   Embedded Systems.   Programming languages like C and Assembly are used for embedded systems 
+development to create software for small, low - power devices like microcontrollers and IoT devices.  
+ 
+Categories of Programming Languages  
+ 
+Machine Language  
+ 
+The lowest level programming language, consisting entirely of binary 
+code (0s and 1s) that the computer’s CPU directly reads and executes.  
+ 
+Characteristics:  
+Figure  11.  Machine  Code  •   Programs  are  sequences  of  machine  instructions  in  binary 
+Representation of z = x + y   form.    
+9  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   Instructions specify operations (like addition, data movement) and memory locations involved.  
+•   Machine language is hardware - specific; code written for one CPU architecture won’t run on another.  
+ 
+Advantages:  
+•   Directly executed by the CPU, making it extremely fast and efficient.  
+ 
+Disadvantages:  
+•   Difficult for humans to read, write, and debug.  
+•   Highly error - prone due to its complexity and lack of abstraction.  
+ 
+Assembly Language  
+ 
+A symbolic representation of machine language specific to a processor architecture.  
+ 
+Characteristics:  
+•   Uses mnemonics (short, human - readable codes) for instructions (e.g., MOV, ADD).  
+•   Each line of assembly code usually corresponds to one machine instruction (one - to - one).  
+•   Requires an assembler to convert assembly code into machine code.  
+•   Allows programmers to work with hardware efficiently but is still low - level and hardware dependent.  
+ 
+Advantages:  
+•   More readable than machine code.  
+•   Provides precise control over hardware and system resources.  
+ 
+Disadvantages:  
+•   Programming is slow and error prone.  
+•   Not portable across different CPU architectures.  
+ 
+ 
+ 
+Figure 1 2 .  Assembly Language Procedure to Convert Lowercase Letters to Uppercase  
+ 
+ 
+High Level  Programming Language  
+ 
+Languages designed to be easy for humans to read, write, and understand, abstracting away hardware 
+details.  
+ 
+Characteristics:  
+•   Use natural language - like syntax and constructs (e.g., loops, functions).  
+•   Programs must be translated into machine code via a compiler or interpreter before execution.  
+10  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Examples include Python, Java, C++, JavaScript, Ruby, PHP, C#, and more.  
+ 
+Advantages:  
+•   Highly portable across different hardware platforms.  
+•   Easier and faster to develop, maintain, and debug.  
+ 
+Disadvantages:  
+•   Typically, slower than low - level languages due to abstraction overhead.  
+•   Less direct control over hardware.  
+ 
+ 
+Figure 1 3 .  Levels of Program Representation  —   from High - Level Source Code to Low - Level Assembly to Executable Machine 
+Code  
+ 
+Source Program  
+ 
+The source program is the original code written by the programmer in a programming language.   It is 
+human - readable and saved in files with specific extensions, for example:  
+ 
+•   Pascal   -   . pas  
+•   C++   -     .c, .cpp, .h  
+•   Java   -   .java  
+•   Python  -   .py  
+ 
+Source programs are either compiled into machine code or executed by an interpreter.  
+ 
+ 
+Compiler  
+ 
+A   compiler   is a software tool that translates a source program written in a high - level language into machine 
+language (object code).   Some compilers generate assembly language first, which is then converted to 
+11  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+machine code by an assembler.   Compilers typically translate the entire program before execution, enabling 
+faster runtime performance.   Each high - level statement often corresponds to multiple machine instructions.  
+ 
+Interpreter  
+ 
+An  interpreter   translates and executes source code line - by - line at runtime.   Commonly used for scripting 
+languages like Python, Ruby, and JavaScript.    Interpreted programs are generally slower than compiled ones 
+but offer greater flexibility and easier debugging.   Interpreters do not produce a separate machine code file; 
+they execute code directly.  
+ 
+4.   Scripting Languages  
+ 
+Scripting languages   are programming languages designed for integrating and communicating with other 
+programming languages. They are often used to automate tasks, manipulate data, and control software 
+applications.  
+ 
+Key features:  
+ 
+•   Interpreted .  Scripts are executed directly by an interpreter rather than compiled into machine code.  
+•   Ease of Use .  Designed to be simple, flexible, and quick to write.  
+•   Automation .  Ideal for automating repetitive tasks.  
+ 
+Common Types of Scripting Languages  
+ 
+Language   Typical Use Cases   Example Applications  
+Python   Web development, automation, data analysis   Web apps, data science, AI  
+JavaScript   Web front - end development   Interactive websites  
+Bash   Shell scripting, system administration   Automating tasks on Unix/Linux systems  
+Perl   Text processing, system administration   Web  development,  network 
+programming  
+Ruby   Web development, automation   Web apps with Ruby on Rails  
+PowerShell   Windows system administration   Automating Windows tasks  
+Table 1 .  Overview of Common Scripting Languages with Typical Use Cases and Example Applications  
+5.   Programming Paradigm  
+ 
+A  programming  paradigm   is  a  fundamental  style  or  approach  to  programming  that  influences  how 
+developers think about and organize their code. It provides a set of principles, concepts, and techniques for 
+designing  and  implementing  software  solutions.  Different  paradigms  often  em phasize  different  ways  of 
+solving problems, managing data, and structuring programs.  
+Why Are Programming Paradigms Important?  
+12  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   They help organize code better  
+•   They influence the way problems are approached  
+•   They improve code maintainability and readability  
+•   Different paradigms are suited for different types of tasks  
+ 
+Major Programming Paradigms  
+ 
+Figure 14.    Imperative Programming Example  –  
+a .  Imperative Programming.   Focuses on how to perform tasks 
+Using a for loop to calculate the sum of integers 
+using statements that change a program's state.  
+from 1 to 5.  
+ 
+Characteristics:    
+•   Sequential execution  
+•   Use  of  variables,  assignments,  and  control  structures 
+(loops, conditionals)  
+ 
+Examples: C, Assembly, BASIC  
+ 
+b .  Procedural   Programming.   Procedural   programming 
+organizes  code  into  procedures  or  functions  that  operate  on 
+data.    
+ 
+Characteristics:  
+•   Uses procedures/subroutines/functions.  
+Figure 15.    Simple C program to add two  •   Emphasizes a top - down approach.    
+integers.   •   Control  flow  is  managed  with  loops,  conditionals,  and 
+sequences.  
+•   Data  is  often  global  or  passed  explicitly  between 
+functions.  
+ 
+Example Languages:  
+•   C  
+•   Pascal  
+ 
+c .  Object - Oriented  Programming  (OOP).   Organizes  code 
+around objects that encapsulate data and behavior.  
+ 
+Core Concepts:    
+•   Class   -   Blueprint defining attributes and methods.    
+•   Object   -   Instance of a class.  
+•   Inheritance   -   Derive new classes from existing ones.  
+Figure 16.    Object - Oriented Programming  •   Encapsulation   -   Hiding internal data.  
+(OOP) structure in Java with a focus on 
+•   Polymorphism   -   Methods behave differently based on 
+class  relationships,  inheritance,  and 
+object type.  
+method overriding.  
+ 
+Characteristics:  
+13  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   Models real - world entities.    
+•   Promotes reusability and modularity.    
+•   Supports inheritance for hierarchical relationships.  
+•   Supports dynamic binding.  
+ 
+Example Languages:  
+•   Java  
+•   C++  
+ 
+d .  Event - Driven Programming.   The flow of the program is determined by events such as user actions, sensor 
+outputs, or messages from other programs.   Common in GUIs, web applications, and interactive systems.  
+ 
+Characteristics:  
+•   Program responds to events via event handlers.  
+•   The main loop waits for events and dispatches them to appropriate handlers.  
+ 
+Examples: JavaScript, VB.NET  
+ 
+Sample Concept:  
+ 
+In JavaScript:  
+ 
+document.getElementById("myButton").addEventListener("click", function() {  
+     alert("Button clicked!");  
+});  
+ 
+e .  Functional Programming.   Emphasizes computation through pure functions and avoids mutable state.  
+ 
+Characteristics:  
+•   First - class functions  
+•   Immutability  
+•   No side effects  
+•   Emphasis on expressions  
+ 
+Examples: Haskell, Lisp, Scala, F#  
+ 
+Sample code in Haskell  
+ 
+--   A pure function to compute factorial  
+factorial :: Integer  - > Integer  
+factorial 0 = 1   --   Base case  
+factorial n = n * factorial (n  -   1)   --   Recursive case  
+ 
+--   Apply a high order function using map to each element in a list  
+squareAll :: [Integer]  - > [Integer]  
+14  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+squareAll numbers = map ( \ x  - > x * x) numbers  
+ 
+f .  Declarative Programming.   Describes what to do rather than how to do it.  
+ 
+Characteristics:  
+•   Focus on logic and rules  
+•   Often used in database queries and configuration  
+ 
+Examples: SQL, HTML, Prolog  
+ 
+Sample code in SQL  
+ 
+--   Example: Declarative SQL query  
+SELECT name FROM students WHERE grade > 80;  
+ 
+6. Number System  
+ 
+When  we  type  some  letters  or  words,  the  computer  translates  them  in  numbers  as  computers  can 
+understand only numbers. A computer can understand the positional number system where there are only 
+a few symbols called  digits,   and these symbols represent different values depending on the position they 
+occupy in the number.  
+ 
+The value of each digit in a number can be determined using −  
+•   The digit  
+•   The position of the digit in the number  
+•   The base of the number system (where the base is defined as the total number of digits available in 
+the number system)  
+ 
+Decimal Number System  
+ 
+The number system that we use in our day - to - day life is the decimal number system.  Decimal number 
+system   has base 10 as it uses 10 digits from 0 to 9. In decimal number system, the successive positions to 
+the left of the decimal point represent units, tens, hundreds, thousands, and so on.  
+ 
+Each position represents a specific power of the base (10). For example, the decimal number 1234 consists 
+of the digit 4 in the units position, 3 in the tens position, 2 in the hundreds position, and 1 in the thousands 
+position. Its value can be written as  
+ 
+(1 x 1000)+ (2 x 100)+ (3 x 10)+ (4 x l)  
+(1 x 103)+ (2 x 102)+ (3 x 101)+ (4 x l00)  
+1000 + 200 + 30 + 4  
+1234  
+ 
+ 
+Binary Number System  
+15  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Characteristics of the binary number system are as follows −  
+ 
+•   Uses two digits, 0 and 1  
+•   Also called as base 2 number system  
+•   Each position in a binary number represents a 0 power of the base (2). Example 20  
+•   Last position in a binary number represents a x power of the base (2). Example 2x where x represents 
+the last position  -   1.  
+ 
+ 
+ 
+Figure 17.    Conversion of binary 10101₂ to decimal 21₁₀.    
+ 
+Octal Number System  
+ 
+Characteristics of the octal number system are as follows −  
+•   Uses eight digits, 0,1,2,3,4,5,6,7  
+•   Also called as base 8 number system  
+•   Each position in an octal number represents a 0 power of the base (8). Example 80  
+•   Last position in an octal number represents a x power of the base (8). Example 8x where x 
+represents the last position  –   1  
+ 
+Figure 18.    Conversion of  octal   12570   to decimal.   8
+Hexadecimal Number System  
+16  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Characteristics of hexadecimal number system are as follows −  
+•   Uses 10 digits and 6 letters, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F  
+•   Letters represent the numbers starting from 10. A = 10. B = 11, C = 12, D = 13, E = 14, F = 15  
+•   Also called as base 16 number system  
+•   Each position in a hexadecimal number represents a 0 power of the base (16). Example, 160  
+•   Last position in a hexadecimal number represents a x power of the base (16). Example 16x where x 
+represents the last position  –   1  
+ 
+ 
+Figure 19.    Conversion of hexadecimal 19FDE   to decimal.   16
+ 
+7.  Number  System  Conversion  
+ 
+There are many methods or techniques which can be used to convert numbers from one base to another.  
+ 
+Decimal to Other Base System  
+Other Base System to Decimal  
+Other Base System to Non - Decimal  
+Shortcut method  -   Binary to Octal  
+Shortcut method  -   Octal to Binary  
+Shortcut method  -   Binary to Hexadecimal  
+Shortcut method  -   Hexadecimal to Binary  
+ 
+Decimal to Other Base System  
+ 
+Step 1 − Divide the decimal number to be converted by the value of the new base.  
+Step 2 − Get the remainder from Step 1 as the rightmost digit (least significant digit) of the new base number.  
+Step 3 − Divide the quotient of the previous divide by the new base.  
+Step 4 − Record the remainder from Step 3 as the next digit (to the left) of the new base number.  
+17  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Repeat Steps 3 and 4, getting remainders from right to left, until the quotient becomes zero in Step 3.  
+The last remainder thus obtained will be the Most Significant Digit (MSD) of the new base number.  
+ 
+ 
+ 
+Figure 20.    Conversion of decimal 29   to binary.   10
+ 
+Other Base System to Decimal System  
+ 
+Step 1 − Determine the column (positional) value of each digit (this depends on the position of the digit and 
+the base of the number system).  
+Step 2 − Multiply the obtained column values (in Step 1) by the digits in the corresponding columns.  
+Step 3 − Sum the products calculated in Step 2. The total is the equivalent value in decimal.  
+ 
+18  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Figure 21 .  Conversion of binary 11101   to decimal .   2
+ 
+ 
+Other Base System to Non - Decimal System  
+ 
+Step 1   − Convert the original number to a decimal number (base 10).  
+Step 2   − Convert the decimal number so obtained to the new base number.  
+ 
+ 
+ 
+Figure 22.    Conversion of octal 25   to decimal.   8
+ 
+19  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Figure 2 3 .    Conversion of decimal 21   to binary.   10
+ 
+Shortcut Method  ─   Binary to Octal  
+ 
+Step 1   − Divide the binary digits into groups of three (starting from the right).  
+Step 2   − Convert each group of three binary digits to one octal digit.  
+ 
+ 
+Figure 2 4 .    Conversion of binary 10101   to octal.   2
+ 
+Shortcut Method  ─   Octal to Binary  
+ 
+Step 1   − Convert each octal digit to a 3 - digit binary number (the octal digits may be treated as decimal for 
+this conversion).  
+Step 2   − Combine all the resulting binary groups (of 3 digits each) into a single binary number.  
+ 
+20  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Figure 2 5 .    Conversion of octal  25   to   binary.   8
+Shortcut Method  ─   Binary to Hexadecimal  
+ 
+Step 1   − Divide the binary digits into groups of four (starting from the right).  
+Step 2   − Convert each group of four binary digits to one hexadecimal symbol.  
+ 
+ 
+ 
+Figure 2 6 .    Conversion of binary 10101   to  hexadecimal .   2
+ 
+Shortcut Method  -   Hexadecimal to Binary  
+ 
+Step 1   − Convert each hexadecimal digit to a 4 - digit binary number (the hexadecimal digits may be treated 
+as decimal for this conversion).  
+Step 2   − Combine all the resulting binary groups (of 4 digits each) into a single binary number.  
+ 
+21  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+ 
+Figure 2 7 .    Conversion of hexadecimal 15   to binary .   16
+ 
+Laboratory   Exercises  
+ 
+1. Exploring the Computer System  
+ 
+Activity 1  -   Hardware Identification  
+ 
+ 
+Objective  
+ 
+To visually identify and understand the function of key hardware components of a computer system.  
+ 
+Materials   
+ 
+•   Access to a computer hardware simulation software or high - quality interactive diagrams/videos 
+showcasing hardware components.  
+•   Worksheet for labeling and describing components.  
+ 
+Procedure  
+ 
+•   Students will work individually or in small groups to:  
+•   Using a provided diagram or the physical computer, correctly label the identified components.  
+•   Briefly describe the primary function of each labeled component on their worksheet.  
+ 
+Deliverable  
+•   Completed worksheet with labeled diagrams and component descriptions.  
+ 
+2. Number System Conversions  
+ 
+Activity  2  -   Decimal to Binary, Octal, and Hexadecimal Conversion  
+ 
+Objective  
+22  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+•   To apply the division - remainder method for converting decimal numbers to binary, octal, and 
+hexadecimal.  
+ 
+Materials    
+•   Whiteboard/projector, pens/markers, calculators (optional).  
+ 
+Procedure  
+•   Briefly reiterate the steps for converting decimal to other bases (divide by new base, record 
+remainder, continue with quotient).  
+•   Work through 1 - 2 examples on the board as a class for each conversion type (Decimal to Binary, 
+Decimal to Octal, Decimal to Hexadecimal).  
+ 
+Example:   
+ 
+Convert 25     to binary.   10
+Convert 150     to octal.   10
+Convert 400     to hexadecimal.   10
+ 
+•   Provide a set of decimal numbers for students to convert to binary, octal, and hexadecimal on their 
+own.  
+ 
+Deliverable  
+•   Solved practice problems demonstrating correct conversion steps.  
+ 
+Activity  3  -   Binary, Octal, and Hexadecimal to Decimal Conversion  
+ 
+Objective  
+•   To apply the positional value method for converting binary, octal, and hexadecimal numbers to 
+decimal.  
+ 
+Materials  
+•   Whiteboard/projector, pens/markers, calculators (optional).  
+ 
+Procedure  
+•   Briefly reiterate the steps for converting other bases to decimal (multiply digit by base raised to 
+positional power, then sum).  
+•   Work through 1 - 2 examples on the board as a class for each conversion type (Binary to Decimal, 
+Octal to Decimal, Hexadecimal to Decimal).  
+ 
+Example  
+Convert 1101     to decimal.   2
+Convert 237    to decimal.   8
+Convert A5    to decimal.   16
+ 
+•   Provide a set of binary, octal, and hexadecimal numbers for students to convert to decimal.  
+23  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+Deliverable  
+•   Solved practice problems demonstrating correct conversion steps.  
+ 
+Activity  4  -   Shortcut Conversions (Binary - Octal/Hexadecimal and Vice Versa)  
+ 
+Objective  
+•   To practice the shortcut methods for conversion between binary, octal, and hexadecimal.  
+ 
+Materials  
+•   Whiteboard/projector, pens/markers.  
+ 
+Procedure  
+•   Briefly explain the grouping method for binary to octal (3 bits per octal digit), binary to hexadecimal 
+(4 bits per hexadecimal digit), and vice versa.  
+•   Work through examples for each shortcut conversion.  
+ 
+Example  
+Convert 110101    to octal.   2  
+Convert 11011100    to hexadecimal.   2
+Convert 72    to binary.   8
+Convert F3    to binary.   16
+ 
+•   Provide a set of mixed conversion problems utilizing the shortcut methods.  
+ 
+Deliverable  
+•   Solved practice problems demonstrating correct application of shortcut conversion methods.  
+ 
+Outcomes - Based  Output 1 .   Self - Check  
+Assessment    
+1. Which of the following is NOT part of the CPU?  
+a) ALU  
+b) Control Unit  
+c) SSD  
+d) Registers  
+ 
+2. (True/False) The motherboard is responsible for storing long - term data.  
+ 
+3. Name two input and two output devices.  
+ 
+4. Which type of computer processes continuous data?  
+a) Digital  
+b) Analog  
+c) Hybrid  
+d) Quantum  
+24  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+ 
+5.  (True/False) Digital computers are more precise than analog computers.  
+ 
+6.  Give one real - world use case for analog and digital computers.  
+ 
+7.  Which of the following is an example of an interpreted language?  
+A )   C++  
+b )   Java  
+c )   Python  
+d )   Assembly  
+ 
+8.  (True/False)  Scripting  languages  are  typically  used  for  system - level 
+programming.  
+ 
+9.  Name one low - level and one high - level language.  
+ 
+10.  Categorize these languages as compiled or interpreted:  
+Python   
+C++   
+Bash  
+ 
+11. Which paradigm focuses on "objects" and "classes"?  
+a) Functional  
+b) Procedural  
+c) Object - Oriented  
+d) Logical  
+ 
+12.  (True/False) Functional programming avoids changing state and mutable 
+data.  
+ 
+13.  If a program uses recursion and avoids loops, which paradigm is it likely 
+following?  
+ 
+14.  What is the binary equivalent of decimal 10?  
+ 
+a) 1001  
+b) 1010  
+c) 1100  
+d) 1111  
+ 
+15.  Convert 25 (Decimal) to Binary and Hexadecimal.  
+ 
+Output  2 . Quiz   –   30 items  
+ 
+25  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+Objective:  Th e  quiz  is  designed  to  evaluate  students'  foundational 
+understanding  of  key  computing  concepts,  ranging  from  hardware 
+components  to  programming  principles  and  numerical  representations.  By 
+completing this assessment, students will demonstrate their ability to   classify, 
+differentiate, and apply essential computer science knowledge.  
+ 
+Output  2 :  Board Recitation  
+ 
+Objective: Evaluate students' ability to explain and perform conversions in real -
+time.  
+ 
+Instructions:  
+1.   Each student will be called randomly to solve a conversion problem on the 
+board.  
+2.   They must verbally explain each step while solving.  
+3.   The class may ask clarifying questions.  
+ 
+Sample Problems:  
+1.   Convert 45 (Decimal) to Binary and Hexadecimal.  
+2.   Convert 110101 (Binary) to Decimal and Octal.  
+3.   Convert 2F (Hexadecimal) to Binary and Decimal.  
+ 
+Output 3  -   Activity 1: Hardware Identification Worksheet  
+ 
+Objective:  You are tasked to identify and understand the function of common 
+computer hardware components. In this activity, you will match the component 
+names listed in Column A with their correct function descriptions in Column B.  
+ 
+1.   Carefully read the list of hardware components in Column A.  
+2.   In Column B, read the descriptions of what each component does.  
+3.   Write  the  letter  of  the  correct  description  from  Column  B  next  to  the 
+number of the component in Column A.  
+4.   Each description in Column B will be used only once.  
+5.   After  completing  the  matching,  exchange  your  answer  sheet  with  a 
+classmate and check your work using the answer key provided by the 
+instructor.  
+COLUMN A   COLUMN B  
+A. Converts electricity from AC to DC and 
+1.   CPU  
+distributes power to internal components.  
+B.  Allows  users  to  input  data  into  the 
+2.   RAM  
+computer using keys.  
+26  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+C.  Displays  the  visual  output  from  the 
+3.   Hard Drive  
+computer.  
+D. Connects all components together and 
+4.   Motherboard  
+allows them to communicate.  
+E. Stores data permanently, even when the 
+5.   Power Supply  
+computer is off.  
+F.  Performs  calculations  and  executes 
+instructions; considered the “brain” of the  6.   Monitor  
+computer.  
+G. Stores data temporarily for quick access 
+7.   Keyboard  
+while the computer is running.  
+H. Enables the computer to connect to a 
+8.   Network Interface Card (NIC)  
+local network or the internet.  
+ 
+Output  4 :  Number System Conversion Practice Problems  
+ 
+Objective:  Students will a pply number system conversion techniques to solve 
+given numerical problems.  
+ 
+Instructions:  
+ 
+1.   Students will receive a worksheet with mixed conversion problems.  
+2.   They must solve them independently (no calculators ) .  
+3.   Includes both standard conversions and real - world scenarios .  
+ 
+ 
+ 
+ 
+References/Resources:  
+ 
+Ahmad, M. S. (2024). Fundamentals of programming. Toronto Academic Press. 
+https://www.perlego.com/book/4501018  
+ 
+Dzvapatsva , G. (2023). NCV2 basic principles of computer programming and computer literacy. Future 
+Managers. https://www.perlego.com/book/4167037  
+ 
+Ciesla, R. (2021). Programming basics. Apress. https://www.perlego.com/book/4513550  
+ 
+Other Suggested Readings:   
+27  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 
+
+ 
+TutorialsPoint. (n.d.). Basics of computer.  
+https://www.tutorialspoint.com/computer_fundamentals/index.htm  
+GeeksforGeeks. (n.d.). Basics of computers. https://www.geeksforgeeks.org/basics - of - computers/  
+Computer Hope. (n.d.). Computer basics. https://www.computerhope.com/basics.htm  
+Techopedia. (n.d.). Computer system definition. https://www.techopedia.com/definition/3415/computer -
+system  
+Programiz. (2021). Number systems in computer. https://www.programiz.com/article/number - system  
+Guru99. (2021). Computer fundamentals tutorial. https://www.guru99.com/computer - fundamentals -
+tutorial.html  
+W3Schools. (n.d.). Binary and number systems overview. https://www.w3schools.com/js/js_numbers.asp  
+   
+28  
+Course Module in  COMP102 :   
+COMPUTER PROGRAMMING 1  
+ 

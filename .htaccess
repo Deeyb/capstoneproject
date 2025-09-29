@@ -1,0 +1,3 @@
+# Environment variables for the application
+SetEnv JDOODLE_CLIENT_ID "e70976e1f74c2e424295ed0aeca5576b"
+SetEnv JDOODLE_CLIENT_SECRET "b969fa558a7ce2d2232416cd432ae3fa910280a306f1b1c422472c04fe95420d"
