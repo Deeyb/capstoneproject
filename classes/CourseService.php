@@ -2,6 +2,28 @@
 
 class CourseService {
     private $db;
+    
+    // JDoodle language mapping configuration
+    private static $jdoodleConfig = [
+        'cpp' => [
+            'compilerId' => 1,
+            'versionIndex' => 0,
+            'timeLimit' => 5000,
+            'memoryLimit' => 256
+        ],
+        'java' => [
+            'compilerId' => 3,
+            'versionIndex' => 0,
+            'timeLimit' => 5000,
+            'memoryLimit' => 256
+        ],
+        'python' => [
+            'compilerId' => 4,
+            'versionIndex' => 0,
+            'timeLimit' => 5000,
+            'memoryLimit' => 256
+        ]
+    ];
     private $jdoodleClientId;
     private $jdoodleClientSecret;
 
@@ -11,6 +33,19 @@ class CourseService {
         // JDoodle config via env
         $this->jdoodleClientId = getenv('JDOODLE_CLIENT_ID') ?: '';
         $this->jdoodleClientSecret = getenv('JDOODLE_CLIENT_SECRET') ?: '';
+    }
+    
+    /**
+     * Get JDoodle configuration for a language
+     */
+    public static function getJDoodleConfig(string $language): array {
+        $lang = strtolower($language);
+        return self::$jdoodleConfig[$lang] ?? [
+            'compilerId' => 1,
+            'versionIndex' => 0,
+            'timeLimit' => 5000,
+            'memoryLimit' => 256
+        ];
     }
 
     private function ensureSchema() {
@@ -63,7 +98,7 @@ class CourseService {
             $this->db->exec("CREATE TABLE IF NOT EXISTS lesson_materials (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 lesson_id INT NOT NULL,
-                type ENUM('pdf','video','link','code','file') NOT NULL,
+                type ENUM('pdf','video','link','code','file','page') NOT NULL,
                 url VARCHAR(255) NULL,
                 filename VARCHAR(255) NULL,
                 size_bytes BIGINT NULL,
@@ -120,10 +155,13 @@ class CourseService {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 activity_id INT NOT NULL,
                 question_text MEDIUMTEXT NOT NULL,
+                explanation MEDIUMTEXT NULL,
                 position INT NOT NULL DEFAULT 1,
                 points INT NOT NULL DEFAULT 1,
                 FOREIGN KEY (activity_id) REFERENCES lesson_activities(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            // Ensure explanation column exists for legacy installs
+            try { $this->db->exec("ALTER TABLE activity_questions ADD COLUMN explanation MEDIUMTEXT NULL AFTER question_text"); } catch (Throwable $e) {}
             $this->db->exec("CREATE TABLE IF NOT EXISTS question_choices (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 question_id INT NOT NULL,
@@ -131,6 +169,23 @@ class CourseService {
                 is_correct TINYINT(1) NOT NULL DEFAULT 0,
                 position INT NOT NULL DEFAULT 1,
                 FOREIGN KEY (question_id) REFERENCES activity_questions(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // Attempts for coding activities (student submissions)
+            $this->db->exec("CREATE TABLE IF NOT EXISTS activity_attempts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                activity_id INT NOT NULL,
+                student_user_id INT NOT NULL,
+                language VARCHAR(32) NOT NULL,
+                source_code LONGTEXT NULL,
+                verdict ENUM('passed','failed','compile_error','runtime_error') DEFAULT NULL,
+                results_json LONGTEXT NULL,
+                score DECIMAL(6,2) DEFAULT NULL,
+                duration_ms INT DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_attempts_activity (activity_id),
+                INDEX idx_attempts_student (student_user_id),
+                FOREIGN KEY (activity_id) REFERENCES lesson_activities(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         } catch (Throwable $e) {
             // Fail silently in ensure step
@@ -455,7 +510,13 @@ class CourseService {
         $original = $file['name'] ?? 'upload.bin';
         $ext = strtolower(pathinfo($original, PATHINFO_EXTENSION));
         $allowedExt = [
-            'pdf','mp4','mov','mkv','avi','zip','rar','7z','txt','doc','docx','ppt','pptx','xls','xlsx','png','jpg','jpeg','gif','webp','csv','cpp','c','h','hpp','java','py'
+            'pdf',
+            // videos
+            'mp4','m4v','mov','mkv','avi','webm','ogv','3gp',
+            // archives & docs & images & misc
+            'zip','rar','7z','txt','doc','docx','ppt','pptx','xls','xlsx','png','jpg','jpeg','gif','webp','csv',
+            // code
+            'cpp','c','h','hpp','java','py','js','ts','php'
         ];
         if (!in_array($ext, $allowedExt, true)) {
             return ['success' => false, 'message' => 'File type not allowed'];
@@ -473,10 +534,76 @@ class CourseService {
         // Determine material type
         $type = 'file';
         if ($ext === 'pdf') $type = 'pdf';
-        else if (in_array($ext, ['mp4','mov','mkv','avi'], true)) $type = 'video';
+        else if (in_array($ext, ['mp4','m4v','mov','mkv','avi','webm','ogv','3gp'], true)) $type = 'video';
         else if (in_array($ext, ['cpp','c','h','hpp','java','py'], true)) $type = 'code';
         $relativePath = 'material_download.php?f=' . rawurlencode($unique);
         $id = $this->addMaterial($lessonId, $type, $relativePath, $original, (int)($file['size'] ?? 0));
+        return $id > 0 ? ['success' => true, 'id' => $id, 'url' => $relativePath] : ['success' => false, 'message' => 'DB save failed'];
+    }
+
+    /**
+     * Download a remote file by URL and save as a lesson material.
+     * Only http/https URLs are allowed. Enforces a max size and an allowlist of extensions/content types.
+     */
+    public function importMaterialFromUrl(int $lessonId, string $url): array {
+        $url = trim($url);
+        if ($url === '' || !preg_match('#^https?://#i', $url)) {
+            return ['success' => false, 'message' => 'Invalid URL'];
+        }
+        $maxBytes = 50 * 1024 * 1024; // 50MB
+        $allowedExt = [
+            'pdf','mp4','m4v','mov','mkv','avi','webm','ogv','3gp','zip','rar','7z','txt','doc','docx','ppt','pptx','xls','xlsx','png','jpg','jpeg','gif','webp','csv','cpp','c','h','hpp','java','py','js','ts','php'
+        ];
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_USERAGENT => 'LMS Material Importer',
+            CURLOPT_FILE => $tmp = fopen('php://temp', 'w+'),
+        ]);
+        $ok = curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $clen = (int)curl_getinfo($ch, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+        $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $err = curl_error($ch);
+        curl_close($ch);
+        if ($ok === false || $http < 200 || $http >= 300) {
+            return ['success' => false, 'message' => 'Download failed: ' . ($err ?: ('HTTP ' . $http))];
+        }
+        // Check size
+        $size = ftell($tmp);
+        if ($size <= 0 && $clen > 0) $size = $clen;
+        if ($size > $maxBytes) { fclose($tmp); return ['success' => false, 'message' => 'File too large (max 50MB)']; }
+        // Determine filename and extension
+        $pathPart = parse_url($url, PHP_URL_PATH) ?: '';
+        $basename = basename($pathPart) ?: 'downloaded';
+        $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+        if ($ext === '' && preg_match('#/(pdf|mp4|m4v|mov|mkv|avi|webm|ogv|3gp|zip|rar|7z|txt|docx?|pptx?|xlsx?|png|jpe?g|gif|webp|csv|cpp|c|h|hpp|java|py|js|ts|php)(?:\b|$)#i', $ctype, $m)) {
+            $ext = strtolower($m[1]);
+        }
+        if ($ext === '') $ext = 'bin';
+        if (!in_array($ext, $allowedExt, true)) { fclose($tmp); return ['success' => false, 'message' => 'File type not allowed']; }
+        // Persist to uploads/materials
+        $baseDir = realpath(__DIR__ . '/..'); if ($baseDir === false) { $baseDir = dirname(__DIR__); }
+        $uploadDir = $baseDir . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'materials';
+        if (!is_dir($uploadDir)) { @mkdir($uploadDir, 0755, true); }
+        $safeBase = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', pathinfo($basename, PATHINFO_FILENAME));
+        $unique = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '_' . $safeBase . '.' . $ext;
+        $target = $uploadDir . DIRECTORY_SEPARATOR . $unique;
+        rewind($tmp);
+        $out = fopen($target, 'w');
+        stream_copy_to_stream($tmp, $out);
+        fclose($out); fclose($tmp);
+        // Determine material type
+        $type = 'file';
+        if ($ext === 'pdf') $type = 'pdf';
+        else if (in_array($ext, ['mp4','m4v','mov','mkv','avi','webm','ogv','3gp'], true)) $type = 'video';
+        else if (in_array($ext, ['cpp','c','h','hpp','java','py','js','ts','php'], true)) $type = 'code';
+        $relativePath = 'material_download.php?f=' . rawurlencode($unique);
+        $id = $this->addMaterial($lessonId, $type, $relativePath, $basename, (int)$size);
         return $id > 0 ? ['success' => true, 'id' => $id, 'url' => $relativePath] : ['success' => false, 'message' => 'DB save failed'];
     }
 
@@ -553,15 +680,15 @@ class CourseService {
     }
 
     // === MCQ helpers ===
-    public function addQuestion(int $activityId, string $text, int $points = 1): int {
+    public function addQuestion(int $activityId, string $text, int $points = 1, ?string $explanation = null): int {
         $pos = (int)$this->db->query("SELECT COALESCE(MAX(position),0)+1 FROM activity_questions WHERE activity_id=" . (int)$activityId)->fetchColumn();
-        $stmt = $this->db->prepare("INSERT INTO activity_questions (activity_id, question_text, position, points) VALUES (?, ?, ?, ?)");
-        $ok = $stmt->execute([$activityId, $text, $pos, max(1,$points)]);
+        $stmt = $this->db->prepare("INSERT INTO activity_questions (activity_id, question_text, explanation, position, points) VALUES (?, ?, ?, ?, ?)");
+        $ok = $stmt->execute([$activityId, $text, $explanation, $pos, max(1,$points)]);
         return $ok ? (int)$this->db->lastInsertId() : 0;
     }
     public function updateQuestion(int $id, array $data): bool {
-        $stmt = $this->db->prepare("UPDATE activity_questions SET question_text=?, points=? WHERE id=?");
-        return $stmt->execute([$data['question_text'] ?? '', (int)($data['points'] ?? 1), $id]);
+        $stmt = $this->db->prepare("UPDATE activity_questions SET question_text=?, explanation=?, points=? WHERE id=?");
+        return $stmt->execute([$data['question_text'] ?? '', $data['explanation'] ?? null, (int)($data['points'] ?? 1), $id]);
     }
     public function deleteQuestion(int $id): bool {
         $stmt = $this->db->prepare("DELETE FROM activity_questions WHERE id=?");
@@ -653,6 +780,7 @@ class CourseService {
 
     // === JDoodle run (generic) ===
     public function runWithJDoodle(string $language, string $sourceCode, array $testCases): array {
+        $config = self::getJDoodleConfig($language);
         $results = [];
         foreach ($testCases as $idx => $tc) {
             $payload = [
@@ -660,13 +788,39 @@ class CourseService {
                 'clientSecret' => $this->jdoodleClientSecret,
                 'script' => $sourceCode,
                 'language' => $language,
-                'versionIndex' => '0',
+                'versionIndex' => (string)$config['versionIndex'],
                 'stdin' => $tc['input_text'] ?? ''
             ];
             $res = $this->jdoodleRequest($payload);
             $results[] = $res;
         }
         return $results;
+    }
+
+    // Record a coding attempt
+    public function recordAttempt(int $activityId, int $studentUserId, string $language, string $sourceCode, array $results, ?string $verdict = null, ?float $score = null, ?int $durationMs = null): int {
+        $stmt = $this->db->prepare("INSERT INTO activity_attempts (activity_id, student_user_id, language, source_code, verdict, results_json, score, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?)" );
+        $ok = $stmt->execute([
+            $activityId,
+            $studentUserId,
+            strtolower($language),
+            $sourceCode,
+            $verdict,
+            json_encode($results, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+            $score,
+            $durationMs
+        ]);
+        return $ok ? (int)$this->db->lastInsertId() : 0;
+    }
+
+    // List attempts for teacher/coordinator
+    public function listAttempts(int $activityId, int $offset = 0, int $limit = 50): array {
+        $stmt = $this->db->prepare("SELECT * FROM activity_attempts WHERE activity_id=? ORDER BY id DESC LIMIT ?, ?");
+        $stmt->bindValue(1, $activityId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $stmt->bindValue(3, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     // Back-compat for older callers defaulting to C++

@@ -24,6 +24,85 @@ if (session_status() === PHP_SESSION_NONE) {
 // Now include config after session is started
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/classes/auth_helpers.php';
+require_once __DIR__ . '/classes/CSRFProtection.php';
+require_once __DIR__ . '/classes/RateLimiter.php';
+
+// Validation functions
+function validateActivityData($data) {
+    $errors = [];
+    
+    // Title validation
+    if (empty($data['title']) || strlen($data['title']) > 255) {
+        $errors[] = 'Title is required and must be 255 characters or less';
+    }
+    
+    // Type validation
+    if (!in_array($data['type'], ['coding', 'quiz', 'multiple_choice', 'identification', 'essay'])) {
+        $errors[] = 'Invalid activity type';
+    }
+    
+    // Max score validation
+    if (isset($data['max_score']) && (!is_numeric($data['max_score']) || $data['max_score'] < 1 || $data['max_score'] > 1000)) {
+        $errors[] = 'Max score must be between 1 and 1000';
+    }
+    
+    return $errors;
+}
+
+function validateCodingData($instructions) {
+    $errors = [];
+    $meta = json_decode($instructions, true);
+    
+    if (!$meta) {
+        $errors[] = 'Invalid instructions format';
+        return $errors;
+    }
+    
+    // Language validation
+    if (!in_array($meta['language'] ?? '', ['cpp', 'java', 'python'])) {
+        $errors[] = 'Language must be cpp, java, or python';
+    }
+    
+    // Instructions length
+    if (strlen($meta['instructions'] ?? '') > 5000) {
+        $errors[] = 'Instructions must be 5000 characters or less';
+    }
+    
+    // Problem statement length
+    if (strlen($meta['problemStatement'] ?? '') > 5000) {
+        $errors[] = 'Problem statement must be 5000 characters or less';
+    }
+    
+    // Starter code length
+    if (strlen($meta['starterCode'] ?? '') > 10000) {
+        $errors[] = 'Starter code must be 10000 characters or less';
+    }
+    
+    return $errors;
+}
+
+function validateTestCases($testCases) {
+    $errors = [];
+    
+    if (!is_array($testCases)) {
+        $errors[] = 'Test cases must be an array';
+        return $errors;
+    }
+    
+    foreach ($testCases as $i => $tc) {
+        if (strlen($tc['input_text'] ?? '') > 2000) {
+            $errors[] = "Test case " . ($i + 1) . " input must be 2000 characters or less";
+        }
+        if (strlen($tc['expected_output_text'] ?? '') > 2000) {
+            $errors[] = "Test case " . ($i + 1) . " expected output must be 2000 characters or less";
+        }
+        if (isset($tc['time_limit_ms']) && (!is_numeric($tc['time_limit_ms']) || $tc['time_limit_ms'] < 100 || $tc['time_limit_ms'] > 30000)) {
+            $errors[] = "Test case " . ($i + 1) . " time limit must be between 100ms and 30000ms";
+        }
+    }
+    
+    return $errors;
+}
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
@@ -33,6 +112,18 @@ if (function_exists('ob_get_level')) { while (ob_get_level() > 0) { @ob_end_clea
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success'=>false,'message'=>'Not authenticated - Session user_id missing']);
     exit;
+}
+
+// CSRF validation for POST requests (skip for token fetch action)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $earlyAction = $_POST['action'] ?? '';
+    if ($earlyAction !== 'get_csrf_token') {
+        $csrfToken = $_POST[CSRFProtection::getTokenName()] ?? '';
+        if (!CSRFProtection::validateToken($csrfToken)) {
+            echo json_encode(['success'=>false,'message'=>'Invalid CSRF token']);
+            exit;
+        }
+    }
 }
 
 // Debug session info (only log if we have a user_id)
@@ -76,6 +167,9 @@ try {
 
     $action = $_POST['action'] ?? '';
     switch ($action) {
+        case 'get_csrf_token':
+            echo json_encode(['success'=>true,'token'=>CSRFProtection::generateToken()]);
+            break;
         case 'module_create':
             if (!$isCoordinator) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
             $id = $svc->createModule((int)$_POST['course_id'], trim($_POST['title'] ?? ''));
@@ -144,6 +238,19 @@ try {
             if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'material.create', 'lesson_material', (string)$id, ['lesson_id'=>$_POST['lesson_id'] ?? null]); }
             echo json_encode(['success' => $id > 0, 'id' => $id]);
             break;
+        case 'material_types':
+            if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            // Dynamic material types listing. For now, mirror DB enum values and keep labels.
+            $types = [
+                ['value'=>'pdf','label'=>'PDF'],
+                ['value'=>'video','label'=>'Video'],
+                ['value'=>'link','label'=>'Link'],
+                ['value'=>'code','label'=>'Code'],
+                ['value'=>'file','label'=>'General File'],
+                ['value'=>'page','label'=>'Page']
+            ];
+            echo json_encode(['success'=>true,'types'=>$types]);
+            break;
         case 'material_update':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
             $ok = $svc->updateMaterial((int)$_POST['id'], [
@@ -176,12 +283,61 @@ try {
             if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'material.upload', 'lesson_material', null, ['lesson_id'=>$lessonId, 'success'=>$res['success'] ?? null]); }
             echo json_encode($res);
             break;
+        case 'material_page_create':
+            if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            $lessonId = (int)($_POST['lesson_id'] ?? 0);
+            $title = trim($_POST['title'] ?? 'Content Page');
+            $content = $_POST['content'] ?? '';
+            $baseDir = realpath(__DIR__);
+            if ($baseDir === false) { $baseDir = __DIR__; }
+            $dir = $baseDir . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'materials' . DIRECTORY_SEPARATOR . 'pages';
+            if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+            $unique = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '_page.md';
+            $path = $dir . DIRECTORY_SEPARATOR . $unique;
+            $ok = @file_put_contents($path, $content);
+            if ($ok === false) { echo json_encode(['success'=>false,'message'=>'Failed to save page']); break; }
+            require_once __DIR__ . '/classes/CourseService.php';
+            require_once __DIR__ . '/config/Database.php';
+            $db2 = (new Database())->getConnection();
+            $svc2 = new CourseService($db2);
+            $url = 'material_page_view.php?f=' . rawurlencode($unique);
+            $id = $svc2->addMaterial($lessonId, 'page', $url, $title, strlen($content));
+            if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'material.page_create', 'lesson_material', (string)$id, ['lesson_id'=>$lessonId]); }
+            echo json_encode(['success' => $id > 0, 'id' => $id]);
+            break;
+        case 'material_import':
+            if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            $lessonId = (int)($_POST['lesson_id'] ?? 0);
+            $url = trim($_POST['url'] ?? '');
+            if ($url === '') { echo json_encode(['success'=>false,'message'=>'No URL']); break; }
+            $res = $svc->importMaterialFromUrl($lessonId, $url);
+            if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'material.import', 'lesson_material', null, ['lesson_id'=>$lessonId, 'url'=>$url, 'success'=>$res['success'] ?? null]); }
+            echo json_encode($res);
+            break;
         // Activities
         case 'activity_create':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
             $lessonId = (int)($_POST['lesson_id'] ?? 0);
             $title = trim($_POST['title'] ?? '');
             $type = $_POST['type'] ?? 'coding';
+            $instructions = $_POST['instructions'] ?? '';
+            $maxScore = (int)($_POST['max_score'] ?? 100);
+            
+            // Validate activity data
+            $activityData = ['title' => $title, 'type' => $type, 'max_score' => $maxScore];
+            $errors = validateActivityData($activityData);
+            
+            // Validate coding-specific data
+            if ($type === 'coding') {
+                $codingErrors = validateCodingData($instructions);
+                $errors = array_merge($errors, $codingErrors);
+            }
+            
+            if (!empty($errors)) {
+                echo json_encode(['success'=>false,'message'=>'Validation failed: ' . implode(', ', $errors)]);
+                break;
+            }
+            
             // Check for duplicate activity (same lesson, type, and title)
             try {
                 $dup = $db->prepare('SELECT id FROM lesson_activities WHERE lesson_id=? AND type=? AND title=? LIMIT 1');
@@ -260,11 +416,11 @@ try {
                 $qStmt = $db->prepare("SELECT * FROM activity_questions WHERE activity_id=? ORDER BY position ASC, id ASC");
                 $qStmt->execute([$srcId]);
                 $questions = $qStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-                $insQ = $db->prepare("INSERT INTO activity_questions (activity_id, question_text, position, points) VALUES (?,?,?,?)");
+                $insQ = $db->prepare("INSERT INTO activity_questions (activity_id, question_text, explanation, position, points) VALUES (?,?,?,?,?)");
                 $selC = $db->prepare("SELECT * FROM question_choices WHERE question_id=? ORDER BY position ASC, id ASC");
                 $insC = $db->prepare("INSERT INTO question_choices (question_id, choice_text, is_correct, position) VALUES (?,?,?,?)");
                 foreach ($questions as $q) {
-                    $insQ->execute([$newId, $q['question_text'], $q['position'], $q['points']]);
+                    $insQ->execute([$newId, $q['question_text'], $q['explanation'] ?? null, $q['position'], $q['points']]);
                     $newQid = (int)$db->lastInsertId();
                     $selC->execute([$q['id']]);
                     $choices = $selC->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -290,7 +446,11 @@ try {
             break;
         case 'question_update':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
-            $ok = $svc->updateQuestion((int)$_POST['id'], ['question_text'=>$_POST['question_text'] ?? '', 'points'=>(int)($_POST['points'] ?? 1)]);
+            $ok = $svc->updateQuestion((int)$_POST['id'], [
+                'question_text'=>$_POST['question_text'] ?? '',
+                'explanation'=> $_POST['explanation'] ?? null,
+                'points'=>(int)($_POST['points'] ?? 1)
+            ]);
             echo json_encode(['success'=>(bool)$ok]);
             break;
         case 'question_delete':
@@ -327,6 +487,19 @@ try {
             break;
         case 'run_activity':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            
+            // Rate limiting for run_activity
+            $rateLimiter = new RateLimiter($db);
+            $userId = $_SESSION['user_id'] ?? 'anonymous';
+            $userIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            $identifier = $userId . '_' . $userIp;
+            
+            // Allow 10 runs per minute per user+IP
+            if (!$rateLimiter->isAllowed($identifier, 'run_activity', 10, 60)) {
+                echo json_encode(['success'=>false,'message'=>'Rate limit exceeded. Please wait before running again.']);
+                break;
+            }
+            
             $activityId = (int)($_POST['activity_id'] ?? 0);
             $source = (string)($_POST['source'] ?? '');
             $quick = !empty($_POST['quick']);
@@ -353,8 +526,66 @@ try {
                 $sample = array_values(array_filter($tests, function($t){ return !empty($t['is_sample']); }));
                 $cases = $sample ?: $tests;
                 if ($quick && !empty($cases)) { $cases = [ $cases[0] ]; }
-                $result = $svc->runWithJDoodle($jdoodleLanguage, $source, $cases);
-                echo json_encode(['success'=>true,'results'=>$result]);
+            $startTime = microtime(true);
+            $result = $svc->runWithJDoodle($jdoodleLanguage, $source, $cases);
+            $endTime = microtime(true);
+            $duration = round(($endTime - $startTime) * 1000, 2);
+            
+            // Structured logging
+            error_log(sprintf(
+                "COORDINATOR_RUN: userId=%s, action=run_activity, activityId=%d, language=%s, cases_run=%d, duration=%sms, status=success",
+                $_SESSION['user_id'] ?? 'unknown',
+                $activityId,
+                $jdoodleLanguage,
+                count($cases),
+                $duration
+            ));
+            
+            // Record successful rate limit attempt
+            $rateLimiter->recordAttempt($identifier, 'run_activity');
+            
+            echo json_encode(['success'=>true,'results'=>$result]);
+            } catch (Throwable $e) {
+                // Structured logging for errors
+                error_log(sprintf(
+                    "COORDINATOR_RUN: userId=%s, action=run_activity, activityId=%d, language=%s, cases_run=%d, duration=0ms, status=error, error=%s",
+                    $_SESSION['user_id'] ?? 'unknown',
+                    $activityId,
+                    $jdoodleLanguage ?? 'unknown',
+                    count($cases ?? []),
+                    $e->getMessage()
+                ));
+                echo json_encode(['success'=>false,'message'=>'Run failed','error'=>$e->getMessage()]);
+            }
+            break;
+        case 'run_snippet':
+            // Allow any authenticated user to run small snippets (rate-limited)
+            try {
+                $rateLimiter = new RateLimiter($db);
+                $userId = $_SESSION['user_id'] ?? 'anonymous';
+                $userIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+                $identifier = $userId . '_' . $userIp;
+                if (!$rateLimiter->isAllowed($identifier, 'run_snippet', 15, 60)) {
+                    echo json_encode(['success'=>false,'message'=>'Rate limit exceeded. Please wait before running again.']);
+                    break;
+                }
+                $language = strtolower(trim((string)($_POST['language'] ?? 'cpp')));
+                $source = (string)($_POST['source'] ?? '');
+                $stdin = (string)($_POST['stdin'] ?? '');
+                if ($source === '') { echo json_encode(['success'=>false,'message'=>'No source provided']); break; }
+                // Normalize language to jdoodle key
+                $lang = 'cpp';
+                if (in_array($language, ['cpp','c++','cxx'], true)) $lang = 'cpp';
+                elseif (in_array($language, ['python','py','python3'], true)) $lang = 'python3';
+                elseif ($language === 'java') $lang = 'java';
+                else { echo json_encode(['success'=>false,'message'=>'Unsupported language']); break; }
+
+                $cases = [['input_text'=>$stdin]];
+                $startTime = microtime(true);
+                $result = $svc->runWithJDoodle($lang, $source, $cases);
+                $duration = (int)round((microtime(true)-$startTime)*1000);
+                $rateLimiter->recordAttempt($identifier, 'run_snippet');
+                echo json_encode(['success'=>true,'results'=>$result,'duration_ms'=>$duration]);
             } catch (Throwable $e) {
                 echo json_encode(['success'=>false,'message'=>'Run failed','error'=>$e->getMessage()]);
             }
@@ -379,6 +610,7 @@ try {
         case 'testcase_delete':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
             $ok = $svc->deleteTestCase((int)$_POST['id']);
+            if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'testcase.delete', 'activity_test_case', (string)($_POST['id'] ?? '')); }
             echo json_encode(['success'=>(bool)$ok]);
             break;
         case 'testcase_reorder':
@@ -393,6 +625,13 @@ try {
             $raw = $_POST['test_cases'] ?? '[]';
             $list = json_decode($raw, true);
             if ($aid <= 0 || !is_array($list)) { echo json_encode(['success'=>false,'message'=>'Invalid payload']); break; }
+            
+            // Validate test cases
+            $testCaseErrors = validateTestCases($list);
+            if (!empty($testCaseErrors)) {
+                echo json_encode(['success'=>false,'message'=>'Test case validation failed: ' . implode(', ', $testCaseErrors)]);
+                break;
+            }
             try {
                 $db->beginTransaction();
                 $del = $db->prepare('DELETE FROM activity_test_cases WHERE activity_id=?');
@@ -403,10 +642,101 @@ try {
                     $pos++;
                 }
                 $db->commit();
+                if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'testcase.rebuild', 'activity_test_case', (string)$aid, ['count'=>count($list)]); }
                 echo json_encode(['success'=>true]);
             } catch (Throwable $e) {
                 $db->rollBack();
                 echo json_encode(['success'=>false,'message'=>'Rebuild failed','error'=>$e->getMessage()]);
+            }
+            break;
+        case 'activity_sync':
+            if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            try {
+                $db->beginTransaction();
+                $raw = $_POST['activity'] ?? $_POST['payload'] ?? '';
+                $data = is_array($raw) ? $raw : json_decode($raw, true);
+                if (!is_array($data)) { throw new Exception('Invalid payload'); }
+                $id = isset($data['id']) ? (int)$data['id'] : 0;
+                $lessonId = (int)($data['lesson_id'] ?? 0);
+                $type = (string)($data['type'] ?? 'multiple_choice');
+                $title = trim((string)($data['title'] ?? ''));
+                $instructions = $data['instructions'] ?? null;
+                $maxScore = (int)($data['max_score'] ?? 100);
+
+                if ($lessonId <= 0 || $title === '') { throw new Exception('Missing lesson_id or title'); }
+
+                if ($id > 0) {
+                    $svc->updateActivity($id, [
+                        'title'=>$title,
+                        'instructions'=>$instructions,
+                        'type'=>$type,
+                        'due_at'=>null,
+                        'max_score'=>$maxScore,
+                    ]);
+                    $activityId = $id;
+                } else {
+                    $activityId = $svc->createActivity($lessonId, $title, $instructions, $type, null, $maxScore);
+                    if ($activityId <= 0) { throw new Exception('Create failed'); }
+                }
+
+                $lower = strtolower($type);
+                if ($lower === 'coding') {
+                    // Replace test cases atomically
+                    $tests = is_array($data['test_cases'] ?? null) ? $data['test_cases'] : [];
+                    $del = $db->prepare('DELETE FROM activity_test_cases WHERE activity_id=?');
+                    $del->execute([$activityId]);
+                    foreach ($tests as $tc) {
+                        $svc->addTestCase(
+                            $activityId,
+                            !empty($tc['is_sample']),
+                            (string)($tc['input_text'] ?? $tc['input'] ?? ''),
+                            (string)($tc['expected_output_text'] ?? $tc['output'] ?? ''),
+                            (int)($tc['time_limit_ms'] ?? 2000)
+                        );
+                    }
+                } else {
+                    // Replace questions and choices atomically
+                    $qs = is_array($data['questions'] ?? null) ? $data['questions'] : [];
+                    $delQ = $db->prepare('DELETE FROM activity_questions WHERE activity_id=?');
+                    $delQ->execute([$activityId]);
+                    // Determine quiz subtype if any
+                    $kind = null;
+                    if (!empty($instructions)) {
+                        try { $insArr = is_array($instructions) ? $instructions : json_decode((string)$instructions, true); $kind = strtolower((string)($insArr['kind'] ?? '')); } catch (Throwable $e) { $kind = null; }
+                    }
+                    foreach ($qs as $q) {
+                        $qid = $svc->addQuestion($activityId, trim((string)($q['text'] ?? '')), (int)($q['points'] ?? 1), (isset($q['explanation']) ? (string)$q['explanation'] : null));
+                        if ($qid <= 0) continue;
+                        $choices = is_array($q['choices'] ?? null) ? $q['choices'] : [];
+                        if ($lower === 'multiple_choice' || ($lower === 'quiz' && ($kind === '' || $kind === 'multiple_choice'))) {
+                            foreach ($choices as $c) {
+                                $svc->addChoice($qid, trim((string)($c['text'] ?? 'Option')), !empty($c['is_correct']) || !empty($c['correct']));
+                            }
+                        } elseif ($lower === 'quiz' && $kind === 'identification') {
+                            $ans = (string)($q['answer'] ?? '');
+                            if ($ans === '' && !empty($choices)) {
+                                foreach ($choices as $c) { if (!empty($c['is_correct']) || !empty($c['correct'])) { $ans = (string)($c['text'] ?? ''); break; } }
+                            }
+                            if ($ans !== '') { $svc->addChoice($qid, $ans, true); }
+                        } elseif ($lower === 'quiz' && $kind === 'true_false') {
+                            $ans = strtolower((string)($q['answer'] ?? ''));
+                            if ($ans === '' && !empty($choices)) {
+                                foreach ($choices as $c) { if (!empty($c['is_correct']) || !empty($c['correct'])) { $ans = strtolower((string)($c['text'] ?? '')); break; } }
+                            }
+                            $svc->addChoice($qid, 'True', $ans === 'true');
+                            $svc->addChoice($qid, 'False', $ans === 'false');
+                        } else {
+                            // essay and other: no choices persisted by current schema
+                        }
+                    }
+                }
+
+                $db->commit();
+                $full = $svc->getActivity($activityId);
+                echo json_encode(['success'=>true,'id'=>$activityId,'data'=>$full]);
+            } catch (Throwable $e) {
+                try { $db->rollBack(); } catch (Throwable $r) {}
+                echo json_encode(['success'=>false,'message'=>'Sync failed','error'=>$e->getMessage()]);
             }
             break;
         // seed_sample removed on request

@@ -18,7 +18,8 @@ try {
     }
 
     $f = isset($_GET['f']) ? $_GET['f'] : '';
-    if (!preg_match('/^[0-9]{8}_[0-9A-Fa-f]{8}_.+\.[A-Za-z0-9]+$/', $f)) {
+    $view = isset($_GET['view']) ? $_GET['view'] : 'false';
+    if (!preg_match('/^[0-9]{8}_[0-9]{6}_[0-9A-Fa-f]{8}_.+\.[A-Za-z0-9]+$/', $f)) {
         http_response_code(400);
         echo 'Invalid file';
         exit;
@@ -30,7 +31,7 @@ try {
     if (!is_file($path)) { http_response_code(404); echo 'Not found'; exit; }
 
     // Derive original filename from stored unique name
-    $downloadName = preg_replace('/^[0-9]{8}_[0-9A-Fa-f]{8}_/','', $f);
+    $downloadName = preg_replace('/^[0-9]{8}_[0-9]{6}_[0-9A-Fa-f]{8}_/','', $f);
 
     // Stream file
     $mime = 'application/octet-stream';
@@ -39,7 +40,16 @@ try {
     }
     header('Content-Type: ' . $mime);
     header('Content-Length: ' . filesize($path));
-    header('Content-Disposition: attachment; filename="' . rawurldecode($downloadName) . '"');
+    
+    // Set disposition based on view parameter
+    if ($view === 'true') {
+        // For viewing in browser (inline)
+        header('Content-Disposition: inline; filename="' . rawurldecode($downloadName) . '"');
+    } else {
+        // For downloading (attachment)
+        header('Content-Disposition: attachment; filename="' . rawurldecode($downloadName) . '"');
+    }
+    
     header('X-Content-Type-Options: nosniff');
     readfile($path);
     exit;

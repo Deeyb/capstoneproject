@@ -1,4 +1,110 @@
+// ===== CSRF TOKEN MANAGEMENT =====
+let csrfToken = null;
+let csrfTokenTs = 0; // epoch ms when fetched
+
+async function getCSRFToken() {
+  // Refresh token if missing or older than 5 minutes
+  try {
+    if (csrfToken && (Date.now() - csrfTokenTs) < 5 * 60 * 1000) return csrfToken;
+  } catch(_) {}
+  
+  try {
+    const fd = new FormData();
+    fd.append('action','get_csrf_token');
+    const response = await fetch('course_outline_manage.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    });
+    const data = await response.json();
+    if (data.success && data.token) {
+      csrfToken = data.token;
+      csrfTokenTs = Date.now();
+      return csrfToken;
+    }
+  } catch (e) {
+    console.error('Failed to get CSRF token:', e);
+  }
+  return null;
+}
+
+async function addCSRFToken(formData) {
+  const token = await getCSRFToken();
+  if (token) {
+    formData.append('csrf_token', token);
+  }
+  return formData;
+}
+
 // ===== COORDINATOR DASHBOARD FUNCTIONS =====
+
+// ===== Generic autosave for Create Activity modal (all types) =====
+function cafMakeDraftKey(lessonId, type){
+  try { return 'cr_caf_draft_' + String(lessonId) + '_' + String(type||'any'); } catch(_){ return 'cr_caf_draft_any'; }
+}
+
+function cafSnapshot(modal){
+  const data = { values:{}, checked:{}, htmlLists:{} };
+  try {
+    const fields = modal.querySelectorAll('input, textarea, select');
+    fields.forEach(function(el){
+      const key = el.id || el.name || el.getAttribute('data-key');
+      if (!key) return;
+      if (el.type === 'checkbox' || el.type === 'radio') {
+        data.checked[key] = el.checked;
+      } else {
+        data.values[key] = el.value;
+      }
+    });
+    // Capture simple lists text (like dynamically added choices with no stable ids) by index using data-field="choice_text"
+    const listInputs = modal.querySelectorAll('[data-field]');
+    listInputs.forEach(function(el, idx){
+      const name = el.getAttribute('data-field');
+      const k = name + ':' + idx;
+      if (el.type === 'checkbox' || el.type === 'radio') data.checked[k] = el.checked; else data.values[k] = el.value;
+    });
+    data.ts = Date.now();
+  } catch(_){ }
+  return data;
+}
+
+function cafRestore(modal, snap){
+  if (!snap || typeof snap !== 'object') return;
+  try {
+    Object.keys(snap.values||{}).forEach(function(key){
+      const el = modal.querySelector('#'+CSS.escape(key)) || modal.querySelector('[name="'+CSS.escape(key)+'"]') || modal.querySelector('[data-key="'+CSS.escape(key)+'"]');
+      if (el && (el.tagName==='INPUT' || el.tagName==='TEXTAREA' || el.tagName==='SELECT')) { el.value = snap.values[key]; el.dispatchEvent(new Event('input', { bubbles:true })); }
+    });
+    Object.keys(snap.checked||{}).forEach(function(key){
+      const el = modal.querySelector('#'+CSS.escape(key)) || modal.querySelector('[name="'+CSS.escape(key)+'"]') || modal.querySelector('[data-key="'+CSS.escape(key)+'"]');
+      if (el && (el.type==='checkbox' || el.type==='radio')) { el.checked = !!snap.checked[key]; el.dispatchEvent(new Event('change', { bubbles:true })); }
+    });
+    // Restore data-field indexed items
+    const listInputs = modal.querySelectorAll('[data-field]');
+    listInputs.forEach(function(el, idx){
+      const name = el.getAttribute('data-field');
+      const k = name + ':' + idx;
+      if (k in (snap.values||{})) { el.value = snap.values[k]; el.dispatchEvent(new Event('input', { bubbles:true })); }
+      if (k in (snap.checked||{})) { el.checked = !!snap.checked[k]; el.dispatchEvent(new Event('change', { bubbles:true })); }
+    });
+  } catch(_){ }
+}
+
+function cafEnableAutosave(modal, lessonId, type){
+  const key = cafMakeDraftKey(lessonId, type);
+  // Try restore existing snapshot
+  try { const raw = localStorage.getItem(key); if (raw) cafRestore(modal, JSON.parse(raw)); } catch(_){ }
+  let saveTimer = null;
+  function scheduleSave(){
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      try { localStorage.setItem(key, JSON.stringify(cafSnapshot(modal))); } catch(_){ }
+    }, 250);
+  }
+  modal.addEventListener('input', scheduleSave, true);
+  modal.addEventListener('change', scheduleSave, true);
+  return function clearDraft(){ try { localStorage.removeItem(key); } catch(_){ } };
+}
 
 // Initialize coordinator tabs
 function initCoordinatorTabs() {
@@ -798,7 +904,9 @@ function viewOutline(courseId) {
         if (!act) return;
 
         // Helper to POST and refresh
-        function postAndRefresh(endpoint, fd) {
+        async function postAndRefresh(endpoint, fd) {
+          // Attach CSRF to all outline actions
+          try { fd = await addCSRFToken(fd); } catch(_){ }
           fetch(endpoint, { method:'POST', body: fd, credentials:'same-origin' })
             .then(r => r.json())
             .then(() => viewOutline(courseId))
@@ -849,26 +957,40 @@ function viewOutline(courseId) {
           const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
           if (!lessonId) return;
           let type;
-          outlinePrompt({ title: 'Material type', label: 'Type', options: [
+          // Dynamically fetch material types (with CSRF)
+          (async function(){
+            let fd = new FormData();
+            fd.append('action','material_types');
+            try { fd = await addCSRFToken(fd); } catch(_){ }
+            return fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd });
+          })()
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+              const opts = (resp && resp.success && Array.isArray(resp.types)) ? resp.types : [
             {value:'pdf',label:'PDF'}, {value:'video',label:'Video'}, {value:'link',label:'Link'}, {value:'code',label:'Code'}, {value:'file',label:'General File'}
-          ], value: 'pdf' }, function(val){
+              ];
+              outlinePrompt({ title: 'Material type', label: 'Type', options: opts, value: 'pdf' }, function(val){
             type = (val||'link').toLowerCase();
             if (!type) return;
 
-          if (type === 'file' || type === 'pdf' || type === 'video') {
+          if (type === 'file' || type === 'pdf' || type === 'video' || type === 'code') {
             // Use a file picker and upload to backend
             const input = document.createElement('input');
             input.type = 'file';
             if (type === 'pdf') input.accept = '.pdf,application/pdf';
             else if (type === 'video') input.accept = 'video/*';
+            else if (type === 'code') input.accept = '.txt,.md,.c,.cpp,.h,.hpp,.java,.py,.js,.ts,.tsx,.jsx,.html,.css,.scss,.json,.xml,.yml,.yaml,.sql,.sh,.bash,.bat,.ps1,.rb,.go,.php,.cs,.kt,.swift,.r,.ipynb,text/plain,application/json';
             input.onchange = function() {
               const file = input.files && input.files[0];
               if (!file) return;
-              const fd = new FormData();
+              (async function(){
+                let fd = new FormData();
               fd.append('action','material_upload');
               fd.append('lesson_id', lessonId);
               fd.append('file', file);
-              fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+                try { fd = await addCSRFToken(fd); } catch(_){ }
+                return fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' });
+              })()
                 .then(r=>r.json())
                 .then(()=> viewOutline(courseId))
                 .catch(()=> { if (typeof window.showNotification === 'function') window.showNotification('error','Error','Upload failed'); });
@@ -876,14 +998,59 @@ function viewOutline(courseId) {
             input.click();
             return;
           }
+          if (type === 'page') {
+            // Simple page creator: ask for title and content
+            outlinePrompt({ title: 'Page title', label: 'Title', placeholder: 'e.g., Topic Content' }, function(title){
+              if (!title) return;
+              // open big textarea modal for content
+              const modal = document.createElement('div');
+              modal.className = 'modal';
+              modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+              modal.innerHTML = `
+                <div class="modal-card" style="max-width:1000px;width:95%;height:80vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">
+                  <div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">
+                    <strong style="font-size:16px;color:#333;">Create Page</strong>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                      <button class="action-btn btn-gray" id="pageCancel" style="padding:6px 12px;">Cancel</button>
+                      <button class="action-btn" id="pageSave" style="padding:6px 12px;background:#28a745;color:#fff;">Save</button>
+                    </div>
+                  </div>
+                  <div style="flex:1;display:flex;">
+                    <textarea id="pageContent" style="flex:1;border:0;padding:12px;font-family:monospace;font-size:14px;outline:none;" placeholder="# Title\n\nWrite content here in Markdown...\n\n\`\`\`cpp\n// code here\n\`\`\`"></textarea>
+                  </div>
+                </div>`;
+              document.body.appendChild(modal);
+              modal.querySelector('#pageCancel').onclick = function(){ modal.remove(); };
+              modal.querySelector('#pageSave').onclick = function(){
+                const content = modal.querySelector('#pageContent').value;
+                (async function(){
+                  let fd = new FormData();
+                  fd.append('action','material_page_create');
+                  fd.append('lesson_id', lessonId);
+                  fd.append('title', title);
+                  fd.append('content', content || '');
+                  try { fd = await addCSRFToken(fd); } catch(_){ }
+                  fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
+                    .then(r=>r.json())
+                    .then(()=> { modal.remove(); viewOutline(courseId); })
+                    .catch(()=> { if (typeof window.showNotification === 'function') window.showNotification('error','Error','Save failed'); });
+                })();
+              };
+            });
+            return;
+          }
           outlinePrompt({ title: 'Material URL', label: 'URL' }, function(value){
             if (value === null || value === undefined) return;
-            const fd = new FormData();
+            (async function(){
+              let fd = new FormData();
             fd.append('action','material_create');
             fd.append('lesson_id', lessonId);
             fd.append('type', type);
             fd.append('url', value);
+              try { fd = await addCSRFToken(fd); } catch(_){ }
             postAndRefresh('course_outline_manage.php', fd);
+            })();
+          });
           });
           });
           return;
@@ -929,6 +1096,75 @@ function viewOutline(courseId) {
             fd.append('id', btn.getAttribute('data-id'));
             fd.append('url', value);
             postAndRefresh('course_outline_manage.php', fd);
+          });
+          return;
+        }
+        if (act === 'mat-view') {
+          const url = btn.getAttribute('data-url');
+          const type = btn.getAttribute('data-type');
+          if (!url) return;
+          
+          // Convert relative URLs to absolute URLs
+          let absoluteUrl = url;
+          if (!url.startsWith('http')) {
+            // Handle relative URLs - if it starts with material_download.php or material_page_view.php, it's relative to project root
+            if (url.startsWith('material_download.php') || url.startsWith('material_page_view.php')) {
+              // Get the current path and use it as base
+              const currentPath = window.location.pathname;
+              const projectPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+              absoluteUrl = window.location.origin + projectPath + url;
+            } else {
+              absoluteUrl = window.location.origin + '/' + url.replace(/^\.\//, '');
+            }
+          }
+          
+          console.log('🔍 Material view - Original URL:', url);
+          console.log('🔍 Material view - Absolute URL:', absoluteUrl);
+          console.log('🔍 Material view - Type:', type);
+          
+          if (type === 'link') {
+            // Open external link in a new tab (original behavior)
+            window.open(absoluteUrl, '_blank');
+          } else if (type === 'pdf') {
+            // Open PDF in modal viewer (add view=true parameter)
+            const viewUrl = absoluteUrl + (absoluteUrl.includes('?') ? '&' : '?') + 'view=true';
+            showPDFViewer(viewUrl);
+          } else if (type === 'video') {
+            // Open video in modal player
+            showVideoPlayer(absoluteUrl);
+          } else if (type === 'code') {
+            // Open code in modal viewer
+            showCodeViewer(absoluteUrl);
+          } else {
+            // Download file
+            window.open(absoluteUrl, '_blank');
+          }
+          return;
+        }
+        if (act === 'mat-import') {
+          const url = btn.getAttribute('data-url');
+          const lessonEl = btn.closest('[data-lesson-id]');
+          const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
+          if (!url || !lessonId) return;
+          coordinatorConfirm('Import this link into LMS storage? (max 50MB, allowed types only)', function(){
+            (async function(){
+              let fd = new FormData();
+              fd.append('action','material_import');
+              fd.append('lesson_id', lessonId);
+              fd.append('url', url);
+              try { fd = await addCSRFToken(fd); } catch(_){ }
+              fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
+                .then(r=>r.json())
+                .then(function(resp){
+                  if (!resp || !resp.success) {
+                    if (typeof window.showNotification === 'function') window.showNotification('error','Import failed', (resp && resp.message) ? String(resp.message) : '');
+                  } else {
+                    if (typeof window.showNotification === 'function') window.showNotification('success','Imported','Material saved');
+                    viewOutline(courseId);
+                  }
+                })
+                .catch(function(){ if (typeof window.showNotification === 'function') window.showNotification('error','Import failed','Network error'); });
+            })();
           });
           return;
         }
@@ -987,38 +1223,89 @@ function viewOutline(courseId) {
           const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
           const aType = (item?.getAttribute('data-type') || '').toLowerCase();
           if (!lessonId) return;
-          if (aType === 'coding') {
-            showCreateActivityForm(lessonId, { editActivityId: aId });
-            // Prefill from server
-            try {
-              const fd = new FormData(); fd.append('action','activity_get'); fd.append('id', aId);
-              fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
-                .then(r=>r.json()).then(function(res){
-                  if (res && res.success && res.data){
-                    const meta = JSON.parse(res.data.instructions||'{}');
-                    if (window.createActivityState){
-                      const st = window.createActivityState;
-                      st.type = 'laboratory'; st.questionType = 'coding';
-                      st.name = res.data.title || st.name;
-                      st.language = (meta.language||'cpp');
-                      st.instructionsText = meta.instructions||'';
-                      st.problemStatement = meta.problemStatement||'';
-                      st.starterCode = meta.starterCode||'';
-                      st.codingDifficulty = meta.difficulty||'beginner';
-                      st.expectedOutput = meta.expectedOutput || '';
-                      st.additionalRequirements = meta.additionalRequirements || '';
-                      st.hints = meta.hints || '';
-                      st.timeLimit = meta.timeLimit || st.timeLimit;
-                      st.testCases = (res.data.test_cases||[]).map(function(tc){ return { input: tc.input_text||'', output: tc.expected_output_text||'', isSample: !!tc.is_sample }; });
-                      window.dispatchEvent(new CustomEvent('createActivityRender'));
+          // Open the unified editor modal in edit mode for ALL activity types
+          showCreateActivityForm(lessonId, { editActivityId: aId });
+          // Prefill from server
+          try {
+            const fd = new FormData(); fd.append('action','activity_get'); fd.append('id', aId);
+            fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+              .then(r=>r.json()).then(function(res){
+                if (!res || !res.success || !res.data) return;
+                const data = res.data;
+                const meta = (function(){ try { return JSON.parse(data.instructions||'{}')||{}; } catch(_) { return {}; } })();
+                if (!window.createActivityState) return;
+                const st = window.createActivityState;
+                // Map backend types -> UI questionType
+                const t = String((data.type||'').toLowerCase());
+                if (t === 'coding') {
+                  st.type = 'laboratory'; st.questionType = 'coding';
+                  st.language = (meta.language||'cpp');
+                  st.problemStatement = meta.problemStatement||'';
+                  st.starterCode = meta.starterCode||'';
+                  st.codingDifficulty = meta.difficulty||'beginner';
+                  st.expectedOutput = meta.expectedOutput || '';
+                  st.additionalRequirements = meta.additionalRequirements || '';
+                  st.hints = meta.hints || '';
+                  st.timeLimit = meta.timeLimit || st.timeLimit;
+                  st.testCases = (data.test_cases||[]).map(function(tc){ return { input: tc.input_text||'', output: tc.expected_output_text||'', isSample: !!tc.is_sample }; });
+                } else {
+                  st.type = 'lecture';
+                  // Determine subtype for quizzes using meta.kind if present
+                  let subtype = null;
+                  if (t === 'quiz' && meta && typeof meta.kind === 'string') subtype = meta.kind.toLowerCase();
+                  // Fallback from DB type
+                  if (!subtype) subtype = (t==='multiple_choice') ? 'multiple_choice' : (t==='true_false' ? 'true_false' : (t==='identification' ? 'identification' : (t==='essay' ? 'essay' : 'multiple_choice')));
+                  st.questionType = subtype;
+                  // Convert server questions -> state.questions shape
+                  const qs = Array.isArray(data.questions) ? data.questions : [];
+                  st._originalQuestionIds = qs.map(function(q){ return q.id; });
+                  st.questions = qs.map(function(q){
+                    const base = { _id: q.id, text: q.question_text||'', points: q.points||1, explanation: q.explanation||'', answer: q.answer||'' };
+                    const choices = Array.isArray(q.choices) ? q.choices : [];
+                    if (subtype === 'multiple_choice') {
+                      base._originalChoiceIds = choices.map(function(c){ return c.id; });
+                      base.choices = choices.map(function(c){ return { _id: c.id, text: c.choice_text||'', correct: !!c.is_correct }; });
+                    } else if (subtype === 'true_false') {
+                      // Prefer q.answer; fallback to choices
+                      if (!base.answer) {
+                        const trueChoice = choices.find(function(c){ return String(c.choice_text||'').toLowerCase()==='true' && c.is_correct; });
+                        const falseChoice = choices.find(function(c){ return String(c.choice_text||'').toLowerCase()==='false' && c.is_correct; });
+                        base.answer = trueChoice ? 'true' : (falseChoice ? 'false' : '');
+                      } else {
+                        base.answer = (String(base.answer).toLowerCase()==='true') ? 'true' : (String(base.answer).toLowerCase()==='false' ? 'false' : '');
+                      }
+                    } else if (subtype === 'identification') {
+                      // Prefer q.answer; fallback to the first correct choice text
+                      if (!base.answer) {
+                        const correct = choices.find(function(c){ return !!c.is_correct; });
+                        base.answer = correct ? (correct.choice_text||'') : '';
+                      }
+                    } else if (subtype === 'essay') {
+                      if (!base.answer && base.explanation) { base.answer = base.explanation; }
+                    }
+                    return base;
+                  });
+                  if (!st.questions || !st.questions.length) {
+                    if (subtype === 'multiple_choice') {
+                      st.questions = [{ text:'', points:1, choices:[{text:'',correct:false},{text:'',correct:false}], answer:'', explanation:'' }];
+                    } else if (subtype === 'true_false') {
+                      st.questions = [{ text:'', points:1, answer:'true', explanation:'' }];
+                    } else if (subtype === 'identification') {
+                      st.questions = [{ text:'', points:1, answer:'', explanation:'' }];
+                    } else if (subtype === 'essay') {
+                      st.questions = [{ text:'', points:1, answer:'', explanation:'' }];
                     }
                   }
-                });
-            } catch(_){}
-          } else {
-            // For non-coding types, open a new create form (not edit)
-            showCreateActivityForm(lessonId);
-          }
+                }
+                // Common fields
+                st.name = data.title || st.name;
+                // For coding, instructions are JSON meta.instructions; for others, read from JSON envelope if available
+                st.instructionsText = (t==='coding') ? (meta.instructions || '') : (meta && typeof meta.instructions === 'string' ? meta.instructions : (typeof data.instructions === 'string' ? data.instructions : ''));
+                st.maxScore = data.max_score ? parseInt(data.max_score,10) : st.maxScore;
+                // Re-render
+                window.dispatchEvent(new CustomEvent('createActivityRender'));
+              });
+          } catch(_){}
           return;
         }
         if (act === 'act-edit') {
@@ -1026,10 +1313,14 @@ function viewOutline(courseId) {
           const current = item?.getAttribute('data-title') || '';
           const aType = (item?.getAttribute('data-type') || '').toLowerCase();
           const aId = btn.getAttribute('data-id');
-          if (aType === 'multiple_choice') {
-            openMcqEditor(aId);
-            return;
-          }
+          const lessonEl = btn.closest('[data-lesson-id]');
+          const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
+          
+          // Use unified editor for ALL activity types
+          if (lessonId) {
+            showCreateActivityForm(lessonId, { editActivityId: aId });
+          } else {
+            // Fallback to simple title edit if lessonId not available
           outlinePrompt({ title: 'Edit activity', label: 'Title', value: current }, function(title){
             if (title === null) return;
             const fd = new FormData();
@@ -1038,6 +1329,7 @@ function viewOutline(courseId) {
             fd.append('title', title);
             postAndRefresh('course_outline_manage.php', fd);
           });
+          }
           return;
         }
         if (act === 'act-test') {
@@ -1240,9 +1532,9 @@ function viewOutline(courseId) {
                 else if (lang==='python3') defaultSource = 'print("OK")';
                 else defaultSource = '#include <iostream>\nint main(){ std::cout<<"OK"; return 0; }';
               }
-              const fd = new FormData();
-              fd.append('action','run_activity');
-              fd.append('activity_id', activityId);
+          const fd = new FormData();
+          fd.append('action','run_activity');
+          fd.append('activity_id', activityId);
               fd.append('source', defaultSource);
               fd.append('quick','1');
               return fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' });
@@ -1321,21 +1613,51 @@ function renderOutline(outline, mount) {
   
   const renderModule = (m) => {
     const lessons = (m.lessons||[]).map(l => {
-      const mats = (l.materials||[]).map(mat => `
+      const mats = (l.materials||[]).map(mat => {
+        const matType = String(mat.type||'').toLowerCase();
+        const matUrl = mat.url || '';
+        const matFilename = mat.filename || '';
+        // Determine if this material can be viewed/opened
+        let viewBtn = '';
+        if (matUrl) {
+          const isPage = (matType === 'page') || /^material_page_view\.php/i.test(matUrl);
+          if (matType === 'pdf') {
+            viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="pdf" style="background:#007bff;color:#fff;">📄 View PDF</button>`;
+          } else if (matType === 'video') {
+            viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="video" style="background:#dc3545;color:#fff;">▶️ Play Video</button>`;
+          } else if (matType === 'link') {
+            viewBtn = `<div style="display:flex;gap:6px;">
+              <button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="link" style="background:#17a2b8;color:#fff;">🔗 Open Link</button>
+              <button class="action-btn" data-act="mat-import" data-url="${matUrl}" data-type="link" style="background:#6f42c1;color:#fff;">⬇️ Import</button>
+            </div>`;
+          } else if (isPage) {
+              viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="page" style="background:#0d6efd;color:#fff;">📘 Open Content</button>`;
+          } else if (matType === 'code') {
+            viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="code" style="background:#6f42c1;color:#fff;">👁️ View Code</button>`;
+          } else {
+            viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="file" style="background:#28a745;color:#fff;">⬇️ Download</button>`;
+          }
+        }
+        return `
         <div data-mat-id="${mat.id}" class="outline-material-item" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px dashed #ddd;border-radius:6px;margin:4px 0;">
-          <span style="flex:1; font-size:12px; color:#555;">${mat.type.toUpperCase()} • ${mat.filename || mat.url || ''}</span>
+          <span style="flex:1; font-size:12px; color:#555;">${mat.type.toUpperCase()} • ${matFilename || matUrl || ''}</span>
+          ${viewBtn}
           <button class="action-btn" data-act="mat-edit" data-id="${mat.id}" style="background:#6c757d;color:#fff;">Edit</button>
           <button class="action-btn delete-btn" data-act="mat-delete" data-id="${mat.id}">Delete</button>
-        </div>`).join('');
-      const activities = (l.activities||[]).map(a => `
+        </div>`;
+      }).join('');
+      const activities = (l.activities||[]).map(a => {
+        const t = String(a.type||'').toLowerCase();
+        const label = (t==='quiz' && a.instructions) ? (function(){ try { const meta = JSON.parse(a.instructions); const kind = (meta && meta.kind) ? String(meta.kind).toUpperCase() : null; return kind || 'QUIZ'; } catch(_){ return 'QUIZ'; } })() : String(a.type||'').toUpperCase();
+        return `
         <div data-activity-id="${a.id}" data-title="${(a.title||'').replace(/"/g,'&quot;')}" data-type="${(a.type||'').toLowerCase()}" draggable="true" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px dotted #ccc;border-radius:6px;margin:4px 0;">
-          <button class="action-btn" data-act="act-open-editor" data-id="${a.id}" style="flex:1;text-align:left;background:transparent;border:0;color:#212529;padding:0;cursor:pointer;font-size:12px;"><strong>${a.type.toUpperCase()}</strong>: ${a.title}</button>
+          <button class="action-btn" data-act="act-open-editor" data-id="${a.id}" style="flex:1;text-align:left;background:transparent;border:0;color:#212529;padding:0;cursor:pointer;font-size:12px;"><strong>${label}</strong>: ${a.title}</button>
           <button class="action-btn" data-act="act-test" data-id="${a.id}" style="background:#28a745;color:#fff;">Test</button>
           ${String(a.type||'').toLowerCase()==='coding' ? '<button class=\"action-btn\" data-act=\"act-run\" data-id=\"'+a.id+'\" style=\"background:#2196F3;color:#fff;\">Run</button>' : ''}
           <button class="action-btn" data-act="act-duplicate" data-id="${a.id}" style="background:#17a2b8;color:#fff;">Duplicate</button>
           <button class="action-btn" data-act="act-edit" data-id="${a.id}" style="background:#6c757d;color:#fff;">Edit</button>
           <button class="action-btn delete-btn" data-act="act-delete" data-id="${a.id}">Delete</button>
-        </div>`).join('');
+        </div>`; }).join('');
       return `
         <li data-lesson-id="${l.id}" class="outline-lesson-item" draggable="true" style="padding:6px 8px;border:1px solid #eee;border-radius:6px;margin:6px 0;">
           <div class="outline-header" style="display:flex;align-items:center;gap:6px;">
@@ -2685,6 +3007,13 @@ function showCreateActivityWizard(lessonId){
     modal.querySelector('#caClose').onclick=function(){ modal.style.display='none'; };
   }
   modal.style.display='flex';
+  try {
+    const btnInit = modal.querySelector('#cafCreate');
+    if (btnInit) {
+      btnInit.disabled = false;
+      btnInit.textContent = (opts && opts.editActivityId) ? 'Save Changes' : 'Create item';
+    }
+  } catch(_){ }
 
   const state = {
     step: 1,
@@ -2917,7 +3246,7 @@ function showCreateActivityForm(lessonId, opts){
   if (opts && opts.editActivityId) { state.editActivityId = String(opts.editActivityId); }
   // Make state globally accessible
   window.createActivityState = state;
-
+  
   // === AUTOSAVE/RESTORE (localStorage) ===
   try {
     const key = 'cr_createActivityDraft_' + String(lessonId);
@@ -2950,11 +3279,10 @@ function showCreateActivityForm(lessonId, opts){
     window.__cafScheduleSave = scheduleSave;
   } catch(_){}
   
-  // Listen for re-render events
-  window.addEventListener('createActivityRender', function() {
-    console.log('🔍 Re-render event received, calling render()');
-    render();
-  });
+  // Listen for re-render events (ensure single handler)
+  try { if (window.__cafRenderHandler) { window.removeEventListener('createActivityRender', window.__cafRenderHandler); } } catch(_){ }
+  window.__cafRenderHandler = function(){ try { render(); } catch(_){ } };
+  window.addEventListener('createActivityRender', window.__cafRenderHandler);
   
   console.log('🔍 INITIAL STATE:', state);
   const body = modal.querySelector('#cafBody');
@@ -2997,8 +3325,8 @@ function showCreateActivityForm(lessonId, opts){
         
         <!-- STEP 2: Activity Name -->
         <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
-          <div style="font-weight:600;margin-bottom:12px;color:#333;">Step 2 · Activity Name</div>
-          <input id="cafName" type="text" class="modal-input" placeholder="Enter activity name (e.g., Introduction to Variables)" value="${(state.name||'').replace(/"/g,'&quot;')}" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+          <div style="font-weight:600;margin-bottom:12px;color:#333;">Step 2 · Activity Name <span style="color:red;">*</span></div>
+          <input id="cafName" type="text" class="modal-input" placeholder="Enter activity name (e.g., Introduction to Variables)" value="${(state.name||'').replace(/"/g,'&quot;')}" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" required />
         </div>
         
         <!-- STEP 3: Activity Type Dropdown -->
@@ -3010,7 +3338,6 @@ function showCreateActivityForm(lessonId, opts){
             <option value="identification" ${state.questionType==='identification'?'selected':''}>🔍 Identification</option>
             <option value="true_false" ${state.questionType==='true_false'?'selected':''}>✅ True/False</option>
             <option value="essay" ${state.questionType==='essay'?'selected':''}>📄 Essay</option>
-            <option value="matching" ${state.questionType==='matching'?'selected':''}>🔗 Matching</option>
             ${state.type === 'laboratory' ? `<option value="coding" ${state.questionType==='coding'?'selected':''}>💻 Coding Exercise</option>` : ''}
           </select>
           <div style="margin-top:8px;font-size:12px;color:#666;">
@@ -3027,6 +3354,8 @@ function showCreateActivityForm(lessonId, opts){
         
         <!-- Dynamic Fields Based on Activity Type -->
         ${(() => {
+          // Normalize deprecated type 'matching' to 'multiple_choice'
+          if (state.questionType === 'matching') { state.questionType = 'multiple_choice'; }
           console.log('🔍 CHECKING ACTIVITY TYPE:', state.questionType);
           console.log('🔍 QUESTIONS ARRAY:', state.questions);
           console.log('🔍 QUESTIONS LENGTH:', state.questions.length);
@@ -3321,7 +3650,16 @@ function showCreateActivityForm(lessonId, opts){
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
                 <div>
                   <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Time Limit (minutes)</label>
-                  <input type="number" id="cafTimeLimit" class="modal-input" min="0" value="${state.timeLimit || 60}" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;" />
+                  <select id="cafTimeLimit" class="modal-input" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;">
+                    <option value="5" ${(state.timeLimit || 60) == 5 ? 'selected' : ''}>5 minutes - Quick syntax check</option>
+                    <option value="10" ${(state.timeLimit || 60) == 10 ? 'selected' : ''}>10 minutes - Basic problems</option>
+                    <option value="15" ${(state.timeLimit || 60) == 15 ? 'selected' : ''}>15 minutes - Simple logic</option>
+                    <option value="30" ${(state.timeLimit || 60) == 30 ? 'selected' : ''}>30 minutes - Moderate complexity</option>
+                    <option value="45" ${(state.timeLimit || 60) == 45 ? 'selected' : ''}>45 minutes - Advanced problems</option>
+                    <option value="60" ${(state.timeLimit || 60) == 60 ? 'selected' : ''}>60 minutes - Complex algorithms</option>
+                    <option value="90" ${(state.timeLimit || 60) == 90 ? 'selected' : ''}>90 minutes - Mini-projects</option>
+                    <option value="120" ${(state.timeLimit || 60) == 120 ? 'selected' : ''}>120 minutes - Advanced projects</option>
+                  </select>
                 </div>
                 <div>
                   <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Maximum Score</label>
@@ -3461,26 +3799,60 @@ function showCreateActivityForm(lessonId, opts){
   }
 
   render();
-  modal.querySelector('#cafCreate').onclick=function(){
+  modal.querySelector('#cafCreate').onclick=async function(){
     const btn = this;
+    console.log('🔍 Save/Create clicked. disabled=', btn.disabled);
     if (btn.disabled) return; // Prevent double-clicks
+    
+    // Required field validation
+    const isCodingActivity = (state.questionType==='coding') || ((document.getElementById('cafActivityType')||{}).value==='coding');
+    const hasName = state.name && state.name.trim().length > 0;
+    const hasLanguage = !isCodingActivity || (state.language && state.language.trim().length > 0);
+    const hasTestCases = !isCodingActivity || (Array.isArray(state.testCases) && state.testCases.length > 0);
+    
+    if (!hasName) {
+      if (typeof window.showNotification === 'function') window.showNotification('error', 'Validation Error', 'Activity name is required');
+      else alert('Activity name is required');
+      return;
+    }
+    
+    if (!hasLanguage) {
+      if (typeof window.showNotification === 'function') window.showNotification('error', 'Validation Error', 'Programming language is required for coding activities');
+      else alert('Programming language is required for coding activities');
+      return;
+    }
+    
+    if (!hasTestCases) {
+      if (typeof window.showNotification === 'function') window.showNotification('error', 'Validation Error', 'At least one test case is required for coding activities');
+      else alert('At least one test case is required for coding activities');
+      return;
+    }
+    
     const isEdit = !!state.editActivityId;
     btn.disabled = true;
     btn.textContent = isEdit ? 'Saving...' : 'Creating...';
-    
-    const fd = new FormData();
-    fd.append('action', isEdit ? 'activity_update' : 'activity_create');
-    fd.append('lesson_id', String(lessonId));
+
+    // Build single payload for activity_sync
     const isCoding = (state.questionType==='coding') || ((document.getElementById('cafActivityType')||{}).value==='coding');
-    fd.append('type', isCoding ? 'coding' : 'quiz');
-    fd.append('title', state.name || (isCoding ? 'Coding Exercise' : 'Quiz'));
-    fd.append('max_score', String(state.maxScore||100));
-    if (isEdit) { fd.append('id', String(state.editActivityId)); }
-    // save instructions
-    if (isCoding){
-      const lang = (modal.querySelector('#cafLang') && modal.querySelector('#cafLang').value ? modal.querySelector('#cafLang').value : (state.language||'')).toLowerCase();
-      const meta = {
-        language: lang,
+    let backendType = 'multiple_choice';
+    if (isCoding) backendType = 'coding';
+    else {
+      const qt = String(state.questionType||'').toLowerCase();
+      backendType = (qt==='multiple_choice') ? 'multiple_choice' : 'quiz';
+    }
+
+    // Ensure latest CodeMirror value is captured for coding starter code
+    if (isCoding) {
+      try { const starter = modal.querySelector('#cafStarterCode'); if (starter && starter.__cm) { state.starterCode = starter.__cm.getValue(); } } catch(_){ }
+    }
+
+    const payload = {
+      id: isEdit ? Number(state.editActivityId) : undefined,
+      lesson_id: Number(lessonId),
+      type: backendType,
+      title: state.name || (isCoding ? 'Coding Exercise' : 'Activity'),
+      instructions: isCoding ? JSON.stringify({
+        language: (modal.querySelector('#cafLang') && modal.querySelector('#cafLang').value ? modal.querySelector('#cafLang').value : (state.language||'')).toLowerCase(),
         instructions: state.instructionsText||'',
         problemStatement: state.problemStatement||'',
         starterCode: state.starterCode||'',
@@ -3489,23 +3861,55 @@ function showCreateActivityForm(lessonId, opts){
         additionalRequirements: state.additionalRequirements || '',
         hints: state.hints || '',
         timeLimit: state.timeLimit || 60
-      };
-      fd.append('instructions', JSON.stringify(meta));
-      // Optional: seed coding test cases if present in state and not update-only path
-      if (!isEdit && Array.isArray(state.testCases) && state.testCases.length){
-        const seed = state.testCases.map(function(tc){ return {
-          is_sample: !!tc.isSample,
-          input_text: tc.input || '',
-          expected_output_text: tc.output || '',
-          time_limit_ms: tc.timeLimitMs ? parseInt(tc.timeLimitMs, 10) : 2000
-        }; });
-        fd.append('test_cases', JSON.stringify(seed));
-      }
+      }) : (function(){
+        // For non-coding, persist a small JSON envelope with kind for better labeling
+        const qt = String(state.questionType||'multiple_choice').toLowerCase();
+        const kind = (qt==='multiple_choice' ? 'multiple_choice' : (qt==='true_false' ? 'true_false' : (qt==='identification' ? 'identification' : (qt==='essay' ? 'essay' : 'quiz'))));
+        return JSON.stringify({ kind: kind, instructions: state.instructionsText||'' });
+      })(),
+      max_score: Number(state.maxScore||100)
+    };
+    if (isCoding) {
+      payload.test_cases = (Array.isArray(state.testCases)?state.testCases:[]).map(function(tc){ return {
+        is_sample: !!tc.isSample,
+        input_text: tc.input || '',
+        expected_output_text: tc.output || '',
+        time_limit_ms: tc.timeLimitMs ? parseInt(tc.timeLimitMs, 10) : 2000
+      }; });
     } else {
-      fd.append('instructions', state.instructionsText||'');
+      payload.questions = (Array.isArray(state.questions)?state.questions:[]).map(function(q){
+        const qt = String(state.questionType||'multiple_choice').toLowerCase();
+        const item = { text: q.text||'', points: Number(q.points||1), explanation: q.explanation || '' };
+        if (qt==='multiple_choice' || qt==='quiz') {
+          item.choices = (Array.isArray(q.choices)?q.choices:[]).map(function(c){ return { text: c.text||'', is_correct: !!c.correct }; });
+        } else if (qt==='identification') {
+          item.answer = q.answer || '';
+        } else if (qt==='essay') {
+          // Store expected answer into explanation column to persist
+          item.explanation = (q.answer || q.explanation || '');
+        } else if (qt==='true_false') {
+          var ans = (String(q.answer||'').toLowerCase()==='true') ? 'true' : (String(q.answer||'').toLowerCase()==='false' ? 'false' : '');
+          item.choices = [
+            { text:'True', is_correct: ans==='true' },
+            { text:'False', is_correct: ans==='false' }
+          ];
+          // Store as quiz in DB (some schemas disallow 'true_false' type)
+          payload.type = 'quiz';
+        }
+        return item;
+      });
     }
+
+    console.log('🔍 SYNC payload:', payload);
     let handledSuccess = false;
-    fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+    const syncFd = new FormData();
+    syncFd.append('action','activity_sync');
+    syncFd.append('activity', JSON.stringify(payload));
+    const fdWithCSRF = await addCSRFToken(syncFd);
+    // Add timeout so we can detect stalled requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(function(){ try { controller.abort(); } catch(_){} }, 15000);
+    fetch('course_outline_manage.php', { method:'POST', body: fdWithCSRF, credentials:'same-origin', signal: controller.signal })
       .then(function(r){ 
         console.log('🔍 CREATE RESPONSE:', r.status, r.statusText);
         return r.json().catch(function(e){ 
@@ -3514,10 +3918,13 @@ function showCreateActivityForm(lessonId, opts){
         }); 
       })
       .then(function(data){
+        try { clearTimeout(timeoutId); } catch(_){}
         console.log('🔍 CREATE DATA:', data);
         if (!data || !data.success){
           console.error('🔍 CREATE FAILED:', data);
-          if (typeof window.showNotification === 'function') window.showNotification('error', isEdit?'Update failed':'Create failed', (data && data.message) ? data.message : 'Unknown error'); else alert(isEdit?'Failed to update activity':'Failed to create activity');
+          var msg = (data && (data.message || data.error)) ? (String(data.message||'') + (data.error?(' - '+String(data.error)):'') ) : 'Unknown error';
+          if (typeof window.showNotification === 'function') window.showNotification('error', isEdit?'Update failed':'Create failed', msg);
+          else alert((isEdit?'Failed to update activity: ':'Failed to create activity: ') + msg);
           btn.disabled = false;
           btn.textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item';
           return;
@@ -3526,52 +3933,20 @@ function showCreateActivityForm(lessonId, opts){
         const actId = data.id || state.editActivityId;
         try {
           if (typeof window.showNotification === 'function') window.showNotification('success', isEdit?'Activity updated':'Activity created', 'Item #' + actId);
-          // If editing coding, rebuild test cases from current state
-          if (isEdit && isCoding && Array.isArray(state.testCases)){
-            const rebuild = new FormData();
-            rebuild.append('action','testcases_rebuild');
-            rebuild.append('activity_id', String(actId));
-            const seed = state.testCases.map(function(tc){ return {
-              is_sample: !!tc.isSample,
-              input_text: tc.input || '',
-              expected_output_text: tc.output || '',
-              time_limit_ms: tc.timeLimitMs ? parseInt(tc.timeLimitMs, 10) : 2000
-            }; });
-            rebuild.append('test_cases', JSON.stringify(seed));
-            fetch('course_outline_manage.php', { method:'POST', body: rebuild, credentials:'same-origin' })
-              .then(function(r){ return r.json().catch(function(){ return { success:false }; }); })
-              .then(function(){ viewOutline(); modal.style.display='none'; })
-              .catch(function(){ viewOutline(); modal.style.display='none'; });
-            return;
-          }
-          // Clear autosave after successful create/update
-          try { localStorage.removeItem('cr_createActivityDraft_' + String(lessonId)); } catch(_){ }
-          if (!isCoding && state.questions && state.questions.length && !isEdit){
-            const promises = [];
-            state.questions.forEach(function(q){
-              const f = new FormData(); f.append('action','question_create'); f.append('activity_id', String(actId)); f.append('question_text', q.text||'Question'); f.append('points','1');
-              promises.push(
-                fetch('course_outline_manage.php', { method:'POST', body: f, credentials:'same-origin' })
-                  .then(r=>r.json())
-                  .then(function(res){ if (res && res.id){
-                    const qid = res.id;
-                    if (q.type==='mcq'){
-                      (q.choices||[]).forEach(function(c){ const fc = new FormData(); fc.append('action','choice_create'); fc.append('question_id', String(qid)); fc.append('choice_text', c.text||'Option'); if (c.correct) fc.append('is_correct','1'); promises.push(fetch('course_outline_manage.php', { method:'POST', body: fc, credentials:'same-origin' })); });
-                    } else if (q.type==='ident') {
-                      if (q.answer){ const fc = new FormData(); fc.append('action','choice_create'); fc.append('question_id', String(qid)); fc.append('choice_text', q.answer); fc.append('is_correct','1'); promises.push(fetch('course_outline_manage.php', { method:'POST', body: fc, credentials:'same-origin' })); }
-                    }
-                  }}));
-            });
-            Promise.all(promises).then(function(){ viewOutline(); modal.style.display='none'; });
-          } else { viewOutline(); modal.style.display='none'; }
-        } catch (uiErr) {
-          console.error('🔍 POST-SUCCESS UI ERROR:', uiErr);
-          // Do not show network error; creation already succeeded
-          btn.disabled = false;
-          btn.textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item';
+        } catch(_) {}
+        try { localStorage.removeItem('cr_createActivityDraft_' + String(lessonId)); } catch(_){ }
+        // Reset state for next creation
+        if (window.createActivityState) {
+          window.createActivityState = null;
         }
+        const outline = document.getElementById('courseOutlineModal');
+        const prevScroll = outline ? (outline.querySelector('#outlineBody')?.scrollTop || 0) : 0;
+        viewOutline();
+        setTimeout(function(){ try { const b = outline?.querySelector('#outlineBody'); if (b) b.scrollTop = prevScroll; } catch(_){ } }, 0);
+        modal.style.display='none';
       })
       .catch(function(e){ 
+        try { clearTimeout(timeoutId); } catch(_){}
         console.error('🔍 CREATE CATCH ERROR:', e);
         if (!handledSuccess) {
           if (typeof window.showNotification === 'function') window.showNotification('error', isEdit?'Update failed':'Create failed', 'Network error'); 
@@ -3581,8 +3956,28 @@ function showCreateActivityForm(lessonId, opts){
         btn.textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item';
       });
   };
+  try { window.__cafHandleCreate = modal.querySelector('#cafCreate').onclick; } catch(_){ }
   modal.querySelector('#cafCreate').textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item';
 }
+
+// Fallback: ensure Save/Create handler always fires even if onclick got detached by re-render
+try {
+  if (!window.__cafGlobalClickBound) {
+    window.__cafGlobalClickBound = true;
+    document.addEventListener('click', function(e){
+      try {
+        const btn = e.target && e.target.closest ? e.target.closest('#cafCreate') : null;
+        if (!btn) return;
+        // If native onclick exists, let it handle
+        if (typeof btn.onclick === 'function') return;
+        if (typeof window.__cafHandleCreate === 'function') {
+          e.preventDefault();
+          window.__cafHandleCreate.call(btn, e);
+        }
+      } catch(_){ }
+    }, true);
+  }
+} catch(_){ }
 
 // ===== STUDENT TEST INTERFACE FUNCTIONS =====
 
@@ -3628,6 +4023,7 @@ function renderStudentCodingTest(activity) {
         ` : ''}
         <div style="display:flex;gap:8px;">
           <button type="button" id="codingRunBtn" class="action-btn" style="background:#2196F3;color:#fff;">Run</button>
+          <button type="button" id="codingSubmitBtn" class="action-btn" style="background:#28a745;color:#fff;">Submit</button>
         </div>
         <div id="codingRunOut" style="margin-top:12px;"></div>
       </div>
@@ -3636,6 +4032,59 @@ function renderStudentCodingTest(activity) {
     return '<div class="empty-state">Invalid coding activity data</div>';
   }
 }
+
+// Submit handler for student coding test (runs JDoodle then saves attempt)
+document.addEventListener('click', function(e){
+  const btn = e.target && e.target.id === 'codingSubmitBtn' ? e.target : null;
+  if (!btn) return;
+  const mount = document.getElementById('codingRunOut');
+  const codeEl = document.querySelector('textarea[name="test-code"]');
+  const activity = window.__currentActivityData || window.currentActivity || null;
+  if (!activity) { if (mount) mount.innerHTML = '<div style="color:#dc3545;">No activity context</div>'; return; }
+  let lang = 'cpp';
+  try { const meta = JSON.parse(activity.instructions||'{}'); if (meta.language) lang = String(meta.language).toLowerCase(); } catch(_){ }
+  const source = (codeEl && codeEl.value) ? codeEl.value : '';
+  if (!source) { if (mount) mount.innerHTML = '<div style="color:#dc3545;">Write code first</div>'; return; }
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  if (mount) mount.innerHTML = '<div class="loading-spinner">Running…</div>';
+
+  // Quick run first against sample/all to get verdict
+  const fd = new FormData();
+  fd.append('action','run_activity');
+  fd.append('activity_id', String(activity.id||activity.activity_id||''));
+  fd.append('source', source);
+  // full run for submission
+  fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+    .then(r=>r.json())
+    .then(res=>{
+      const results = res && res.results ? res.results : (res && res.data ? res.data : []);
+      // crude verdict: if all have output matching expected then passed else failed (backend may include statuses)
+      let verdict = 'failed';
+      try {
+        // If JDoodle results include statusCode or memory/time, keep as-is; fallback to simple success check
+        const allOk = Array.isArray(results) && results.length > 0 && results.every(x => String(x.status||x.statusCode||'').toLowerCase().includes('success'));
+        verdict = allOk ? 'passed' : 'failed';
+      } catch(_){}
+      const sfd = new FormData();
+      sfd.append('action','submit_attempt');
+      sfd.append('activity_id', String(activity.id||activity.activity_id||''));
+      sfd.append('language', lang);
+      sfd.append('source', source);
+      sfd.append('results', JSON.stringify(results));
+      sfd.append('verdict', verdict);
+      return fetch('submissions_api.php', { method:'POST', body: sfd, credentials:'same-origin' })
+        .then(r=>r.json())
+        .then(save=>{
+          if (save && save.success) {
+            if (mount) mount.innerHTML = '<div style="color:#28a745;">Submitted successfully</div>';
+          } else {
+            if (mount) mount.innerHTML = '<div style="color:#dc3545;">Submit failed</div>';
+          }
+        });
+    })
+    .catch(()=>{ if (mount) mount.innerHTML = '<div style="color:#dc3545;">Network error</div>'; })
+    .finally(()=>{ btn.disabled = false; btn.textContent = 'Submit'; });
+});
 
 // Function to render multiple choice test interface
 function renderStudentMultipleChoiceTest(activity) {
@@ -3933,6 +4382,7 @@ function addQuestion() {
   
   // Trigger re-render by dispatching a custom event
   window.dispatchEvent(new CustomEvent('createActivityRender'));
+  if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 
   // Make functions globally accessible
@@ -3960,6 +4410,7 @@ function deleteQuestion(index) {
   
   // Trigger re-render by dispatching a custom event
   window.dispatchEvent(new CustomEvent('createActivityRender'));
+  if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 
 // Function to move a question up or down
@@ -3978,6 +4429,7 @@ function moveQuestion(index, direction) {
   
   // Trigger re-render by dispatching a custom event
   window.dispatchEvent(new CustomEvent('createActivityRender'));
+  if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 
 // Function to update question properties
@@ -3991,6 +4443,7 @@ function updateQuestion(index, property, value) {
   if (state.questions[index]) {
     state.questions[index][property] = value;
   }
+  if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 
 // Function to add a choice to a multiple choice question
@@ -4017,6 +4470,7 @@ function addChoice(questionIndex) {
     
     // Trigger re-render by dispatching a custom event
     window.dispatchEvent(new CustomEvent('createActivityRender'));
+    if (window.__cafScheduleSave) window.__cafScheduleSave();
   } else {
     console.error('🔍 ERROR: Cannot add choice - invalid question or wrong type');
   }
@@ -4036,6 +4490,7 @@ function deleteChoice(questionIndex, choiceIndex) {
     
     // Trigger re-render by dispatching a custom event
     window.dispatchEvent(new CustomEvent('createActivityRender'));
+    if (window.__cafScheduleSave) window.__cafScheduleSave();
   }
 }
 
@@ -4051,6 +4506,7 @@ function updateChoice(questionIndex, choiceIndex, property, value) {
   if (state.questions[questionIndex] && state.questions[questionIndex].choices[choiceIndex]) {
     state.questions[questionIndex].choices[choiceIndex][property] = value;
   }
+  if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 
 // ===== Coding test cases (for create form) =====
@@ -4143,6 +4599,7 @@ function addMatchingPair(questionIndex) {
   }
   state.questions[questionIndex].matchingPairs.push({ left: '', right: '' });
   window.dispatchEvent(new CustomEvent('createActivityRender'));
+  if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 
 // Function to delete matching pair
@@ -4156,6 +4613,7 @@ function deleteMatchingPair(questionIndex, pairIndex) {
   if (state.questions[questionIndex].matchingPairs && state.questions[questionIndex].matchingPairs[pairIndex]) {
     state.questions[questionIndex].matchingPairs.splice(pairIndex, 1);
     window.dispatchEvent(new CustomEvent('createActivityRender'));
+    if (window.__cafScheduleSave) window.__cafScheduleSave();
   }
 }
 
@@ -4169,8 +4627,226 @@ function updateMatchingPair(questionIndex, pairIndex, field, value) {
   console.log('🔍 updateMatchingPair called:', { questionIndex, pairIndex, field, value });
   if (state.questions[questionIndex].matchingPairs && state.questions[questionIndex].matchingPairs[pairIndex]) {
     state.questions[questionIndex].matchingPairs[pairIndex][field] = value;
-    window.dispatchEvent(new CustomEvent('createActivityRender'));  
+    window.dispatchEvent(new CustomEvent('createActivityRender'));
+    if (window.__cafScheduleSave) window.__cafScheduleSave();
   }
 }
 
 // (Removed duplicate addTestCase/deleteTestCase/updateTestCase that re-rendered the whole form)
+
+// ======================== MATERIAL VIEWERS ========================
+
+function showPDFViewer(url) {
+  console.log('🔍 Opening PDF viewer with URL:', url);
+  
+  // Create download URL (remove view=true parameter)
+  const downloadUrl = url.replace(/[?&]view=true/, '').replace(/[?&]$/, '');
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:98%;width:98%;height:96vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">
+      <div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">
+        <strong style="font-size:16px;color:#333;">📄 PDF Viewer</strong>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="action-btn" id="pdfViewerFullscreen" title="Fullscreen (F)" style="padding:6px 12px;background:#343a40;color:#fff;">Fullscreen</button>
+          <a href="${downloadUrl}" target="_blank" style="padding:6px 12px;background:#007bff;color:#fff;text-decoration:none;border-radius:4px;font-size:12px;">Download</a>
+          <button class="action-btn btn-gray" id="pdfViewerClose" style="padding:6px 12px;">Close</button>
+        </div>
+      </div>
+      <div id="pdfContainer" style="flex:1;overflow:hidden;background:#525659;position:relative;">
+        <iframe id="pdfFrame" src="${url}" style="width:100%;height:100%;border:0;" title="PDF Viewer" onload="console.log('PDF iframe loaded successfully')" onerror="console.error('PDF iframe failed to load')"></iframe>
+        <div id="pdfError" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;text-align:center;display:none;">
+          <p>Unable to display PDF in browser.</p>
+          <a href="${downloadUrl}" target="_blank" style="color:#4fc3f7;text-decoration:underline;">Click here to download</a>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Show error message if iframe fails to load after 5 seconds
+  setTimeout(() => {
+    const iframe = modal.querySelector('#pdfFrame');
+    const errorDiv = modal.querySelector('#pdfError');
+    if (iframe && iframe.contentDocument && iframe.contentDocument.body && iframe.contentDocument.body.textContent.includes('Invalid file')) {
+      errorDiv.style.display = 'block';
+      iframe.style.display = 'none';
+    }
+  }, 5000);
+  
+  const closeBtn = modal.querySelector('#pdfViewerClose');
+  const fsBtn = modal.querySelector('#pdfViewerFullscreen');
+  const card = modal.querySelector('.modal-card');
+  const container = modal.querySelector('#pdfContainer');
+  const iframe = modal.querySelector('#pdfFrame');
+
+  function isFullscreenActive() {
+    return document.fullscreenElement === card || document.fullscreenElement === container;
+  }
+
+  async function toggleFullscreen() {
+    try {
+      if (!isFullscreenActive()) {
+        // Prefer putting the inner container into fullscreen to maximize the PDF area
+        if (container.requestFullscreen) await container.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+      }
+    } catch (_err) {
+      // noop
+    }
+  }
+
+  function updateFsButton() {
+    fsBtn.textContent = isFullscreenActive() ? 'Exit Fullscreen' : 'Fullscreen';
+  }
+
+  if (fsBtn) fsBtn.onclick = function(){ toggleFullscreen().then(updateFsButton); };
+  document.addEventListener('fullscreenchange', updateFsButton);
+
+  // Keyboard shortcut: F toggles fullscreen, Esc closes
+  function onKey(e){
+    if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen().then(updateFsButton); }
+    if (e.key === 'Escape') { e.preventDefault(); cleanup(); }
+  }
+
+  function cleanup(){
+    document.removeEventListener('fullscreenchange', updateFsButton);
+    document.removeEventListener('keydown', onKey);
+    if (document.fullscreenElement) { try { document.exitFullscreen(); } catch(_){} }
+    modal.remove();
+  }
+
+  if (closeBtn) closeBtn.onclick = cleanup;
+  document.addEventListener('keydown', onKey);
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+function showVideoPlayer(url) {
+  const getExt = function(u){
+    try {
+      const q = new URL(u, window.location.origin).searchParams.get('f');
+      const name = q || u;
+      const m = String(name).match(/\.([A-Za-z0-9]+)(?:$|\b)/);
+      return m ? m[1].toLowerCase() : '';
+    } catch(_) { return ''; }
+  };
+  const ext = getExt(url);
+  const mimeByExt = {
+    mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', mkv: 'video/x-matroska', avi: 'video/x-msvideo',
+    webm: 'video/webm', ogv: 'video/ogg', '3gp': 'video/3gpp'
+  };
+  const mime = mimeByExt[ext] || '';
+  const sourceTypeAttr = mime ? ` type="${mime}"` : '';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:98%;width:98%;display:flex;flex-direction:column;background:#000;border-radius:8px;overflow:hidden;">
+      <div style="padding:10px 12px;border-bottom:1px solid #333;display:flex;align-items:center;justify-content:space-between;background:#1a1a1a;">
+        <strong style="font-size:16px;color:#fff;">▶️ Video Player</strong>
+        <button class="action-btn" id="videoPlayerClose" style="padding:6px 12px;background:#dc3545;color:#fff;">Close</button>
+      </div>
+      <div style="background:#000;">
+        <video controls style="width:100%;max-height:80vh;" autoplay>
+          <source src="${url}"${sourceTypeAttr}>
+          Your browser does not support the video tag.
+        </video>
+        <div style="padding:8px 12px;color:#bbb;font-size:12px;">${ext ? ('File type: '+ext.toUpperCase()) : ''}</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector('#videoPlayerClose').onclick = () => modal.remove();
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+function showCodeViewer(url) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:95%;width:1000px;height:80vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">
+        <strong style="font-size:16px;color:#333;">👁️ Code Viewer</strong>
+        <button class="action-btn btn-gray" id="codeViewerClose" style="padding:6px 12px;">Close</button>
+      </div>
+      <div style="flex:1;overflow:auto;padding:16px;background:#282c34;color:#abb2bf;font-family:monospace;font-size:14px;line-height:1.5;">
+        <pre id="codeViewerContent" style="margin:0;white-space:pre-wrap;word-wrap:break-word;">Loading...</pre>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Fetch and display code content
+  fetch(url, { credentials: 'same-origin' })
+    .then(r => r.text())
+    .then(code => {
+      modal.querySelector('#codeViewerContent').textContent = code;
+    })
+    .catch(() => {
+      modal.querySelector('#codeViewerContent').textContent = 'Error loading code file.';
+    });
+  
+  modal.querySelector('#codeViewerClose').onclick = () => modal.remove();
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+// Lightweight Link Viewer that tries to embed common providers (YouTube, Drive) and falls back gracefully
+function showLinkViewer(url) {
+  const provider = (function(u){
+    if (/youtube\.com\/watch\?v=|youtu\.be\//i.test(u)) return 'youtube';
+    if (/drive\.google\.com\//i.test(u)) return 'gdrive';
+    return 'generic';
+  })(url);
+
+  let embedHtml = '';
+  if (provider === 'youtube') {
+    // Convert to embed URL
+    let vid = '';
+    try {
+      const u = new URL(url, window.location.origin);
+      if (u.hostname.includes('youtu.be')) vid = u.pathname.replace('/', '');
+      else vid = u.searchParams.get('v') || '';
+    } catch(_){ }
+    if (vid) {
+      embedHtml = `<iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>`;
+    }
+  } else if (provider === 'gdrive') {
+    // Try to extract file id and use preview
+    let id = '';
+    const m = url.match(/\/d\/([A-Za-z0-9_-]+)/);
+    if (m) id = m[1];
+    if (id) {
+      embedHtml = `<iframe src="https://drive.google.com/file/d/${id}/preview" allow="autoplay" style="width:100%;height:100%;border:0;"></iframe>`;
+    }
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:98%;width:98%;height:90vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">
+      <div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">
+        <strong style="font-size:16px;color:#333;">🔗 Link Viewer</strong>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <a href="${url}" target="_blank" style="padding:6px 12px;background:#17a2b8;color:#fff;text-decoration:none;border-radius:4px;font-size:12px;">Open in new tab</a>
+          <button class="action-btn btn-gray" id="linkViewerClose" style="padding:6px 12px;">Close</button>
+        </div>
+      </div>
+      <div style="flex:1;position:relative;background:#000;">
+        ${embedHtml || `<iframe src="${url}" style="width:100%;height:100%;border:0;"></iframe>`}
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:8px 12px;color:#ddd;font-size:12px;background:linear-gradient(transparent, rgba(0,0,0,0.6));">
+          If the site blocks embedding, use “Open in new tab”.
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const closeBtn = modal.querySelector('#linkViewerClose');
+  if (closeBtn) closeBtn.onclick = function(){ modal.remove(); };
+  modal.addEventListener('click', function(e){ if (e.target === modal) modal.remove(); });
+}

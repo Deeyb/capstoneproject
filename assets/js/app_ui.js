@@ -20,6 +20,47 @@ document.write('<script src="assets/js/admin_panel.js"></' + 'script>');
   }
 })();
 
+// Global fetch wrapper to ensure CSRF token is appended to POSTs
+(function installGlobalCsrfFetchWrapper(){
+  try {
+    if (window.__crCsrfFetchWrapperInstalled) return; window.__crCsrfFetchWrapperInstalled = true;
+    var originalFetch = window.fetch;
+    // Helper to get token if coordinator.js provided it
+    async function ensureCsrfOnFormData(fd) {
+      try {
+        if (!fd || typeof fd.has !== 'function') return fd;
+        if (fd.has('csrf_token')) return fd;
+        if (typeof window.getCSRFToken === 'function') {
+          var token = await window.getCSRFToken();
+          if (token) { try { fd.append('csrf_token', token); } catch(_){} }
+        }
+      } catch(_) {}
+      return fd;
+    }
+    window.fetch = async function(input, init){
+      try {
+        var url = (typeof input === 'string') ? input : ((input && input.url) || '');
+        var isPost = init && (String(init.method||'').toUpperCase() === 'POST');
+        var targetsCsrf = url.indexOf('course_outline_manage.php') !== -1 || url.indexOf('submissions_api.php') !== -1;
+        if (isPost && targetsCsrf && init.body && (typeof FormData !== 'undefined') && (init.body instanceof FormData)) {
+          try {
+            // If this is the CSRF token fetch itself, bypass wrapper to avoid recursion
+            var act = init.body.get && init.body.get('action');
+            if (act && String(act) === 'get_csrf_token') {
+              // Call the original fetch directly with same args
+              if (!init.credentials) init.credentials = 'same-origin';
+              return originalFetch.apply(this, arguments);
+            }
+          } catch(_) {}
+          init.body = await ensureCsrfOnFormData(init.body);
+          if (!init.credentials) init.credentials = 'same-origin';
+        }
+      } catch(_) {}
+      return originalFetch.apply(this, arguments);
+    };
+  } catch(_) { /* no-op */ }
+})();
+
 // Optional: lightweight CodeMirror loader for enhanced code editing
 window.enableCodeEditor = function(textarea){
   try {

@@ -202,24 +202,29 @@ function loadSubmissions() {
   const tbody = document.querySelector('#submissionsTable tbody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#6c757d;">Loading…</td></tr>';
-  // Placeholder: will be wired to backend later
-  setTimeout(() => {
-    const rows = [
-      { student:'Juan Dela Cruz', activity:'Loops 101', status:'passed', runtime:'0.34s', memory:'18MB', submitted:'2025-09-19 10:33' },
-      { student:'Maria Clara', activity:'Arrays', status:'compile_error', runtime:'—', memory:'—', submitted:'2025-09-19 10:28' },
-      { student:'Ibarra', activity:'Pointers', status:'failed', runtime:'0.89s', memory:'22MB', submitted:'2025-09-19 09:58' }
-    ];
-    tbody.innerHTML = rows.map(r => `
-      <tr>
-        <td>${r.student}</td>
-        <td>${r.activity}</td>
-        <td><span class="status-chip chip-${r.status}">${labelForStatus(r.status)}</span></td>
-        <td>${r.runtime}</td>
-        <td>${r.memory}</td>
-        <td>${r.submitted}</td>
-      </tr>
-    `).join('');
-  }, 400);
+  try {
+    const activityId = window.__currentActivityId || 0;
+    fetch('submissions_api.php?action=list_attempts&activity_id=' + encodeURIComponent(activityId) + '&limit=25', { credentials:'same-origin' })
+      .then(r => r.json())
+      .then(res => {
+        if (!res || !res.success) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#dc3545;">Failed to load submissions</td></tr>'; return; }
+        const rows = res.data || [];
+        if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#6c757d;">No submissions yet</td></tr>'; return; }
+        tbody.innerHTML = rows.map(r => `
+          <tr>
+            <td>${(r.student_user_id||'')}</td>
+            <td>${(r.activity_id||'')}</td>
+            <td><span class="status-chip chip-${(r.verdict||'').toString().toLowerCase()}">${labelForStatus(r.verdict||'')}</span></td>
+            <td>${(r.duration_ms!=null?r.duration_ms+' ms':'—')}</td>
+            <td>${(r.score!=null?r.score:'—')}</td>
+            <td>${(r.created_at||'')}</td>
+          </tr>
+        `).join('');
+      })
+      .catch(() => { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#dc3545;">Network error</td></tr>'; });
+  } catch (_) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#dc3545;">Unexpected error</td></tr>';
+  }
 }
 
 function labelForStatus(s) {
