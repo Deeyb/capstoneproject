@@ -934,3 +934,64 @@ body.dark-mode .create-class:hover {
   font-style: italic;
   line-height: 1.3;
 }
+
+/* Play Area - Professional styling */
+.play-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(16,24,40,0.06);
+  overflow: hidden;
+}
+.play-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(180deg,#f9fafb 0%, #f3f4f6 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+.play-title { display:flex; align-items:center; gap:8px; color:#1f2937; font-weight:700; }
+.play-title i { color:#1d9b3e; }
+.play-controls { display:flex; align-items:center; gap:10px; }
+.play-label { color:#4b5563; font-weight:600; }
+.play-secondary-btn { background:#eef2f7; color:#1f2937; border:none; border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:8px; cursor:pointer; }
+.play-secondary-btn:hover { background:#e7edf6; }
+.play-select {
+  appearance:none;
+  border:1px solid #d1d5db;
+  background:#fff;
+  border-radius:8px;
+  padding:8px 10px;
+  min-width:150px;
+}
+.play-run-btn {
+  background:#1d9b3e;
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  padding:8px 14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  box-shadow: 0 4px 12px rgba(29,155,62,0.18);
+}
+.play-run-btn:hover { background:#178534; }
+.play-editor { padding: 12px 16px 0 16px; }
+.play-textarea {
+  width: 100%;
+  min-height: 420px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #0b1220;
+  color: #e5e7eb;
+}
+.play-hint { padding: 10px 16px 16px 16px; color:#6b7280; font-size: 12px; }
+
+/* CodeRegal Terminal polish */
+#crTermBody { background:#0b1220; color:#e5e7eb; }

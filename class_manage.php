@@ -64,7 +64,7 @@ try {
             exit;
         }
 
-        $res = $service->createClass($ownerId, $name, $courseId, $customCode, $classType);
+        $res = $service->createClass($ownerId, $name, $courseId, $customCode);
         if (!empty($res['success'])) {
             echo json_encode($res);
             exit;
@@ -92,6 +92,266 @@ try {
             echo json_encode(['success' => false, 'message' => 'Failed to delete class']);
         }
         exit;
+    }
+
+    if ($action === 'save_outline_overrides') {
+        // Only teachers can save outline overrides for their classes
+        Auth::requireRole('teacher');
+        
+        $input = [];
+        $raw = file_get_contents('php://input');
+        if (!empty($raw) && strpos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
+            $input = json_decode($raw, true) ?: [];
+        } else {
+            $input = $_POST;
+        }
+        
+        $classId = isset($input['class_id']) ? (int)$input['class_id'] : 0;
+        $courseId = isset($input['course_id']) ? (int)$input['course_id'] : 0;
+        $overrides = isset($input['overrides']) ? $input['overrides'] : null;
+        $ownerId = (int)($_SESSION['user_id'] ?? 0);
+
+        if ($ownerId <= 0 || $classId <= 0 || $courseId <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid request parameters']);
+            exit;
+        }
+
+        // Verify teacher owns this class
+        $stmt = $db->prepare("SELECT id FROM classes WHERE id = ? AND owner_user_id = ?");
+        $stmt->execute([$classId, $ownerId]);
+        if (!$stmt->fetch()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+
+        // Verify course exists
+        $stmt = $db->prepare("SELECT id FROM courses WHERE id = ?");
+        $stmt->execute([$courseId]);
+        if (!$stmt->fetch()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Course not found']);
+            exit;
+        }
+
+        try {
+            $overridesJson = json_encode($overrides);
+            $stmt = $db->prepare("INSERT INTO class_outline_overrides (class_id, course_id, overrides) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE overrides = VALUES(overrides), updated_at = CURRENT_TIMESTAMP");
+            $stmt->execute([$classId, $courseId, $overridesJson]);
+            
+            echo json_encode(['success' => true, 'message' => 'Outline overrides saved successfully']);
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to save overrides']);
+            exit;
+        }
+    }
+
+    if ($action === 'load_outline_overrides') {
+        // Only teachers can load outline overrides for their classes
+        Auth::requireRole('teacher');
+        
+        $classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
+        $courseId = isset($_GET['course_id']) ? (int)$_GET['course_id'] : 0;
+        $ownerId = (int)($_SESSION['user_id'] ?? 0);
+
+        if ($ownerId <= 0 || $classId <= 0 || $courseId <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid request parameters']);
+            exit;
+        }
+
+        // Verify teacher owns this class
+        $stmt = $db->prepare("SELECT id FROM classes WHERE id = ? AND owner_user_id = ?");
+        $stmt->execute([$classId, $ownerId]);
+        if (!$stmt->fetch()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+
+        try {
+            $stmt = $db->prepare("SELECT overrides FROM class_outline_overrides WHERE class_id = ? AND course_id = ?");
+            $stmt->execute([$classId, $courseId]);
+            $result = $stmt->fetch();
+            
+            if ($result) {
+                $overrides = json_decode($result['overrides'], true);
+                echo json_encode(['success' => true, 'overrides' => $overrides]);
+            } else {
+                echo json_encode(['success' => true, 'overrides' => null]);
+            }
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to load overrides']);
+            exit;
+        }
+    }
+
+    if ($action === 'add_lesson_to_class') {
+        // Only teachers can add lessons to their classes
+        Auth::requireRole('teacher');
+        
+        $input = [];
+        $raw = file_get_contents('php://input');
+        if (!empty($raw) && strpos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
+            $input = json_decode($raw, true) ?: [];
+        } else {
+            $input = $_POST;
+        }
+        
+        $classId = isset($input['class_id']) ? (int)$input['class_id'] : 0;
+        $courseId = isset($input['course_id']) ? (int)$input['course_id'] : 0;
+        $moduleId = isset($input['module_id']) ? (int)$input['module_id'] : 0;
+        $lessonTitle = trim($input['lesson_title'] ?? '');
+        $ownerId = (int)($_SESSION['user_id'] ?? 0);
+
+        if ($ownerId <= 0 || $classId <= 0 || $courseId <= 0 || $moduleId <= 0 || empty($lessonTitle)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid request parameters']);
+            exit;
+        }
+
+        // Verify teacher owns this class
+        $stmt = $db->prepare("SELECT id FROM classes WHERE id = ? AND owner_user_id = ?");
+        $stmt->execute([$classId, $ownerId]);
+        if (!$stmt->fetch()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+
+        try {
+            // Get current overrides or create new ones
+            $stmt = $db->prepare("SELECT overrides FROM class_outline_overrides WHERE class_id = ? AND course_id = ?");
+            $stmt->execute([$classId, $courseId]);
+            $result = $stmt->fetch();
+            
+            $overrides = $result ? json_decode($result['overrides'], true) : ['modules' => []];
+            if (!isset($overrides['modules']) || !is_array($overrides['modules'])) {
+                $overrides['modules'] = [];
+            }
+
+            // Find the module and add the lesson
+            $moduleFound = false;
+            foreach ($overrides['modules'] as &$module) {
+                if ($module['id'] == $moduleId) {
+                    if (!isset($module['lessons'])) $module['lessons'] = [];
+                    $module['lessons'][] = [
+                        'id' => null, // New lesson, no ID yet
+                        'title' => $lessonTitle,
+                        'topics' => []
+                    ];
+                    $moduleFound = true;
+                    break;
+                }
+            }
+
+            if (!$moduleFound) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Module not found']);
+                exit;
+            }
+
+            // Save updated overrides
+            $overridesJson = json_encode($overrides);
+            $stmt = $db->prepare("INSERT INTO class_outline_overrides (class_id, course_id, overrides) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE overrides = VALUES(overrides), updated_at = CURRENT_TIMESTAMP");
+            $stmt->execute([$classId, $courseId, $overridesJson]);
+            
+            echo json_encode(['success' => true, 'message' => 'Lesson added successfully']);
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to add lesson']);
+            exit;
+        }
+    }
+
+    if ($action === 'add_topic_to_class') {
+        // Only teachers can add topics to their classes
+        Auth::requireRole('teacher');
+        
+        $input = [];
+        $raw = file_get_contents('php://input');
+        if (!empty($raw) && strpos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
+            $input = json_decode($raw, true) ?: [];
+        } else {
+            $input = $_POST;
+        }
+        
+        $classId = isset($input['class_id']) ? (int)$input['class_id'] : 0;
+        $courseId = isset($input['course_id']) ? (int)$input['course_id'] : 0;
+        $moduleId = isset($input['module_id']) ? (int)$input['module_id'] : 0;
+        $lessonId = isset($input['lesson_id']) ? (int)$input['lesson_id'] : 0;
+        $topicTitle = trim($input['topic_title'] ?? '');
+        $ownerId = (int)($_SESSION['user_id'] ?? 0);
+
+        if ($ownerId <= 0 || $classId <= 0 || $courseId <= 0 || $moduleId <= 0 || $lessonId <= 0 || empty($topicTitle)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid request parameters']);
+            exit;
+        }
+
+        // Verify teacher owns this class
+        $stmt = $db->prepare("SELECT id FROM classes WHERE id = ? AND owner_user_id = ?");
+        $stmt->execute([$classId, $ownerId]);
+        if (!$stmt->fetch()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+
+        try {
+            // Get current overrides or create new ones
+            $stmt = $db->prepare("SELECT overrides FROM class_outline_overrides WHERE class_id = ? AND course_id = ?");
+            $stmt->execute([$classId, $courseId]);
+            $result = $stmt->fetch();
+            
+            $overrides = $result ? json_decode($result['overrides'], true) : ['modules' => []];
+            if (!isset($overrides['modules']) || !is_array($overrides['modules'])) {
+                $overrides['modules'] = [];
+            }
+
+            // Find the module and lesson, then add the topic
+            $moduleFound = false;
+            $lessonFound = false;
+            foreach ($overrides['modules'] as &$module) {
+                if ($module['id'] == $moduleId) {
+                    $moduleFound = true;
+                    if (!isset($module['lessons'])) $module['lessons'] = [];
+                    foreach ($module['lessons'] as &$lesson) {
+                        if ($lesson['id'] == $lessonId) {
+                            if (!isset($lesson['topics'])) $lesson['topics'] = [];
+                            $lesson['topics'][] = $topicTitle;
+                            $lessonFound = true;
+                            break 2;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            if (!$moduleFound || !$lessonFound) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Module or lesson not found']);
+                exit;
+            }
+
+            // Save updated overrides
+            $overridesJson = json_encode($overrides);
+            $stmt = $db->prepare("INSERT INTO class_outline_overrides (class_id, course_id, overrides) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE overrides = VALUES(overrides), updated_at = CURRENT_TIMESTAMP");
+            $stmt->execute([$classId, $courseId, $overridesJson]);
+            
+            echo json_encode(['success' => true, 'message' => 'Topic added successfully']);
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to add topic']);
+            exit;
+        }
     }
 
     http_response_code(400);

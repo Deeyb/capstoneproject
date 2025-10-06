@@ -158,6 +158,19 @@
         console.error('Header controls init failed:', err);
     }
 
+    // Expose CSRF token fetcher for other modules (e.g., Play Area)
+    if (typeof window.getCSRFToken !== 'function') {
+        window.getCSRFToken = async function(){
+            try {
+                const fd = new FormData();
+                fd.append('action','get_csrf_token');
+                const res = await fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd });
+                const data = await res.json();
+                return data && data.success ? data.token : null;
+            } catch (e) { return null; }
+        };
+    }
+
     // Animated Stat Counter
     function animateCounter(element, to) {
         let start = 0;

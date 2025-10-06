@@ -1,0 +1,975 @@
+CCIS1102/L – COMPUTER PROGRAMMING1
+WEEK 2 - FUNDAMENTALS OF COMPUTING AND
+PROGRAMMING
+
+LEARNING OBJECTIVES:
+
+1. Define what a computer is and identify its main components.
+2. Explain the basic operations that a computer can perform.
+3. Examine the importance of programming in diverse contexts such as
+
+software development, problem-solving, automation, and innovation.
+4. Recognize real-world scenarios where programming is employed to
+automate tasks, process data, and create software solutions.
+5. Differentiate between high-level, low-level, and machine languages.
+6. Define syntax, semantics, and grammar in the context of programming
+languages.
+2
+
+What is Computer?
+COMPUTER – A computer is an
+electronic
+data
+processing
+device, which accepts and stores
+data input, processes the data
+input, and generates the output
+in a required format.
+
+3
+
+FUNCTIONALITIES OF A COMPUTER
+If we look at it in a very broad sense, any digital computer
+carries out the following five functions −
+Step 1 − Takes data as input.
+Step 2 − Stores the data/instructions in its memory and uses
+them as required.
+Step 3 − Processes the data and converts it into useful
+information.
+Step 4 − Generates the output.
+Step 5 − Controls all the above four steps.
+4
+
+APPLICATIONS OF COMPUTERS
+Business - A computer has high speed of calculation, diligence, accuracy, reliability,
+or versatility which has made it an integrated part in all business organizations.
+Computer is used in business organizations for −
+• Payroll calculations
+• Budgeting
+• Sales analysis
+• Financial forecasting
+• Managing employee database
+• Maintenance of stocks, etc.
+
+APPLICATIONS OF COMPUTERS
+Banking - Today, banking is almost totally dependent on computers.
+Banks provide the following facilities −
+• Online accounting facility, which includes checking current balance, making deposits
+and overdrafts, checking interest charges, shares, and trustee records.
+• ATM machines which are completely automated are making it even easier for
+customers to deal with banks.
+
+APPLICATIONS OF COMPUTERS
+Insurance -Insurance companies are keeping all records up-to-date with the help of
+computers. Insurance companies, finance houses, and stock broking firms are widely
+using computers for their concerns.
+Insurance companies are maintaining a database of all clients with information showing −
+• Starting date of the policies
+• Next due installment of a policy
+• Maturity date
+• Interests due
+• Survival benefits
+• Bonus
+
+APPLICATIONS OF COMPUTERS
+Education -The computer helps in providing a lot of facilities in the education system.
+• The computer provides a tool in the education system known as CBE (Computer
+Based Education).
+• CBE involves control, delivery, and evaluation of learning.
+• Computer education is rapidly increasing the graph of number of computer students.
+• There are a number of methods in which educational institutions can use a computer
+to educate the students.
+• It is used to prepare a database about performance of a student and analysis is
+carried out on this basis.
+
+APPLICATIONS OF COMPUTERS
+Marketing - In marketing, uses of the computer are following −
+• Advertising − With computers, advertising professionals create art
+and graphics, write and revise copy, and print and disseminate ads
+with the goal of selling more products.
+• Home Shopping − Home shopping has been made possible
+through the use of computerized catalogues that provide access to
+product information and permit direct entry of orders to be filled by
+the customers.
+
+APPLICATIONS OF COMPUTERS
+Healthcare - Computers have become an important part in hospitals, labs, and dispensaries. They
+are being used in hospitals to keep the record of patients and medicines. It is also used in scanning
+and diagnosing different diseases. ECG, EEG, ultrasounds and CT scans, etc. are also done by
+computerized machines.
+Following are some major fields of health care in which computers are used.
+• Diagnostic System − Computers are used to collect data and identify the cause of illness.
+• Lab-diagnostic System − All tests can be done and the reports are prepared by computer.
+• Patient Monitoring System − These are used to check the patient's signs for abnormality such as
+in Cardiac Arrest, ECG, etc.
+• Pharma Information System − Computer is used to check drug labels, expiry dates, harmful side
+effects, etc.
+• Surgery − Nowadays, computers are also used in performing surgery.
+
+APPLICATIONS OF COMPUTERS
+Engineering Design -Computers are widely used for Engineering purpose.
+One of the major areas is CAD (Computer Aided Design) that provides creation and
+modification of images. Some of the fields are −
+Structural Engineering − Requires stress and strain analysis for design of ships,
+buildings, budgets, airplanes, etc.
+Industrial Engineering − Computers deal with design, implementation, and
+improvement of integrated systems of people, materials, and equipment.
+Architectural Engineering − Computers help in planning towns, designing
+buildings, determining a range of buildings on a site using both 2D and 3D drawings.
+
+APPLICATIONS OF COMPUTERS
+Military -Computers are largely used in defense. Modern tanks, missiles,
+weapons, etc. Military also employs computerized control systems. Some
+military areas where a computer has been used are −
+• Missile Control
+• Military Communication
+• Military Operation and Planning
+• Smart Weapons
+
+APPLICATIONS OF COMPUTERS
+Communication -Communication is a way to convey a message, an idea, a
+picture, or speech that is received and understood clearly and correctly by
+the person for whom it is meant. Some main areas in this category are −
+E-mail
+
+Chatting
+
+Usenet
+
+FTP
+
+Telnet
+
+Video-conferencing
+
+APPLICATIONS OF COMPUTERS
+Government -Computers play an important role in government services.
+Some major fields in this category are −
+• Budgets
+• Sales tax department
+• Income tax department
+• Computation of male/female ratio
+• Computerization of voters lists
+• Weather forecasting
+
+TYPES OF COMPUTERS
+1
+
+PC (Personal
+Computer)
+
+It is a single user computer system having moderately
+powerful microprocessor
+
+2
+
+Workstation
+
+It is also a single user computer system, similar to personal
+computer however has a more powerful microprocessor.
+
+Minicomputer
+
+It is a multi-user computer system, capable of supporting
+hundreds of users simultaneously.
+
+4
+
+Main Frame
+
+It is a multi-user computer system, capable of supporting
+hundreds of users simultaneously. Software technology is
+different from minicomputer.
+
+5
+
+Supercomputer
+
+3
+
+It is an extremely fast computer, which can execute hundreds
+of millions of instructions per second.
+
+TYPES OF COMPUTERS
+
+PC (Personal Computer)
+
+Main Frame
+
+Workstation
+
+Minicomputer
+
+Supercomputer
+
+HARDWARE
+Hardware represents the physical and tangible components of a computer,
+i.e. the components that can be seen and touched.
+Examples of Hardware are the following −
+Input devices − keyboard, mouse, etc.
+Output devices − printer, monitor, etc.
+Secondary storage devices − Hard disk, CD, DVD, etc.
+Internal components − CPU, motherboard, RAM, etc.
+
+CENTRAL PROCESSING UNIT
+Central Processing Unit (CPU) consists of the following
+features −
+• CPU is considered as the brain of the computer.
+• CPU performs all types of data processing
+operations.
+• It stores data, intermediate results, and instructions
+(program).
+• It controls the operation of all parts of the computer.
+CPU itself has following three components.
+•Memory or Storage Unit
+•Control Unit
+•ALU(Arithmetic Logic Unit)
+
+INPUT DEVICES
+Following are some of the important input devices which are used in a computer −
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+
+Keyboard
+Mouse
+Joy Stick
+Light pen
+Track Ball
+Scanner
+Graphic Tablet
+Microphone
+Magnetic Ink Card Reader(MICR)
+Optical Character Reader(OCR)
+Bar Code Reader
+Optical Mark Reader(OMR)
+
+OUTPUT DEVICES
+Following are some of the important output devices used in a
+computer.
+Monitors
+Graphic Plotter
+Printer
+Projector
+Speaker
+
+MEMORY
+It is used to store data and instructions. Computer memory is the storage space in the computer,
+where data is to be processed and instructions required for processing are stored. The memory is
+divided into large number of small parts called cells. Each location or cell has a unique address,
+which varies from zero to memory size minus one.
+Memory is primarily of three types −
+Cache Memory - It acts as a buffer between the CPU and the main memory. It is used to hold
+those parts of data and program which are most frequently used by the CPU.
+Primary Memory/Main Memory - Primary memory holds only those data and instructions on
+which the computer is currently working. It has a limited capacity and data is lost when power is
+switched off. It is divided into two subcategories RAM and ROM.
+Secondary Memory - This type of memory is also known as external memory or non-volatile. It is
+slower than the main memory. These are used for storing data/information permanently.
+
+MOTHERBOARD
+The motherboard serves as a single platform to connect all of the parts of a computer together. It
+connects the CPU, memory, hard drives, optical drives, video card, sound card, and other ports
+and expansion cards directly or via cables. It can be considered as the backbone of a computer.
+A motherboard comes with following features −
+• Motherboard varies greatly in supporting various types of components.
+• Motherboard supports a single type of CPU and few types of memories.
+• Video cards, hard disks, sound cards have to be compatible with the motherboard to function properly.
+• Motherboards, cases, and power supplies must be compatible to work properly together.
+Popular manufacturers of the motherboard.
+Intel
+ABIT
+
+ASUS
+Biostar
+
+Aopen MSI
+Gigabyte
+
+MEMORY UNITS
+Memory unit is the amount of data that can be stored in the storage unit. This storage capacity is
+expressed in terms of Bytes.
+S.No.
+1
+2
+3
+
+4
+
+Unit & Description
+Bit (Binary Digit)
+A binary digit is logical 0 and 1 representing a passive or an active state of a component in an electric
+circuit.
+Nibble
+A group of 4 bits is called nibble.
+Byte
+A group of 8 bits is called byte. A byte is the smallest unit, which can represent a data item or a character.
+Word
+A computer word, like a byte, is a group of fixed number of bits processed as a unit, which varies from
+computer to computer but is fixed for each computer.
+The length of a computer word is called word-size or word length. It may be as small as 8 bits or may be as
+long as 96 bits. A computer stores the information in the form of computer words.
+
+PORTS
+A port is a physical docking point using which an external device can be
+connected to the computer. It can also be programmatic docking point
+through which information flows from a program to the computer or
+over the Internet.
+Characteristics of Ports
+A port has the following characteristics −
+External devices are connected to a computer using cables and ports.
+Ports are slots on the motherboard into which a cable of external device
+is plugged in.
+Examples of external devices attached via ports are the mouse,
+keyboard, monitor, microphone, speakers, etc.
+
+SOFTWARE
+Software is a set of programs, which is designed to perform
+a well-defined function. A program is a sequence of
+instructions written to solve a particular problem.
+There are two types of software −
+System Software - comprises the programs that you use to
+manage your computer, including operating systems such
+as Windows, Linux, or UNIX for larger computers and
+Google Android and Apple iOS for smartphones
+Application Software - comprises all the programs you
+apply to a task — word-processing programs, spreadsheets,
+payroll and inventory programs, and even games.
+
+OPERATING SYSTEMS
+The Operating System is a program with the following
+features −
+• An operating system is a program that acts as an
+interface between the software and the computer
+hardware.
+• It is an integrated set of specialized programs used to
+manage overall resources and operations of the
+computer.
+• It is a specialized software that controls and monitors
+the execution of all other programs that reside in the
+computer, including application programs and other
+system software.
+
+A LAYERED VIEW OF THE COMPUTER
+
+PROGRAM AND PROGRAMMING LANGUAGES
+Program – is a set of instruction that the computer follows.
+Programming Language (PL) - is a standardized
+communication technique for expressing instructions to a
+computer. Example: Visual Basic, C++, C#, Java, Assembly
+Language
+
+SYNTAX, SEMANTICS AND GRAMMAR
+Syntax- refers to the set of rules that define the correct structure of statements or
+expressions in a programming language. It governs how symbols, keywords, and other
+elements should be arranged to form valid and meaningful code.
+Semantics - Semantics deals with the meaning or interpretation of code. It focuses on
+whether the code, once executed, behaves as intended and produces the desired results.
+Grammar - refers to the rules that define the structure and composition of valid
+statements or expressions in a programming language. It encompasses both syntax and
+semantics, providing a comprehensive set of rules for how code should be written and
+how it should behave.
+
+USES OF PROGRAMMING LANGUAGES
+Programming languages are used for a wide range of applications across
+many industries, including:
+• Software Development: Programming languages are primarily used
+for software development. Developers use programming languages to
+write code for applications, systems software, and other computer
+programs.
+• Web Development: Programming languages like HTML, CSS, and
+JavaScript are used for web development to create dynamic and
+interactive websites.
+• Data Science and Analytics: Programming languages like Python and
+R are popular in data science and analytics to analyze and interpret
+data, and to build machine learning models.
+
+USES OF PROGRAMMING LANGUAGES
+Programming languages are used for a wide range of applications across
+many industries, including:
+• Scientific Computing: Programming languages like Fortran and
+MATLAB are used for scientific computing to solve complex
+mathematical and scientific problems.
+• Game Development: Programming languages like C++ and C# are used
+for game development to create video games and other interactive
+media.
+• Mobile App Development: Programming languages like Java and Swift
+are used for mobile app development to create apps for iOS and
+Android platforms.
+
+USES OF PROGRAMMING LANGUAGES
+Programming languages are used for a wide range of applications across
+many industries, including:
+• Artificial Intelligence and Robotics: Programming languages like
+Python and C++ are used in artificial intelligence and robotics to build
+intelligent systems that can learn, reason, and interact with the physical
+world.
+• Embedded Systems: Programming languages like C and Assembly are
+used for embedded systems development to create software for small,
+low-power devices like microcontrollers and IoT devices.
+
+CATEGORIES OF PL
+Machine Language
+• The representation of a computer program which is actually read and
+understood by the computer.
+• A program in machine code consists of a sequence of machine
+instructions.
+• Machine instructions are in binary code
+• Instructions specify operations and memory cells involved in the
+operation
+
+CATEGORIES OF PL
+Assembly Language
+• A symbolic representation of the machine language of a specific processor.
+• Is converted to machine code by an assembler.
+• Usually, each line of assembly code produces one machine instruction (One-to-one
+correspondence).
+• Programming in assembly language is slow and error-prone but is more efficient
+in terms of hardware performance.
+• Mnemonic representation of the instructions and data
+
+CATEGORIES OF PL
+High Level Programming Language
+• It is designed to be easier for humans to read, write, and
+understand compared to low-level languages like assembly
+or machine language. High-level languages are closer to
+human languages and use more natural constructs, making
+them more intuitive and user-friendly for programmers.
+However, every single program written in a high-level
+language must be interpreted into machine language
+before being executed by the computer. High-level
+languages require the use of a compiler or an interpreter
+for their translation into the machine code. Ex: Python,
+JavaScript, Visual Basic, Delphi, Perl, PHP, ECMAScript,
+Ruby, C++,C#, Java
+
+SOURCE PROGRAM
+• The form in which a computer program, written in some formal
+programming language, is written by the programmer.​
+• Can be compiled automatically into object code or machine code or
+executed by an interpreter. ​
+• Pascal source programs have extension ‘.pas’​
+• C++ source programs can have n extension of ‘.c’, ‘.h’, or ‘.cpp’​
+• Java source programs have an extension of ‘.java’​
+
+COMPILER
+• A program that converts another program from some source language
+(or high-level programming language) to machine language (object
+code).​
+• Some compilers output assembly language which is then converted to
+machine language by a separate assembler. ​
+• Is distinguished from an assembler by the fact that each input
+statement, in general, correspond to more than one machine
+instruction. ​
+
+INTERPRETER
+• An interpreter is a program that reads and executes code line by line,
+translating the code into machine-readable instructions as it goes.
+Interpreters are commonly used for scripting languages like Python and
+Ruby, where the code is executed directly without being compiled first.
+Interpreted code can be slower to run than compiled code, but it can be
+more flexible and easier to debug.
+
+CCIS1102/L – COMPUTER PROGRAMMING1
+WEEK 2-3 - PROGRAM DESIGN AND DEVELOPMENT
+
+LEARNING OBJECTIVES:
+
+1. Define what a computer is and identify its main components.
+2. Explain the basic operations that a computer can perform.
+3. Examine the importance of programming in diverse contexts such as
+
+software development, problem-solving, automation, and innovation.
+4. Recognize real-world scenarios where programming is employed to
+automate tasks, process data, and create software solutions.
+5. Differentiate between high-level, low-level, and machine languages.
+6. Define syntax, semantics, and grammar in the context of programming
+languages.
+7. Identify the stages of the program development life cycle.
+8. Apply analysis and design techniques to plan programs.
+9. Utilize pseudocode and flowcharts to design program logic.
+40
+
+Programming Development Cycle
+•
+
+It is a model which is used to represent the stages and tasks
+that are included orderly in each step to write and put
+software.
+
+•
+
+It is a set of steps or phases that are used to develop a
+program in any programming language.
+1.
+2.
+3.
+4.
+5.
+6.
+
+Problem Definition
+Problem Analysis
+Algorithm Development
+Coding & Documentation
+Testing & Debugging
+Maintenance
+
+1. Problem Definition
+•
+
+In this phase, we define the problem statement and we decide the
+boundaries of the problem. We need to understand the problem
+statement, what is our requirement, what should be the output of
+the problem solution. These are defined in this first phase of the
+program development life cycle.
+
+Example:
+A Human Resources department that needs a printed list of
+all employees, a Billing department that wants a list of
+clients who are 30 or more days overdue on their payments,
+and an Order department that needs a Web site to provide
+buyers with an online shopping cart in which to gather their
+orders. Because programmers are providing a service to
+these users, programmers must first understand what the
+users want.
+
+2. Problem Analysis
+•
+
+In phase 2, we determine the requirements like variables, functions, etc. to solve
+the problem. That means we gather the required resources to solve the problem
+defined in the problem definition phase. We also determine the bounds of the
+solution.
+
+•
+
+Note:
+• Develop a list of problem variables & their relationships
+• Identify the problem input variables
+• Identify the desired output variables
+• Identify local or temporary variables
+• Determine type & units for the variables
+• Determine how should the output be displayed
+• Determine relevant formulas needed to transform input into output
+• Identify any additional requirements or constraints
+
+3. Algorithm Development
+•
+
+•
+•
+•
+
+Also known as Design Phase. During this phase, we develop a step
+by step procedure to solve the problem using the specification given
+in the previous phase. This phase is very important for program
+development. That means we write the solution in step by step
+statements.
+Develop a list of steps (Algorithm) to solve the problem, using
+pseudocode, flowcharts, or IPO (Input/Process/Output chart)
+charts
+Test if the algorithm will solve the problem as intended by using
+sample input and checking the output.
+Top-Down design should be used.
+
+Algorithm
+An algorithm is the sequence of steps necessary to solve any
+programming problem.
+•
+
+Qualities of a good algorithm
+• Inputs and outputs should be defined precisely.
+• Each steps in algorithm should be clear and unambiguous.
+• Algorithm should be most effective among many different ways
+to solve a problem.
+• An algorithm shouldn't have computer code. Instead, the
+algorithm should be written in such a way that, it can be used in
+similar programming languages.
+
+Algorithm
+Problem Statement:
+Write a solution on how to find the average grades of a class of 10
+students
+1.
+2.
+3.
+4.
+5.
+
+Identify the grades of the 10 students.
+Add all the grades.
+Divide the total of the grades by 10.
+Round off the answer by two decimal places.
+Show the result.
+
+Pseudocode
+•
+•
+•
+
+an English-like representation of the logical steps it takes to solve a
+problem.
+Describes steps of an algorithm in the “Design” phase
+Not a programming language
+
+Example
+
+Initialize sum to 0
+Repeat for N = 1 to 10
+Read grade
+Calculate sum = sum + grade
+End Loop
+Calculate average = sum/10
+Print average
+
+Pseudocode
+Problem: Counting characters in a string
+• Input from terminal a word (character
+string)
+• Output to terminal how many
+characters it contains
+Process (high-level):
+•
+•
+•
+
+Read one character at a time
+Add one to the count for each character
+read
+Repeat the above 2 steps until there are no
+more characters
+
+Process (refinement):
+Initialize Count to 0
+REPEAT:
+Read one character at a time
+If a character is found, add 1
+to Count
+UNTIL there are no more characters
+
+4. Coding and Documentation
+This phase uses a programming language to write or implement
+the actual programming instructions for the steps defined in the
+previous phase. In this phase, we construct the actual program.
+That means we write the program to solve the given problem using
+programming languages like C, C++, Java, etc.,
+
+•
+
+5. Testing & Debugging
+•
+
+During this phase, we check whether the code written in the
+previous step is solving the specified problem or not. That means
+we test the program whether it is solving the problem for various
+input data values or not. We also test whether it is providing the
+desired output or not.
+
+Syntax
+• Syntax refers to the rules that define the structure and
+format of valid statements and expressions in a
+programming language. In other words, syntax specifies the
+correct way to write a program in a particular language,
+including the use of keywords, punctuation, and other
+elements.
+
+Grammar
+• Grammar refers to a set of rules that define the structure of
+a programming language. It encompasses syntax as well as
+rules for composing expressions, statements, and program
+structures. A programming language's grammar specifies
+how its various elements can be combined to create valid
+programs.
+
+Semantics
+• Semantics refers to the meaning of a program, or the way in
+which a program behaves when it is executed. It involves
+understanding how the various constructs in a program
+interact with each other, and how they operate on data to
+produce results. A program's semantics are determined by
+its syntax and grammar, as well as the underlying
+algorithms and data structures it uses to perform its tasks.
+
+Program Errors
+• Syntax Errors​
+• Errors in grammar of the language​
+• Runtime error​
+• When there are no syntax errors, but the program can’t complete
+execution​
+• Divide by zero​
+• Invalid input data​
+• Logical errors​
+• The program completes execution, but delivers incorrect results​
+• Incorrect usage of parentheses​
+
+Debugging
+• Bug
+• In the context of software development, it refers to an error, flaw
+or fault in a computer program that causes it to behave in
+unexpected or unintended ways. Bugs can be caused by a
+variety of factors such as programming errors, software design
+flaws, hardware malfunctions, and unexpected inputs.
+• Debugging
+• is the process of identifying, isolating, and fixing bugs in
+computer programs.
+
+6. Maintenance
+•
+
+During this phase, the program is actively used by the users. If
+any enhancements found in this phase, all the phases are to be
+repeated to make the enhancements. That means in this phase,
+the solution (program) is used by the end-user. If the user
+encounters any problem or wants any enhancement, then we
+need to repeat all the phases from the starting, so that the
+encountered problem is solved or enhancement is added.
+
+Flowchart
+•
+•
+
+•
+
+A schematic representation of a sequence of operations, as in
+manufacturing process or computer program
+A graphical representation of the sequence of operations in an
+information system or program. Information system flowcharts
+show how data flows from source documents through the
+computer to final distribution to users. Program flowcharts show
+the sequence of instructions in a single program or subroutine.
+Different symbols are used to draw each type of flowchart.
+In the workplace, flowcharts are often used by programmers to
+organize and share their ideas. In fact, they are so useful that most
+professions use them to communicate how a process works
+including engineers, scientists, manufacturers, business managers,
+and health care workers.
+
+Guidelines for Developing Flowcharts
+•
+
+Flowchart can have only one start and one stop symbol
+
+•
+
+On-page connectors are referenced using numbers
+
+•
+
+Off-page connectors are referenced using alphabets
+
+•
+
+General flow of processes is top to bottom or left to right
+
+•
+
+Arrows should not cross each other
+
+Flowcharting
+Symbols
+
+Supply Request
+
+Firmware Update
+
+Crossing Traffic
+
+Found Food in Fridge
+
+Flowcharting
+
+Flowcharting
+
+Flowcharting
+
+Activity
+•
+
+Draw a flowchart to convert the length in feet to centimeter.
+
+Algorithm:
+-Input the length in feet
+-Calculate the length in cm by multiplying length in feet with 30.48
+-Print length in cm
+
+Activity
+•
+
+Draw a flowchart that
+•
+will read the two sides of a rectangle and
+•
+calculate its area.
+
+Algorithm
+1.
+Input the width (W) and Length (L) of a rectangle
+2.
+Calculate the area (A) by multiplying L with W
+3.
+Print the area (A)
+Pseudocode:
+Step 1 Input W,L
+Step 2 A = L x W
+Step 3 Print A
+
+Activity
+•
+
+Draw a flowchart that of a program that will compute and print the net pay an employee.
+You need to ask for the input of the employee’s rate and hours worked and deductions.
+Compute the gross pay by multiplying the rate hours worked. You can get the net pay by
+subtracting the deductions from the gross pay.
+
+Algorithm
+1. Input the hours worked , rate and deductions
+2. Calculate the gross pay by multiplying hours worked with rate
+3. Calculate the netpay = grosspay - deduction
+4. Print the netpay.
+Pseudocode:
+Step 1 Input hrs, rate, deduction
+Step 2 gp = hrs * rate
+Step 3 netpay = gp – deduction
+Step 4 Print netpay
+
+Flowcharts for decision making
+Computers are used extensively for performing various types of
+analysis. The decision symbol is used in flowcharts to indicate it.
+• The general format of steps for flowcharting is as follows:
+• Perform the test of the condition.
+• If condition evaluates true branch to Yes steps.
+• If condition evaluates false branch to No steps.
+•
+
+Flowcharting
+
+Flowcharting
+
+Flowcharting
+
+Example
+•
+
+Write an algorithm and draw a flowchart that determine the student’s final grade and
+indicate whether it is passing or failing. The passing grade is 75.
+
+Algorithm
+1. Input the prelim, midterm and final scores of the student
+2. Calculate the average by summing all the scores and divide by 3
+3. Check if the average is greater than 75
+4. If the average is greater than or equal to 75, print “Passed”,
+otherwise print “Failed”.
+Pseudocode:
+Step 1 Input prelim, midterm and final grade
+Step 2 Compute average = (prelim+midterm+final)/3
+Step 2 Is average >= 75
+Print “Passed”
+else
+Print “Failed”
+
+Example
+•
+
+Write an algorithm and draw a flowchart that
+check whether the triangle is equilateral, isosceles
+or scalene.
+• Equilateral triangle: All three sides are equal.
+• Isosceles triangle: All two sides are equal.
+• Scalene triangle: No sides are equal.
+
+Algorithm
+1. Get the three sides of the triangle
+2. If side1 is equal to side2 and side2 is equal to
+side3, the triangle is equilateral.
+3. If side1 is equal to side2 or side2 is equal to side3
+or side3 is equal side1, the triangle is isosceles.
+4. Otherwise, the triangle is scalene.
+
+Activity
+•
+
+Write an algorithm and draw a flowchart that
+•
+Determine if the number is odd or even
+
+Algorithm
+1.
+Input a number
+2.
+Check if a number is odd or even
+3.
+Print the result
+Pseudocode:
+Step 1 Input num
+Step 2 Get the remainder by dividing num to 2
+Step 3 If remainder = 0 print “The number is EVEN”, otherwise print “The number is ODD”
+
+Flowcharts for loops
+•
+
+Looping refers to the repeated use of one or more steps. i.e. the statement or block of
+statements within the loop are executed repeatedly.
+•
+There are two types of loops.
+•
+One is known as the fixed loop where the operations are repeated a fixed number of
+times. In this case, the values of the variables within the loop have no effect on the
+number of times the loop is to be executed.
+•
+In the other type which is known as the variable loop, the operations are repeated until
+a specific condition is met. Here, the number of times the loop is repeated can vary.
+•
+The loop process in general includes :
+•
+Setting and initializing a counter
+•
+Execution of operations
+•
+Testing the completion of operations
+•
+Incrementing the counter
+•
+The test could either be to determine whether the loop has executed the specified number
+of times, or whether a specified condition has been met.
+
+Example
+•
+
+Draw a flowchart that find Even number between 1 to
+50
+
+The steps are :
+1. Start
+2. Initialize number (I) to 1
+3. Check if I is > 50, if true goto Step 8
+4. Get the remainder by using modulo of I % 2
+5. If remainder is equal to 0, Print I.
+6. Increment the value of I by 1.
+7. Goto Step 3
+8. Stop
+
+1
+1
+
+True
+False
+
+Activity
+•
+
+Write an algorithm and draw a flowchart to find the average of all
+odd numbers from 1 to 100
+
+THANK YOU!
+
+

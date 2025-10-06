@@ -127,7 +127,7 @@ class CourseService {
             $this->db->exec("CREATE TABLE IF NOT EXISTS lesson_activities (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 lesson_id INT NOT NULL,
-                type ENUM('lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification') NOT NULL DEFAULT 'lecture',
+                type ENUM('lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based') NOT NULL DEFAULT 'lecture',
                 title VARCHAR(255) NOT NULL,
                 instructions MEDIUMTEXT NULL,
                 due_at DATETIME NULL,
@@ -136,7 +136,13 @@ class CourseService {
                 FOREIGN KEY (lesson_id) REFERENCES course_lessons(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             // Ensure new activity types for legacy installs
-            try { $this->db->exec("ALTER TABLE lesson_activities MODIFY COLUMN type ENUM('lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification') NOT NULL DEFAULT 'lecture'"); } catch (Throwable $e) {}
+            try { 
+                // Check if upload_based is already in the ENUM
+                $result = $this->db->query("SHOW COLUMNS FROM lesson_activities LIKE 'type'")->fetch();
+                if ($result && strpos($result['Type'], 'upload_based') === false) {
+                    $this->db->exec("ALTER TABLE lesson_activities MODIFY COLUMN type ENUM('lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based') NOT NULL DEFAULT 'lecture'");
+                }
+            } catch (Throwable $e) {}
 
             // Test cases for coding activities
             $this->db->exec("CREATE TABLE IF NOT EXISTS activity_test_cases (
@@ -619,7 +625,7 @@ class CourseService {
         foreach ($activities as &$a) {
             $caseStmt->execute([$a['id']]);
             $a['test_cases'] = $caseStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-            if (in_array($a['type'], ['multiple_choice','quiz'], true)) {
+            if (in_array($a['type'], ['multiple_choice','quiz','true_false','identification','essay','upload_based'], true)) {
                 $qStmt->execute([$a['id']]);
                 $questions = $qStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
                 foreach ($questions as &$q) {
@@ -641,8 +647,8 @@ class CourseService {
         $caseStmt = $this->db->prepare("SELECT * FROM activity_test_cases WHERE activity_id=? ORDER BY position ASC, id ASC");
         $caseStmt->execute([$id]);
         $a['test_cases'] = $caseStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        // Attach questions/choices for MCQ/quiz
-        if (in_array($a['type'], ['multiple_choice','quiz'], true)) {
+        // Attach questions/choices for MCQ/quiz/upload_based
+        if (in_array($a['type'], ['multiple_choice','quiz','true_false','identification','essay','upload_based'], true)) {
             $qStmt = $this->db->prepare("SELECT * FROM activity_questions WHERE activity_id=? ORDER BY position ASC, id ASC");
             $cStmt = $this->db->prepare("SELECT * FROM question_choices WHERE question_id=? ORDER BY position ASC, id ASC");
             $qStmt->execute([$id]);
@@ -658,7 +664,7 @@ class CourseService {
 
     public function createActivity(int $lessonId, string $title, string $instructions = null, string $type = 'lecture', $dueAt = null, int $maxScore = 100): int {
         $pos = (int)$this->db->query("SELECT COALESCE(MAX(position),0)+1 FROM lesson_activities WHERE lesson_id=" . (int)$lessonId)->fetchColumn();
-        $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification'];
+        $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based'];
         if (!in_array($type, $allowedTypes, true)) { $type = 'lecture'; }
         $stmt = $this->db->prepare("INSERT INTO lesson_activities (lesson_id, type, title, instructions, due_at, max_score, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $ok = $stmt->execute([$lessonId, $type, $title, $instructions, $dueAt, $maxScore, $pos]);
@@ -666,7 +672,7 @@ class CourseService {
     }
 
     public function updateActivity(int $id, array $data): bool {
-        $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification'];
+        $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based'];
         $type = $data['type'] ?? 'lecture'; if (!in_array($type, $allowedTypes, true)) { $type = 'lecture'; }
         $stmt = $this->db->prepare("UPDATE lesson_activities SET type=?, title=?, instructions=?, due_at=?, max_score=? WHERE id=?");
         return $stmt->execute([
@@ -792,7 +798,12 @@ class CourseService {
                 'stdin' => $tc['input_text'] ?? ''
             ];
             $res = $this->jdoodleRequest($payload);
-            $results[] = $res;
+            // Normalize shape for frontend
+            if (isset($res['data'])) {
+                $results[] = $res['data'];
+            } else {
+                $results[] = $res;
+            }
         }
         return $results;
     }

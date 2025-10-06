@@ -119,10 +119,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $earlyAction = $_POST['action'] ?? '';
     if ($earlyAction !== 'get_csrf_token') {
         $csrfToken = $_POST[CSRFProtection::getTokenName()] ?? '';
+        error_log("CSRF Debug - Action: $earlyAction, Token: " . substr($csrfToken, 0, 10) . "...");
         if (!CSRFProtection::validateToken($csrfToken)) {
+            error_log("CSRF Debug - Token validation failed for action: $earlyAction");
             echo json_encode(['success'=>false,'message'=>'Invalid CSRF token']);
             exit;
         }
+        error_log("CSRF Debug - Token validation passed for action: $earlyAction");
     }
 }
 
@@ -168,7 +171,9 @@ try {
     $action = $_POST['action'] ?? '';
     switch ($action) {
         case 'get_csrf_token':
-            echo json_encode(['success'=>true,'token'=>CSRFProtection::generateToken()]);
+            $token = CSRFProtection::generateToken();
+            error_log("CSRF Debug - Generated new token: " . substr($token, 0, 10) . "...");
+            echo json_encode(['success'=>true,'token'=>$token]);
             break;
         case 'module_create':
             if (!$isCoordinator) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
@@ -268,6 +273,18 @@ try {
             if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'material.delete', 'lesson_material', (string)($_POST['id'] ?? '')); }
             echo json_encode(['success' => (bool)$ok]);
             break;
+        case 'material_get':
+            if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            try {
+                $id = (int)($_POST['id'] ?? 0);
+                $stmt = $db->prepare('SELECT * FROM lesson_materials WHERE id=? LIMIT 1');
+                $stmt->execute([$id]);
+                $m = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                echo json_encode(['success'=> (bool)$m, 'data'=> $m]);
+            } catch (Throwable $e) {
+                echo json_encode(['success'=>false,'message'=>'DB error','error'=>$e->getMessage()]);
+            }
+            break;
         case 'material_reorder':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
             $ids = json_decode($_POST['ordered_ids'] ?? '[]', true) ?: [];
@@ -304,6 +321,33 @@ try {
             $id = $svc2->addMaterial($lessonId, 'page', $url, $title, strlen($content));
             if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'material.page_create', 'lesson_material', (string)$id, ['lesson_id'=>$lessonId]); }
             echo json_encode(['success' => $id > 0, 'id' => $id]);
+            break;
+        case 'material_page_update':
+            if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            $matId = (int)($_POST['id'] ?? 0);
+            $content = (string)($_POST['content'] ?? '');
+            $title = isset($_POST['title']) ? trim((string)$_POST['title']) : null;
+            try {
+                $stmt = $db->prepare('SELECT * FROM lesson_materials WHERE id=? LIMIT 1');
+                $stmt->execute([$matId]);
+                $m = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$m) { echo json_encode(['success'=>false,'message'=>'Material not found']); break; }
+                $url = (string)($m['url'] ?? '');
+                if (!preg_match('/material_page_view\.php\?f=([A-Za-z0-9_\.-]+)$/', $url, $mm)) { echo json_encode(['success'=>false,'message'=>'Not a Page material']); break; }
+                $f = $mm[1];
+                $path = __DIR__ . '/uploads/materials/pages/' . $f;
+                if (!is_file($path)) { echo json_encode(['success'=>false,'message'=>'Page file missing']); break; }
+                $ok = @file_put_contents($path, $content);
+                if ($ok === false) { echo json_encode(['success'=>false,'message'=>'Failed to write file']); break; }
+                if ($title !== null) {
+                    $upd = $db->prepare('UPDATE lesson_materials SET filename=? WHERE id=?');
+                    $upd->execute([$title, $matId]);
+                }
+                if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'material.page_update', 'lesson_material', (string)$matId); }
+                echo json_encode(['success'=>true]);
+            } catch (Throwable $e) {
+                echo json_encode(['success'=>false,'message'=>'Update failed','error'=>$e->getMessage()]);
+            }
             break;
         case 'material_import':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
@@ -693,6 +737,20 @@ try {
                             (string)($tc['expected_output_text'] ?? $tc['output'] ?? ''),
                             (int)($tc['time_limit_ms'] ?? 2000)
                         );
+                    }
+                } elseif ($lower === 'upload_based') {
+                    // Handle upload-based activities - store tasks as questions
+                    $qs = is_array($data['questions'] ?? null) ? $data['questions'] : [];
+                    $delQ = $db->prepare('DELETE FROM activity_questions WHERE activity_id=?');
+                    $delQ->execute([$activityId]);
+                    foreach ($qs as $q) {
+                        $qid = $svc->addQuestion($activityId, trim((string)($q['text'] ?? '')), (int)($q['points'] ?? 1), (isset($q['explanation']) ? (string)$q['explanation'] : null));
+                        if ($qid <= 0) continue;
+                        // For upload-based, store file type and size requirements as choices
+                        $acceptedFiles = is_array($q['acceptedFiles'] ?? null) ? $q['acceptedFiles'] : ['PDF','DOCX','JPG','PNG','TXT','XML'];
+                        $maxFileSize = (int)($q['maxFileSize'] ?? 5);
+                        $svc->addChoice($qid, 'acceptedFiles:' . implode(',', $acceptedFiles), true);
+                        $svc->addChoice($qid, 'maxFileSize:' . $maxFileSize, true);
                     }
                 } else {
                     // Replace questions and choices atomically

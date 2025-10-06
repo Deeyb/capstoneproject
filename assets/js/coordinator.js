@@ -5,9 +5,13 @@ let csrfTokenTs = 0; // epoch ms when fetched
 async function getCSRFToken() {
   // Refresh token if missing or older than 5 minutes
   try {
-    if (csrfToken && (Date.now() - csrfTokenTs) < 5 * 60 * 1000) return csrfToken;
+    if (csrfToken && (Date.now() - csrfTokenTs) < 5 * 60 * 1000) {
+      console.log('🔐 Using cached CSRF token:', csrfToken);
+      return csrfToken;
+    }
   } catch(_) {}
   
+  console.log('🔐 Fetching new CSRF token...');
   try {
     const fd = new FormData();
     fd.append('action','get_csrf_token');
@@ -16,22 +20,31 @@ async function getCSRFToken() {
       body: fd,
       credentials: 'same-origin'
     });
+    console.log('🔐 CSRF token response status:', response.status);
     const data = await response.json();
+    console.log('🔐 CSRF token response data:', data);
     if (data.success && data.token) {
       csrfToken = data.token;
       csrfTokenTs = Date.now();
+      console.log('🔐 New CSRF token obtained:', csrfToken);
       return csrfToken;
+    } else {
+      console.error('🔐 Failed to get CSRF token - invalid response:', data);
     }
   } catch (e) {
-    console.error('Failed to get CSRF token:', e);
+    console.error('🔐 Failed to get CSRF token:', e);
   }
   return null;
 }
 
 async function addCSRFToken(formData) {
   const token = await getCSRFToken();
+  console.log('🔐 CSRF Token:', token);
   if (token) {
     formData.append('csrf_token', token);
+    console.log('🔐 CSRF token added to form data');
+  } else {
+    console.error('🔐 No CSRF token available!');
   }
   return formData;
 }
@@ -334,7 +347,6 @@ function initCoordinatorCourses() {
   // Load courses
   loadCoordinatorCourses();
 }
-
 // Load coordinator courses
 function loadCoordinatorCourses() {
   console.log('📚 Loading coordinator courses...');
@@ -398,7 +410,7 @@ function renderCoordinatorCourses(courses) {
           <th>Language</th>
           <th>Status</th>
           <th>Modules</th>
-          <th>Lessons</th>
+          <th>Topics</th>
           <th>Updated</th>
           <th>Actions</th>
         </tr>
@@ -486,19 +498,9 @@ function ensureCreateCourseModal() {
               <label class="modal-label">Programming Language</label>
               <select id="createCourseLanguage" name="language" class="modal-input">
                 <option value="">Select Programming Language</option>
+                <option value="C++">C++</option>
                 <option value="Java">Java</option>
                 <option value="Python">Python</option>
-                <option value="C++">C++</option>
-                <option value="C#">C#</option>
-                <option value="JavaScript">JavaScript</option>
-                <option value="PHP">PHP</option>
-                <option value="C">C</option>
-                <option value="Swift">Swift</option>
-                <option value="Kotlin">Kotlin</option>
-                <option value="Go">Go</option>
-                <option value="Rust">Rust</option>
-                <option value="Ruby">Ruby</option>
-                <option value="Other">Other</option>
               </select>
             </div>
             
@@ -679,7 +681,6 @@ function removeModule(button) {
     });
   }
 }
-
 // Create or ensure edit course modal and populate
 function ensureEditCourseModal() {
   let modal = document.getElementById('editCourseModal');
@@ -708,13 +709,9 @@ function ensureEditCourseModal() {
               <label class="modal-label">Programming Language</label>
               <select id="editCourseLanguage" class="modal-input">
                 <option value="">Select Programming Language</option>
+                <option value="C++">C++</option>
                 <option value="Java">Java</option>
                 <option value="Python">Python</option>
-                <option value="C++">C++</option>
-                <option value="C#">C#</option>
-                <option value="JavaScript">JavaScript</option>
-                <option value="PHP">PHP</option>
-                <option value="C">C</option>
               </select>
             </div>
             <div class="form-group">
@@ -817,6 +814,7 @@ function viewOutline(courseId) {
     } catch(_){}
   }
   console.log('📋 View outline:', courseId);
+  console.log('📋 View outline - Starting outline fetch for course:', courseId);
   
   // Ensure container exists once
   let cont = document.getElementById('courseOutlineModal');
@@ -864,13 +862,23 @@ function viewOutline(courseId) {
       }
     }
     let url = buildUrl();
+    console.log('📋 Fetching outline from URL:', url);
     fetch(url, { credentials:'same-origin' })
     .then(async r => {
-      if (!r.ok) { body.innerHTML = '<div class="empty-state">Failed to load outline</div>'; return null; }
+      console.log('📋 Outline fetch response status:', r.status);
+      if (!r.ok) { 
+        console.error('📋 Outline fetch failed with status:', r.status);
+        body.innerHTML = '<div class="empty-state">Failed to load outline</div>'; 
+        return null; 
+      }
       const text = await r.text();
+      console.log('📋 Outline response text length:', text.length);
       try {
-        return JSON.parse(text);
+        const json = JSON.parse(text);
+        console.log('📋 Outline JSON parsed successfully:', json);
+        return json;
       } catch (e) {
+        console.error('📋 JSON parse error:', e);
         const looksHtml = /^\s*<!DOCTYPE|^\s*<html/i.test(text);
         if (looksHtml) {
           const parts = window.location.pathname.split('/').filter(Boolean);
@@ -880,19 +888,30 @@ function viewOutline(courseId) {
             return fetch(url, { credentials:'same-origin' }).then(rr => rr.json()).catch(()=>null);
           }
         }
-        body.innerHTML = '<div class="empty-state">Failed to load outline</div>';
+        body.innerHTML = '<div class="empty-state">Failed to load outline</div><div style="color:#6c757d;margin-top:6px;">Parse error</div>';
         return null;
       }
     })
     .then(res => {
-      if (!res || !res.success) {
-        const msg = res && res.message ? String(res.message) : '';
-        console.warn('Outline load failed', { url, res });
-        body.innerHTML = '<div class="empty-state">Failed to load outline</div>' + (msg ? '<div style="color:#6c757d;margin-top:6px;">' + msg + '</div>' : '');
+      console.log('📋 Outline response received:', res);
+      const ok = !!(res && (res.success === true || res.success === 'true'));
+      console.log('📋 Outline response success:', ok);
+      if (!ok) {
+        const msg = res && (res.message || JSON.stringify(res));
+        console.warn('📋 Outline load failed', { url, res });
+        body.innerHTML = '<div class="empty-state">Failed to load outline</div>' + (msg ? '<div style="color:#6c757d;margin-top:6px;max-width:90%;word-break:break-word;">' + String(msg) + '</div>' : '');
         return;
       }
+      console.log('📋 Outline data:', res.data);
+      console.log('📋 Outline modules count:', res.data ? res.data.length : 0);
+      if (!Array.isArray(res.data)) { res.data = []; }
+      try {
       renderOutline(res.data, body);
       initOutlineSortables(courseId, body);
+      } catch (e) {
+        console.error('Render outline error:', e);
+        body.innerHTML = '<div class="empty-state">Failed to load outline</div><div style="color:#6c757d;margin-top:6px;">Render error: ' + (e && e.message ? e.message : e) + '</div>';
+      }
 
       // Wire basic actions (delete/edit) similar to admin implementation
       const modulesWrap = body;
@@ -966,19 +985,22 @@ function viewOutline(courseId) {
           })()
             .then(function(r){ return r.json(); })
             .then(function(resp){
-              const opts = (resp && resp.success && Array.isArray(resp.types)) ? resp.types : [
+              let opts = (resp && resp.success && Array.isArray(resp.types)) ? resp.types : [
             {value:'pdf',label:'PDF'}, {value:'video',label:'Video'}, {value:'link',label:'Link'}, {value:'code',label:'Code'}, {value:'file',label:'General File'}
               ];
+              // Add PowerPoint convenience option
+              opts.push({ value: 'pptx', label: 'PowerPoint (.pptx)' });
               outlinePrompt({ title: 'Material type', label: 'Type', options: opts, value: 'pdf' }, function(val){
             type = (val||'link').toLowerCase();
             if (!type) return;
 
-          if (type === 'file' || type === 'pdf' || type === 'video' || type === 'code') {
+          if (type === 'file' || type === 'pdf' || type === 'video' || type === 'code' || type === 'pptx') {
             // Use a file picker and upload to backend
             const input = document.createElement('input');
             input.type = 'file';
             if (type === 'pdf') input.accept = '.pdf,application/pdf';
             else if (type === 'video') input.accept = 'video/*';
+            else if (type === 'pptx') input.accept = '.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation';
             else if (type === 'code') input.accept = '.txt,.md,.c,.cpp,.h,.hpp,.java,.py,.js,.ts,.tsx,.jsx,.html,.css,.scss,.json,.xml,.yml,.yaml,.sql,.sh,.bash,.bat,.ps1,.rb,.go,.php,.cs,.kt,.swift,.r,.ipynb,text/plain,application/json';
             input.onchange = function() {
               const file = input.files && input.files[0];
@@ -992,8 +1014,25 @@ function viewOutline(courseId) {
                 return fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' });
               })()
                 .then(r=>r.json())
-                .then(()=> viewOutline(courseId))
-                .catch(()=> { if (typeof window.showNotification === 'function') window.showNotification('error','Error','Upload failed'); });
+                .then(function(response){
+                  console.log('Upload response:', response);
+                  if (response && response.success) {
+                    console.log('Upload successful, refreshing outline...');
+                    viewOutline(courseId);
+                    if (typeof window.showNotification === 'function') {
+                      window.showNotification('success','Success','Material uploaded successfully!');
+                    }
+                  } else {
+                    console.error('Upload failed:', response);
+                    if (typeof window.showNotification === 'function') {
+                      window.showNotification('error','Error','Upload failed: ' + (response.message || 'Unknown error'));
+                    }
+                  }
+                })
+                .catch(function(error){
+                  console.error('Upload error:', error);
+                  if (typeof window.showNotification === 'function') window.showNotification('error','Error','Upload failed'); 
+                });
             };
             input.click();
             return;
@@ -1002,7 +1041,7 @@ function viewOutline(courseId) {
             // Simple page creator: ask for title and content
             outlinePrompt({ title: 'Page title', label: 'Title', placeholder: 'e.g., Topic Content' }, function(title){
               if (!title) return;
-              // open big textarea modal for content
+              // open big editor modal for content
               const modal = document.createElement('div');
               modal.className = 'modal';
               modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
@@ -1016,13 +1055,38 @@ function viewOutline(courseId) {
                     </div>
                   </div>
                   <div style="flex:1;display:flex;">
-                    <textarea id="pageContent" style="flex:1;border:0;padding:12px;font-family:monospace;font-size:14px;outline:none;" placeholder="# Title\n\nWrite content here in Markdown...\n\n\`\`\`cpp\n// code here\n\`\`\`"></textarea>
+                    <textarea id="pageContent" style="flex:1;width:100%;height:100%;border:0;padding:12px;font-family:monospace;font-size:14px;outline:none;" placeholder="# Title\n\nWrite content here in Markdown...\n\n\`\`\`cpp\n// code here\n\`\`\`"></textarea>
                   </div>
                 </div>`;
               document.body.appendChild(modal);
+              // Try EasyMDE (Markdown WYSIWYG). Fallback to plain textarea if CDN blocked.
+              const loadScript = (src) => new Promise((res, rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.body.appendChild(s); });
+              const loadCSS = (href) => { const l=document.createElement('link'); l.rel='stylesheet'; l.href=href; document.head.appendChild(l); };
+              let editorInstance = null;
+              (async function(){
+                try {
+                  loadCSS('https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css');
+                  await loadScript('https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js');
+                  editorInstance = new window.EasyMDE({ element: modal.querySelector('#pageContent'), spellChecker: false, autofocus: true, placeholder: '# Title\n\nWrite content here in Markdown...\n\n```cpp\n// code here\n```' });
+                  // Make editor occupy full modal content area
+                  (function(){
+                    try {
+                      const style = document.createElement('style');
+                      style.textContent = '.EasyMDEContainer{height:100%;width:100%;display:flex;flex-direction:column;flex:1 1 auto;} .EasyMDEContainer .editor-toolbar{flex:0 0 auto;} .EasyMDEContainer .CodeMirror{flex:1 1 auto;height:100%;width:100%;} .EasyMDEContainer .CodeMirror-scroll{min-height:100%;}';
+                      document.head.appendChild(style);
+                      setTimeout(function(){
+                        const cm = editorInstance && editorInstance.codemirror;
+                        if (cm) { cm.setSize('100%','100%'); }
+                        const cont = modal.querySelector('.EasyMDEContainer'); if (cont) { cont.style.height = '100%'; cont.style.width='100%'; cont.style.flex='1 1 auto'; }
+                      }, 0);
+                    } catch(_) {}
+                  })();
+                } catch (_) { /* leave textarea */ }
+              })();
+
               modal.querySelector('#pageCancel').onclick = function(){ modal.remove(); };
               modal.querySelector('#pageSave').onclick = function(){
-                const content = modal.querySelector('#pageContent').value;
+                const content = editorInstance ? editorInstance.value() : (modal.querySelector('#pageContent').value || '');
                 (async function(){
                   let fd = new FormData();
                   fd.append('action','material_page_create');
@@ -1067,7 +1131,7 @@ function viewOutline(courseId) {
         if (act === 'lesson-edit') {
           const li = btn.closest('[data-lesson-id]');
           const current = li ? (li.querySelector('span')?.textContent || '') : '';
-          outlinePrompt({ title: 'Rename Lesson', label: 'Lesson title', value: current }, function(title){
+          outlinePrompt({ title: 'Rename Topic', label: 'Topic title', value: current }, function(title){
             if (!title) return;
             const fd = new FormData();
             fd.append('action','lesson_update');
@@ -1086,10 +1150,92 @@ function viewOutline(courseId) {
           });
           return;
         }
-        if (act === 'mat-edit') {
+        if (act === 'mat-open-editor' || act === 'mat-edit') {
+          // If it's a Page material, open the rich editor with current content loaded
+          console.log('🔍 mat-open-editor clicked, Material ID:', btn.getAttribute('data-id'));
+          try {
+            const row = btn.closest('[data-mat-id]');
+            const mid = row ? row.getAttribute('data-mat-id') : btn.getAttribute('data-id');
+            if (row) {
+              const id = mid;
+              console.log('🔍 Found row, fetching material with ID:', id);
+              const fd = new FormData(); fd.append('action','material_get'); fd.append('id', id);
+              fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
+                .then(r=>r.json())
+                .then(function(j){
+                  console.log('🔍 material_get response:', j);
+                  const m = j && j.data ? j.data : null;
+                  if (!m) { console.log('🔍 No material data, falling back to mat-edit'); btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
+                  const t = String(m.type||'').toLowerCase();
+                  console.log('🔍 Material type:', t);
+                  if (t !== 'page') { console.log('🔍 Not a page type, falling back to mat-edit'); btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
+                  const url = m.url || '';
+                  console.log('🔍 Material URL:', url);
+                  const match = url.match(/f=([^&]+)/);
+                  const fileId = match ? decodeURIComponent(match[1]) : null;
+                  console.log('🔍 Extracted fileId:', fileId);
+                  if (!fileId) { console.log('🔍 No fileId found, falling back to mat-edit'); btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
+                  console.log('🔍 Fetching file:', 'uploads/materials/pages/' + fileId);
+                  fetch('uploads/materials/pages/' + fileId, { credentials:'same-origin' })
+                    .then(r=>{
+                      console.log('🔍 File fetch response status:', r.status);
+                      return r.text();
+                    })
+                    .then(function(md){
+                      console.log('🔍 File content length:', md ? md.length : 0);
+                      console.log('🔍 File content preview:', md ? md.substring(0, 100) + '...' : 'null');
+                      const modal = document.createElement('div');
+                      modal.className = 'modal';
+                      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+                      modal.innerHTML = `
+                        <div class="modal-card" style="max-width:1000px;width:95%;height:80vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">\n\
+                          <div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">\n\
+                            <strong style="font-size:16px;color:#333;">Edit Page</strong>\n\
+                            <div style="display:flex;gap:8px;align-items:center;">\n\
+                              <button class="action-btn btn-gray" id="pgCancel" style="padding:6px 12px;">Cancel</button>\n\
+                              <button class="action-btn" id="pgSave" style="padding:6px 12px;background:#28a745;color:#fff;">Save</button>\n\
+                            </div>\n\
+                          </div>\n\
+                          <div style="flex:1;display:flex;">\n\
+                            <textarea id="pgContent" style="flex:1;width:100%;height:100%;border:0;padding:12px;font-family:monospace;font-size:14px;outline:none;"></textarea>\n\
+                          </div>\n\
+                        </div>`;
+                      document.body.appendChild(modal);
+                      const ta = modal.querySelector('#pgContent'); ta.value = md || '';
+                      // Enhance with EasyMDE if CDN available
+                      (function(){
+                        const loadScript = (src) => new Promise((res, rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.body.appendChild(s); });
+                        const loadCSS = (href) => { const l=document.createElement('link'); l.rel='stylesheet'; l.href=href; document.head.appendChild(l); };
+                        loadCSS('https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css');
+                        loadScript('https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js').then(function(){
+                          try {
+                            const em = new window.EasyMDE({ element: ta, spellChecker:false, autofocus:true });
+                            const style = document.createElement('style'); style.textContent='.EasyMDEContainer{height:100%;display:flex;flex-direction:column;} .EasyMDEContainer .CodeMirror{flex:1 1 auto;height:100%;}'; document.head.appendChild(style);
+                          } catch(_) {}
+                        }).catch(function(){});
+                      })();
+                      modal.querySelector('#pgCancel').onclick = function(){ modal.remove(); };
+                      modal.querySelector('#pgSave').onclick = function(){
+                        let content = ta.value;
+                        try { if (window.easyMDE && typeof window.easyMDE.value === 'function') content = window.easyMDE.value(); } catch(_) {}
+                        const saveFd = new FormData();
+                        saveFd.append('action','material_page_update');
+                        saveFd.append('id', id);
+                        saveFd.append('content', content || '');
+                        fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: saveFd })
+                          .then(r=>r.json())
+                          .then(function(){ modal.remove(); viewOutline(courseId); })
+                          .catch(function(){ if (typeof window.showNotification === 'function') window.showNotification('error','Save failed','Network error'); });
+                      };
+                    });
+                })
+                .catch(function(e){ console.log('🔍 Fetch error:', e); btn.setAttribute('data-act','mat-edit'); btn.click(); });
+              return;
+            }
+          } catch(e) { console.log('🔍 Try/catch error:', e); }
           const item = btn.closest('[data-mat-id]');
           const current = item ? (item.querySelector('span')?.textContent || '') : '';
-          outlinePrompt({ title: 'Update material', label: 'URL or filename', value: current.replace(/^.*•\s*/,'').trim() }, function(value){
+          outlinePrompt({ title: 'Update material', label: 'URL or filename', value: current.replace(/^.*•\\s*/,'').trim() }, function(value){
             if (value === null) return;
             const fd = new FormData();
             fd.append('action','material_update');
@@ -1228,6 +1374,9 @@ function viewOutline(courseId) {
           // Prefill from server
           try {
             const fd = new FormData(); fd.append('action','activity_get'); fd.append('id', aId);
+            // Add cache-busting parameter to force fresh data
+            fd.append('_t', Date.now());
+            console.log('🔍 EDIT BUTTON - Loading activity data for ID:', aId);
             fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
               .then(r=>r.json()).then(function(res){
                 if (!res || !res.success || !res.data) return;
@@ -1237,6 +1386,22 @@ function viewOutline(courseId) {
                 const st = window.createActivityState;
                 // Map backend types -> UI questionType
                 const t = String((data.type||'').toLowerCase());
+                console.log('🔍 ACTIVITY TYPE DETECTION:', { 
+                  rawType: data.type, 
+                  normalizedType: t, 
+                  data: data,
+                  meta: meta 
+                });
+                
+                // Force refresh the form if type detection changes
+                if (t === 'upload_based' && st.questionType !== 'upload_based') {
+                  console.log('🔍 FORCING FORM REFRESH FOR UPLOAD_BASED');
+                  // Set the correct question type
+                  st.questionType = 'upload_based';
+                  st.type = 'laboratory';
+                  // Trigger form re-render
+                  window.dispatchEvent(new CustomEvent('createActivityRender'));
+                }
                 if (t === 'coding') {
                   st.type = 'laboratory'; st.questionType = 'coding';
                   st.language = (meta.language||'cpp');
@@ -1248,6 +1413,50 @@ function viewOutline(courseId) {
                   st.hints = meta.hints || '';
                   st.timeLimit = meta.timeLimit || st.timeLimit;
                   st.testCases = (data.test_cases||[]).map(function(tc){ return { input: tc.input_text||'', output: tc.expected_output_text||'', isSample: !!tc.is_sample }; });
+                } else if (t === 'upload_based') {
+                  console.log('🔍 LOADING UPLOAD_BASED ACTIVITY:', { data, meta });
+                  st.type = 'laboratory';
+                  st.questionType = 'upload_based';
+                  st.instructionsText = meta.instructions || '';
+                  
+                  // Parse questions from database or create default from instructions
+                  if (data.questions && data.questions.length > 0) {
+                    console.log('🔍 LOADING EXISTING QUESTIONS:', data.questions);
+                    st.questions = data.questions.map(function(q){ 
+                      // Parse acceptedFiles and maxFileSize from choices
+                      let acceptedFiles = ['PDF','DOCX','JPG','PNG','TXT','XML'];
+                      let maxFileSize = 5;
+                      
+                      if (q.choices && q.choices.length > 0) {
+                        q.choices.forEach(function(choice) {
+                          if (choice.choice_text && choice.choice_text.startsWith('acceptedFiles:')) {
+                            acceptedFiles = choice.choice_text.replace('acceptedFiles:', '').split(',');
+                          } else if (choice.choice_text && choice.choice_text.startsWith('maxFileSize:')) {
+                            maxFileSize = parseInt(choice.choice_text.replace('maxFileSize:', '')) || 5;
+                          }
+                        });
+                      }
+                      
+                      return { 
+                        text: q.question_text || '', 
+                        points: q.points || 1, 
+                        acceptedFiles: acceptedFiles, 
+                        maxFileSize: maxFileSize 
+                      }; 
+                    });
+                  } else {
+                    // Create default task from instructions JSON
+                    console.log('🔍 CREATING DEFAULT TASK FROM INSTRUCTIONS:', { meta });
+                    const defaultAcceptedFiles = meta.acceptedFiles || ['PDF','DOCX','JPG','PNG','TXT','XML'];
+                    const defaultMaxFileSize = meta.maxFileSize || 5;
+                    st.questions = [{ 
+                      text: meta.instructions || '', 
+                      points: 10, 
+                      acceptedFiles: defaultAcceptedFiles, 
+                      maxFileSize: defaultMaxFileSize 
+                    }];
+                    console.log('🔍 CREATED DEFAULT QUESTIONS:', st.questions);
+                  }
                 } else {
                   st.type = 'lecture';
                   // Determine subtype for quizzes using meta.kind if present
@@ -1340,6 +1549,28 @@ function viewOutline(courseId) {
           const activityType = activityContainer?.getAttribute('data-type') || 'lecture';
           const activityTitle = activityContainer?.getAttribute('data-title') || 'Activity';
           
+          console.log('🔍 TEST BUTTON DEBUG:', {
+            activityId,
+            activityType,
+            activityTitle,
+            activityContainer
+          });
+          
+          // Force refresh the activity data to get the latest type
+          console.log('🔍 FORCING ACTIVITY DATA REFRESH FOR TEST');
+          
+          // Refresh the outline to get the latest activity type
+          if (typeof viewOutline === 'function') {
+            const courseId = getCurrentCourseId();
+            if (courseId) {
+              console.log('🔍 REFRESHING OUTLINE FOR COURSE:', courseId);
+              // Force refresh with cache busting
+              setTimeout(() => {
+                viewOutline(courseId);
+              }, 100);
+            }
+          }
+          
           // Create the student test modal directly
           const testModal = document.createElement('div');
           testModal.className = 'modal-overlay';
@@ -1425,6 +1656,8 @@ function viewOutline(courseId) {
                 
                 const studentHTML = renderStudentTestInterface(activity, activityType);
                 console.log('🔍 DEEP DEBUG - Student HTML generated:', studentHTML);
+                console.log('🔍 DEEP DEBUG - Activity type for rendering:', activityType);
+                console.log('🔍 DEEP DEBUG - Activity data:', activity);
                 
                 if (testBody) {
                   testBody.innerHTML = studentHTML;
@@ -1579,7 +1812,6 @@ function viewOutline(courseId) {
       body.innerHTML = '<div class="empty-state">Failed to load outline</div>';
     });
   })();
-
   // Wire top-level Add Module button
   const addModuleBtn = cont.querySelector('#outlineAddModuleBtn');
   if (addModuleBtn) {
@@ -1606,21 +1838,27 @@ function viewOutline(courseId) {
 
 // Render outline JSON into HTML (copied from admin_panel.js)
 function renderOutline(outline, mount) {
+  console.log('📋 renderOutline called with:', outline);
   if (!Array.isArray(outline) || outline.length === 0) {
+    console.log('📋 No outline data, showing empty state');
     mount.innerHTML = '<div class="empty-state">No modules yet</div>';
     return;
   }
+  console.log('📋 Rendering outline with', outline.length, 'modules');
   
   const renderModule = (m) => {
+    console.log('📋 Rendering module:', m.title);
     const lessons = (m.lessons||[]).map(l => {
+      console.log('📋 Rendering lesson:', l.title, 'with', (l.materials||[]).length, 'materials');
       const mats = (l.materials||[]).map(mat => {
+        console.log('📋 Rendering material:', mat.type, mat.filename);
         const matType = String(mat.type||'').toLowerCase();
         const matUrl = mat.url || '';
         const matFilename = mat.filename || '';
         // Determine if this material can be viewed/opened
+        const isPage = (matType === 'page') || (/^material_page_view\.php/i.test(matUrl));
         let viewBtn = '';
         if (matUrl) {
-          const isPage = (matType === 'page') || /^material_page_view\.php/i.test(matUrl);
           if (matType === 'pdf') {
             viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="pdf" style="background:#007bff;color:#fff;">📄 View PDF</button>`;
           } else if (matType === 'video') {
@@ -1638,9 +1876,15 @@ function renderOutline(outline, mount) {
             viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="file" style="background:#28a745;color:#fff;">⬇️ Download</button>`;
           }
         }
+        const displayName = (function(){
+          if (isPage) {
+            return (mat.filename && mat.filename.trim()) ? mat.filename : 'Page';
+          }
+          return matFilename || (matUrl || '');
+        })();
         return `
         <div data-mat-id="${mat.id}" class="outline-material-item" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px dashed #ddd;border-radius:6px;margin:4px 0;">
-          <span style="flex:1; font-size:12px; color:#555;">${mat.type.toUpperCase()} • ${matFilename || matUrl || ''}</span>
+          <button class="action-btn" data-act="mat-open-editor" data-id="${mat.id}" data-url="${matUrl}" style="flex:1;text-align:left;background:transparent;border:0;color:#212529;padding:0;cursor:pointer;font-size:12px;"><strong>${isPage ? 'PAGE' : (mat.type||'').toUpperCase()}</strong> • ${displayName}</button>
           ${viewBtn}
           <button class="action-btn" data-act="mat-edit" data-id="${mat.id}" style="background:#6c757d;color:#fff;">Edit</button>
           <button class="action-btn delete-btn" data-act="mat-delete" data-id="${mat.id}">Delete</button>
@@ -1648,10 +1892,11 @@ function renderOutline(outline, mount) {
       }).join('');
       const activities = (l.activities||[]).map(a => {
         const t = String(a.type||'').toLowerCase();
-        const label = (t==='quiz' && a.instructions) ? (function(){ try { const meta = JSON.parse(a.instructions); const kind = (meta && meta.kind) ? String(meta.kind).toUpperCase() : null; return kind || 'QUIZ'; } catch(_){ return 'QUIZ'; } })() : String(a.type||'').toUpperCase();
+        const label = ((t==='quiz' || t==='upload_based') && a.instructions) ? (function(){ try { const meta = JSON.parse(a.instructions); const kind = (meta && meta.kind) ? String(meta.kind).toUpperCase() : null; return kind || (t==='upload_based' ? 'UPLOAD_BASED' : 'QUIZ'); } catch(_){ return (t==='upload_based' ? 'UPLOAD_BASED' : 'QUIZ'); } })() : String(a.type||'').toUpperCase();
         return `
         <div data-activity-id="${a.id}" data-title="${(a.title||'').replace(/"/g,'&quot;')}" data-type="${(a.type||'').toLowerCase()}" draggable="true" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px dotted #ccc;border-radius:6px;margin:4px 0;">
           <button class="action-btn" data-act="act-open-editor" data-id="${a.id}" style="flex:1;text-align:left;background:transparent;border:0;color:#212529;padding:0;cursor:pointer;font-size:12px;"><strong>${label}</strong>: ${a.title}</button>
+          <span data-points-for="${a.id}" style="display:inline-block;min-width:48px;text-align:center;background:#f1f3f5;color:#495057;border:1px solid #dee2e6;border-radius:999px;padding:2px 8px;font-size:11px;">...</span>
           <button class="action-btn" data-act="act-test" data-id="${a.id}" style="background:#28a745;color:#fff;">Test</button>
           ${String(a.type||'').toLowerCase()==='coding' ? '<button class=\"action-btn\" data-act=\"act-run\" data-id=\"'+a.id+'\" style=\"background:#2196F3;color:#fff;\">Run</button>' : ''}
           <button class="action-btn" data-act="act-duplicate" data-id="${a.id}" style="background:#17a2b8;color:#fff;">Duplicate</button>
@@ -1683,7 +1928,7 @@ function renderOutline(outline, mount) {
           <i class="fas fa-layer-group" style="color:#6c757d;"></i>
           <span class="outline-title" style="flex:1">${m.title || 'Untitled Module'}</span>
           <div class="outline-toolbar">
-            <button class="action-btn icon btn-green" data-act="lesson-add"><i class="fas fa-plus"></i>Lesson</button>
+            <button class="action-btn icon btn-green" data-act="lesson-add"><i class="fas fa-plus"></i>Topic</button>
             <button class="action-btn icon btn-gray" data-act="module-edit" data-id="${m.id}"><i class="fas fa-edit"></i>Edit</button>
             <button class="action-btn icon btn-red" data-act="module-delete" data-id="${m.id}"><i class="fas fa-trash"></i>Delete</button>
           </div>
@@ -1716,6 +1961,43 @@ function renderOutline(outline, mount) {
       };
     }
   });
+
+  // Compute and render total points per activity (quiz-like types)
+  (function(){
+    try {
+      const pointBadges = Array.from(mount.querySelectorAll('[data-points-for]'));
+      if (!pointBadges.length) return;
+      pointBadges.forEach(function(badge){
+        const actId = badge.getAttribute('data-points-for');
+        if (!actId) return;
+        const fd = new FormData(); fd.append('action','activity_get'); fd.append('id', actId);
+        fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
+          .then(r=>r.json())
+          .then(function(j){
+            if (!j || !j.success || !j.data) { badge.textContent = '—'; return; }
+            const a = j.data;
+            const t = String(a.type||'').toLowerCase();
+            if (t === 'coding') {
+              const ms = Number(a.max_score || 0);
+              badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
+              return;
+            }
+            // Sum question points if available
+            const questions = Array.isArray(a.questions) ? a.questions : [];
+            const total = questions.reduce(function(sum,q){
+              const p = Number(q.points||1);
+              return sum + (isFinite(p) ? p : 0);
+            }, 0);
+            if (total > 0) { badge.textContent = total + ' pts'; }
+            else {
+              const ms = Number(a.max_score || 0);
+              badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
+            }
+          })
+          .catch(function(){ badge.textContent = '—'; });
+      });
+    } catch(_) {}
+  })();
 }
 
 // Initialize SortableJS on modules, lessons, and materials and persist order
@@ -1866,7 +2148,6 @@ function revertStatusChange(btnEl, courseId) {
     console.error('Error reverting status change:', e);
   }
 }
-
 // Archive course function
 function archiveCourse(courseId, btnEl, ev) {
   console.log('📦 Archive course:', courseId);
@@ -1952,7 +2233,6 @@ function initCoordinatorSettings() {
   console.log('⚙️ Initializing coordinator settings...');
   // Settings functionality will be handled by admin panel functions
 }
-
 // Helper: confirmation dialog with graceful fallbacks
 function coordinatorConfirm(message, onConfirm) {
   // Create custom confirmation modal
@@ -2177,7 +2457,7 @@ function loadCoordinatorUploads() {
               <tr>
                 <th>File</th>
                 <th>Type</th>
-                <th>Lesson</th>
+                <th>Topic</th>
                 <th>Module</th>
                 <th>Course</th>
                 <th>Size</th>
@@ -2216,7 +2496,6 @@ function loadCoordinatorUploads() {
     })
     .catch(()=>{ list.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>Failed to load</div>'; });
 }
-
 function archiveMaterial(id, btnEl, ev) {
   if (ev && ev.preventDefault) ev.preventDefault();
   if (ev && ev.stopPropagation) ev.stopPropagation();
@@ -2258,7 +2537,7 @@ function loadArchivedCourses() {
                 <th>Title</th>
                 <th>Status</th>
                 <th>Modules</th>
-                <th>Lessons</th>
+                <th>Topics</th>
                 <th>Archived</th>
                 <th>Actions</th>
               </tr>
@@ -2294,7 +2573,6 @@ function loadArchivedCourses() {
     })
     .catch(()=>{ if (list) list.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>Failed to load</div>'; });
 }
-
 function unarchiveCourse(courseId, btnEl, ev) {
   if (ev && ev.preventDefault) ev.preventDefault();
   if (ev && ev.stopPropagation) ev.stopPropagation();
@@ -2342,7 +2620,7 @@ function loadArchivedMaterials() {
               <tr>
                 <th>File</th>
                 <th>Type</th>
-                <th>Lesson</th>
+                <th>Topic</th>
                 <th>Module</th>
                 <th>Course</th>
                 <th>Size</th>
@@ -2438,13 +2716,9 @@ function showContentSeparationModal() {
               <div class="form-group">
                 <label class="modal-label">Programming Language *</label>
                 <select id="separationLanguage" name="language" class="modal-input" required>
+                  <option value="C++">C++</option>
                   <option value="Java">Java</option>
                   <option value="Python">Python</option>
-                  <option value="C++">C++</option>
-                  <option value="C#">C#</option>
-                  <option value="JavaScript">JavaScript</option>
-                  <option value="PHP">PHP</option>
-                  <option value="C">C</option>
                 </select>
               </div>
             </div>
@@ -2566,7 +2840,6 @@ function showContentSeparationModal() {
         </form>
       </div>`;
     document.body.appendChild(modal);
-    
     // Set up form submission
     const form = document.getElementById('contentSeparationForm');
     if (form) {
@@ -2640,7 +2913,6 @@ function showContentSeparationModal() {
         closeContentSeparationModal();
       };
     }
-    
     // Set up close button
     const closeBtn = document.querySelector('.modal-close');
     if (closeBtn) {
@@ -2868,8 +3140,7 @@ function validateMcq(activityId, mount) {
   });
   alert(errors.length ? errors.join('\n') : 'Looks good!');
 }
-
-// ===== Bulk Create Lessons Modal (restored) =====
+// ===== Bulk Create Topics Modal (restored) =====
 function showBulkLessonModal(moduleId) {
   let modal = document.getElementById('bulkLessonModal');
   if (!modal) {
@@ -2979,7 +3250,6 @@ function addNewLessonField(){ const c = document.getElementById('lessonFieldsCon
     </div>
   </div>`; c.appendChild(el); setupAddLessonButtons(); const rem = el.querySelector('.remove-lesson-btn'); if (rem) rem.onclick = function(){ removeLessonField(el); }; const inp = el.querySelector('.lesson-title-input'); if (inp) inp.focus(); }
 function removeLessonField(el){ const c = document.getElementById('lessonFieldsContainer'); if (!c) return; const groups = c.querySelectorAll('.lesson-field-group'); if (groups.length<=1) { alert('At least one topic is required.'); return; } el.remove(); Array.from(c.querySelectorAll('.lesson-field-group')).forEach(function(g,i){ const lbl = g.querySelector('.modal-label'); if (lbl) lbl.textContent = 'Topic ' + (i+1) + ' *'; }); }
-
 // ===== Create Activity Wizard (non-disruptive) =====
 function showCreateActivityWizard(lessonId){
   let modal = document.getElementById('createActivityWizard');
@@ -3183,7 +3453,6 @@ function showCreateActivityWizard(lessonId){
 
   render();
 }
-
 // ===== Create Activity Open Form (all steps visible) =====
 function showCreateActivityForm(lessonId, opts){
   let modal = document.getElementById('createActivityForm');
@@ -3283,7 +3552,6 @@ function showCreateActivityForm(lessonId, opts){
   try { if (window.__cafRenderHandler) { window.removeEventListener('createActivityRender', window.__cafRenderHandler); } } catch(_){ }
   window.__cafRenderHandler = function(){ try { render(); } catch(_){ } };
   window.addEventListener('createActivityRender', window.__cafRenderHandler);
-  
   console.log('🔍 INITIAL STATE:', state);
   const body = modal.querySelector('#cafBody');
   
@@ -3338,6 +3606,7 @@ function showCreateActivityForm(lessonId, opts){
             <option value="identification" ${state.questionType==='identification'?'selected':''}>🔍 Identification</option>
             <option value="true_false" ${state.questionType==='true_false'?'selected':''}>✅ True/False</option>
             <option value="essay" ${state.questionType==='essay'?'selected':''}>📄 Essay</option>
+            <option value="upload_based" ${state.questionType==='upload_based'?'selected':''}>📎 Upload-based</option>
             ${state.type === 'laboratory' ? `<option value="coding" ${state.questionType==='coding'?'selected':''}>💻 Coding Exercise</option>` : ''}
           </select>
           <div style="margin-top:8px;font-size:12px;color:#666;">
@@ -3467,6 +3736,102 @@ function showCreateActivityForm(lessonId, opts){
                 `).join('')}
               </div>
               <button class="action-btn btn-green" id="cafAddQ" style="margin-top:12px;padding:10px 16px;font-size:14px;">+ Add Question</button>
+            </div>
+            `;
+          } else if (state.questionType === 'upload_based') {
+            console.log('🔍 RENDERING UPLOAD-BASED with state:', state);
+            return `
+            <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
+              <div style="font-weight:600;margin-bottom:12px;color:#333;">📎 Upload-based Activity</div>
+              
+              <!-- Upload Questions -->
+              <div style="margin-bottom:20px;">
+                <div style="font-weight:600;margin-bottom:12px;color:#333;">📎 Upload Tasks</div>
+                <div id="cafQList">
+                  ${state.questions.map((q, index) => `
+                    <div class="question-item" style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                        <h4 style="margin:0;color:#333;">Upload Task ${index + 1}</h4>
+                        <button class="action-btn btn-red" onclick="deleteQuestion(${index})" style="padding:8px 12px;font-size:12px;">Delete task</button>
+                      </div>
+                      
+                      <div style="margin-bottom:16px;">
+                        <label style="display:block;margin-bottom:6px;font-weight:500;color:#333;">Task Description:</label>
+                        <textarea class="modal-input" rows="3" placeholder="Describe what students need to upload..." onchange="updateQuestion(${index}, 'text', this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">${q.text || ''}</textarea>
+                      </div>
+                      
+                      <div style="margin-bottom:16px;">
+                        <label style="display:block;margin-bottom:6px;font-weight:500;color:#333;">Score for this task:</label>
+                        <input type="number" class="modal-input" min="1" value="${q.points || 1}" style="max-width:100px;padding:8px;border:1px solid #ddd;border-radius:6px;" onchange="updateQuestion(${index}, 'points', this.value)" />
+                      </div>
+                      
+                      <div style="margin-bottom:16px;">
+                        <label style="display:block;margin-bottom:8px;font-weight:500;color:#333;">Accepted File Types:</label>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;">
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('PDF')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'PDF', this.checked)" style="margin:0;" />
+                            <span>📄 PDF</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('DOCX')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'DOCX', this.checked)" style="margin:0;" />
+                            <span>📝 DOCX</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('PPTX')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'PPTX', this.checked)" style="margin:0;" />
+                            <span>📊 PPTX</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('JPG')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'JPG', this.checked)" style="margin:0;" />
+                            <span>🖼️ JPG</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('PNG')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'PNG', this.checked)" style="margin:0;" />
+                            <span>🖼️ PNG</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('TXT')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'TXT', this.checked)" style="margin:0;" />
+                            <span>📄 TXT</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('ZIP')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'ZIP', this.checked)" style="margin:0;" />
+                            <span>📦 ZIP</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('XML')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'XML', this.checked)" style="margin:0;" />
+                            <span>📄 XML</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('GIF')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'GIF', this.checked)" style="margin:0;" />
+                            <span>🖼️ GIF</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('BMP')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'BMP', this.checked)" style="margin:0;" />
+                            <span>🖼️ BMP</span>
+                          </label>
+                          <label style="display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:white;font-size:12px;">
+                            <input type="checkbox" ${(q.acceptedFiles||[]).includes('SVG')?'checked':''} onchange="updateQuestionFileTypes(${index}, 'SVG', this.checked)" style="margin:0;" />
+                            <span>🎨 SVG</span>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div style="margin-bottom:16px;">
+                        <label style="display:block;margin-bottom:6px;font-weight:500;color:#333;">Maximum File Size (MB):</label>
+                        <input type="number" class="modal-input" min="1" max="100" value="${q.maxFileSize || 10}" style="max-width:100px;padding:8px;border:1px solid #ddd;border-radius:6px;" onchange="updateQuestionMaxFileSize(${index}, this.value)" />
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              
+              <div style="background:#e8f4fd;border:1px solid #b3d9ff;border-radius:6px;padding:12px;margin-top:16px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                  <i class="fas fa-info-circle" style="color:#0066cc;"></i>
+                  <span style="font-weight:500;color:#0066cc;">Upload-based Activity</span>
+                </div>
+                <p style="margin:0;font-size:13px;color:#555;">Students will upload files for manual grading. Teachers can set due dates and review submissions through the teacher dashboard.</p>
+              </div>
+              <button class="action-btn btn-green" id="cafAddQ" style="margin-top:12px;padding:10px 16px;font-size:14px;">+ Add Upload Task</button>
             </div>
             `;
           } else if (state.questionType === 'true_false') {
@@ -3620,7 +3985,6 @@ function showCreateActivityForm(lessonId, opts){
                 <textarea id="cafExpectedOutput" class="modal-input" rows="4" placeholder="Describe the expected output, test cases, or success criteria..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;">${state.expectedOutput || ''}</textarea>
                 <div style="margin-top:4px;font-size:12px;color:#666;">Include sample outputs, test cases, or success criteria for evaluation</div>
               </div>
-              
               <!-- Test Cases -->
               <div style="margin-bottom:20px;">
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Test Cases (Optional)</label>
@@ -3806,9 +4170,11 @@ function showCreateActivityForm(lessonId, opts){
     
     // Required field validation
     const isCodingActivity = (state.questionType==='coding') || ((document.getElementById('cafActivityType')||{}).value==='coding');
+    const isUploadBasedActivity = (state.questionType==='upload_based') || ((document.getElementById('cafActivityType')||{}).value==='upload_based');
     const hasName = state.name && state.name.trim().length > 0;
     const hasLanguage = !isCodingActivity || (state.language && state.language.trim().length > 0);
     const hasTestCases = !isCodingActivity || (Array.isArray(state.testCases) && state.testCases.length > 0);
+    const hasUploadTasks = !isUploadBasedActivity || (Array.isArray(state.questions) && state.questions.length > 0);
     
     if (!hasName) {
       if (typeof window.showNotification === 'function') window.showNotification('error', 'Validation Error', 'Activity name is required');
@@ -3828,6 +4194,12 @@ function showCreateActivityForm(lessonId, opts){
       return;
     }
     
+    if (!hasUploadTasks) {
+      if (typeof window.showNotification === 'function') window.showNotification('error', 'Validation Error', 'At least one upload task is required for upload-based activities');
+      else alert('At least one upload task is required for upload-based activities');
+      return;
+    }
+    
     const isEdit = !!state.editActivityId;
     btn.disabled = true;
     btn.textContent = isEdit ? 'Saving...' : 'Creating...';
@@ -3838,14 +4210,13 @@ function showCreateActivityForm(lessonId, opts){
     if (isCoding) backendType = 'coding';
     else {
       const qt = String(state.questionType||'').toLowerCase();
-      backendType = (qt==='multiple_choice') ? 'multiple_choice' : 'quiz';
+      backendType = (qt==='multiple_choice') ? 'multiple_choice' : (qt==='upload_based') ? 'upload_based' : 'quiz';
     }
 
     // Ensure latest CodeMirror value is captured for coding starter code
     if (isCoding) {
       try { const starter = modal.querySelector('#cafStarterCode'); if (starter && starter.__cm) { state.starterCode = starter.__cm.getValue(); } } catch(_){ }
     }
-
     const payload = {
       id: isEdit ? Number(state.editActivityId) : undefined,
       lesson_id: Number(lessonId),
@@ -3864,6 +4235,14 @@ function showCreateActivityForm(lessonId, opts){
       }) : (function(){
         // For non-coding, persist a small JSON envelope with kind for better labeling
         const qt = String(state.questionType||'multiple_choice').toLowerCase();
+        if (qt === 'upload_based') {
+          return JSON.stringify({ 
+            kind: 'upload_based', 
+            instructions: state.instructionsText||'',
+            acceptedFiles: ['PDF','DOCX','JPG','PNG','TXT','XML','SVG'],
+            maxFileSize: 5
+          });
+        }
         const kind = (qt==='multiple_choice' ? 'multiple_choice' : (qt==='true_false' ? 'true_false' : (qt==='identification' ? 'identification' : (qt==='essay' ? 'essay' : 'quiz'))));
         return JSON.stringify({ kind: kind, instructions: state.instructionsText||'' });
       })(),
@@ -3895,6 +4274,10 @@ function showCreateActivityForm(lessonId, opts){
           ];
           // Store as quiz in DB (some schemas disallow 'true_false' type)
           payload.type = 'quiz';
+        } else if (qt==='upload_based') {
+          // Add upload-based specific fields
+          item.acceptedFiles = Array.isArray(q.acceptedFiles) ? q.acceptedFiles : ['PDF','DOCX','JPG','PNG','TXT','XML'];
+          item.maxFileSize = Number(q.maxFileSize || 5);
         }
         return item;
       });
@@ -3959,7 +4342,6 @@ function showCreateActivityForm(lessonId, opts){
   try { window.__cafHandleCreate = modal.querySelector('#cafCreate').onclick; } catch(_){ }
   modal.querySelector('#cafCreate').textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item';
 }
-
 // Fallback: ensure Save/Create handler always fires even if onclick got detached by re-render
 try {
   if (!window.__cafGlobalClickBound) {
@@ -3995,6 +4377,8 @@ function renderStudentTestInterface(activity, activityType) {
     return renderStudentTrueFalseTest(activity);
   } else if (activityType === 'essay') {
     return renderStudentEssayTest(activity);
+  } else if (activityType === 'upload_based') {
+    return renderStudentUploadBasedTest(activity);
   } else if (activityType === 'matching') {
     return renderStudentMatchingTest(activity);
   } else {
@@ -4195,7 +4579,6 @@ function renderStudentEssayTest(activity) {
   
   return html;
 }
-
 // Function to render matching test interface
 function renderStudentMatchingTest(activity) {
   if (!activity.questions || !Array.isArray(activity.questions)) {
@@ -4308,7 +4691,6 @@ function showTestResults(results, activityTitle) {
     if (e.target === resultsModal) resultsModal.remove();
   });
 }
-
 // Function to generate results content
 function generateResultsContent(results) {
   let html = '';
@@ -4373,7 +4755,10 @@ function addQuestion() {
     ] : [],
     answer: '',
     explanation: '',
-    matchingPairs: state.questionType === 'matching' ? [{ left: '', right: '' }] : []
+    matchingPairs: state.questionType === 'matching' ? [{ left: '', right: '' }] : [],
+    // Upload-based specific fields
+    acceptedFiles: state.questionType === 'upload_based' ? ['pdf', 'docx', 'xml', 'jpg', 'png'] : [],
+    maxFileSize: state.questionType === 'upload_based' ? 10 : null
   };
   
   console.log('🔍 New question object:', newQuestion);
@@ -4528,7 +4913,6 @@ function deleteTestCase(index){
   renderTestCases();
   if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
-
 // Re-render only the Test Cases container to avoid wiping other inputs
 function renderTestCases(){
   const state = window.createActivityState; if (!state) return;
@@ -4631,8 +5015,6 @@ function updateMatchingPair(questionIndex, pairIndex, field, value) {
     if (window.__cafScheduleSave) window.__cafScheduleSave();
   }
 }
-
-// (Removed duplicate addTestCase/deleteTestCase/updateTestCase that re-rendered the whole form)
 
 // ======================== MATERIAL VIEWERS ========================
 
@@ -4840,7 +5222,7 @@ function showLinkViewer(url) {
       <div style="flex:1;position:relative;background:#000;">
         ${embedHtml || `<iframe src="${url}" style="width:100%;height:100%;border:0;"></iframe>`}
         <div style="position:absolute;left:0;right:0;bottom:0;padding:8px 12px;color:#ddd;font-size:12px;background:linear-gradient(transparent, rgba(0,0,0,0.6));">
-          If the site blocks embedding, use “Open in new tab”.
+          If the site blocks embedding, use "Open in new tab".
         </div>
       </div>
     </div>
@@ -4849,4 +5231,214 @@ function showLinkViewer(url) {
   const closeBtn = modal.querySelector('#linkViewerClose');
   if (closeBtn) closeBtn.onclick = function(){ modal.remove(); };
   modal.addEventListener('click', function(e){ if (e.target === modal) modal.remove(); });
+}
+
+// ===== Upload-based Activity Functions =====
+function updateAcceptedFiles(fileType, isChecked) {
+  if (!window.cafState) return;
+  
+  if (!window.cafState.acceptedFiles) {
+    window.cafState.acceptedFiles = [];
+  }
+  
+  if (isChecked) {
+    if (!window.cafState.acceptedFiles.includes(fileType)) {
+      window.cafState.acceptedFiles.push(fileType);
+    }
+  } else {
+    window.cafState.acceptedFiles = window.cafState.acceptedFiles.filter(f => f !== fileType);
+  }
+  
+  console.log('📎 Accepted files updated:', window.cafState.acceptedFiles);
+}
+
+function updateMaxFileSize(value) {
+  if (!window.cafState) return;
+  window.cafState.maxFileSize = parseInt(value) || 10;
+  console.log('📎 Max file size updated:', window.cafState.maxFileSize);
+}
+
+function updateMaxScore(value) {
+  if (!window.cafState) return;
+  window.cafState.maxScore = parseInt(value) || 10;
+  console.log('📎 Max score updated:', window.cafState.maxScore);
+}
+
+
+function updateInstructions(value) {
+  if (!window.cafState) return;
+  window.cafState.instructions = value;
+  console.log('📎 Instructions updated:', window.cafState.instructions);
+}
+
+// ===== Upload-based Activity Question Management Functions =====
+function updateQuestionFileTypes(questionIndex, fileType, isChecked) {
+  const state = window.createActivityState;
+  if (!state || !state.questions) return;
+  const question = state.questions[questionIndex];
+  if (!question) return;
+  
+  if (!question.acceptedFiles) question.acceptedFiles = [];
+  
+  if (isChecked) {
+    if (!question.acceptedFiles.includes(fileType)) {
+      question.acceptedFiles.push(fileType);
+    }
+  } else {
+    question.acceptedFiles = question.acceptedFiles.filter(type => type !== fileType);
+  }
+  
+  console.log('📎 Question file types updated:', question.acceptedFiles);
+  if (window.__cafScheduleSave) window.__cafScheduleSave();
+}
+
+function updateQuestionMaxFileSize(questionIndex, value) {
+  const state = window.createActivityState;
+  if (!state || !state.questions) return;
+  const question = state.questions[questionIndex];
+  if (!question) return;
+  
+  question.maxFileSize = parseInt(value) || 10;
+  console.log('📎 Question max file size updated:', question.maxFileSize);
+  if (window.__cafScheduleSave) window.__cafScheduleSave();
+}
+
+// ===== Student Upload-based Test Interface =====
+function renderStudentUploadBasedTest(activity) {
+  console.log('📎 Rendering student upload-based test interface for activity:', activity);
+  
+  const dueDate = activity.dueDate ? new Date(activity.dueDate).toLocaleString() : 'No due date';
+  const acceptedFiles = activity.acceptedFiles || ['pdf', 'docx', 'pptx', 'jpg', 'png', 'txt', 'zip', 'xml', 'gif', 'bmp', 'svg'];
+  const maxFileSize = activity.maxFileSize || 10;
+  const instructions = activity.instructions || 'Please upload your file according to the activity requirements.';
+  
+  return `
+    <div style="max-width:800px;margin:0 auto;padding:20px;background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+      <div style="margin-bottom:24px;">
+        <h3 style="margin:0 0 8px 0;color:#333;font-size:20px;">📎 ${activity.title || 'Upload Activity'}</h3>
+        <p style="margin:0;color:#666;font-size:14px;">Due: ${dueDate}</p>
+      </div>
+      
+      <div style="margin-bottom:24px;padding:16px;background:#f8f9fa;border-radius:6px;border-left:4px solid #007bff;">
+        <h4 style="margin:0 0 12px 0;color:#333;font-size:16px;">📋 Instructions</h4>
+        <p style="margin:0;color:#555;line-height:1.5;">${instructions}</p>
+      </div>
+      
+      <div style="margin-bottom:24px;">
+        <h4 style="margin:0 0 12px 0;color:#333;font-size:16px;">📁 File Upload</h4>
+        <div id="uploadArea" style="border:2px dashed #007bff;border-radius:8px;padding:32px;text-align:center;background:#f8f9fa;cursor:pointer;transition:all 0.3s ease;" 
+             onmouseover="this.style.background='#e3f2fd'" 
+             onmouseout="this.style.background='#f8f9fa'">
+          <i class="fas fa-cloud-upload-alt" style="font-size:48px;color:#007bff;margin-bottom:16px;"></i>
+          <p style="margin:0 0 8px 0;color:#333;font-size:16px;font-weight:500;">Click to upload or drag and drop your file here</p>
+          <p style="margin:0;color:#666;font-size:14px;">Accepted formats: ${acceptedFiles.map(f => f.toUpperCase()).join(', ')}</p>
+          <p style="margin:4px 0 0 0;color:#999;font-size:12px;">Maximum file size: ${maxFileSize}MB</p>
+          <input type="file" id="fileInput" style="display:none;" accept="${acceptedFiles.map(f => '.' + f).join(',')}" onchange="handleFileSelect(this)" />
+        </div>
+      </div>
+      
+      <div id="filePreview" style="display:none;margin-bottom:24px;padding:16px;background:#e8f5e8;border-radius:6px;border-left:4px solid #28a745;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <i class="fas fa-file" style="font-size:24px;color:#28a745;"></i>
+          <div style="flex:1;">
+            <p style="margin:0 0 4px 0;color:#333;font-weight:500;" id="fileName">File selected</p>
+            <p style="margin:0;color:#666;font-size:14px;" id="fileSize">Size: 0 KB</p>
+          </div>
+          <button onclick="removeFile()" style="background:#dc3545;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">
+            <i class="fas fa-times"></i> Remove
+          </button>
+        </div>
+      </div>
+      
+      <div style="margin-bottom:24px;">
+        <label style="display:block;margin-bottom:8px;color:#333;font-weight:500;">Comments (Optional):</label>
+        <textarea id="submissionComments" placeholder="Add any comments or notes about your submission..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;min-height:80px;"></textarea>
+      </div>
+      
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button onclick="saveDraft()" style="background:#6c757d;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:14px;">
+          <i class="fas fa-save"></i> Save Draft
+        </button>
+        <button onclick="submitUpload()" id="submitBtn" style="background:#28a745;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:14px;display:none;">
+          <i class="fas fa-upload"></i> Submit Upload
+        </button>
+      </div>
+    </div>
+    
+    <script>
+      let selectedFile = null;
+      
+      // Make upload area clickable
+      document.getElementById('uploadArea').onclick = function() {
+        document.getElementById('fileInput').click();
+      };
+      
+      function handleFileSelect(input) {
+        const file = input.files[0];
+        if (!file) return;
+        
+        // Check file type
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        const acceptedTypes = ${JSON.stringify(acceptedFiles)};
+        
+        if (!acceptedTypes.includes(fileExtension)) {
+          alert('File type not accepted. Please select a file with one of these extensions: ' + acceptedTypes.map(t => t.toUpperCase()).join(', '));
+    return;
+  }
+        
+        // Check file size
+        const maxSize = ${maxFileSize} * 1024 * 1024; // Convert MB to bytes
+        if (file.size > maxSize) {
+          alert('File size exceeds the maximum limit of ${maxFileSize}MB');
+          return;
+        }
+        
+        selectedFile = file;
+        showFilePreview(file);
+      }
+      
+      function showFilePreview(file) {
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = 'Size: ' + formatFileSize(file.size);
+        document.getElementById('filePreview').style.display = 'block';
+        document.getElementById('submitBtn').style.display = 'inline-block';
+      }
+      
+      function removeFile() {
+        selectedFile = null;
+        document.getElementById('fileInput').value = '';
+        document.getElementById('filePreview').style.display = 'none';
+        document.getElementById('submitBtn').style.display = 'none';
+      }
+      
+      function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      }
+      
+      function saveDraft() {
+        alert('Draft saved! (This is a demo - actual implementation would save to database)');
+      }
+      
+      function submitUpload() {
+        if (!selectedFile) {
+          alert('Please select a file to upload');
+          return;
+        }
+        
+        const comments = document.getElementById('submissionComments').value;
+        
+        // Here you would implement the actual file upload
+        alert('File uploaded successfully! (This is a demo - actual implementation would upload to server)');
+        console.log('Upload details:', {
+          file: selectedFile,
+          comments: comments,
+          activityId: ${activity.id || 'null'}
+        });
+      }
+    </script>
+  `;
 }

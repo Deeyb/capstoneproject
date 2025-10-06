@@ -213,9 +213,9 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
             </div>
           </div>
 
-          <!-- Lecture Exercises Section -->
+          <!-- Exercises Section -->
           <div class="module-section">
-            <h3 class="section-title">🎓 Lecture Exercises</h3>
+            <h3 class="section-title">📚 Exercises</h3>
             <div class="exercise-grid">
               <div class="exercise-card">
                 <div class="exercise-header">
@@ -267,13 +267,6 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Laboratory Exercises Section -->
-          <div class="module-section">
-            <h3 class="section-title">🔬 Laboratory Exercises</h3>
-            <div class="exercise-grid">
               <div class="exercise-card">
                 <div class="exercise-header">
                   <i class="fas fa-desktop exercise-icon"></i>
