@@ -1,0 +1,74 @@
+# OS/filesystem
+.DS_Store
+Thumbs.db
+
+# Environment/credentials
+.env
+.env.*
+env
+env.*
+config.php
+config/Database.php
+config/*local*.php
+
+# Uploads and generated assets
+uploads/
+uploads/**
+
+# Backups/exports
+backup_*.sql
+backup_coderegal_db.sql
+*.tar
+*.zip
+
+# Logs
+*.log
+
+# Node/vendor (if any future additions)
+node_modules/
+vendor/
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+
+# Logs
+*.log
+logs/
+
+# Cache
+cache/
+tmp/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+
+# Composer
+vendor/
+composer.lock
+
+# Node modules (if using any frontend build tools)
+node_modules/
+
+# Uploaded files
+uploads/
+user_uploads/
+
+# Session files
+sessions/
+
+# Configuration files with sensitive data
+config/local.php
+config/production.php 

@@ -1,0 +1,428 @@
+CCIS1102/L – COMPUTER PROGRAMMING1
+WEEK 7-8 - CONTROL STRUCTURES - REPETITION
+
+LEARNING OBJECTIVES:
+
+1. Use looping structures (while, do-while, for) to create repetitive
+processes in a Java program.
+
+2. Explain the difference between while and do-while loops.
+3. Write a program that uses looping structures to manipulate data.
+
+2
+
+Loops and Iteration
+
+while Loop Flow Chart
+while (loop-continuation-condition) {
+// loop-body;
+
+int count = 0;
+while (count < 100) {
+System.out.println("Welcome to Java!");
+
+Statement(s);
+}
+
+count++;
+}
+
+Trace while Loop
+int count = 0;
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+Initialize count
+
+Trace while Loop
+int count = 0;
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+(count < 2) is true
+
+Trace while Loop
+int count = 0;
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+Print Welcome to Java
+
+Trace while Loop
+int count = 0;
+
+Increase count by 1
+count is 1 now
+
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+8
+
+Trace while Loop
+int count = 0;
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+(count < 2) is still true since count
+is 1
+
+Trace while Loop
+int count = 0;
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+Print Welcome to Java
+
+Trace while Loop
+int count = 0;
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+Increase count by 1
+count is 2 now
+
+Trace while Loop
+int count = 0;
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+(count < 2) is false since count is 2
+now
+
+Trace while Loop
+int count = 0;
+while (count < 2) {
+System.out.println("Welcome to Java!");
+count++;
+}
+
+The loop exits. Execute the next
+statement after the loop.
+
+Problem: Repeat Addition Until Correct
+Create a program that prompts the user to enter an answer for a
+question on addition of two single digits. Using a loop, let the user enter
+a new answer until it is correct.
+
+Problem: Guessing Numbers
+Write a program that randomly generates an integer between 0 and 100,
+inclusive. The program prompts the user to enter a number continuously
+until the number matches the randomly generated number. For each
+user input, the program tells the user whether the input is too low or too
+high, so the user can choose the next input intelligently.
+
+Ending a Loop with a Sentinel Value
+Often the number of times a loop is executed is not predetermined. You
+may use an input value to signify the end of the loop. Such a value is
+known as a sentinel value.
+Write a program that reads and calculates the sum of an unspecified
+number of integers. The input 0 signifies the end of the input.
+
+do-while Loop
+
+do {
+// Loop body;
+Statement(s);
+} while (loop-continuation-condition);
+
+17
+
+for Loops
+for (initial-action; loopcontinuation-condition; actionafter-each-iteration) {
+// loop body;
+Statement(s);
+}
+
+int i;
+for (i = 0; i < 100; i++) {
+System.out.println(
+"Welcome to Java!");
+}
+
+18
+
+Note
+The initial-action in a for loop can be a list of zero or more comma-separated
+expressions. The action-after-each-iteration in a for loop can be a list of zero or more
+comma-separated statements. Therefore, the following two for loops are correct. They
+are rarely used in practice, however.
+for (int i = 1; i < 100; System.out.println(i++));
+for (int i = 0, j = 0; (i + j < 10); i++, j++) {
+// Do something
+}
+
+Note
+If the loop-continuation-condition in a for loop is omitted, it is implicitly
+true. Thus the statement given below in (a), which is an infinite loop, is
+correct. Nevertheless, it is better to use the equivalent loop in (b) to avoid
+confusion:
+for ( ; ; ) {
+// Do something
+}
+(a)
+
+Equivalent
+
+while (true) {
+// Do something
+}
+(b)
+
+Caution
+
+Adding a semicolon at the end of the for clause before the loop
+body is a common mistake, as shown below:
+Logic
+Error
+
+for (int i=0; i<10; i++);
+{
+System.out.println("i is " + i);
+}
+
+Similarly, the following loop is also wrong:
+int i=0;
+Logic Error
+while (i < 10);
+{
+System.out.println("i is " + i);
+i++;
+}
+In the case of the do loop, the following semicolon is needed to end the loop.
+int i=0;
+do {
+System.out.println("i is " + i);
+i++;
+Correct
+} while (i<10);
+
+Which Loop to Use?
+The three forms of loop statements, while, do-while, and for, are expressively equivalent;
+that is, you can write a loop in any of these three forms. For example, a while loop in (a)
+in the following figure can always be converted into the following for loop in (b):
+while (loop-continuation-condition) {
+// Loop body
+}
+
+Equivalent
+
+for ( ; loop-continuation-condition; ) {
+// Loop body
+}
+
+(a)
+
+(b)
+
+A for loop in (a) in the following figure can generally be converted into the following while loop in (b)
+except in certain special cases
+for (initial-action;
+loop-continuation-condition;
+action-after-each-iteration) {
+// Loop body;
+}
+(a)
+
+Equivalent
+
+initial-action;
+while (loop-continuation-condition) {
+// Loop body;
+action-after-each-iteration;
+}
+(b)
+
+Recommendations
+Use the one that is most intuitive and comfortable for you. In general, a for
+loop may be used if the number of repetitions is known, as, for example,
+when you need to print a message 100 times. A while loop may be used if
+the number of repetitions is not known, as in the case of reading the
+numbers until the input is 0. A do-while loop can be used to replace a while
+loop if the loop body has to be executed before testing the continuation
+condition.
+
+Nested Loops
+
+Problem: Write a program that uses nested for loops to
+print a multiplication table.
+
+Problem: Finding the Greatest Common Divisor
+
+Problem: Write a program that prompts the user to enter two positive integers and
+finds their greatest common divisor.
+Solution: Suppose you enter two integers 4 and 2, their greatest common divisor is 2.
+Suppose you enter two integers 16 and 24, their greatest common divisor is 8. So, how
+do you find the greatest common divisor? Let the two input integers be n1 and n2. You
+know number 1 is a common divisor, but it may not be the greatest commons divisor.
+So you can check whether k (for k = 2, 3, 4, and so on) is a common divisor for n1 and
+n2, until k is greater than n1 or n2.
+
+Problem: Predicting the Future Tuition
+Problem: Suppose that the tuition for a university is $10,000 this year
+and tuition increases 7% every year. In how many years will the
+tuition be doubled?
+double tuition = 10000; int year = 0 // Year 0
+tuition = tuition * 1.07; year++;
+// Year 1
+tuition = tuition * 1.07; year++;
+// Year 2
+tuition = tuition * 1.07; year++;
+// Year 3
+...
+
+Problem: Converting Decimals to Hexadecimals
+Hexadecimals are often used in computer systems. How do you convert a decimal
+number to a hexadecimal number? To convert a decimal number d to a hexadecimal
+number is to find the hexadecimal digits hn, hn-1, hn-2, ... , h2, h1, and h0 such that
+
+d hn 16n  hn  1 16n  1  hn  2 16n  2  ...  h 2 162  h1 161  h 0 160
+These hexadecimal digits can be found by successively dividing d by 16 until the
+quotient is 0. The remainders are h0, h1, h2, ... , hn-2, hn-1, and hn.
+
+Using break and continue
+Examples for using the break and continue keywords:
+public class TestBreak {
+public static void main(String[] args) {
+int sum = 0;
+int number = 0;
+
+public class TestContinue {
+public static void main(String[] args) {
+int sum = 0;
+int number = 0;
+
+while (number < 20) {
+number++;
+sum += number;
+if (sum >= 100)
+break;
+}
+
+}
+}
+
+while (number < 20) {
+number++;
+if (number == 10 || number == 11)
+continue;
+sum += number;
+}
+
+System.out.println("The number is " + number);
+System.out.println("The sum is " + sum);
+
+System.out.println("The sum is " + sum);
+}
+
+}
+
+Problem: Checking Palindrome
+A string is a palindrome if it reads the same forward and backward. The words “mom,”
+“dad,” and “noon,” for instance, are all palindromes.
+The problem is to write a program that prompts the user to enter a string and reports
+whether the string is a palindrome. One solution is to check whether the first character
+in the string is the same as the last character. If so, check whether the second character
+is the same as the second-to-last character. This process continues until a mismatch is
+found or all the characters in the string are checked, except for the middle character if
+the string has an odd number of characters.
+low
+
+String s
+
+a
+
+high
+
+b
+
+c
+
+d
+
+e
+
+f
+
+g
+
+n
+
+h
+
+g
+
+f
+
+e
+
+d
+
+c
+
+b
+
+a
+
+Problem: Displaying Prime Numbers
+Problem: Write a program that displays the first 50 prime numbers in
+five lines, each of which contains 10 numbers. An integer greater than
+1 is prime if its only positive divisor is 1 or itself. For example, 2, 3,
+5, and 7 are prime numbers, but 4, 6, 8, and 9 are not.
+Solution: The problem can be broken into the following tasks:
+• For number = 2, 3, 4, 5, 6, ..., test whether the number is prime.
+• Determine whether a given number is prime.
+• Count the prime numbers.
+• Print each prime number, and print 10 numbers per line.
+
+Guessing Game
+Create a Java program that generates a random number between 1 and 50 and
+prompts the user to guess the number. The program should use a while loop to
+continue guessing until the correct number is found.
+Example: //Program generates 42
+User guesses: 50
+Program response: Too high!
+User guesses: 30
+Program response: Too low!
+...
+User guesses: 42
+Program response: You guessed it! The number was 42.
+
+Factorial
+Use a for loop to calculate and print the factorial of a given number.
+Sample Output:
+Get the factorial of number: 5
+5! = 5 x 4 x 3 x 2 x 1
+5! = 120
+Get the factorial of number: 4
+4! = 4 x 3 x 2 x 1
+4! = 24
+
+Quiz Bee
+Create a simple Quiz Bee program in Java by developing a set of
+questions (at least five questions along with their corresponding
+multiple-choice answers) that will be posed during the quiz. Utilize a
+Scanner to capture user input for each question. Define a correct
+answer variable for each question and compare it with the user's input,
+incrementing a score variable each time the answer is correct. Once the
+quiz is complete, print out the user's score along with a message
+indicating whether they passed or failed based on their performance.
+Use a for loop to allow multiple rounds of the Quiz Bee.
+
+

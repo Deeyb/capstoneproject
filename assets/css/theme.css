@@ -1,0 +1,87 @@
+/* Central color tokens for Admin/Coordinator/Teacher/Student UIs */
+
+:root {
+  /* Brand / Primary Greens */
+  --color-primary: #28a745;         /* main green */
+  --color-primary-strong: #1d9b3e;  /* darker green */
+  --color-primary-deep: #07522A;    /* header logo text */
+  --color-primary-alt: #168a36;     /* hover/alt */
+  --color-primary-alt2: #178a35;    /* hover/alt */
+  --color-teal: #20c997;            /* gradient mate */
+
+  /* Role accents */
+  --color-student: #28a745;
+  --color-teacher: #ffc107;
+  --color-coordinator: #6c757d;
+  --color-admin: #dc3545;
+
+  /* Semantic */
+  --color-info: #17a2b8;
+  --color-info-alt: #138496;
+  --color-warning: #ffc107;
+  --color-warning-light: #ffeb3b;
+  --color-danger: #dc3545;
+  --color-danger-dark: #c82333;
+  --color-danger-alt: #f44336;
+  --color-danger-accent: #ff6b6b;
+
+  /* Blues */
+  --color-blue: #2196F3;
+  --color-blue-dark: #1976d2;
+
+  /* Neutrals */
+  --color-text: #333;
+  --color-text-muted: #555;
+  --color-text-subtle: #666;
+  --color-text-faint: #999;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Surfaces and borders */
+  --color-bg: #eef4f9;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8f9fa;
+  --color-surface-soft: #f4f6f9;
+  --color-border: #ccc;
+  --color-border-soft: #e9ecef;
+
+  /* Utility tints */
+  --color-lightblue: #e3f2fd;
+  --color-lightgreen: #e8f5e8;
+  --color-lightorange: #fff3e0;
+  --color-orange: #f57c00;
+  --color-highlight: #fff59d;
+  --color-highlight-dark: #705f00;
+}
+
+/* Dark mode token overrides (used when components adopt variables) */
+body.dark-mode {
+  --color-text: #e0e0e0;
+  --color-text-muted: #bbb;
+  --color-text-subtle: #999;
+  --color-text-faint: #777;
+
+  --color-bg: #1a1a1a;
+  --color-surface: #2d2d2d;
+  --color-surface-muted: #3a3a3a;
+  --color-surface-soft: #2b2b2b;
+  --color-border: #444;
+  --color-border-soft: #444;
+}
+
+/* Optional helpers (non-breaking): reference variables without touching existing rules */
+.bg-primary      { background-color: var(--color-primary) !important; color: var(--color-white) !important; }
+.bg-info         { background-color: var(--color-info) !important;    color: var(--color-white) !important; }
+.bg-danger       { background-color: var(--color-danger) !important;  color: var(--color-white) !important; }
+.bg-warning      { background-color: var(--color-warning) !important; color: var(--color-black) !important; }
+.text-primary    { color: var(--color-primary) !important; }
+.text-muted      { color: var(--color-text-subtle) !important; }
+.border-soft     { border-color: var(--color-border-soft) !important; }
+
+
+
+
+
+
+
+

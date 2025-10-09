@@ -1,0 +1,20 @@
+/* Shared UI styles used by Admin/Coordinator/Teacher/Student.
+   Thin wrapper to the existing stylesheet to avoid duplication. */
+@import url('admin_panel.css');
+
+/* ===== Minimal sidebar refinements for Teacher ===== */
+.sidebar .user-profile { text-align:center; padding: 20px; border-bottom: 1px solid #e9ecef; margin-bottom: 8px; }
+.sidebar .user-avatar { margin-bottom: 8px; }
+.sidebar .user-name { font-weight: 600; color:#2f3b45; font-size:14px; margin: 4px 0; }
+.sidebar .user-role { color:#28a745; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; }
+
+.sidebar .nav-item { padding: 12px 16px; border-radius: 8px; }
+.sidebar .nav-item i { width: 18px; text-align:center; color:#6b7785; }
+.sidebar .nav-item:hover { background:#f5f7f9; color:#168a36; }
+.sidebar .nav-item.active { background:#e8f4ee; color:#168a36; }
+
+/* Sub-nav minimalist look */
+.sidebar .sub-nav { list-style:none; margin: 6px 0 0 0; padding: 6px 0 6px 18px; border-left: 2px solid #e8efe9; }
+.sidebar .sub-nav li { padding: 6px 10px; margin: 2px 0; font-size: 13px; color:#5a6672; border-radius:6px; transition: background-color .2s, color .2s; }
+.sidebar .sub-nav li:hover { background:#f2f6f4; color:#168a36; }
+.sidebar .sub-nav li:before { content: none !important; }
