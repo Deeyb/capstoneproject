@@ -142,11 +142,11 @@ class ClassService {
 
         // Attempt to read from course_lessons if exists
         try {
-            $q = $this->db->prepare("SELECT l.id, l.title, l.created_at
+            $q = $this->db->prepare("SELECT l.id, l.title, l.summary, l.duration_minutes
                                      FROM course_lessons l
                                      JOIN course_modules m ON m.id = l.module_id
                                      WHERE m.course_id = ?
-                                     ORDER BY l.id ASC LIMIT 200");
+                                     ORDER BY l.position ASC, l.id ASC LIMIT 200");
             $q->execute([$courseId]);
             $rows = $q->fetchAll(PDO::FETCH_ASSOC) ?: [];
             return $rows;

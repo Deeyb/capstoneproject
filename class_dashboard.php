@@ -4,7 +4,7 @@ require_once __DIR__ . '/config/Database.php';
 require_once __DIR__ . '/classes/auth_helpers.php';
 Auth::requireAuth();
 
-$classId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
 if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
 
 // Basic page scaffold; data for header can be fetched later
@@ -17,6 +17,7 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
   <title>Class Dashboard</title>
   <link rel="stylesheet" href="assets/css/teacher_dashboard.css?v=<?php echo time(); ?>">
   <link rel="stylesheet" href="assets/css/class_dashboard.css?v=<?php echo time(); ?>">
+  <script src="assets/js/notification_system.js?v=<?php echo time(); ?>"></script>
   <style>
     /* Force centering for class dashboard */
     .class-page .lesson-header {

@@ -305,12 +305,23 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <!-- Scripts -->
   <!-- Load shared system first (like Coordinator) -->
   <script src="assets/js/app_ui.js"></script>
-  <!-- Load scripts in correct order -->
-  <script src="assets/js/admin_panel.js?v=<?php echo time(); ?>"></script>
-  <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
-  <script src="assets/js/teacher_dashboard.js?v=<?php echo time(); ?>"></script>
+  <!-- Reusable Activity Creator System -->
+        <link rel="stylesheet" href="assets/css/reusable_activity_creator.css">
+        <script src="assets/js/notification_system.js?v=<?php echo time(); ?>"></script>
+        <script src="assets/js/reusable_activity_creator.js"></script>
+        <script src="assets/js/teacher_activity_integration.js"></script>
+        <!-- Load scripts in correct order -->
+        <!-- REMOVED: admin_panel.js - causes 403 errors for teachers -->
+        <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
+        <script src="assets/js/teacher_dashboard.js?v=<?php echo time(); ?>"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function(){
+      // Initialize reusable activity creator system
+      if (typeof initTeacherActivitySystem === 'function') {
+        try { initTeacherActivitySystem(); } catch(e) { console.error('Activity system init error:', e); }
+      }
+      
+      // Initialize teacher dashboard
       if (typeof initializeTeacherDashboard === 'function') {
         try { initializeTeacherDashboard(); } catch(e) { console.error('Init error:', e); }
       }

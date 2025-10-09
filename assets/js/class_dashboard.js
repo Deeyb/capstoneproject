@@ -45,8 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Action buttons
   const click = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
-  click('createActivityBtn', () => alert('Create Activity functionality coming soon!'));
-  click('menuBtn', () => alert('Menu options coming soon!'));
+  click('createActivityBtn', () => (window.showInfo ? window.showInfo('Coming Soon','Create Activity functionality coming soon!') : alert('Create Activity functionality coming soon!')));
+  click('menuBtn', () => (window.showInfo ? window.showInfo('Coming Soon','Menu options coming soon!') : alert('Menu options coming soon!')));
   click('startLessonBtn', () => switchToTab('lessons'));
   click('openGradesBtn', () => switchToTab('grades'));
   click('reviewDraftsBtn', () => switchToTab('lessons'));
@@ -141,7 +141,7 @@ function loadOverview() {
 function deleteCurrentClass() {
   const id = window.__CLASS_ID__;
   if (!id) return;
-  if (!confirm('Delete this class? This cannot be undone.')) return;
+  if (window.showConfirm) { window.showConfirm('Delete Class','Delete this class? This cannot be undone.', doDelete); return; } else { if (!confirm('Delete this class? This cannot be undone.')) return; }
   fetch('class_manage.php?action=delete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -149,7 +149,7 @@ function deleteCurrentClass() {
     body: 'id=' + encodeURIComponent(id)
   }).then(r => r.json()).then(data => {
     if (data && data.success) {
-      alert('Class deleted');
+      if (window.showSuccess) window.showSuccess('Deleted','Class deleted'); else alert('Class deleted');
       // If inside iframe, navigate parent back to list
       if (window.top && window.top.exitEmbeddedClass) {
         window.top.exitEmbeddedClass();
@@ -157,25 +157,60 @@ function deleteCurrentClass() {
         window.location.href = 'teacher_dashboard.php?section=dashboard';
       }
     } else {
-      alert(data.message || 'Failed to delete class');
+      if (typeof showError === 'function') {
+        showError('Delete Failed', data.message || 'Failed to delete class');
+      }
     }
-  }).catch(() => alert('Network error'));
+  }).catch(() => {
+    if (typeof showError === 'function') {
+      showError('Network Error', 'Network error occurred.');
+    }
+  });
 }
 
-function loadLessons() {
-  const id = window.__CLASS_ID__;
-  const container = document.querySelector('#tab-lessons .card');
+        function loadLessons() {
+          const id = window.__CLASS_ID__;
+          const container = document.querySelector('#tab-lessons .card');
+          
+          // Show loading state
+          if (container) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:16px;"></i><br>Loading lessons...</div>';
+          }
+          
+          // Show loading notification
+          if (typeof showInfo === 'function') {
+            showInfo('Loading', 'Loading lessons...');
+          }
+  
   // Lessons workspace uses panes; we can populate modules tree later
   fetch('class_view_api.php?action=list_lessons&id=' + encodeURIComponent(id), { credentials: 'same-origin' })
     .then(r => r.json()).then(data => {
-      if (!data || !data.success) { if (container) container.textContent = 'Failed to load lessons.'; return; }
+      if (!data || !data.success) { 
+        if (container) {
+          container.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;"><i class="fas fa-exclamation-triangle" style="font-size:24px;margin-bottom:16px;"></i><br>Failed to load lessons.</div>';
+        }
+        if (typeof showError === 'function') {
+          showError('Load Failed', 'Failed to load lessons.');
+        }
+        return; 
+      }
       const list = data.lessons || [];
       const tree = document.getElementById('modulesTree');
       if (tree) {
-        if (list.length === 0) tree.innerHTML = '<div class="empty-state">No modules yet. Click "Add Lesson" to start.</div>';
-        else tree.innerHTML = '<ul class="simple-list">' + list.map(l => `<li>${l.title}</li>`).join('') + '</ul>';
+        if (list.length === 0) {
+          tree.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;"><i class="fas fa-book-open" style="font-size:48px;margin-bottom:16px;opacity:0.5;"></i><br><h3 style="margin:0 0 8px 0;color:#374151;">No lessons yet</h3><p style="margin:0;color:#6b7280;">This class doesn\'t have any lessons yet.<br>Lessons will appear here when the coordinator adds them to the course.</p></div>';
+        } else {
+          tree.innerHTML = '<ul class="simple-list">' + list.map(l => `<li>${l.title}</li>`).join('') + '</ul>';
+        }
       }
-    }).catch(() => { if (container) container.textContent = 'Failed to load lessons.'; });
+    }).catch(() => { 
+      if (container) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;"><i class="fas fa-exclamation-triangle" style="font-size:24px;margin-bottom:16px;"></i><br>Network error loading lessons.</div>';
+      }
+      if (typeof showError === 'function') {
+        showError('Network Error', 'Network error loading lessons.');
+      }
+    });
 }
 
 function switchToTab(tab) {
@@ -188,12 +223,12 @@ function copyJoinCode() {
   const text = codeEl ? codeEl.textContent : '';
   if (!text) return;
   navigator.clipboard && navigator.clipboard.writeText(text).then(() => {
-    alert('Class name copied');
+    if (window.showSuccess) window.showSuccess('Copied','Class name copied'); else alert('Class name copied');
   }).catch(() => {
     // Fallback
     const ta = document.createElement('textarea');
     ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); alert('Class name copied'); } catch (e) {}
+    try { document.execCommand('copy'); if (window.showSuccess) window.showSuccess('Copied','Class name copied'); else alert('Class name copied'); } catch (e) {}
     document.body.removeChild(ta);
   });
 }
@@ -239,27 +274,27 @@ function labelForStatus(s) {
 
 // Exercise Functions (Placeholder)
 function startSelfCheck() {
-  alert('Self-Check Questions - Coming Soon!\n\n15 multiple choice questions covering all 7 topics');
+  if (window.showInfo) window.showInfo('Coming Soon','Self-Check Questions coming soon!'); else alert('Self-Check Questions - Coming Soon!\n\n15 multiple choice questions covering all 7 topics');
 }
 
 function startMainQuiz() {
-  alert('30-Item Quiz - Coming Soon!\n\nComprehensive assessment of all module topics');
+  if (window.showInfo) window.showInfo('Coming Soon','30-Item Quiz coming soon!'); else alert('30-Item Quiz - Coming Soon!\n\nComprehensive assessment of all module topics');
 }
 
 function startBoardRecitation() {
-  alert('Board Recitation - Coming Soon!\n\nInteractive number system conversion practice');
+  if (window.showInfo) window.showInfo('Coming Soon','Board Recitation coming soon!'); else alert('Board Recitation - Coming Soon!\n\nInteractive number system conversion practice');
 }
 
 function startHardwareID() {
-  alert('Hardware Identification - Coming Soon!\n\nIdentify and match computer hardware components');
+  if (window.showInfo) window.showInfo('Coming Soon','Hardware Identification coming soon!'); else alert('Hardware Identification - Coming Soon!\n\nIdentify and match computer hardware components');
 }
 
 function startNumberConverter() {
-  alert('Number System Converter - Coming Soon!\n\nPractice converting between different number systems');
+  if (window.showInfo) window.showInfo('Coming Soon','Number System Converter coming soon!'); else alert('Number System Converter - Coming Soon!\n\nPractice converting between different number systems');
 }
 
 function startHardwareWorksheet() {
-  alert('Hardware Worksheet - Coming Soon!\n\nMatch hardware components with their functions');
+  if (window.showInfo) window.showInfo('Coming Soon','Hardware Worksheet coming soon!'); else alert('Hardware Worksheet - Coming Soon!\n\nMatch hardware components with their functions');
 }
 
 // Expose functions globally

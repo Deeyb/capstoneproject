@@ -1,0 +1,474 @@
+/**
+ * REUSABLE ACTIVITY CREATOR STYLES
+ * CSS for the modular activity creation system
+ */
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+
+/* Modal Card */
+.modal-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    max-width: 900px;
+    width: 95%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Modal Header */
+.modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8f9fa;
+}
+
+.modal-header strong {
+    flex: 1;
+    font-size: 18px;
+    color: #333;
+    font-weight: 600;
+}
+
+/* Modal Body */
+#racBody {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+    background: white;
+}
+
+/* Modal Footer */
+.modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+/* Form Sections */
+.form-section {
+    border: 1px solid #e3e6ea;
+    border-radius: 8px;
+    padding: 20px;
+    background: #f8f9fa;
+    margin-bottom: 16px;
+}
+
+.form-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Activity Type Selection */
+.rac-radio-tile {
+    flex: 1;
+    min-width: 200px;
+    border: 2px solid #e3e6ea;
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    background: white;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rac-radio-tile:hover {
+    border-color: #28a745;
+    background: #f8fff9;
+}
+
+.rac-radio-tile input[type="radio"] {
+    margin-right: 8px;
+}
+
+.rac-radio-tile input[type="radio"]:checked + div {
+    color: #28a745;
+    font-weight: 600;
+}
+
+/* Form Inputs */
+.modal-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.modal-input:focus {
+    outline: none;
+    border-color: #28a745;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+}
+
+.modal-input:invalid {
+    border-color: #dc3545;
+}
+
+/* Action Buttons */
+.action-btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.action-btn.btn-green {
+    background: #28a745;
+    color: white;
+}
+
+.action-btn.btn-green:hover:not(:disabled) {
+    background: #218838;
+    transform: translateY(-1px);
+}
+
+.action-btn.btn-gray {
+    background: #6c757d;
+    color: white;
+}
+
+.action-btn.btn-gray:hover:not(:disabled) {
+    background: #5a6268;
+}
+
+.action-btn.btn-red {
+    background: #dc3545;
+    color: white;
+}
+
+.action-btn.btn-red:hover:not(:disabled) {
+    background: #c82333;
+}
+
+/* Question Items */
+.question-item {
+    border: 1px solid #e3e6ea;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.question-item h4 {
+    margin: 0 0 16px 0;
+    color: #333;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Choice Items */
+.choice-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e3e6ea;
+}
+
+.choice-item input[type="radio"] {
+    margin: 0;
+}
+
+.choice-item span {
+    font-weight: 600;
+    color: #333;
+    min-width: 20px;
+}
+
+.choice-item input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+/* Test Case Items */
+.test-case-item {
+    border: 1px solid #e3e6ea;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.test-case-item strong {
+    color: #333;
+    font-size: 14px;
+}
+
+/* File Type Options */
+.file-type-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.file-type-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.file-type-option:hover {
+    background: #f8f9fa;
+    border-color: #28a745;
+}
+
+.file-type-option input[type="checkbox"] {
+    margin: 0;
+}
+
+.file-type-option span {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    color: #666;
+    padding: 40px 20px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px dashed #ddd;
+}
+
+/* Loading States */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #28a745;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modal-card {
+        width: 98%;
+        max-height: 95vh;
+        margin: 10px;
+    }
+    
+    .modal-header,
+    .modal-footer {
+        padding: 12px 16px;
+    }
+    
+    #racBody {
+        padding: 16px;
+    }
+    
+    .rac-radio-tile {
+        min-width: 150px;
+        padding: 12px;
+    }
+    
+    .form-section {
+        padding: 16px;
+    }
+    
+    .question-item {
+        padding: 16px;
+    }
+    
+    .choice-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .choice-item input[type="text"] {
+        margin-top: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-card {
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+    
+    .rac-radio-tile {
+        min-width: 100%;
+    }
+    
+    .file-type-options {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .modal-card {
+        background: #2d3748;
+        color: #e2e8f0;
+    }
+    
+    .modal-header,
+    .modal-footer {
+        background: #1a202c;
+        border-color: #4a5568;
+    }
+    
+    .form-section {
+        background: #1a202c;
+        border-color: #4a5568;
+    }
+    
+    .rac-radio-tile {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .rac-radio-tile:hover {
+        background: #2f855a;
+        border-color: #38a169;
+    }
+    
+    .question-item,
+    .test-case-item {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .choice-item {
+        background: #1a202c;
+        border-color: #4a5568;
+    }
+    
+    .modal-input {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .modal-input:focus {
+        border-color: #38a169;
+        box-shadow: 0 0 0 3px rgba(56, 161, 105, 0.1);
+    }
+    
+    .empty-state {
+        background: #1a202c;
+        border-color: #4a5568;
+        color: #a0aec0;
+    }
+}
+
+/* Animation for smooth transitions */
+.modal-overlay {
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-card {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Focus management for accessibility */
+.modal-input:focus,
+.action-btn:focus {
+    outline: 2px solid #28a745;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .rac-radio-tile {
+        border-width: 3px;
+    }
+    
+    .rac-radio-tile:hover,
+    .rac-radio-tile input[type="radio"]:checked + div {
+        border-color: #000;
+    }
+    
+    .action-btn {
+        border: 2px solid currentColor;
+    }
+}
+
+
+

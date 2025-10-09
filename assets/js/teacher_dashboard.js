@@ -31,7 +31,7 @@
 		if (form) {
 			const input = qs('#classNameInput', form);
 			if (input) setTimeout(function(){ input.focus(); }, 50);
-			try { bindCreateClassControls(); } catch(_) {}
+			// REMOVED: bindCreateClassControls() - already called on page load
 			const codeInput = qs('#classCodeInput', form);
 			if (codeInput && !codeInput.value) {
 				fetch('class_manage.php?action=generate_code', { credentials: 'same-origin' })
@@ -117,8 +117,35 @@
 	function renderCreateTile(grid){
 		var tile = document.createElement('div');
 		tile.className = 'create-tile';
-		tile.innerHTML = '<span>+ Create Class</span>';
+		tile.style.cssText = 'background:white;border:2px dashed #1d9b3e;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;transition:all 0.3s ease;border-radius:16px;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.1);padding:24px;margin-bottom:20px;height:200px;';
+		tile.innerHTML = [
+			'<div style="text-align:center;color:#1d9b3e;position:relative;z-index:2;height:100%;display:flex;flex-direction:column;justify-content:center;">',
+				'<div style="background:#1d9b3e;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 4px 12px rgba(29,155,62,0.3);">',
+					'<i class="fas fa-plus" style="font-size:24px;color:white;font-weight:300;"></i>',
+				'</div>',
+				'<h3 style="margin:0 0 8px 0;font-size:20px;font-weight:700;color:#374151;">Create New Class</h3>',
+				'<p style="margin:0 0 16px 0;font-size:14px;color:#6b7280;font-weight:500;">Start a new learning journey</p>',
+				'<div style="background:#1d9b3e;color:white;padding:6px 12px;border-radius:16px;font-size:11px;font-weight:600;display:inline-block;">',
+					'Click to begin',
+				'</div>',
+			'</div>'
+		].join('');
+		
 		tile.addEventListener('click', function(){ if (typeof openForm === 'function') openForm(); });
+		
+		// Add hover effects
+		tile.addEventListener('mouseenter', function(){
+			this.style.transform = 'translateY(-8px) scale(1.02)';
+			this.style.boxShadow = '0 20px 40px rgba(0,0,0,0.15)';
+			this.style.borderColor = '#28a745';
+		});
+		
+		tile.addEventListener('mouseleave', function(){
+			this.style.transform = 'translateY(0) scale(1)';
+			this.style.boxShadow = '0 8px 32px rgba(0,0,0,0.1)';
+			this.style.borderColor = '#1d9b3e';
+		});
+		
 		grid.appendChild(tile);
 	}
 
@@ -135,16 +162,81 @@
 		classes.forEach(function(cls){
 			var card = document.createElement('div');
 			card.className = 'class-item';
+            card.style.cssText = 'cursor:pointer;background:linear-gradient(135deg,#1d9b3e 0%,#28a745 100%);border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 8px 32px rgba(29,155,62,0.15);transition:all 0.3s ease;position:relative;overflow:hidden;height:200px;';
+            card.setAttribute('data-class-id', cls.id);
+            
+            // Add hover effects
+            card.addEventListener('mouseenter', function(){
+                this.style.transform = 'translateY(-8px) scale(1.02)';
+                this.style.boxShadow = '0 20px 40px rgba(29,155,62,0.25)';
+            });
+            
+            card.addEventListener('mouseleave', function(){
+                this.style.transform = 'translateY(0) scale(1)';
+                this.style.boxShadow = '0 8px 32px rgba(29,155,62,0.15)';
+            });
+            
 			card.innerHTML = [
-				'<div class="class-header">',
-					'<h3 class="class-title">' + (cls.name || 'Untitled') + '</h3>',
-					'<span class="class-status status-active">Active</span>',
+                '<div style="position:relative;z-index:2;">',
+                    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">',
+                        '<div style="flex:1;">',
+                            '<h3 style="color:white;font-size:24px;font-weight:700;margin:0 0 8px 0;text-shadow:0 2px 4px rgba(0,0,0,0.3);">' + (cls.name || 'Untitled Class') + '</h3>',
+                            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">',
+                                '<span style="background:#ffffff;color:#1d9b3e;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;box-shadow:0 4px 12px rgba(255,255,255,0.3);">ACTIVE</span>',
 				'</div>',
-				'<div class="class-body">',
-					'<div><strong>Code:</strong> ' + (cls.code || '') + '</div>',
-					(cls.course_id ? ('<div><strong>Course ID:</strong> ' + cls.course_id + '</div>') : ''),
-				'</div>'
+                        '</div>',
+                        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">',
+                            '<div style="display:flex;gap:6px;">',
+                                '<button style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:12px;backdrop-filter:blur(10px);transition:all 0.2s;" title="Enter Class" onclick="enterClass(' + cls.id + ')">',
+                                    '<i class="fas fa-door-open"></i>',
+                                '</button>',
+                                '<button style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:12px;backdrop-filter:blur(10px);transition:all 0.2s;" title="Class Settings">',
+                                    '<i class="fas fa-cog"></i>',
+                                '</button>',
+                            '</div>',
+                        '</div>',
+                    '</div>',
+                    '<div style="display:flex;justify-content:space-between;align-items:center;color:rgba(255,255,255,0.9);font-size:14px;">',
+                        '<div style="display:flex;align-items:center;gap:16px;">',
+                            '<div style="display:flex;align-items:center;gap:6px;">',
+                                '<i class="fas fa-users" style="font-size:14px;"></i>',
+                                '<span>0 Students</span>',
+                            '</div>',
+                            '<div style="display:flex;align-items:center;gap:6px;">',
+                                '<i class="fas fa-book" style="font-size:14px;"></i>',
+                                '<span>0 Modules</span>',
+                            '</div>',
+                        '</div>',
+                        '<div style="display:flex;align-items:center;gap:6px;color:rgba(255,255,255,0.7);font-size:12px;">',
+                            '<i class="fas fa-clock"></i>',
+                            '<span>Created recently</span>',
+                        '</div>',
+                    '</div>',
+                '</div>',
+                '<div style="position:absolute;top:0;right:0;width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:50%;transform:translate(30px,-30px);"></div>',
+                '<div style="position:absolute;bottom:0;left:0;width:60px;height:60px;background:rgba(255,255,255,0.05);border-radius:50%;transform:translate(-20px,20px);"></div>'
 			].join('');
+			
+			// Add click event handler
+			card.addEventListener('click', function(e) {
+				e.preventDefault();
+				var classId = this.getAttribute('data-class-id');
+				if (classId) {
+					enterClass(classId);
+				}
+			});
+			
+			// Add hover effects
+			card.addEventListener('mouseenter', function() {
+				this.style.transform = 'translateY(-2px)';
+				this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+			});
+			
+			card.addEventListener('mouseleave', function() {
+				this.style.transform = 'translateY(0)';
+				this.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+			});
+			
 			grid.appendChild(card);
 		});
 	}
@@ -184,10 +276,25 @@
 
 	// Expose for manual refresh if needed
 	window.__teacherLoadActive = loadActiveClasses;
+	
+	// Function to enter a class
+	function enterClass(classId) {
+		console.log('Entering class:', classId);
+		// Set global class ID for teacher module creation
+		window.currentClassId = classId;
+		document.body.setAttribute('data-class-id', classId);
+		console.log('✅ Class ID set for teacher module creation:', classId);
+		// Redirect to class dashboard
+		window.location.href = 'class_dashboard.php?class_id=' + classId;
+	}
 })();
 
 // ===== Create Class controls (moved) =====
 function bindCreateClassControls(){
+	// Prevent multiple event listener attachments
+	if (window.createClassControlsBound) return;
+	window.createClassControlsBound = true;
+	
 	var regenBtn = document.getElementById('regenCodeBtn');
 	var copyBtn = document.getElementById('copyCodeBtn');
 	var codeInput = document.getElementById('classCodeInput');
@@ -224,7 +331,7 @@ function bindCreateClassControls(){
 			var courseId = courseHidden && courseHidden.value ? parseInt(courseHidden.value, 10) : null;
 			var useCustom = customizeToggle ? customizeToggle.checked : false;
 			var code = (codeInput && useCustom) ? (codeInput.value || '').trim().toUpperCase() : null;
-			if (!name) { alert('Please enter a class name.'); return; }
+			if (!name) { showWarning('Validation Error', 'Please enter a class name.'); return; }
 			var fd = new FormData();
 			fd.append('action','create');
 			fd.append('name', name);
@@ -237,14 +344,112 @@ function bindCreateClassControls(){
 						if (typeof closeForm === 'function') closeForm();
 						window.location.reload();
   } else {
-						alert((d && d.message) || 'Failed to create class');
+						showError('Class Creation Failed', (d && d.message) || 'Failed to create class');
 					}
 				})
-				.catch(function(){ alert('Network error.'); });
+				.catch(function(){ showError('Network Error', 'Network error occurred.'); });
 		});
 	}
 }
 
+// Attach handlers to material action buttons
+function wireMaterialItemEvents(itemDiv){
+    var downloadBtn = itemDiv.querySelector('.download-material-btn');
+    var editBtn = itemDiv.querySelector('.edit-material-btn');
+    var deleteBtn = itemDiv.querySelector('.delete-material-btn');
+
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', function(){
+            var materialId = itemDiv.getAttribute('data-material-id');
+            var url = itemDiv.getAttribute('data-url');
+            if (materialId) {
+                window.open('material_download.php?id=' + encodeURIComponent(materialId), '_blank');
+            } else if (url) {
+                window.open(url, '_blank');
+            } else {
+                showWarning('File Not Ready', 'File is not available yet. Please try again shortly.');
+            }
+        });
+    }
+
+    if (editBtn) {
+        editBtn.addEventListener('click', function(){
+            var materialId = itemDiv.getAttribute('data-material-id');
+            var type = (itemDiv.getAttribute('data-type') || '').toLowerCase();
+            if (!materialId) { showWarning('Material Not Saved', 'Please wait until the material is saved.'); return; }
+            if (type !== 'link') { showWarning('Edit Not Allowed', 'Only external links can be edited here.'); return; }
+            var currentUrl = itemDiv.getAttribute('data-url') || '';
+            // Professional modal instead of prompt
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            overlay.innerHTML = '<div style="background:#ffffff;border-radius:12px;padding:20px;max-width:520px;width:94%;box-shadow:0 12px 30px rgba(0,0,0,0.2);">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e5e7eb;padding-bottom:10px;">' +
+                    '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Edit Link</h3>' +
+                    '<button id="closeEditLink" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">&times;</button>' +
+                '</div>' +
+                '<label style="display:block;margin:0 0 6px;color:#374151;font-weight:600;">URL</label>' +
+                '<input id="editLinkInput" type="url" value="' + escapeHtml(currentUrl) + '" placeholder="https://example.com" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />' +
+                '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">' +
+                    '<button id="cancelEditLink" style="background:#6b7280;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">Cancel</button>' +
+                    '<button id="saveEditLink" style="background:#1d9b3e;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">Save</button>' +
+                '</div>' +
+            '</div>';
+            document.body.appendChild(overlay);
+            var input = overlay.querySelector('#editLinkInput'); if (input) input.select();
+            function close(){ if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+            overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+            overlay.querySelector('#closeEditLink').onclick = close;
+            overlay.querySelector('#cancelEditLink').onclick = close;
+            overlay.querySelector('#saveEditLink').onclick = function(){
+                var newUrl = (input.value || '').trim();
+                if (!newUrl) { close(); return; }
+                var form = new FormData();
+                form.append('action', 'material_update');
+                form.append('material_id', materialId);
+                form.append('url', newUrl);
+                if (typeof getCSRFToken === 'function') {
+                    getCSRFToken().then(function(token){ if (token) form.append('csrf_token', token); submitMaterialUpdate(form, itemDiv, newUrl); });
+                } else {
+                    submitMaterialUpdate(form, itemDiv, newUrl);
+                }
+                close();
+            };
+        });
+    }
+
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function(){
+            // Professional confirm modal
+            showConfirm('Delete Material', 'Are you sure you want to delete this material?', function(){
+            var materialId = itemDiv.getAttribute('data-material-id');
+            if (!materialId) { itemDiv.remove(); return; }
+            var form = new FormData();
+            form.append('action', 'material_delete');
+            form.append('material_id', materialId);
+            if (typeof getCSRFToken === 'function') {
+                getCSRFToken().then(function(token){ if (token) form.append('csrf_token', token); fetch('teacher_materials_api.php', { method:'POST', body: form, credentials:'same-origin' }).then(function(r){return r.json();}).then(function(d){ if (d && d.success){ itemDiv.remove(); showSuccess('Deleted','Material deleted.'); } else { showError('Delete Failed', 'Failed to delete material.'); } }); });
+            } else {
+                fetch('teacher_materials_api.php', { method:'POST', body: form, credentials:'same-origin' }).then(function(r){return r.json();}).then(function(d){ if (d && d.success){ itemDiv.remove(); showSuccess('Deleted','Material deleted.'); } else { showError('Delete Failed', 'Failed to delete material.'); } });
+            }
+            });
+        });
+    }
+}
+
+function submitMaterialUpdate(form, itemDiv, newUrl){
+    fetch('teacher_materials_api.php', { method:'POST', body: form, credentials:'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d && d.success){
+                itemDiv.setAttribute('data-url', newUrl);
+                var urlLine = itemDiv.querySelector('small');
+                if (urlLine) urlLine.textContent = 'URL: ' + newUrl;
+            } else {
+                showError('Update Failed', 'Update failed.');
+            }
+        })
+        .catch(function(){ showError('Network Error', 'Network error while updating.'); });
+}
 // ===== Step 2: Published courses dropdown =====
 function loadPublishedCoursesForCreate(){
 	var selectedText = document.getElementById('courseSelectedText');
@@ -464,7 +669,7 @@ function confirmAddLesson(){
 	var lessonsContainer = document.getElementById('lessons');
 	if (!nameEl || !lessonsContainer) return;
 	var title = (nameEl.value || '').trim();
-	if (!title) { alert('Please enter lesson name'); return; }
+	if (!title) { showWarning('Validation Error', 'Please enter lesson name'); return; }
 	var div = document.createElement('div');
 	div.className = 'lesson';
 	div.innerHTML = '<div class="lesson-header">' +
@@ -524,16 +729,27 @@ function initStep5Sortables(){
         if (list.sortableInstance) list.sortableInstance.destroy();
         list.sortableInstance = new Sortable(list, {
       animation: 150,
-      handle: '.drag-handle',
+            handle: '.lesson-drag',
       ghostClass: 'sortable-ghost',
+            filter: '.non-draggable',
             onEnd: function(){ try { saveStep5Draft(); } catch(_) {} }
     });
   });
-    // Sort topics inside lessons
-  initSortableTopics();
+    // Sort topics within each lesson
+    document.querySelectorAll('.lesson .topics').forEach(function(list){
+        if (list.sortableInstance) list.sortableInstance.destroy();
+        list.sortableInstance = new Sortable(list, {
+            animation: 150,
+            handle: '.topic-drag',
+            ghostClass: 'sortable-ghost',
+            filter: '.non-draggable',
+            onEnd: function(){ try { saveStep5Draft(); } catch(_) {} }
+        });
+    });
 }
 
 // Step 5: Add handlers for add-lesson/add-topic buttons
+// Single delegated click handler (ensure only one is registered)
 document.addEventListener('click', function(e){
     var t = e.target;
     if (!t) return;
@@ -543,54 +759,90 @@ document.addEventListener('click', function(e){
     if (t.getAttribute('data-action') === 'add-lesson') {
         var moduleEl = t.closest('.module');
         if (!moduleEl) return;
+        // Prevent duplicate modals: if one exists, do nothing
+        if (document.querySelector('[data-modal="add-lesson"]')) return;
         showAddLessonModal(moduleEl);
-    }
-    if (t.getAttribute('data-action') === 'add-topic') {
-        console.log('🔧 Add Topic button clicked!');
-        var lessonEl = t.closest('.lesson');
-        var moduleEl = t.closest('.module');
-        console.log('🔧 Lesson found:', lessonEl);
-        console.log('🔧 Module found:', moduleEl);
-        if (lessonEl) {
-            console.log('🔧 Opening topic modal for lesson');
-            showAddTopicToLessonModal(lessonEl);
-        } else if (moduleEl) {
-            console.log('🔧 Opening topic modal for module');
-            showAddTopicToModuleModal(moduleEl);
-        }
     }
     if (t.getAttribute('data-action') === 'add-material') {
         console.log('🔧 Add Material button clicked!');
+        console.log('🔧 Button element:', t);
+        console.log('🔧 Parent elements:', t.parentElement, t.closest('.topic'), t.closest('.lesson'));
+        
+        // Try to find the closest topic or lesson
+        var topicEl = t.closest('.topic');
         var lessonEl = t.closest('.lesson');
-        if (!lessonEl) {
-            console.log('🔧 No lesson found!');
+        
+        if (topicEl) {
+            console.log('🔧 Topic found:', topicEl);
+            var topicTitle = topicEl.querySelector('.topic-name')?.textContent || 
+                           topicEl.querySelector('div[style*="font-weight:600"]')?.textContent || 
+                           'Unknown Topic';
+            console.log('🔧 Topic title:', topicTitle);
+            showAddMaterialModal(topicEl, topicTitle);
+        } else if (lessonEl) {
+        console.log('🔧 Lesson found:', lessonEl);
+        // Best UX: silently persist module and lesson, then open modal
+        var moduleEl = lessonEl.closest('.module');
+        ensureModuleSaved(moduleEl).then(function(){
+            return ensureLessonSaved(lessonEl);
+        }).then(function(){
+            showAddMaterialModal(lessonEl, 'Lesson');
+        }).catch(function(){ /* errors are surfaced via notifications */ });
+        } else {
+            console.log('🔧 No topic or lesson found!');
+                showError('Material Error', 'Could not find the topic or lesson to add material to.');
     return; 
   }
-        console.log('🔧 Lesson found:', lessonEl);
-        showCoordinatorMaterialModal(lessonEl);
     }
     if (t.getAttribute('data-action') === 'add-activity') {
-        console.log('🔧 Add Activity button clicked!');
-        var lessonEl = t.closest('.lesson');
-        if (!lessonEl) {
-            console.log('🔧 No lesson found!');
+        console.log('🚫 Add Activity functionality has been completely removed');
+        showInfo('Activity Disabled', 'Activity creation has been disabled.');
             return;
-        }
-        console.log('🔧 Lesson found:', lessonEl);
-        showCoordinatorActivityModal(lessonEl);
     }
     if (t.getAttribute('data-action') === 'edit-module') {
         var moduleEl = t.closest('.module');
         if (!moduleEl) return;
-        editModuleName(moduleEl);
+        editModule(moduleEl);
     }
     if (t.getAttribute('data-action') === 'delete-module') {
         var moduleEl = t.closest('.module');
         if (!moduleEl) return;
-        if (confirm('Are you sure you want to delete this module?')) {
-            moduleEl.remove();
-            try { saveStep5Draft(); } catch(_) {}
-        }
+        deleteModule(moduleEl);
+    }
+    if (t.getAttribute('data-action') === 'edit-topic') {
+        var topicEl = t.closest('.topic');
+        if (!topicEl) return;
+        editTopic(topicEl);
+    }
+    if (t.getAttribute('data-action') === 'delete-topic') {
+        var topicEl = t.closest('.topic');
+        if (!topicEl) return;
+        deleteTopic(topicEl);
+    }
+    if (t.getAttribute('data-action') === 'edit-lesson') {
+        var lessonEl = t.closest('.lesson');
+        if (!lessonEl) return;
+        editLesson(lessonEl);
+    }
+    if (t.getAttribute('data-action') === 'save-lesson') {
+        var lessonEl = t.closest('.lesson');
+        if (!lessonEl) return;
+        saveLesson(lessonEl);
+    }
+    if (t.getAttribute('data-action') === 'delete-lesson') {
+        var lessonEl = t.closest('.lesson');
+        if (!lessonEl) return;
+        deleteLesson(lessonEl);
+    }
+    if (t.getAttribute('data-action') === 'add-lesson') {
+        var moduleEl = t.closest('.module');
+        if (!moduleEl) return;
+        showAddLessonModal(moduleEl);
+    }
+    if (t.getAttribute('data-action') === 'module-settings') {
+        var moduleEl = t.closest('.module');
+        if (!moduleEl) return;
+        showModuleSettings(moduleEl);
     }
     if (t.getAttribute('data-action') === 'edit-lesson') {
         var lessonEl = t.closest('.lesson');
@@ -600,10 +852,11 @@ document.addEventListener('click', function(e){
     if (t.getAttribute('data-action') === 'delete-lesson') {
         var lessonEl = t.closest('.lesson');
         if (!lessonEl) return;
-        if (confirm('Are you sure you want to delete this lesson?')) {
+        showConfirm('Delete Lesson', 'Are you sure you want to delete this lesson?', function(){
             lessonEl.remove();
             try { saveStep5Draft(); } catch(_) {}
-        }
+            showSuccess('Deleted','Lesson deleted.');
+        });
     }
     if (t.getAttribute('data-action') === 'remove-topic') {
         var row = t.closest('.topic');
@@ -617,6 +870,30 @@ function getCurrentCourseIdForStep5(){
     var hidden = document.getElementById('courseSelect');
     var v = hidden && hidden.value ? parseInt(hidden.value,10) : null;
     return (v && !isNaN(v)) ? v : null;
+}
+
+// NEW: Get current class ID for teacher-specific modules
+function getCurrentClassIdForTeacher(){
+    // Try to get from URL parameter first
+    var urlParams = new URLSearchParams(window.location.search);
+    var classId = urlParams.get('class_id');
+    if (classId) return parseInt(classId, 10);
+    
+    // Try to get from global variable if set
+    if (window.currentClassId) return parseInt(window.currentClassId, 10);
+    
+    // Try to get from data attribute on body
+    var bodyClassId = document.body.getAttribute('data-class-id');
+    if (bodyClassId) return parseInt(bodyClassId, 10);
+    
+    // Fallback: try to get from the first class card if we're on teacher dashboard
+    var firstClassCard = document.querySelector('.class-item[data-class-id]');
+    if (firstClassCard) {
+        var cardClassId = firstClassCard.getAttribute('data-class-id');
+        if (cardClassId) return parseInt(cardClassId, 10);
+    }
+    
+    return null;
 }
 
 function saveStep5Draft(){
@@ -753,7 +1030,7 @@ function renderCourseOutlineHTML(outline){
             fd.append('source', code);
             fd.append('stdin', '');
             function send(body){
-                fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: body })
+                fetch('teacher_materials_api.php', { method:'POST', credentials:'same-origin', body: body })
                   .then(function(r){ return r.text(); })
                   .then(function(t){
                       var d; try { d = JSON.parse(t); } catch(e) { d = { success:false, message:'Non-JSON response', raw:t }; }
@@ -893,6 +1170,26 @@ function loadSelectedSnippet(){
 
 function escapeHtml(str){ return String(str).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]); }); }
 
+// CSRF token helper for teacher class materials API
+function getCSRFToken(){
+    try {
+        return fetch('teacher_class_materials_api.php?action=get_csrf_token', { credentials:'same-origin' })
+            .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+            .then(function(d){ return (d && (d.csrf_token || d.token)) ? (d.csrf_token || d.token) : null; })
+            .catch(function(){ return null; });
+    } catch(_) { return Promise.resolve(null); }
+}
+
+// CSRF token helper for teacher outline API
+function getTeacherCSRFToken(){
+    try {
+        return fetch('teacher_outline_api.php?action=get_csrf_token', { credentials:'same-origin' })
+            .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+            .then(function(d){ return (d && (d.csrf_token || d.token)) ? (d.csrf_token || d.token) : null; })
+            .catch(function(){ return null; });
+    } catch(_) { return Promise.resolve(null); }
+}
+
 // Dynamic Add Module Modal
 function showAddModuleModal(){
     // Create modal
@@ -954,7 +1251,7 @@ function showAddModuleModal(){
                 createNewModule(title);
                 modal.remove();
             } else {
-                alert('Please enter a module title.');
+                showWarning('Validation Error', 'Please enter a module title.');
             }
         });
         
@@ -976,7 +1273,7 @@ function showAddModuleModal(){
                     createNewModule(title);
                     modal.remove();
     } else {
-                    alert('Please enter a module title.');
+                    showWarning('Validation Error', 'Please enter a module title.');
         }
       }
     });
@@ -1006,13 +1303,17 @@ function createNewModule(title){
             '</span>' +
             '<i class="fas fa-layer-group" style="color:#6b7280;font-size:16px;"></i>' +
             '<span style="font-weight:700;color:#374151;text-transform:uppercase;">' + escapeHtml(title) + '</span>' +
+            '<span class="lessons-count-badge" style="background:#eef2ff;color:#1f2937;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:8px;">0 lessons</span>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;">' +
-            '<button class="topic-btn" data-action="add-topic" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">' +
-                '<i class="fas fa-plus"></i>Topic' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<button class="lesson-btn" data-action="add-lesson" style="background:#3b82f6;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">' +
+                '<i class="fas fa-book"></i>Lesson' +
             '</button>' +
             '<button class="edit-module-btn" data-action="edit-module" style="background:#6b7280;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">' +
                 '<i class="fas fa-pencil-alt"></i>Edit' +
+            '</button>' +
+            '<button class="settings-btn" data-action="module-settings" style="background:#8b5cf6;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">' +
+                '<i class="fas fa-cog"></i>Settings' +
             '</button>' +
             '<button class="delete-module-btn" data-action="delete-module" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">' +
                 '<i class="fas fa-trash"></i>Delete' +
@@ -1020,11 +1321,34 @@ function createNewModule(title){
         '</div>' +
     '</div>' +
     '<div class="module-content" style="padding:20px;text-align:center;">' +
-        '<div style="color:#9ca3af;font-style:italic;font-size:14px;">No lessons</div>' +
+        '<div class="module-empty" style="color:#9ca3af;font-style:italic;font-size:14px;">No lessons</div>' +
+        '<div class="module-lessons" style="text-align:left;margin-top:8px;"></div>' +
+        '<div class="module-footer-actions" style="display:flex;justify-content:flex-end;margin-top:12px;gap:8px;">' +
+            '<button class="module-footer-save" data-action="module-footer-save" style="background:#1d9b3e;color:#fff;border:none;padding:8px 14px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:6px;">' +
+                '<i class="fas fa-save"></i><span>Save Module</span>' +
+            '</button>' +
+        '</div>' +
     '</div>';
     
     // Add the new module to the container
     lessonsContainer.appendChild(div);
+
+    // Removed per-module save button logic
+    var footerSave = div.querySelector('.module-footer-save');
+    if (footerSave) {
+        footerSave.addEventListener('click', function(){
+            // Persist this module and its unsaved lessons
+            ensureModuleSaved(div).then(function(){
+                var chain = Promise.resolve();
+                Array.from(div.querySelectorAll('.lesson')).forEach(function(lessonEl){
+                    var lid = lessonEl.getAttribute('data-lesson-id');
+                    if (!lid || lid.indexOf('new_') === 0){ chain = chain.then(function(){ return ensureLessonSaved(lessonEl); }); }
+                });
+                return chain;
+            }).then(function(){ showSuccess('Saved','Module saved.'); })
+            .catch(function(){ showError('Save Failed','Unable to save module.'); });
+        });
+    }
     
     // Initialize sortables for the new module
     initStep5Sortables();
@@ -1037,17 +1361,21 @@ function createNewModule(title){
         showNotification('success', 'Success', 'Module "' + title + '" added successfully!');
     } else {
         // Fallback to alert if native notification not available
-        alert('Module "' + title + '" added successfully!');
+        showSuccess('Module Added', 'Module "' + title + '" added successfully!');
     }
     
+    try { updateModuleLessonCount(div); } catch(_) {}
     console.log('New module added:', title);
 }
 
 // Dynamic Add Lesson Modal
 function showAddLessonModal(moduleEl){
+    // Guard against duplicate instances
+    if (document.querySelector('[data-modal="add-lesson"]')) return;
     // Create modal
     var modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.setAttribute('data-modal', 'add-lesson');
     modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:400px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
         '<h3 style="margin:0 0 15px 0;color:#1d9b3e;font-weight:700;">Add New Lesson</h3>' +
         '<div style="margin-bottom:15px;">' +
@@ -1100,12 +1428,9 @@ function showAddLessonModal(moduleEl){
     if (createBtn) {
         createBtn.addEventListener('click', function(){
             var title = input.value.trim();
-            if (title) {
+            if (!title) { showWarning('Validation Error', 'Please enter a lesson title.'); return; }
                 createNewLesson(moduleEl, title);
                 modal.remove();
-    } else {
-                alert('Please enter a lesson title.');
-            }
         });
         
         // Add hover effects
@@ -1122,15 +1447,62 @@ function showAddLessonModal(moduleEl){
         input.addEventListener('keypress', function(e){
             if (e.key === 'Enter') {
                 var title = input.value.trim();
-                if (title) {
+                if (!title) { showWarning('Validation Error', 'Please enter a lesson title.'); return; }
                     createNewLesson(moduleEl, title);
                     modal.remove();
-  } else {
-                    alert('Please enter a lesson title.');
-        }
+            }
+        });
+    }
+
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+                    modal.remove();
       }
     });
   }
+
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
 
     // Close on backdrop click
     modal.addEventListener('click', function(e){
@@ -1140,25 +1512,101 @@ function showAddLessonModal(moduleEl){
     });
 }
 
-function createNewLesson(moduleEl, title){
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function createNewLesson(moduleEl, title, persistedId){
+    normalizeModuleLayout(moduleEl);
     var lessonsContainer = moduleEl.querySelector('.module-lessons');
   if (!lessonsContainer) return;
   
-    // Create new lesson
+    // Create new lesson (standardized structure)
     var div = document.createElement('div');
     div.className = 'lesson';
-    div.setAttribute('data-lesson-id', 'new_' + Date.now());
-    div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
-        '<div style="font-weight:600;color:#374151;">' + escapeHtml(title) + '</div>' +
+    div.setAttribute('data-lesson-id', persistedId ? String(persistedId) : ('new_' + Date.now()));
+    div.innerHTML = '' +
+        '<div class="lesson-header" style="background:#f1f5f9;padding:10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span class="drag-handle lesson-drag" title="Drag to reorder lessons" style="color:#6b7280;cursor:grab;">' +
+                    '<i class="fas fa-grip-vertical"></i>' +
+                '</span>' +
+                '<span style="font-weight:600;">' + escapeHtml(title) + '</span>' +
+            '</div>' +
         '<div style="display:flex;gap:8px;">' +
-            '<button class="add-topic-btn" data-action="add-topic" style="background:#10b981;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add topic">' +
-                '<i class="fas fa-plus" style="font-size:12px;"></i>Topic' +
-            '</button>' +
             '<button class="add-material-btn" data-action="add-material" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add material">' +
                 '<i class="fas fa-paperclip" style="font-size:12px;"></i>Material' +
-            '</button>' +
-            '<button class="add-activity-btn" data-action="add-activity" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add activity">' +
-                '<i class="fas fa-list" style="font-size:12px;"></i>Activity' +
             '</button>' +
             '<button class="edit-lesson-btn" data-action="edit-lesson" style="background:#6b7280;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Edit lesson">' +
                 '<i class="fas fa-pencil-alt" style="font-size:12px;"></i>Edit' +
@@ -1168,30 +1616,19 @@ function createNewLesson(moduleEl, title){
             '</button>' +
         '</div>' +
     '</div>' +
-    '<div style="margin-top:4px;margin-left:12px;">' +
-        '<div style="font-size:11px;color:#6c757d;margin-left:12px;">No materials</div>' +
+        '<div class="lesson-content" style="padding:15px;">' +
+            '<div style="color:#9ca3af;font-style:italic;font-size:12px;">No materials added yet</div>' +
     '</div>';
     
     // Add the new lesson to the module
     lessonsContainer.appendChild(div);
+    normalizeModuleLayout(moduleEl);
     
     // Update lesson count in module header
     updateModuleLessonCount(moduleEl);
     
-    // Initialize sortables
-    initStep5Sortables();
-    
-    // Save the draft to localStorage
+    // Initialize any event handlers if necessary
     try { saveStep5Draft(); } catch(_) {}
-    
-    // Show success message using native notification
-    if (typeof showNotification === 'function') {
-        showNotification('success', 'Success', 'Lesson "' + title + '" added successfully!');
-    } else {
-        alert('Lesson "' + title + '" added successfully!');
-    }
-    
-    console.log('New lesson added:', title);
 }
 
 // Dynamic Add Topic Modal
@@ -1202,7 +1639,7 @@ function showAddTopicModal(moduleEl){
         if (typeof showNotification === 'function') {
             showNotification('warning', 'Warning', 'Add a lesson first before adding topics.');
                     } else {
-            alert('Add a lesson first before adding topics.');
+            showWarning('Lesson Required', 'Add a lesson first before adding topics.');
         }
     return;
   }
@@ -1232,6 +1669,131 @@ function showAddTopicModal(moduleEl){
     
     // Store reference for cleanup
     window.currentTopicModal = modal;
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
     
     // Close on backdrop click
     modal.addEventListener('click', function(e){
@@ -1302,7 +1864,7 @@ function showAddTopicToLessonModal(lessonEl){
                 createNewTopic(lessonEl, title);
                 modal.remove();
     } else {
-                alert('Please enter a topic title.');
+                showWarning('Validation Error', 'Please enter a topic title.');
             }
         });
         
@@ -1324,11 +1886,136 @@ function showAddTopicToLessonModal(lessonEl){
                     createNewTopic(lessonEl, title);
                     modal.remove();
                     } else {
-                    alert('Please enter a topic title.');
+                    showWarning('Validation Error', 'Please enter a topic title.');
                 }
             }
         });
     }
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
     
     // Close on backdrop click
     modal.addEventListener('click', function(e){
@@ -1358,19 +2045,21 @@ function createNewTopic(lessonEl, title){
     topicItem.style.cssText = 'margin-bottom:12px;padding:12px;background:white;border:1px solid #e5e7eb;border-radius:6px;';
     
     topicItem.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<span class="drag-handle topic-drag" title="Drag to reorder topics" style="color:#6b7280;cursor:grab;">' +
+                '<i class="fas fa-grip-vertical"></i>' +
+            '</span>' +
         '<div style="font-weight:600;color:#374151;font-size:16px;">' + escapeHtml(title) + '</div>' +
+        '</div>' +
         '<div style="display:flex;gap:8px;">' +
-            '<button class="add-material-btn" data-action="add-material" style="background:none;border:none;color:#1d9b3e;cursor:pointer;padding:4px;" title="Add material">' +
-                '<i class="fas fa-paperclip" style="font-size:16px;"></i>' +
+            '<button class="add-material-btn" data-action="add-material" style="background:#28a745;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="Add material">' +
+                '<i class="fas fa-plus" style="font-size:16px;"></i>' +
             '</button>' +
-            '<button class="add-activity-btn" data-action="add-activity" style="background:none;border:none;color:#1d9b3e;cursor:pointer;padding:4px;" title="Add activity">' +
-                '<i class="fas fa-tasks" style="font-size:16px;"></i>' +
+            '<button class="edit-topic-btn" data-action="edit-topic" style="background:#3b82f6;color:white;border:none;padding:6px 10px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Edit topic">' +
+                '<i class="fas fa-pencil-alt"></i>Edit' +
             '</button>' +
-            '<button class="edit-topic-btn" data-action="edit-topic" style="background:none;border:none;color:#6b7280;cursor:pointer;padding:4px;" title="Edit topic">' +
-                '<i class="fas fa-pencil-alt" style="font-size:16px;"></i>' +
-            '</button>' +
-            '<button class="delete-topic-btn" data-action="delete-topic" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:4px;" title="Delete topic">' +
-                '<i class="fas fa-trash" style="font-size:16px;"></i>' +
+            '<button class="delete-topic-btn" data-action="delete-topic" style="background:#ef4444;color:white;border:none;padding:6px 10px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Delete topic">' +
+                '<i class="fas fa-trash"></i>Delete' +
             '</button>' +
         '</div>' +
     '</div>' +
@@ -1381,22 +2070,33 @@ function createNewTopic(lessonEl, title){
         '</div>' +
         '<div>' +
             '<span style="font-weight:600;color:#374151;font-size:12px;">Activities:</span> ' +
-            '<span style="color:#6b7280;font-style:italic;font-size:12px;">No activities</span>' +
+            '<span style="color:#6b7280;font-style:italic;font-size:12px;">Activity creation disabled</span>' +
         '</div>' +
     '</div>';
     
     topicsContainer.appendChild(topicItem);
     console.log('🔧 Topic created and appended:', topicItem);
     
-    // Debug: Check if icons are visible
-    var materialIcon = topicItem.querySelector('.fa-paperclip');
-    var activityIcon = topicItem.querySelector('.fa-tasks');
+    // Debug: Check if icons are visible and Font Awesome is loaded
+    var materialIcon = topicItem.querySelector('.fa-plus');
     var editIcon = topicItem.querySelector('.fa-pencil-alt');
     var deleteIcon = topicItem.querySelector('.fa-trash');
     console.log('🔧 Material icon found:', !!materialIcon);
-    console.log('🔧 Activity icon found:', !!activityIcon);
     console.log('🔧 Edit icon found:', !!editIcon);
     console.log('🔧 Delete icon found:', !!deleteIcon);
+    console.log('🔧 Add Material button visible:', !!topicItem.querySelector('.add-material-btn'));
+    
+    // Test Font Awesome loading
+    if (typeof window.FontAwesome === 'undefined' && !document.querySelector('link[href*="font-awesome"]')) {
+        console.warn('🔧 Font Awesome not detected! Icons may not display properly.');
+        // Add fallback text for buttons
+        var materialBtn = topicItem.querySelector('.add-material-btn');
+        if (materialBtn && !materialBtn.querySelector('span')) {
+            materialBtn.innerHTML = '📎 Material';
+        }
+    } else {
+        console.log('🔧 Font Awesome detected and loaded');
+    }
     
     // Add event listeners for all buttons
     var addMaterialBtn = topicItem.querySelector('.add-material-btn');
@@ -1407,11 +2107,11 @@ function createNewTopic(lessonEl, title){
     if (addMaterialBtn) {
         addMaterialBtn.addEventListener('click', function(){
             console.log('🔧 Material button clicked for topic:', title);
-            if (typeof showCoordinatorMaterialModal === 'function') {
-                showCoordinatorMaterialModal(topicItem, title);
+            if (typeof showAddMaterialModal === 'function') {
+                showAddMaterialModal(topicItem, title);
     } else {
-                console.error('🔧 showCoordinatorMaterialModal function not found!');
-                alert('Material functionality not available yet');
+                console.error('🔧 showAddMaterialModal function not found!');
+                showWarning('Feature Not Available', 'Material functionality not available yet');
             }
         });
     }
@@ -1423,7 +2123,7 @@ function createNewTopic(lessonEl, title){
                 showCoordinatorActivityModal(topicItem, title);
             } else {
                 console.error('🔧 showCoordinatorActivityModal function not found!');
-                alert('Activity functionality not available yet');
+                showWarning('Feature Not Available', 'Activity functionality not available yet');
             }
         });
     }
@@ -1436,14 +2136,14 @@ function createNewTopic(lessonEl, title){
     
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function(){
-            if (confirm('Are you sure you want to delete this topic?')) {
+            showConfirm('Delete Topic', 'Are you sure you want to delete this topic?', function(){
                 topicItem.remove();
-                // Update lesson item count after deletion
                 updateLessonItemCount(lessonEl);
                 try { saveStep5Draft(); } catch(_) {}
+                showSuccess('Deleted','Topic deleted.');
+            });
+        });
     }
-  });
-}
 
     // Update lesson item count
     updateLessonItemCount(lessonEl);
@@ -1458,7 +2158,7 @@ function createNewTopic(lessonEl, title){
     if (typeof showNotification === 'function') {
         showNotification('success', 'Success', 'Topic "' + title + '" added successfully!');
   } else {
-        alert('Topic "' + title + '" added successfully!');
+        showSuccess('Topic Added', 'Topic "' + title + '" added successfully!');
     }
     
     console.log('New topic added:', title);
@@ -1468,10 +2168,39 @@ function createNewTopic(lessonEl, title){
 function updateModuleLessonCount(moduleEl){
     var lessonsContainer = moduleEl.querySelector('.module-lessons');
     var lessonCount = lessonsContainer ? lessonsContainer.children.length : 0;
-    var countBadge = moduleEl.querySelector('.module-header span[style*="background:#eef2ff"]');
-    if (countBadge) {
-        countBadge.textContent = lessonCount + ' lessons';
+    var empty = moduleEl.querySelector('.module-empty');
+    if (empty) empty.style.display = lessonCount > 0 ? 'none' : '';
+    var badge = moduleEl.querySelector('.lessons-count-badge');
+    if (badge) {
+        badge.textContent = lessonCount + (lessonCount === 1 ? ' lesson' : ' lessons');
     }
+}
+
+// Ensure module DOM has the expected containers and that lessons are grouped correctly
+function normalizeModuleLayout(moduleEl){
+    if (!moduleEl) return;
+    var content = moduleEl.querySelector('.module-content');
+    if (!content) return;
+    var lessonsList = content.querySelector('.module-lessons');
+    if (!lessonsList){
+        lessonsList = document.createElement('div');
+        lessonsList.className = 'module-lessons';
+        lessonsList.style.textAlign = 'left';
+        lessonsList.style.marginTop = '8px';
+        var footer = content.querySelector('.module-footer-actions');
+        if (footer) content.insertBefore(lessonsList, footer); else content.appendChild(lessonsList);
+    }
+    // Move stray lesson nodes into the list
+    Array.from(content.children).forEach(function(child){
+        if (child !== lessonsList && child !== content.querySelector('.module-empty') && child !== content.querySelector('.module-footer-actions')){
+            if (child.classList && child.classList.contains('lesson')){
+                lessonsList.appendChild(child);
+            }
+        }
+    });
+    // Toggle empty state
+    var empty = content.querySelector('.module-empty');
+    if (empty) empty.style.display = lessonsList.children.length > 0 ? 'none' : '';
 }
 
 // Update lesson item count
@@ -1491,7 +2220,7 @@ window.selectLessonForTopic = function(lessonIndex, lessonTitle){
     // Find the lesson element from the current module
     var moduleEl = document.querySelector('.module');
     if (!moduleEl) {
-        alert('No module found. Please add a module first.');
+        showWarning('Module Required', 'No module found. Please add a module first.');
     return;
   }
   
@@ -1499,7 +2228,7 @@ window.selectLessonForTopic = function(lessonIndex, lessonTitle){
     var lessonEl = lessons[lessonIndex];
     
     if (!lessonEl) {
-        alert('Lesson not found. Please try again.');
+        showError('Lesson Not Found', 'Lesson not found. Please try again.');
     return;
   }
   
@@ -1586,17 +2315,14 @@ function addTopicToList(topicsContainer, topicName){
     topicItem.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
         '<div style="font-weight:600;color:#374151;font-size:16px;">' + escapeHtml(topicName) + '</div>' +
         '<div style="display:flex;gap:8px;">' +
-            '<button class="add-material-btn" data-action="add-material" style="background:none;border:none;color:#1d9b3e;cursor:pointer;padding:4px;" title="Add material">' +
-                '<i class="fas fa-paperclip" style="font-size:16px;"></i>' +
+            '<button class="add-material-btn" data-action="add-material" style="background:#28a745;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="Add material">' +
+                '<i class="fas fa-plus" style="font-size:16px;"></i>' +
             '</button>' +
-            '<button class="add-activity-btn" data-action="add-activity" style="background:none;border:none;color:#1d9b3e;cursor:pointer;padding:4px;" title="Add activity">' +
-                '<i class="fas fa-tasks" style="font-size:16px;"></i>' +
+            '<button class="edit-topic-btn" data-action="edit-topic" style="background:#3b82f6;color:white;border:none;padding:6px 10px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Edit topic">' +
+                '<i class="fas fa-pencil-alt"></i>Edit' +
             '</button>' +
-            '<button class="edit-topic-btn" data-action="edit-topic" style="background:none;border:none;color:#6b7280;cursor:pointer;padding:4px;" title="Edit topic">' +
-                '<i class="fas fa-pencil-alt" style="font-size:16px;"></i>' +
-            '</button>' +
-            '<button class="delete-topic-btn" data-action="delete-topic" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:4px;" title="Delete topic">' +
-                '<i class="fas fa-trash" style="font-size:16px;"></i>' +
+            '<button class="delete-topic-btn" data-action="delete-topic" style="background:#ef4444;color:white;border:none;padding:6px 10px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Delete topic">' +
+                '<i class="fas fa-trash"></i>Delete' +
             '</button>' +
         '</div>' +
     '</div>' +
@@ -1607,7 +2333,7 @@ function addTopicToList(topicsContainer, topicName){
         '</div>' +
         '<div>' +
             '<span style="font-weight:600;color:#374151;font-size:12px;">Activities:</span> ' +
-            '<span style="color:#6b7280;font-style:italic;font-size:12px;">No activities</span>' +
+            '<span style="color:#6b7280;font-style:italic;font-size:12px;">Activity creation disabled</span>' +
         '</div>' +
     '</div>';
     
@@ -1622,11 +2348,11 @@ function addTopicToList(topicsContainer, topicName){
     if (addMaterialBtn) {
         addMaterialBtn.addEventListener('click', function(){
             console.log('🔧 Material button clicked for topic:', topicName);
-            if (typeof showCoordinatorMaterialModal === 'function') {
-                showCoordinatorMaterialModal(topicItem, topicName);
+            if (typeof showAddMaterialModal === 'function') {
+                showAddMaterialModal(topicItem, topicName);
   } else {
-                console.error('🔧 showCoordinatorMaterialModal function not found!');
-                alert('Material functionality not available yet');
+                console.error('🔧 showAddMaterialModal function not found!');
+                showWarning('Feature Not Available', 'Material functionality not available yet');
             }
         });
     }
@@ -1638,7 +2364,7 @@ function addTopicToList(topicsContainer, topicName){
                 showCoordinatorActivityModal(topicItem, topicName);
             } else {
                 console.error('🔧 showCoordinatorActivityModal function not found!');
-                alert('Activity functionality not available yet');
+                showWarning('Feature Not Available', 'Activity functionality not available yet');
             }
         });
     }
@@ -1651,10 +2377,11 @@ function addTopicToList(topicsContainer, topicName){
     
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function(){
-            if (confirm('Are you sure you want to delete this topic?')) {
+            showConfirm('Delete Topic', 'Are you sure you want to delete this topic?', function(){
                 topicItem.remove();
                 try { saveStep5Draft(); } catch(_) {}
-            }
+                showSuccess('Deleted','Topic deleted.');
+            });
         });
     }
     
@@ -1714,34 +2441,37 @@ function editTopicName(topicItem, currentName){
 function showAddMaterialModal(topicItem, topicTitle){
     var modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
-        '<h3 style="margin:0 0 15px 0;color:#1d9b3e;font-weight:700;">Add Material to "' + escapeHtml(topicTitle) + '"</h3>' +
-        '<div style="margin-bottom:15px;">' +
-            '<label style="display:block;margin-bottom:5px;color:#374151;font-weight:600;">Material type:</label>' +
-            '<select id="materialTypeSelect" style="width:100%;padding:8px 12px;border:1px solid #1d9b3e;border-radius:6px;font-size:14px;outline:none;">' +
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Add Material to "' + escapeHtml(topicTitle) + '"</h3>' +
+            '<button id="closeMaterialModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div id="materialFormBody" style="max-height:70vh;overflow-y:auto;">' +
+            '<div style="margin-bottom:20px;">' +
+                '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Material Type</label>' +
+                '<select id="materialTypeSelect" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;background:white;">' +
                 '<option value="pdf">PDF Document</option>' +
                 '<option value="video">Video</option>' +
                 '<option value="link">External Link</option>' +
                 '<option value="code">Code File</option>' +
                 '<option value="file">General File</option>' +
                 '<option value="page">Page Content</option>' +
+                    '<option value="pptx">PowerPoint (.pptx)</option>' +
             '</select>' +
         '</div>' +
-        '<div id="materialUrlSection" style="margin-bottom:15px;display:none;">' +
-            '<label style="display:block;margin-bottom:5px;color:#374151;font-weight:600;">URL:</label>' +
-            '<input type="url" id="materialUrlInput" placeholder="https://example.com" style="width:100%;padding:8px 12px;border:1px solid #1d9b3e;border-radius:6px;font-size:14px;outline:none;" />' +
+            '<div id="materialUrlSection" style="margin-bottom:20px;display:none;">' +
+                '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">URL</label>' +
+                '<input type="url" id="materialUrlInput" placeholder="https://example.com" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;" />' +
         '</div>' +
-        '<div id="materialFileSection" style="margin-bottom:15px;display:none;">' +
-            '<label style="display:block;margin-bottom:5px;color:#374151;font-weight:600;">Select file:</label>' +
-            '<input type="file" id="materialFileInput" style="width:100%;padding:8px 12px;border:1px solid #1d9b3e;border-radius:6px;font-size:14px;" />' +
+            '<div id="materialFileSection" style="margin-bottom:20px;display:none;">' +
+                '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Select File</label>' +
+                '<input type="file" id="materialFileInput" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;" />' +
+                '<div id="filePreview" style="margin-top:8px;padding:8px;background:#f8f9fa;border-radius:4px;font-size:12px;color:#6b7280;display:none;"></div>' +
         '</div>' +
-        '<div style="margin-bottom:15px;">' +
-            '<label style="display:block;margin-bottom:5px;color:#374151;font-weight:600;">Material title:</label>' +
-            '<input type="text" id="materialTitleInput" placeholder="Enter material title..." style="width:100%;padding:8px 12px;border:1px solid #1d9b3e;border-radius:6px;font-size:14px;outline:none;" />' +
         '</div>' +
-        '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
-            '<button id="cancelMaterialBtn" style="background:#6b7280;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;">Cancel</button>' +
-            '<button id="addMaterialBtn" style="background:#1d9b3e;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;">Add Material</button>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelMaterialBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+            '<button id="addMaterialBtn" style="background:#1d9b3e;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Add Material</button>' +
         '</div>' +
     '</div>';
     
@@ -1757,7 +2487,7 @@ function showAddMaterialModal(topicItem, topicTitle){
         if (type === 'link') {
             urlSection.style.display = 'block';
             fileSection.style.display = 'none';
-        } else if (['pdf', 'video', 'code', 'file'].includes(type)) {
+        } else if (['pdf', 'video', 'code', 'file', 'pptx'].includes(type)) {
             urlSection.style.display = 'none';
             fileSection.style.display = 'block';
             // Set file input accept attribute
@@ -1765,6 +2495,7 @@ function showAddMaterialModal(topicItem, topicTitle){
             if (type === 'pdf') fileInput.accept = '.pdf,application/pdf';
             else if (type === 'video') fileInput.accept = 'video/*';
             else if (type === 'code') fileInput.accept = '.js,.py,.java,.cpp,.c,.html,.css,.php,.sql,.json,.xml';
+            else if (type === 'pptx') fileInput.accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation';
             else fileInput.accept = '*/*';
   } else {
             urlSection.style.display = 'none';
@@ -1775,9 +2506,24 @@ function showAddMaterialModal(topicItem, topicTitle){
     typeSelect.addEventListener('change', updateSections);
     updateSections(); // Initial call
     
+    // File preview functionality
+    var fileInput = modal.querySelector('#materialFileInput');
+    var filePreview = modal.querySelector('#filePreview');
+    
+    fileInput.addEventListener('change', function(){
+        var file = this.files[0];
+        if (file) {
+            filePreview.style.display = 'block';
+            filePreview.innerHTML = '<strong>Selected:</strong> ' + file.name + ' (' + formatFileSize(file.size) + ')';
+        } else {
+            filePreview.style.display = 'none';
+        }
+    });
+    
     // Event listeners
     var cancelBtn = modal.querySelector('#cancelMaterialBtn');
     var addBtn = modal.querySelector('#addMaterialBtn');
+    var closeBtn = modal.querySelector('#closeMaterialModal');
     
     if (cancelBtn) {
         cancelBtn.addEventListener('click', function(){
@@ -1785,30 +2531,30 @@ function showAddMaterialModal(topicItem, topicTitle){
         });
     }
     
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(){
+            modal.remove();
+        });
+    }
+    
     if (addBtn) {
         addBtn.addEventListener('click', function(){
             var type = typeSelect.value;
-            var title = modal.querySelector('#materialTitleInput').value.trim();
             var url = modal.querySelector('#materialUrlInput').value.trim();
             var file = modal.querySelector('#materialFileInput').files[0];
-            
-            if (!title) {
-                alert('Please enter a material title.');
-    return;
-  }
   
             if (type === 'link' && !url) {
-                alert('Please enter a URL for the link.');
+                        showWarning('Validation Error', 'Please enter a URL for the link.');
                 return;
             }
             
-            if (['pdf', 'video', 'code', 'file'].includes(type) && !file) {
-                alert('Please select a file.');
+                    if (['pdf', 'video', 'code', 'file', 'pptx'].includes(type) && !file) {
+                        showWarning('Validation Error', 'Please select a file.');
                 return;
             }
             
-            // Store material data in topic for now (will integrate with coordinator API later)
-            addMaterialToTopic(topicItem, type, title, url, file);
+            // Unified entry point: handles lesson or topic automatically
+            createCompleteMaterial(topicItem, type, url, file);
             modal.remove();
         });
     }
@@ -1821,8 +2567,13 @@ function showAddMaterialModal(topicItem, topicTitle){
   });
 }
 
-// Add Activity Modal for Topics (Integrated with Coordinator System)
+// Add Activity Modal for Topics (REMOVED - No longer needed)
 function showAddActivityModal(topicItem, topicTitle){
+    console.log('🚫 Create Activity functionality has been removed');
+		showNotification('info', 'Activity Creation Disabled', 'Create Activity functionality has been removed from the teacher dashboard.');
+    return;
+    
+    // Fallback to original implementation
     var modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
@@ -1870,6 +2621,12 @@ function showAddActivityModal(topicItem, topicTitle){
         });
     }
     
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(){
+            modal.remove();
+        });
+    }
+    
     if (addBtn) {
         addBtn.addEventListener('click', function(){
             var type = modal.querySelector('#activityTypeSelect').value;
@@ -1878,12 +2635,12 @@ function showAddActivityModal(topicItem, topicTitle){
             var maxScore = parseInt(modal.querySelector('#activityMaxScoreInput').value) || 100;
             
             if (!title) {
-                alert('Please enter an activity title.');
+                showWarning('Validation Error', 'Please enter an activity title.');
         return;
       }
       
             if (!instructions) {
-                alert('Please enter activity instructions.');
+                showWarning('Validation Error', 'Please enter activity instructions.');
                 return;
             }
             
@@ -1901,8 +2658,133 @@ function showAddActivityModal(topicItem, topicTitle){
     });
 }
 
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
 // Add material to topic (Enhanced with Coordinator Integration)
-function addMaterialToTopic(topicItem, type, title, url, file){
+function addMaterialToTopic(topicItem, type, url, file){
     // Create material display with enhanced info
     var materialDiv = document.createElement('div');
     materialDiv.className = 'topic-material';
@@ -1920,7 +2802,7 @@ function addMaterialToTopic(topicItem, type, title, url, file){
     else if (file) extraInfo = '<br><small style="color:#64748b;">File: ' + escapeHtml(file.name) + ' (' + formatFileSize(file.size) + ')</small>';
     
     materialDiv.innerHTML = '<i class="fas ' + icon + '" style="margin-right:4px;"></i>' + 
-        '<strong>' + type.toUpperCase() + ':</strong> ' + escapeHtml(title) + extraInfo +
+        '<strong>' + type.toUpperCase() + ':</strong> ' + extraInfo +
         '<button class="remove-material-btn" style="float:right;background:none;border:none;color:#ef4444;cursor:pointer;padding:2px;" title="Delete material">' +
             '<i class="fas fa-trash"></i>' +
         '</button>';
@@ -1933,15 +2815,13 @@ function addMaterialToTopic(topicItem, type, title, url, file){
     var removeBtn = materialDiv.querySelector('.remove-material-btn');
     if (removeBtn) {
         removeBtn.addEventListener('click', function(){
-            if (confirm('Are you sure you want to delete this material?')) {
-                // Delete from database if it has an ID
+            showConfirm('Delete Material', 'Are you sure you want to delete this material?', function(){
                 var materialId = materialDiv.getAttribute('data-material-id');
-                if (materialId) {
-                    deleteMaterialFromDatabase(materialId);
-                }
+                if (materialId) deleteMaterialFromDatabase(materialId);
                 materialDiv.remove();
                 try { saveStep5Draft(); } catch(_) {}
-            }
+                showSuccess('Deleted','Material deleted.');
+            });
         });
     }
     
@@ -1950,11 +2830,34 @@ function addMaterialToTopic(topicItem, type, title, url, file){
     
     // Show success notification
     if (typeof showNotification === 'function') {
-        showNotification('success', 'Success', 'Material "' + title + '" added to topic!');
+        showNotification('success', 'Success', 'Material added to topic!');
     }
     
     // Wire with coordinator API to actually save to database
-    saveMaterialToCoordinator(topicItem, type, title, url, file);
+    saveMaterialToCoordinator(topicItem, type, url, file);
+}
+
+// Helper function to add activity to topic from reusable activity creator result
+function addActivityToTopicFromResult(topicItem, result) {
+    if (!result || !result.data) {
+        console.error('Invalid result from activity creator');
+        return;
+    }
+    
+    const activity = result.data;
+    const type = activity.type || 'lecture';
+    const title = activity.title || 'Untitled Activity';
+    const instructions = activity.instructions || '';
+    const maxScore = activity.max_score || 100;
+    
+    // Add the activity to the topic visually
+    addActivityToTopic(topicItem, type, title, instructions, maxScore);
+    
+    // Store the activity ID for future reference
+    const activityDiv = topicItem.querySelector('.topic-activity:last-child');
+    if (activityDiv && activity.id) {
+        activityDiv.setAttribute('data-activity-id', activity.id);
+    }
 }
 
 // Add activity to topic (Enhanced with Coordinator Integration)
@@ -1990,15 +2893,13 @@ function addActivityToTopic(topicItem, type, title, instructions, maxScore){
     var removeBtn = activityDiv.querySelector('.remove-activity-btn');
     if (removeBtn) {
         removeBtn.addEventListener('click', function(){
-            if (confirm('Are you sure you want to delete this activity?')) {
-                // Delete from database if it has an ID
+            showConfirm('Delete Activity', 'Are you sure you want to delete this activity?', function(){
                 var activityId = activityDiv.getAttribute('data-activity-id');
-                if (activityId) {
-                    deleteActivityFromDatabase(activityId);
-                }
+                if (activityId) deleteActivityFromDatabase(activityId);
                 activityDiv.remove();
                 try { saveStep5Draft(); } catch(_) {}
-            }
+                showSuccess('Deleted','Activity deleted.');
+            });
         });
     }
     
@@ -2023,14 +2924,8 @@ function formatFileSize(bytes){
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Save material to coordinator system
-function saveMaterialToCoordinator(topicItem, type, title, url, file){
-    // Get the current course ID
-    var courseId = getCurrentCourseIdForStep5();
-    if (!courseId) {
-        console.error('No course ID found');
-        return;
-    }
+// Save material to class-specific system (no course requirement)
+function saveMaterialToCoordinator(topicItem, type, url, file, rowForUpdate){
     
     // Find the lesson that contains this topic
     var lessonEl = topicItem.closest('.lesson');
@@ -2045,12 +2940,30 @@ function saveMaterialToCoordinator(topicItem, type, title, url, file){
     return;
   }
     
+    // Auto-save lesson if temporary, then continue
+    if (lessonId.startsWith('new_')) {
+        var el = lessonEl; // preserve reference
+        return ensureLessonSaved(el).then(function(){
+            saveMaterialToCoordinator(topicItem, type, url, file); // retry after save
+        }).catch(function(){ /* surfaced via notifications */ });
+    }
+    
+    // Helper to generate a reasonable title when title input is removed
+    function generateMaterialTitle(){
+        if (file && file.name) return file.name;
+        if (url) {
+            try { var u = new URL(url); return (type.toUpperCase() + ': ' + (u.hostname || url)); } catch(_) { return type.toUpperCase() + ': ' + url; }
+        }
+        return type.toUpperCase();
+    }
+    var generatedTitle = generateMaterialTitle();
+    
     // Prepare material data
     var materialData = {
-        action: 'material_create',
+        action: 'class_material_create',
         lesson_id: lessonId,
         type: type,
-        title: title
+        title: generatedTitle
     };
     
     if (type === 'link' && url) {
@@ -2058,32 +2971,34 @@ function saveMaterialToCoordinator(topicItem, type, title, url, file){
     }
     
     // Handle file upload
-    if (file && ['pdf', 'video', 'code', 'file'].includes(type)) {
+    if (file && ['pdf', 'video', 'code', 'file', 'pptx'].includes(type)) {
         var formData = new FormData();
-        formData.append('action', 'material_upload');
+        formData.append('action', 'class_material_upload');
         formData.append('lesson_id', lessonId);
         formData.append('file', file);
+        formData.append('type', type);
+        formData.append('title', generatedTitle);
         
         // Add CSRF token if available
         if (typeof getCSRFToken === 'function') {
             getCSRFToken().then(function(token){
                 if (token) formData.append('csrf_token', token);
-                uploadMaterialFile(formData, topicItem, type, title);
+                uploadMaterialFile(formData, topicItem, type, rowForUpdate);
             }).catch(function(){
-                uploadMaterialFile(formData, topicItem, type, title);
+                uploadMaterialFile(formData, topicItem, type, rowForUpdate);
             });
     } else {
-            uploadMaterialFile(formData, topicItem, type, title);
+            uploadMaterialFile(formData, topicItem, type, rowForUpdate);
         }
       } else {
         // Handle non-file materials
-        createMaterialRecord(materialData, topicItem, type, title);
+        createMaterialRecord(materialData, topicItem, type);
     }
 }
 
 // Upload material file
-function uploadMaterialFile(formData, topicItem, type, title){
-    fetch('course_outline_manage.php', {
+function uploadMaterialFile(formData, topicItem, type, rowForUpdate){
+    fetch('teacher_class_materials_api.php', {
         method: 'POST',
         body: formData,
           credentials: 'same-origin'
@@ -2095,41 +3010,49 @@ function uploadMaterialFile(formData, topicItem, type, title){
     if (data && data.success) {
             console.log('Material uploaded successfully:', data);
             // Update the material display with actual ID
-            updateMaterialDisplay(topicItem, data.id, type, title);
+            updateMaterialDisplay(topicItem, data.id, type);
+            if (rowForUpdate) {
+                rowForUpdate.setAttribute('data-material-id', data.id);
+                rowForUpdate.classList.remove('saving');
+                var buttons = rowForUpdate.querySelectorAll('button');
+                buttons.forEach(function(b){ b.disabled = false; });
+            }
                     } else {
             console.error('Material upload failed:', data);
             showErrorNotification('Failed to upload material: ' + (data.message || 'Unknown error'));
+            if (rowForUpdate) rowForUpdate.remove();
         }
     })
     .catch(function(error){
         console.error('Material upload error:', error);
         showErrorNotification('Network error uploading material');
+        if (rowForUpdate) rowForUpdate.remove();
     });
 }
 
 // Create material record
-function createMaterialRecord(materialData, topicItem, type, title){
+function createMaterialRecord(materialData, topicItem, type){
     // Add CSRF token if available
     if (typeof getCSRFToken === 'function') {
         getCSRFToken().then(function(token){
             if (token) materialData.csrf_token = token;
-            sendMaterialRequest(materialData, topicItem, type, title);
+            sendMaterialRequest(materialData, topicItem, type);
         }).catch(function(){
-            sendMaterialRequest(materialData, topicItem, type, title);
+            sendMaterialRequest(materialData, topicItem, type);
         });
       } else {
-        sendMaterialRequest(materialData, topicItem, type, title);
+        sendMaterialRequest(materialData, topicItem, type);
     }
 }
 
 // Send material request
-function sendMaterialRequest(materialData, topicItem, type, title){
+function sendMaterialRequest(materialData, topicItem, type){
     var formData = new FormData();
     Object.keys(materialData).forEach(function(key){
         formData.append(key, materialData[key]);
     });
     
-    fetch('course_outline_manage.php', {
+    fetch('teacher_class_materials_api.php', {
         method: 'POST',
         body: formData,
         credentials: 'same-origin'
@@ -2141,7 +3064,7 @@ function sendMaterialRequest(materialData, topicItem, type, title){
         if (data && data.success) {
             console.log('Material created successfully:', data);
             // Update the material display with actual ID
-            updateMaterialDisplay(topicItem, data.id, type, title);
+            updateMaterialDisplay(topicItem, data.id, type);
   } else {
             console.error('Material creation failed:', data);
             showErrorNotification('Failed to create material: ' + (data.message || 'Unknown error'));
@@ -2154,7 +3077,7 @@ function sendMaterialRequest(materialData, topicItem, type, title){
 }
 
 // Update material display with database ID
-function updateMaterialDisplay(topicItem, materialId, type, title){
+function updateMaterialDisplay(topicItem, materialId, type){
     var materialDiv = topicItem.querySelector('.topic-material');
     if (materialDiv) {
         materialDiv.setAttribute('data-material-id', materialId);
@@ -2182,6 +3105,14 @@ function saveActivityToCoordinator(topicItem, type, title, instructions, maxScor
     if (!lessonId) {
         console.error('No lesson ID found');
         return;
+    }
+    
+    // Auto-save if needed
+    if (lessonId.startsWith('new_')) {
+        var el2 = lessonEl;
+        return ensureLessonSaved(el2).then(function(){
+            saveActivityToCoordinator(topicItem, type, title, instructions, maxScore);
+        }).catch(function(){});
     }
     
     // Prepare activity data
@@ -2214,7 +3145,7 @@ function sendActivityRequest(activityData, topicItem, type, title){
         formData.append(key, activityData[key]);
     });
     
-    fetch('course_outline_manage.php', {
+    fetch('teacher_materials_api.php', {
     method: 'POST',
         body: formData,
         credentials: 'same-origin'
@@ -2276,7 +3207,7 @@ function sendActivityRequestWithData(activityData, element, type, title){
     formData.append('category', activityData.category);
     formData.append('dynamic_data', JSON.stringify(activityData.dynamic_data));
     
-    fetch('course_outline_manage.php', {
+    fetch('teacher_class_materials_api.php', {
         method: 'POST',
         body: formData,
         credentials: 'same-origin'
@@ -2313,7 +3244,7 @@ function showErrorNotification(message){
     if (typeof showNotification === 'function') {
         showNotification('error', 'Error', message);
     } else {
-        alert('Error: ' + message);
+        showError('Error', message);
     }
 }
 
@@ -2364,7 +3295,7 @@ function sendDeleteRequest(deleteData, type){
         formData.append(key, deleteData[key]);
     });
     
-    fetch('course_outline_manage.php', {
+    fetch('teacher_materials_api.php', {
         method: 'POST',
         body: formData,
     credentials: 'same-origin'
@@ -2467,6 +3398,12 @@ function showAddMaterialToLessonModal(lessonEl){
         });
     }
     
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(){
+            modal.remove();
+        });
+    }
+    
     if (addBtn) {
         addBtn.addEventListener('click', function(){
             var type = typeSelect.value;
@@ -2475,17 +3412,17 @@ function showAddMaterialToLessonModal(lessonEl){
             var file = modal.querySelector('#lessonMaterialFileInput').files[0];
             
             if (!title) {
-                alert('Please enter a material title.');
+                showWarning('Validation Error', 'Please enter a material title.');
         return;
       }
       
             if (type === 'link' && !url) {
-                alert('Please enter a URL for the link.');
+                        showWarning('Validation Error', 'Please enter a URL for the link.');
                 return;
             }
             
-            if (['pdf', 'video', 'code', 'file'].includes(type) && !file) {
-                alert('Please select a file.');
+                    if (['pdf', 'video', 'code', 'file', 'pptx'].includes(type) && !file) {
+                        showWarning('Validation Error', 'Please select a file.');
                 return;
             }
             
@@ -2494,6 +3431,131 @@ function showAddMaterialToLessonModal(lessonEl){
             modal.remove();
         });
     }
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
     
     // Close on backdrop click
     modal.addEventListener('click', function(e){
@@ -2535,14 +3597,6 @@ function showCoordinatorMaterialModal(element, elementTitle){
                 '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Select File</label>' +
                 '<input type="file" id="materialFileInput" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;" />' +
                 '<div id="filePreview" style="margin-top:8px;padding:8px;background:#f8f9fa;border-radius:4px;font-size:12px;color:#6b7280;display:none;"></div>' +
-            '</div>' +
-            '<div style="margin-bottom:20px;">' +
-                '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Material Title</label>' +
-                '<input type="text" id="materialTitleInput" placeholder="Enter material title..." style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;" />' +
-            '</div>' +
-            '<div style="margin-bottom:20px;">' +
-                '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Description (Optional)</label>' +
-                '<textarea id="materialDescriptionInput" placeholder="Brief description of the material..." style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;min-height:80px;resize:vertical;"></textarea>' +
             '</div>' +
         '</div>' +
         '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
@@ -2614,28 +3668,21 @@ function showCoordinatorMaterialModal(element, elementTitle){
     if (addBtn) {
         addBtn.addEventListener('click', function(){
             var type = typeSelect.value;
-            var title = modal.querySelector('#materialTitleInput').value.trim();
-            var description = modal.querySelector('#materialDescriptionInput').value.trim();
             var url = modal.querySelector('#materialUrlInput').value.trim();
             var file = modal.querySelector('#materialFileInput').files[0];
             
-            if (!title) {
-                alert('Please enter a material title.');
-    return;
-  }
-            
             if (type === 'link' && !url) {
-                alert('Please enter a URL for the link.');
+                        showWarning('Validation Error', 'Please enter a URL for the link.');
                 return;
             }
             
             if (['pdf', 'video', 'code', 'file', 'pptx'].includes(type) && !file) {
-                alert('Please select a file.');
+                        showWarning('Validation Error', 'Please select a file.');
                 return;
             }
             
             // Add material with enhanced info
-            addCoordinatorStyleMaterial(lessonEl, type, title, description, url, file);
+            addCoordinatorStyleMaterial(element, type, url, file);
             modal.remove();
         });
     }
@@ -2648,13 +3695,138 @@ function showCoordinatorMaterialModal(element, elementTitle){
     });
 }
 
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
 // Add coordinator-style material
-function addCoordinatorStyleMaterial(lessonEl, type, title, description, url, file){
+function addCoordinatorStyleMaterial(lessonEl, type, url, file){
     // Create material display in lesson
     var materialsSection = lessonEl.querySelector('div[style*="margin-top:4px;margin-left:12px;"]');
     if (materialsSection) {
         // Check if materials already exist
-        var existingMaterials = materialsSection.querySelectorAll('div[style*="font-size:11px;color:#495057;"]');
+        var existingMaterials = materialsSection.querySelectorAll('.material-item');
         var materialCount = existingMaterials.length;
         
         // Create new material info with enhanced display
@@ -2669,20 +3841,18 @@ function addCoordinatorStyleMaterial(lessonEl, type, title, description, url, fi
         
         if (url) {
             materialInfo = '<i class="fas ' + icon + '" style="margin-right:4px;color:#1d9b3e;"></i>' + 
-                '<strong>' + type.toUpperCase() + ':</strong> ' + escapeHtml(title) + 
+                '<strong>' + type.toUpperCase() + ':</strong> ' + 
                 '<br><small style="color:#64748b;">URL: ' + escapeHtml(url) + '</small>';
         } else if (file) {
             materialInfo = '<i class="fas ' + icon + '" style="margin-right:4px;color:#1d9b3e;"></i>' + 
-                '<strong>' + type.toUpperCase() + ':</strong> ' + escapeHtml(title) + 
+                '<strong>' + type.toUpperCase() + ':</strong> ' + 
                 '<br><small style="color:#64748b;">File: ' + escapeHtml(file.name) + ' (' + formatFileSize(file.size) + ')</small>';
       } else {
             materialInfo = '<i class="fas ' + icon + '" style="margin-right:4px;color:#1d9b3e;"></i>' + 
-                '<strong>' + type.toUpperCase() + ':</strong> ' + escapeHtml(title);
+                '<strong>' + type.toUpperCase() + ':</strong>';
         }
         
-        if (description) {
-            materialInfo += '<br><small style="color:#64748b;font-style:italic;">' + escapeHtml(description) + '</small>';
-        }
+        // No description field on teacher side
         
         // Add action buttons
         materialInfo += '<div style="float:right;margin-top:-20px;">' +
@@ -2701,7 +3871,7 @@ function addCoordinatorStyleMaterial(lessonEl, type, title, description, url, fi
         if (materialCount === 0) {
             // First material - replace "No materials"
             materialsSection.innerHTML = '<div style="font-size:11px;color:#374151;font-weight:600;margin:2px 0 2px;">Materials (1)</div>' +
-                '<div style="font-size:11px;color:#495057;padding:8px;background:#f8f9fa;border-radius:4px;border:1px solid #e5e7eb;">' + materialInfo + '</div>';
+                '<div class="material-item" style="font-size:11px;color:#495057;padding:8px;background:#f8f9fa;border-radius:4px;border:1px solid #e5e7eb;">' + materialInfo + '</div>';
       } else {
             // Add to existing materials
             var materialsHeader = materialsSection.querySelector('div[style*="font-size:11px;color:#374151;font-weight:600;"]');
@@ -2711,18 +3881,20 @@ function addCoordinatorStyleMaterial(lessonEl, type, title, description, url, fi
             
             // Add new material
             var newMaterialDiv = document.createElement('div');
+            newMaterialDiv.className = 'material-item';
             newMaterialDiv.style.cssText = 'font-size:11px;color:#495057;padding:8px;background:#f8f9fa;border-radius:4px;border:1px solid #e5e7eb;margin-top:4px;';
             newMaterialDiv.innerHTML = materialInfo;
             materialsSection.appendChild(newMaterialDiv);
+            wireMaterialItemEvents(newMaterialDiv);
         }
     }
     
     // Save to coordinator system
-    saveMaterialToCoordinator(lessonEl, type, title, url, file);
+    saveMaterialToCoordinator(lessonEl, type, url, file);
     
     // Show success notification
     if (typeof showNotification === 'function') {
-        showNotification('success', 'Success', 'Material "' + title + '" added to lesson!');
+        showNotification('success', 'Success', 'Material added to lesson!');
     }
 }
 
@@ -3072,17 +4244,17 @@ function showCoordinatorActivityModal(element, elementTitle){
             var maxScore = parseInt(modal.querySelector('#activityMaxScoreInput').value) || 100;
             
             if (!name) {
-                alert('Please enter an activity name.');
+                showWarning('Validation Error', 'Please enter an activity name.');
                 return;
             }
             
             if (!type) {
-                alert('Please select an activity type.');
+                showWarning('Validation Error', 'Please select an activity type.');
                 return;
             }
             
             if (!instructions) {
-                alert('Please enter activity instructions.');
+                showWarning('Validation Error', 'Please enter activity instructions.');
                 return;
             }
             
@@ -3122,7 +4294,7 @@ function showCoordinatorActivityModal(element, elementTitle){
                 });
                 
                 if (questions.length === 0) {
-                    alert('Please add at least one question with valid choices.');
+                    showWarning('Validation Error', 'Please add at least one question with valid choices.');
                     return;
                 }
                 
@@ -3145,7 +4317,7 @@ function showCoordinatorActivityModal(element, elementTitle){
                 });
                 
                 if (questions.length === 0) {
-                    alert('Please add at least one question with an answer.');
+                    showWarning('Validation Error', 'Please add at least one question with an answer.');
                     return;
                 }
                 
@@ -3168,7 +4340,7 @@ function showCoordinatorActivityModal(element, elementTitle){
                 });
                 
                 if (questions.length === 0) {
-                    alert('Please add at least one question.');
+                    showWarning('Validation Error', 'Please add at least one question.');
                     return;
                 }
                 
@@ -3191,7 +4363,7 @@ function showCoordinatorActivityModal(element, elementTitle){
                 });
                 
                 if (questions.length === 0) {
-                    alert('Please add at least one question.');
+                    showWarning('Validation Error', 'Please add at least one question.');
                     return;
                 }
                 
@@ -3204,7 +4376,7 @@ function showCoordinatorActivityModal(element, elementTitle){
                 var timeLimit = parseInt(modal.querySelector('#codingTimeLimit').value) || 60;
                 
                 if (!problem) {
-                    alert('Please enter a problem statement.');
+                    showWarning('Validation Error', 'Please enter a problem statement.');
                     return;
                 }
                 
@@ -3225,12 +4397,12 @@ function showCoordinatorActivityModal(element, elementTitle){
                 var maxSize = parseInt(modal.querySelector('#uploadMaxSize').value) || 10;
                 
                 if (!task) {
-                    alert('Please enter a task description.');
+                    showWarning('Validation Error', 'Please enter a task description.');
                     return;
                 }
                 
                 if (fileTypes.length === 0) {
-                    alert('Please select at least one file type.');
+                    showWarning('Validation Error', 'Please select at least one file type.');
                     return;
                 }
                 
@@ -3440,8 +4612,8 @@ function addActivityToTopicWithData(topicEl, category, name, type, instructions,
 }
 
 // ===== COMPLETE MATERIAL CREATION =====
-function createCompleteMaterial(element, type, title, description, url, file){
-    console.log('🚀 Creating complete material:', {type, title, description, url, file});
+function createCompleteMaterial(element, type, url, file){
+    console.log('🚀 Creating complete material:', {type, url, file});
     
     // Determine if this is a lesson or topic
     var isLesson = element.classList.contains('lesson');
@@ -3449,82 +4621,115 @@ function createCompleteMaterial(element, type, title, description, url, file){
     
     if (isLesson) {
         console.log('🚀 Adding material to lesson');
-        addMaterialToLesson(element, type, title, description, url, file);
+        addMaterialToLesson(element, type, url, file);
     } else if (isTopic) {
         console.log('🚀 Adding material to topic');
-        addMaterialToTopic(element, type, title, description, url, file);
+        addMaterialToTopic(element, type, url, file);
     }
 }
 
 // ===== ADD MATERIAL TO LESSON (ENHANCED) =====
-function addMaterialToLesson(lessonEl, type, title, description, url, file){
-    // Update lesson display to show material
-    var materialsSection = lessonEl.querySelector('div[style*="margin-top:4px;margin-left:12px;"]');
-    if (materialsSection) {
-        // Check if materials already exist
-        var existingMaterials = materialsSection.querySelectorAll('div[style*="font-size:11px;color:#495057;"]');
-        var materialCount = existingMaterials.length;
-        
-        // Create new material info
-        var materialInfo = '• ' + type.toUpperCase() + ': ' + escapeHtml(title);
-        if (description) {
-            materialInfo += '<br><small style="color:#64748b;">' + escapeHtml(description) + '</small>';
-        }
-        if (url) {
-            materialInfo += '<br><small style="color:#64748b;">URL: ' + escapeHtml(url) + '</small>';
-        }
-        if (file) {
-            materialInfo += '<br><small style="color:#64748b;">File: ' + escapeHtml(file.name) + ' (' + formatFileSize(file.size) + ')</small>';
-        }
-        
-        // Update materials section
-        if (materialCount === 0) {
-            // First material - replace "No materials"
-            materialsSection.innerHTML = '<div style="font-size:11px;color:#374151;font-weight:600;margin:2px 0 2px;">Materials (1)</div>' +
-                '<div style="font-size:11px;color:#495057;">' + materialInfo + '</div>';
-      } else {
-            // Add to existing materials
-            var materialsHeader = materialsSection.querySelector('div[style*="font-size:11px;color:#374151;font-weight:600;"]');
-            if (materialsHeader) {
-                materialsHeader.textContent = 'Materials (' + (materialCount + 1) + ')';
-            }
-            
-            // Add new material
-            var newMaterialDiv = document.createElement('div');
-            newMaterialDiv.style.cssText = 'font-size:11px;color:#495057;';
-            newMaterialDiv.innerHTML = materialInfo;
-            materialsSection.appendChild(newMaterialDiv);
-        }
+function addMaterialToLesson(lessonEl, type, url, file){
+    // Find lesson content container
+    var materialsSection = lessonEl.querySelector('.lesson-content');
+    if (!materialsSection) return;
+
+    // Ensure list container exists (professional layout)
+    var header = materialsSection.querySelector('.materials-header');
+    var list = materialsSection.querySelector('.materials-list');
+    if (!list) {
+        materialsSection.innerHTML = '' +
+        '<div class="materials-header" style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#374151;font-weight:600;margin:2px 0 10px;">' +
+            '<span>Materials (0)</span>' +
+        '</div>' +
+        '<div class="materials-list"></div>';
+        header = materialsSection.querySelector('.materials-header');
+        list = materialsSection.querySelector('.materials-list');
     }
-    
-    // Save to coordinator system
-    saveMaterialToCoordinator(lessonEl, type, title, description, url, file);
-    
-    // Show success notification
-    if (typeof showNotification === 'function') {
-        showNotification('success', 'Success', 'Material "' + title + '" added to lesson!');
-    }
+
+    var materialCount = list.children.length;
+
+    // Build professional material row
+    var row = document.createElement('div');
+    row.className = 'material-row';
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:6px;';
+
+    var left = document.createElement('div');
+    left.style.cssText = 'display:flex;align-items:center;gap:10px;color:#374151;font-size:12px;';
+    var icon = document.createElement('span');
+    icon.innerHTML = '<i class="fas ' + (type === 'pdf' ? 'fa-file-pdf' : type === 'video' ? 'fa-video' : type === 'link' ? 'fa-link' : 'fa-file') + '"></i>';
+    icon.style.cssText = 'color:#1d9b3e;';
+    var meta = document.createElement('div');
+    meta.innerHTML = '<div style="font-weight:600;text-transform:uppercase;">' + type + '</div>' +
+                     (url ? '<div style="color:#64748b;">' + escapeHtml(url) + '</div>' : (file ? '<div style="color:#64748b;">' + escapeHtml(file.name) + ' (' + formatFileSize(file.size) + ')</div>' : ''));
+    left.appendChild(icon);
+    left.appendChild(meta);
+
+    var right = document.createElement('div');
+    right.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    var btnDownload = document.createElement('button');
+    btnDownload.className = 'btn tiny';
+    btnDownload.textContent = 'Download';
+    btnDownload.addEventListener('click', function(){
+        var id = row.getAttribute('data-material-id');
+        if (id) window.open('material_download.php?id=' + encodeURIComponent(id), '_blank');
+    });
+    var btnDelete = document.createElement('button');
+    btnDelete.className = 'btn tiny';
+    btnDelete.style.background = '#fee2e2';
+    btnDelete.style.color = '#b91c1c';
+    btnDelete.textContent = 'Delete';
+    btnDelete.addEventListener('click', function(){
+        var id = row.getAttribute('data-material-id');
+        if (!id) { showWarning('Not Saved', 'Please wait until the material is saved.'); return; }
+        var form = new FormData();
+        form.append('action','class_material_delete');
+        form.append('material_id', id);
+        getCSRFToken().then(function(tok){ if (tok) form.append('csrf_token', tok); return fetch('teacher_class_materials_api.php',{ method:'POST', body: form, credentials:'same-origin' }); })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if (d && d.success){ row.remove(); if (header){ var n = Math.max(0, materialCount); header.querySelector('span').textContent = 'Materials (' + n + ')'; } showSuccess('Deleted','Material deleted.'); } else { showError('Delete Failed', d && d.message ? d.message : 'Failed to delete.'); } });
+    });
+
+    right.appendChild(btnDownload);
+    right.appendChild(btnDelete);
+    row.appendChild(left);
+    row.appendChild(right);
+    list.appendChild(row);
+    if (header) header.querySelector('span').textContent = 'Materials (' + (materialCount + 1) + ')';
+
+    // Mark as saving and disable actions until persisted
+    row.classList.add('saving');
+    btnDownload.disabled = true;
+    btnDelete.disabled = true;
+
+    // Persist via API and attach row for update callbacks
+    saveMaterialToCoordinator(lessonEl, type, url, file, row);
+
+    // UX feedback
+    if (typeof showNotification === 'function') showNotification('success','Success','Material added to lesson!');
 }
 
 // ===== ADD MATERIAL TO TOPIC (ENHANCED) =====
-function addMaterialToTopic(topicEl, type, title, description, url, file){
+function addMaterialToTopic(topicEl, type, url, file){
     // Update topic display to show material
     var statusSection = topicEl.querySelector('div[style*="margin-top:8px;padding:8px;background:#f8f9fa"]');
     if (statusSection) {
         var materialsSpan = statusSection.querySelector('span[style*="color:#6b7280;font-style:italic"]');
         if (materialsSpan && materialsSpan.textContent.includes('No materials')) {
-            materialsSpan.textContent = '1 material: ' + escapeHtml(title);
+            materialsSpan.textContent = '1 material';
         }
     }
     
     // Save to coordinator system
-    saveMaterialToCoordinator(topicEl, type, title, description, url, file);
+    saveMaterialToCoordinator(topicEl, type, url, file);
     
     // Show success notification
     if (typeof showNotification === 'function') {
-        showNotification('success', 'Success', 'Material "' + title + '" added to topic!');
+        showNotification('success', 'Success', 'Material added to topic!');
     }
 }
+
+// Floating Save Module removed per request
 
 
 // ===== !IMPORTANT FORCE FIX FUNCTION =====
@@ -3575,7 +4780,7 @@ function showAddTopicToModuleModal(moduleEl){
         addBtn.addEventListener('click', function(){
             var title = input.value.trim();
             if (!title) {
-                alert('Please enter a topic title.');
+                showWarning('Validation Error', 'Please enter a topic title.');
                 return;
             }
             
@@ -3584,6 +4789,131 @@ function showAddTopicToModuleModal(moduleEl){
             modal.remove();
         });
     }
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
     
     // Close on backdrop click
     modal.addEventListener('click', function(e){
@@ -3604,11 +4934,8 @@ function createNewLessonForTopic(moduleEl, topicTitle){
     lessonEl.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
         '<div style="font-weight:600;color:#374151;">' + escapeHtml(topicTitle) + '</div>' +
         '<div style="display:flex;gap:4px;">' +
-            '<button class="add-activity-btn" data-action="add-activity" style="background:none;border:none;color:#1d9b3e;cursor:pointer;padding:4px;" title="Add activity">' +
-                '<i class="fas fa-tasks"></i>' +
-            '</button>' +
-            '<button class="add-material-btn" data-action="add-material" style="background:none;border:none;color:#1d9b3e;cursor:pointer;padding:4px;font-size:14px;" title="Add material">' +
-                '<i class="fas fa-file-plus" style="font-size:14px;"></i>' +
+            '<button class="add-material-btn" data-action="add-material" style="background:#28a745;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="Add material">' +
+                '<i class="fas fa-plus" style="font-size:16px;"></i>' +
             '</button>' +
             '<button class="edit-topic-btn" style="background:none;border:none;color:#6b7280;cursor:pointer;padding:4px;" title="Edit topic">' +
                 '<i class="fas fa-pencil-alt"></i>' +
@@ -3719,9 +5046,6 @@ function ensureLessonButtons(){
                         '<button class="add-material-btn" data-action="add-material" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add material">' +
                             '<i class="fas fa-paperclip" style="font-size:12px;"></i>Material' +
                         '</button>' +
-                        '<button class="add-activity-btn" data-action="add-activity" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add activity">' +
-                            '<i class="fas fa-list" style="font-size:12px;"></i>Activity' +
-                        '</button>' +
                         '<button class="edit-lesson-btn" data-action="edit-lesson" style="background:#6b7280;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Edit lesson">' +
                             '<i class="fas fa-pencil-alt" style="font-size:12px;"></i>Edit' +
                         '</button>' +
@@ -3806,9 +5130,6 @@ setTimeout(function(){
                         '<button class="add-material-btn" data-action="add-material" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add material">' +
                             '<i class="fas fa-paperclip" style="font-size:12px;"></i>Material' +
                         '</button>' +
-                        '<button class="add-activity-btn" data-action="add-activity" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add activity">' +
-                            '<i class="fas fa-list" style="font-size:12px;"></i>Activity' +
-                        '</button>' +
                         '<button class="edit-lesson-btn" data-action="edit-lesson" style="background:#6b7280;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Edit lesson">' +
                             '<i class="fas fa-pencil-alt" style="font-size:12px;"></i>Edit' +
                         '</button>' +
@@ -3869,9 +5190,6 @@ window.forceLessonButtons = function(){
                     '<div style="display:flex;gap:8px;">' +
                         '<button class="add-material-btn" data-action="add-material" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add material">' +
                             '<i class="fas fa-paperclip" style="font-size:12px;"></i>Material' +
-                        '</button>' +
-                        '<button class="add-activity-btn" data-action="add-activity" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add activity">' +
-                            '<i class="fas fa-list" style="font-size:12px;"></i>Activity' +
                         '</button>' +
                         '<button class="edit-lesson-btn" data-action="edit-lesson" style="background:#6b7280;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Edit lesson">' +
                             '<i class="fas fa-pencil-alt" style="font-size:12px;"></i>Edit' +
@@ -3947,8 +5265,8 @@ window.fixExistingTopics = function(){
             var buttonContainer = topic.querySelector('div[style*="display:flex;gap:8px;"]');
             if (buttonContainer) {
                 // Add Material button as first button
-                var materialBtnHtml = '<button class="add-material-btn" data-action="add-material" style="background:none;border:none;color:#1d9b3e;cursor:pointer;padding:4px;" title="Add material">' +
-                    '<i class="fas fa-paperclip" style="font-size:16px;"></i>' +
+                var materialBtnHtml = '<button class="add-material-btn" data-action="add-material" style="background:#28a745;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="Add material">' +
+                    '<i class="fas fa-plus" style="font-size:16px;"></i>' +
                 '</button>';
                 
                 // Insert at the beginning
@@ -3960,10 +5278,10 @@ window.fixExistingTopics = function(){
                     newMaterialBtn.addEventListener('click', function(){
                         console.log('🔧 Material button clicked for existing topic');
                         var topicTitle = topic.querySelector('div[style*="font-weight:600"]').textContent.trim();
-                        if (typeof showCoordinatorMaterialModal === 'function') {
-                            showCoordinatorMaterialModal(topic, topicTitle);
+                        if (typeof showAddMaterialModal === 'function') {
+                            showAddMaterialModal(topic, topicTitle);
                         } else {
-                            alert('Material functionality not available yet');
+                            showWarning('Feature Not Available', 'Material functionality not available yet');
                         }
                     });
                 }
@@ -4139,9 +5457,6 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
                     '<button class="add-material-btn" data-action="add-material" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add material">' +
                         '<i class="fas fa-paperclip" style="font-size:12px;"></i>Material' +
                     '</button>' +
-                    '<button class="add-activity-btn" data-action="add-activity" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add activity">' +
-                        '<i class="fas fa-list" style="font-size:12px;"></i>Activity' +
-                    '</button>' +
                     '<button class="edit-lesson-btn" data-action="edit-lesson" style="background:#6b7280;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Edit lesson">' +
                         '<i class="fas fa-pencil-alt" style="font-size:12px;"></i>Edit' +
                     '</button>' +
@@ -4179,8 +5494,8 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
             var buttonContainer = topic.querySelector('div[style*="display:flex;gap:8px;"]');
             if (buttonContainer) {
                 // Add Material button as FIRST button
-                var materialBtnHtml = '<button class="add-material-btn" data-action="add-material" style="background:none;border:none;color:#1d9b3e;cursor:pointer;padding:4px;" title="Add material">' +
-                    '<i class="fas fa-paperclip" style="font-size:16px;"></i>' +
+                var materialBtnHtml = '<button class="add-material-btn" data-action="add-material" style="background:#28a745;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="Add material">' +
+                    '<i class="fas fa-plus" style="font-size:16px;"></i>' +
                 '</button>';
                 
                 buttonContainer.insertAdjacentHTML('afterbegin', materialBtnHtml);
@@ -4191,10 +5506,10 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
                     newMaterialBtn.addEventListener('click', function(){
                         console.log('🚨 Material button clicked!');
                         var topicTitle = topic.querySelector('div[style*="font-weight:600"]').textContent.trim();
-                        if (typeof showCoordinatorMaterialModal === 'function') {
-                            showCoordinatorMaterialModal(topic, topicTitle);
+                        if (typeof showAddMaterialModal === 'function') {
+                            showAddMaterialModal(topic, topicTitle);
                         } else {
-                            alert('Material functionality not available yet');
+                            showWarning('Feature Not Available', 'Material functionality not available yet');
                         }
                     });
                 }
@@ -4217,10 +5532,10 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
             var lessonEl = t.closest('.lesson');
             var topicEl = t.closest('.topic-item');
             if (lessonEl) {
-                showCoordinatorMaterialModal(lessonEl, 'Lesson');
+                showAddMaterialModal(lessonEl, 'Lesson');
             } else if (topicEl) {
                 var topicTitle = topicEl.querySelector('div[style*="font-weight:600"]').textContent.trim();
-                showCoordinatorMaterialModal(topicEl, topicTitle);
+                showAddMaterialModal(topicEl, topicTitle);
             }
         }
     });
@@ -4264,5 +5579,1022 @@ window.testLessonButtons = function(){
     console.log('🔧 Button test complete');
 };
 
+// ===== COMPREHENSIVE MODULE MANAGEMENT SYSTEM =====
 
+// Module Management Functions
+function editModule(moduleEl){
+    var currentTitle = moduleEl.querySelector('.module-header span[style*="font-weight:700"]').textContent.trim();
+    // Build professional modal instead of prompt
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    overlay.innerHTML = '<div style="background:#ffffff;border-radius:12px;padding:20px;max-width:420px;width:92%;box-shadow:0 12px 30px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e5e7eb;padding-bottom:10px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Edit Module</h3>' +
+            '<button id="closeEditModule" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">&times;</button>' +
+        '</div>' +
+        '<label style="display:block;margin:0 0 6px;color:#374151;font-weight:600;">Module title</label>' +
+        '<input id="editModuleInput" type="text" value="' + escapeHtml(currentTitle) + '" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">' +
+            '<button id="cancelEditModule" style="background:#6b7280;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">Cancel</button>' +
+            '<button id="saveEditModule" style="background:#1d9b3e;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">Save</button>' +
+        '</div>' +
+    '</div>';
+    document.body.appendChild(overlay);
+    var input = overlay.querySelector('#editModuleInput');
+    if (input) input.select();
+    function close(){ if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+    overlay.querySelector('#closeEditModule').onclick = close;
+    overlay.querySelector('#cancelEditModule').onclick = close;
+    overlay.querySelector('#saveEditModule').onclick = function(){
+        var newTitle = (input.value || '').trim();
+        if (!newTitle || newTitle === currentTitle) { close(); return; }
+        var titleSpan = moduleEl.querySelector('.module-header span[style*="font-weight:700"]');
+        if (titleSpan) titleSpan.textContent = newTitle;
+        var moduleId = moduleEl.getAttribute('data-module-id');
+        if (moduleId && !moduleId.startsWith('new_')) { updateModuleOnServer(moduleEl, newTitle); }
+        showNotification('success', 'Updated', 'Module title updated successfully!');
+        try { saveStep5Draft(); } catch(_) {}
+        close();
+    };
+}
+
+function deleteModule(moduleEl){
+    var moduleId = moduleEl.getAttribute('data-module-id');
+    var title = moduleEl.querySelector('.module-header span[style*="font-weight:700"]').textContent.trim();
+    
+    showConfirm('Delete Module', 'Are you sure you want to delete the module "' + title + '"? This action cannot be undone.', function(){
+        if (moduleId && !moduleId.startsWith('new_')) {
+            deleteModuleFromServer(moduleId).then(function(success){
+                if (success) {
+                    moduleEl.remove();
+                    showSuccess('Deleted','Module deleted successfully!');
+                } else {
+                    showError('Delete Failed','Failed to delete module from server.');
+                }
+            });
+        } else {
+            moduleEl.remove();
+            showSuccess('Deleted','Module deleted successfully!');
+        }
+    });
+}
+
+function updateModuleOnServer(moduleEl, newTitle){
+    var moduleId = moduleEl.getAttribute('data-module-id');
+    var formData = new FormData();
+    formData.append('action', 'module_update');
+    formData.append('module_id', moduleId);
+    formData.append('title', newTitle);
+    
+    getTeacherCSRFToken().then(function(token){
+        if (token) formData.append('csrf_token', token);
+        return fetch('teacher_outline_api.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+    })
+    .then(function(response){ return response.json(); })
+    .then(function(data){
+        if (!data.success) {
+            showErrorNotification('Failed to update module: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(function(error){
+        console.error('Module update error:', error);
+        showErrorNotification('Network error updating module.');
+    });
+}
+
+function deleteModuleFromServer(moduleId){
+    var formData = new FormData();
+    formData.append('action', 'module_delete');
+    formData.append('module_id', moduleId);
+    
+    return getTeacherCSRFToken().then(function(token){
+        if (token) formData.append('csrf_token', token);
+        return fetch('teacher_outline_api.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+    })
+    .then(function(response){ return response.json(); })
+    .then(function(data){
+        return data.success;
+    })
+    .catch(function(error){
+        console.error('Module delete error:', error);
+        return false;
+    });
+}
+
+// Topic Management Functions
+function editTopic(topicEl){
+    var currentTitle = topicEl.querySelector('div[style*="font-weight:600"]').textContent.trim();
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    overlay.innerHTML = '<div style="background:#ffffff;border-radius:12px;padding:20px;max-width:420px;width:92%;box-shadow:0 12px 30px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e5e7eb;padding-bottom:10px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Edit Topic</h3>' +
+            '<button id="closeEditTopic" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">&times;</button>' +
+        '</div>' +
+        '<label style="display:block;margin:0 0 6px;color:#374151;font-weight:600;">Topic title</label>' +
+        '<input id="editTopicInput" type="text" value="' + escapeHtml(currentTitle) + '" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">' +
+            '<button id="cancelEditTopic" style="background:#6b7280;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">Cancel</button>' +
+            '<button id="saveEditTopic" style="background:#1d9b3e;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">Save</button>' +
+        '</div>' +
+    '</div>';
+    document.body.appendChild(overlay);
+    var input = overlay.querySelector('#editTopicInput'); if (input) input.select();
+    function close(){ if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+    overlay.querySelector('#closeEditTopic').onclick = close;
+    overlay.querySelector('#cancelEditTopic').onclick = close;
+    overlay.querySelector('#saveEditTopic').onclick = function(){
+        var newTitle = (input.value || '').trim();
+        if (!newTitle || newTitle === currentTitle) { close(); return; }
+        var titleDiv = topicEl.querySelector('div[style*="font-weight:600"]');
+        if (titleDiv) titleDiv.textContent = newTitle;
+        var topicId = topicEl.getAttribute('data-topic-id');
+        if (topicId && !topicId.startsWith('new_')) { updateTopicOnServer(topicEl, newTitle); }
+        showNotification('success', 'Updated', 'Topic title updated successfully!');
+        try { saveStep5Draft(); } catch(_) {}
+        close();
+    };
+}
+
+function deleteTopic(topicEl){
+    var topicId = topicEl.getAttribute('data-topic-id');
+    var title = topicEl.querySelector('div[style*="font-weight:600"]').textContent.trim();
+    
+    showConfirm('Delete Topic', 'Are you sure you want to delete the topic "' + title + '"? This action cannot be undone.', function(){
+        if (topicId && !topicId.startsWith('new_')) {
+            deleteTopicFromServer(topicId).then(function(success){
+                if (success) {
+                    topicEl.remove();
+                    showSuccess('Deleted','Topic deleted successfully!');
+                } else {
+                    showError('Delete Failed','Failed to delete topic from server.');
+                }
+            });
+        } else {
+            topicEl.remove();
+            showSuccess('Deleted','Topic deleted successfully!');
+        }
+    });
+}
+
+function updateTopicOnServer(topicEl, newTitle){
+    var topicId = topicEl.getAttribute('data-topic-id');
+    var formData = new FormData();
+    formData.append('action', 'topic_update');
+    formData.append('topic_id', topicId);
+    formData.append('title', newTitle);
+    
+    getTeacherCSRFToken().then(function(token){
+        if (token) formData.append('csrf_token', token);
+        return fetch('teacher_outline_api.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+    })
+    .then(function(response){ return response.json(); })
+    .then(function(data){
+        if (!data.success) {
+            showErrorNotification('Failed to update topic: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(function(error){
+        console.error('Topic update error:', error);
+        showErrorNotification('Network error updating topic.');
+    });
+}
+
+function deleteTopicFromServer(topicId){
+    var formData = new FormData();
+    formData.append('action', 'topic_delete');
+    formData.append('topic_id', topicId);
+    
+    return getTeacherCSRFToken().then(function(token){
+        if (token) formData.append('csrf_token', token);
+        return fetch('teacher_outline_api.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+    })
+    .then(function(response){ return response.json(); })
+    .then(function(data){
+        return data.success;
+    })
+    .catch(function(error){
+        console.error('Topic delete error:', error);
+        return false;
+    });
+}
+
+// Lesson Management Functions
+function createNewLesson(moduleEl, title){
+    var lessonId = 'new_' + Date.now();
+    var lessonEl = document.createElement('div');
+    lessonEl.className = 'lesson';
+    lessonEl.setAttribute('data-lesson-id', lessonId);
+    
+    // Match the professional, clean card style with green left border
+    lessonEl.innerHTML = '<div class="lesson-header" style="background:#ffffff;padding:10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e5e7eb;border-left:3px solid #1d9b3e;">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<span class="drag-handle lesson-drag" title="Drag to reorder lessons" style="color:#6b7280;cursor:grab;">' +
+                '<i class="fas fa-ellipsis-v"></i>' +
+            '</span>' +
+            '<i class="fas fa-book" style="color:#6b7280;font-size:14px;"></i>' +
+            '<span style="font-weight:600;color:#374151;">' + escapeHtml(title) + '</span>' +
+        '</div>' +
+        '<span style="font-size:11px;background:#e9f5ee;color:#137b30;border:1px solid #ccebd9;padding:1px 6px;border-radius:999px;">Materials</span>' +
+    '</div>' +
+    '<div class="lesson-content" style="padding:12px 15px;">' +
+        '<div class="materials-header" style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#374151;font-weight:600;margin:2px 0 10px;">' +
+            '<span>Materials (0)</span>' +
+            '<button class="add-material-btn" data-action="add-material" style="background:#1d9b3e;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add material">' +
+                '<i class="fas fa-plus"></i>Material' +
+            '</button>' +
+        '</div>' +
+        '<div class="materials-list"></div>' +
+    '</div>';
+    
+    // Add into the module's lessons container (inside created module)
+    var content = moduleEl.querySelector('.module-content');
+    if (content){
+        var list = content.querySelector('.module-lessons');
+        if (!list){
+            list = document.createElement('div');
+            list.className = 'module-lessons';
+            list.style.textAlign = 'left';
+            list.style.marginTop = '8px';
+            var footer = content.querySelector('.module-footer-actions');
+            if (footer) content.insertBefore(list, footer); else content.appendChild(list);
+        }
+        list.appendChild(lessonEl);
+        var empty = content.querySelector('.module-empty');
+        if (empty) empty.style.display = 'none';
+    }
+    
+    // Initialize sortables
+    initStep5Sortables();
+    
+    showNotification('success', 'Created', 'Lesson created successfully!');
+    // Update count/empty state
+    try { updateModuleLessonCount(moduleEl); } catch(_) {}
+}
+
+function editLesson(lessonEl){
+    var currentTitle = lessonEl.querySelector('.lesson-header span[style*="font-weight:600"]').textContent.trim();
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    overlay.innerHTML = '<div style="background:#ffffff;border-radius:12px;padding:20px;max-width:420px;width:92%;box-shadow:0 12px 30px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e5e7eb;padding-bottom:10px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Edit Lesson</h3>' +
+            '<button id="closeEditLesson" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">&times;</button>' +
+        '</div>' +
+        '<label style="display:block;margin:0 0 6px;color:#374151;font-weight:600;">Lesson title</label>' +
+        '<input id="editLessonInput" type="text" value="' + escapeHtml(currentTitle) + '" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">' +
+            '<button id="cancelEditLesson" style="background:#6b7280;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">Cancel</button>' +
+            '<button id="saveEditLesson" style="background:#1d9b3e;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">Save</button>' +
+        '</div>' +
+    '</div>';
+    document.body.appendChild(overlay);
+    var input = overlay.querySelector('#editLessonInput'); if (input) input.select();
+    function close(){ if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+    overlay.querySelector('#closeEditLesson').onclick = close;
+    overlay.querySelector('#cancelEditLesson').onclick = close;
+    overlay.querySelector('#saveEditLesson').onclick = function(){
+        var newTitle = (input.value || '').trim();
+        if (!newTitle || newTitle === currentTitle) { close(); return; }
+        var titleSpan = lessonEl.querySelector('.lesson-header span[style*="font-weight:600"]');
+        if (titleSpan) titleSpan.textContent = newTitle;
+        var lessonId = lessonEl.getAttribute('data-lesson-id');
+        if (lessonId && !lessonId.startsWith('new_')) { updateLessonOnServer(lessonEl, newTitle); }
+        showNotification('success', 'Updated', 'Lesson title updated successfully!');
+        try { saveStep5Draft(); } catch(_) {}
+        close();
+    };
+}
+
+function saveLesson(lessonEl){
+    var lessonId = lessonEl.getAttribute('data-lesson-id');
+    var title = lessonEl.querySelector('.lesson-header span[style*="font-weight:600"]').textContent.trim();
+    
+    // Check if already saved
+    if (lessonId && !lessonId.startsWith('new_')) {
+            showInfo('Lesson Status', 'Lesson is already saved.');
+        return;
+    }
+    
+    // Get module ID
+    var moduleEl = lessonEl.closest('.module');
+    if (!moduleEl) {
+        showError('Module Error', 'Could not find parent module.');
+        return;
+    }
+    
+    var moduleId = moduleEl.getAttribute('data-module-id');
+    // Allow auto-save of lesson even if module is not yet persisted.
+    if (!moduleId || moduleId.startsWith('new_')) {
+        moduleId = moduleId || 'temp';
+    }
+    
+    // Save lesson to server
+    var formData = new FormData();
+    formData.append('action', 'class_lesson_create');
+    var classIdForLesson = (typeof getCurrentClassIdForTeacher === 'function') ? getCurrentClassIdForTeacher() : null;
+    if (!classIdForLesson) {
+        showWarning('Class Not Selected', 'Please enter the class first.');
+        return;
+    }
+    formData.append('class_id', String(classIdForLesson));
+    formData.append('module_id', moduleId);
+    formData.append('title', title);
+    
+    getTeacherCSRFToken().then(function(token){
+        if (token) formData.append('csrf_token', token);
+        
+        fetch('teacher_class_api.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(function(response){ return response.json(); })
+        .then(function(data){
+            if (data && data.success && data.id) {
+                // Update lesson ID
+                lessonEl.setAttribute('data-lesson-id', data.id);
+                
+                // Update save button to show saved state
+                var saveBtn = lessonEl.querySelector('.save-lesson-btn');
+                if (saveBtn) {
+                    saveBtn.outerHTML = '<span style="background:#e9f5ee;color:#1d9b3e;border:1px solid #dbeafe;padding:4px 8px;border-radius:4px;font-size:11px;display:flex;align-items:center;gap:4px;"><i class="fas fa-check"></i>Saved</span>';
+                }
+                
+                if (typeof showNotification === 'function') {
+                    showNotification('success', 'Success', 'Lesson saved successfully!');
+                }
+            } else {
+                    showError('Lesson Save Failed', 'Failed to save lesson: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(function(error){
+            console.error('Lesson save error:', error);
+            showError('Network Error', 'Network error saving lesson.');
+        });
+    }).catch(function(error){
+        console.error('CSRF token fetch error:', error);
+        showError('Security Error', 'Security error: Failed to get CSRF token.');
+    });
+}
+
+// Save module (create if needed) and resolve with real module id
+function ensureModuleSaved(moduleEl){
+    return new Promise(function(resolve, reject){
+        if (!moduleEl) return reject();
+        var moduleId = moduleEl.getAttribute('data-module-id');
+        if (moduleId && moduleId.indexOf('new_') !== 0) return resolve(moduleId);
+        var titleNode = moduleEl.querySelector('.module-header span[style*="font-weight:700"]');
+        var title = titleNode ? (titleNode.textContent || '').trim() : 'Untitled Module';
+        var classId = (typeof getCurrentClassIdForTeacher === 'function') ? getCurrentClassIdForTeacher() : null;
+        if (!classId) { showWarning('Class Not Selected', 'Please select a class first.'); return reject(); }
+        var formData = new FormData();
+        formData.append('action','class_module_create');
+        formData.append('class_id', String(classId));
+        formData.append('title', title);
+        getCSRFToken().then(function(tok){ if (tok) formData.append('csrf_token', tok); return fetch('teacher_class_api.php',{ method:'POST', body: formData, credentials:'same-origin' }); })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if (d && d.success && d.id){ moduleEl.setAttribute('data-module-id', d.id); showNotification('success','Module Saved','Module saved automatically.'); resolve(d.id);} else { showError('Module Save Failed', (d && d.message) ? d.message : 'Failed to save module.'); reject(); } })
+        .catch(function(err){ console.error('ensureModuleSaved error:', err); showError('Network Error', 'Could not save module.'); reject(); });
+    });
+}
+
+// Ensure a lesson is persisted (auto-save if temporary), then resolve with real id
+function ensureLessonSaved(lessonEl){
+    return new Promise(function(resolve, reject){
+        var existingId = lessonEl.getAttribute('data-lesson-id');
+        if (existingId && existingId.indexOf('new_') !== 0) {
+            return resolve(existingId);
+        }
+        var moduleEl = lessonEl.closest('.module');
+        if (!moduleEl) { showError('Module Error', 'Could not find parent module.'); return reject(); }
+        var moduleId = moduleEl.getAttribute('data-module-id');
+        if (!moduleId || moduleId.indexOf('new_') === 0) { moduleId = moduleId || 'temp'; }
+        var titleNode = lessonEl.querySelector('.lesson-header span[style*="font-weight:600"]');
+        var title = titleNode ? (titleNode.textContent || '').trim() : 'Untitled Lesson';
+
+        var formData = new FormData();
+        formData.append('action', 'class_lesson_create');
+        var clsId = (typeof getCurrentClassIdForTeacher === 'function') ? getCurrentClassIdForTeacher() : null;
+        if (!clsId) { showWarning('Class Not Selected', 'Please enter the class first.'); return reject(); }
+        formData.append('class_id', String(clsId));
+        formData.append('module_id', moduleId);
+        formData.append('title', title);
+
+        getTeacherCSRFToken().then(function(token){ if (token) formData.append('csrf_token', token); return fetch('teacher_class_api.php', { method:'POST', body: formData, credentials:'same-origin' }); })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d && d.success && d.id){
+                lessonEl.setAttribute('data-lesson-id', d.id);
+                var saveBtn = lessonEl.querySelector('.save-lesson-btn');
+                if (saveBtn) saveBtn.outerHTML = '<span style="background:#e9f5ee;color:#1d9b3e;border:1px solid #dbeafe;padding:4px 8px;border-radius:4px;font-size:11px;display:flex;align-items:center;gap:4px;"><i class="fas fa-check"></i>Saved</span>';
+                showNotification('success', 'Lesson Saved', 'Lesson saved automatically.');
+                resolve(d.id);
+            } else {
+                showError('Lesson Save Failed', (d && d.message) ? d.message : 'Failed to save lesson.');
+                reject();
+            }
+        }).catch(function(err){
+            console.error('ensureLessonSaved error:', err);
+            showError('Network Error', 'Could not save lesson.');
+            reject();
+        });
+    });
+}
+
+function deleteLesson(lessonEl){
+    var lessonId = lessonEl.getAttribute('data-lesson-id');
+    var title = lessonEl.querySelector('.lesson-header span[style*="font-weight:600"]').textContent.trim();
+    
+    showConfirm('Delete Lesson', 'Are you sure you want to delete the lesson "' + title + '"? This action cannot be undone.', function(){
+        if (lessonId && !lessonId.startsWith('new_')) {
+            deleteLessonFromServer(lessonId).then(function(success){
+                if (success) {
+                    lessonEl.remove();
+                    showSuccess('Deleted','Lesson deleted successfully!');
+                } else {
+                    showError('Delete Failed','Failed to delete lesson from server.');
+                }
+            });
+        } else {
+            lessonEl.remove();
+            showSuccess('Deleted','Lesson deleted successfully!');
+        }
+    });
+}
+
+function updateLessonOnServer(lessonEl, newTitle){
+    var lessonId = lessonEl.getAttribute('data-lesson-id');
+    var formData = new FormData();
+    formData.append('action', 'lesson_update');
+    formData.append('lesson_id', lessonId);
+    formData.append('title', newTitle);
+    
+    getTeacherCSRFToken().then(function(token){
+        if (token) formData.append('csrf_token', token);
+        return fetch('teacher_outline_api.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+    })
+    .then(function(response){ return response.json(); })
+    .then(function(data){
+        if (!data.success) {
+            showErrorNotification('Failed to update lesson: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(function(error){
+        console.error('Lesson update error:', error);
+        showErrorNotification('Network error updating lesson.');
+    });
+}
+
+function deleteLessonFromServer(lessonId){
+    var formData = new FormData();
+    formData.append('action', 'lesson_delete');
+    formData.append('lesson_id', lessonId);
+    
+    return getTeacherCSRFToken().then(function(token){
+        if (token) formData.append('csrf_token', token);
+        return fetch('teacher_outline_api.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+    })
+    .then(function(response){ return response.json(); })
+    .then(function(data){
+        return data.success;
+    })
+    .catch(function(error){
+        console.error('Lesson delete error:', error);
+        return false;
+    });
+}
+
+// Advanced Features
+function duplicateModule(moduleEl){
+    var title = moduleEl.querySelector('.module-header span[style*="font-weight:700"]').textContent.trim();
+    var newTitle = title + ' (Copy)';
+    
+    // Create new module with duplicated content
+    createNewModule(newTitle);
+    
+    // Copy all lessons and topics
+    var lessons = moduleEl.querySelectorAll('.lesson');
+    lessons.forEach(function(lesson){
+        var lessonTitle = lesson.querySelector('.lesson-header span[style*="font-weight:600"]').textContent.trim();
+        var newModule = document.querySelector('.module:last-child');
+        if (newModule) {
+            createNewLesson(newModule, lessonTitle);
+        }
+    });
+    
+    showNotification('success', 'Duplicated', 'Module duplicated successfully!');
+}
+
+function exportModule(moduleEl){
+    var title = moduleEl.querySelector('.module-header span[style*="font-weight:700"]').textContent.trim();
+    var moduleData = {
+        title: title,
+        lessons: []
+    };
+    
+    var lessons = moduleEl.querySelectorAll('.lesson');
+    lessons.forEach(function(lesson){
+        var lessonTitle = lesson.querySelector('.lesson-header span[style*="font-weight:600"]').textContent.trim();
+        var lessonData = {
+            title: lessonTitle,
+            materials: []
+        };
+        
+        var materials = lesson.querySelectorAll('.material-item');
+        materials.forEach(function(material){
+            var materialData = {
+                type: material.getAttribute('data-type'),
+                title: material.querySelector('.material-title').textContent.trim(),
+                url: material.getAttribute('data-url') || null
+            };
+            lessonData.materials.push(materialData);
+        });
+        
+        moduleData.lessons.push(lessonData);
+    });
+    
+    // Download as JSON
+    var dataStr = JSON.stringify(moduleData, null, 2);
+    var dataBlob = new Blob([dataStr], {type: 'application/json'});
+    var url = URL.createObjectURL(dataBlob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_module.json';
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    showNotification('success', 'Exported', 'Module exported successfully!');
+}
+
+// Enhanced UI Functions
+function showModuleSettings(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Settings</h3>' +
+            '<button id="closeSettingsModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Module Title</label>' +
+            '<input type="text" id="moduleTitleInput" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;" />' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Description (Optional)</label>' +
+            '<textarea id="moduleDescInput" rows="3" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;resize:vertical;" placeholder="Enter module description..."></textarea>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<label style="display:flex;align-items:center;gap:8px;color:#374151;font-weight:600;">' +
+                '<input type="checkbox" id="moduleVisibleCheck" checked />' +
+                'Make module visible to students' +
+            '</label>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelSettingsBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+            '<button id="saveSettingsBtn" style="background:#1d9b3e;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Save Settings</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Populate current values
+    var currentTitle = moduleEl.querySelector('.module-header span[style*="font-weight:700"]').textContent.trim();
+    modal.querySelector('#moduleTitleInput').value = currentTitle;
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelSettingsBtn');
+    var saveBtn = modal.querySelector('#saveSettingsBtn');
+    var closeBtn = modal.querySelector('#closeSettingsModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function(){
+            var newTitle = modal.querySelector('#moduleTitleInput').value.trim();
+            var description = modal.querySelector('#moduleDescInput').value.trim();
+            var isVisible = modal.querySelector('#moduleVisibleCheck').checked;
+            
+            if (!newTitle) {
+                showWarning('Validation Error', 'Please enter a module title.');
+                return;
+            }
+            
+            // Update module
+            var titleSpan = moduleEl.querySelector('.module-header span[style*="font-weight:700"]');
+            titleSpan.textContent = newTitle;
+            
+            // Save to server if needed
+            var moduleId = moduleEl.getAttribute('data-module-id');
+            if (moduleId && !moduleId.startsWith('new_')) {
+                updateModuleOnServer(moduleEl, newTitle);
+            }
+            
+            showNotification('success', 'Updated', 'Module settings saved successfully!');
+            modal.remove();
+        });
+    }
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Notification System
+function showNotification(type, title, message){
+    var notification = document.createElement('div');
+    notification.style.cssText = 'position:fixed;top:20px;right:20px;background:white;border-left:4px solid ' + 
+        (type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6') + 
+        ';padding:15px 20px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:10000;max-width:400px;';
+    
+    notification.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
+        '<div>' +
+            '<div style="font-weight:600;color:#374151;margin-bottom:4px;">' + title + '</div>' +
+            '<div style="color:#6b7280;font-size:14px;">' + message + '</div>' +
+        '</div>' +
+        '<button onclick="this.parentElement.parentElement.parentElement.remove()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:18px;">&times;</button>' +
+    '</div>';
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(function(){
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+function showErrorNotification(message){
+    showNotification('error', 'Error', message);
+}
+
+// Add Lesson Modal
+function showAddLessonModal(moduleEl){
+    // Guard against duplicate instances (second implementation)
+    if (document.querySelector('[data-modal="add-lesson"]')) return;
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.setAttribute('data-modal', 'add-lesson');
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Add New Lesson</h3>' +
+            '<button id="closeLessonModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Lesson Title</label>' +
+            '<input type="text" id="lessonTitleInput" placeholder="Enter lesson title..." style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;" />' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Description (Optional)</label>' +
+            '<textarea id="lessonDescInput" rows="3" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;resize:vertical;" placeholder="Enter lesson description..."></textarea>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelLessonBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+            '<button id="createLessonBtn" style="background:#1d9b3e;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Create Lesson</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Focus on input
+    var input = modal.querySelector('#lessonTitleInput');
+    if (input) {
+        input.focus();
+    }
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelLessonBtn');
+    var createBtn = modal.querySelector('#createLessonBtn');
+    var closeBtn = modal.querySelector('#closeLessonModal');
+    
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function(){
+            modal.remove();
+        });
+    }
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(){
+            modal.remove();
+        });
+    }
+    
+    if (createBtn) {
+        createBtn.addEventListener('click', function(){
+            var title = modal.querySelector('#lessonTitleInput').value.trim();
+            var description = modal.querySelector('#lessonDescInput').value.trim();
+            
+            if (title) {
+                createNewLesson(moduleEl, title);
+                modal.remove();
+            } else {
+                if (typeof showWarning === 'function') showWarning('Validation Error', 'Please enter a lesson title.');
+            }
+        });
+    }
+    
+    // Enter key support
+    if (input) {
+        input.addEventListener('keypress', function(e){
+            if (e.key === 'Enter') {
+                var title = input.value.trim();
+                if (title) {
+                    createNewLesson(moduleEl, title);
+                    modal.remove();
+                } else {
+                    showWarning('Validation', 'Please enter a lesson title.');
+                }
+            }
+        });
+    }
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Advanced Features
+function showModuleTemplates(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:600px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Module Templates</h3>' +
+            '<button id="closeTemplateModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">' +
+            '<div class="template-card" data-template="programming" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Programming Module</div>' +
+                '<div style="color:#6b7280;font-size:12px;">Variables, Functions, Loops, Arrays</div>' +
+            '</div>' +
+            '<div class="template-card" data-template="web-dev" style="border:2px solid #e5e7eb;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.backgroundColor=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.backgroundColor=\'white\';">' +
+                '<div style="font-weight:600;color:#374151;margin-bottom:8px;">Web Development</div>' +
+                '<div style="color:#6b7280;font-size:12px;">HTML, CSS, JavaScript, Responsive Design</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelTemplateBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Template selection
+    modal.querySelectorAll('.template-card').forEach(function(card){
+        card.addEventListener('click', function(){
+            var template = this.getAttribute('data-template');
+            applyModuleTemplate(moduleEl, template);
+            modal.remove();
+        });
+    });
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelTemplateBtn');
+    var closeBtn = modal.querySelector('#closeTemplateModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+function applyModuleTemplate(moduleEl, template){
+    var templates = {
+        programming: [
+            {type: 'lesson', title: 'Introduction to Programming', topics: ['What is Programming?', 'Programming Languages', 'Development Environment']},
+            {type: 'lesson', title: 'Variables and Data Types', topics: ['Variables', 'Data Types', 'Constants', 'Type Conversion']},
+            {type: 'lesson', title: 'Control Structures', topics: ['Conditional Statements', 'Loops', 'Switch Statements']}
+        ],
+        'web-dev': [
+            {type: 'lesson', title: 'HTML Fundamentals', topics: ['HTML Structure', 'Tags and Elements', 'Attributes', 'Forms']},
+            {type: 'lesson', title: 'CSS Styling', topics: ['Selectors', 'Properties', 'Layout', 'Responsive Design']},
+            {type: 'lesson', title: 'JavaScript Basics', topics: ['DOM Manipulation', 'Events', 'AJAX']}
+        ]
+    };
+    
+    var templateData = templates[template];
+    if (!templateData) return;
+    
+    // Clear existing content
+    var moduleContent = moduleEl.querySelector('.module-content');
+    if (moduleContent) {
+        moduleContent.innerHTML = '';
+    }
+    
+    // Apply template
+    templateData.forEach(function(item){
+        if (item.type === 'lesson') {
+            createNewLesson(moduleEl, item.title);
+            // Add topics to the lesson
+            setTimeout(function(){
+                var newLesson = moduleEl.querySelector('.lesson:last-child');
+                if (newLesson && item.topics) {
+                    item.topics.forEach(function(topicTitle){
+                        createNewTopic(newLesson, topicTitle);
+                    });
+                }
+            }, 100);
+        }
+    });
+    
+    showNotification('success', 'Template Applied', 'Module template applied successfully!');
+}
+
+function showBulkOperations(moduleEl){
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:15px;">' +
+            '<h3 style="margin:0;color:#1d9b3e;font-weight:700;">Bulk Operations</h3>' +
+            '<button id="closeBulkModal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">&times;</button>' +
+        '</div>' +
+        '<div style="margin-bottom:20px;">' +
+            '<div style="color:#6b7280;font-style:italic;text-align:center;">Bulk operations allow you to perform actions on multiple items at once.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:15px;">' +
+            '<button id="cancelBulkBtn" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    var cancelBtn = modal.querySelector('#cancelBulkBtn');
+    var closeBtn = modal.querySelector('#closeBulkModal');
+    
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', function(e){
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
 
