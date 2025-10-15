@@ -664,7 +664,7 @@ class CourseService {
 
     public function createActivity(int $lessonId, string $title, string $instructions = null, string $type = 'lecture', $dueAt = null, int $maxScore = 100): int {
         $pos = (int)$this->db->query("SELECT COALESCE(MAX(position),0)+1 FROM lesson_activities WHERE lesson_id=" . (int)$lessonId)->fetchColumn();
-        $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based'];
+        $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based','essay'];
         if (!in_array($type, $allowedTypes, true)) { $type = 'lecture'; }
         $stmt = $this->db->prepare("INSERT INTO lesson_activities (lesson_id, type, title, instructions, due_at, max_score, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $ok = $stmt->execute([$lessonId, $type, $title, $instructions, $dueAt, $maxScore, $pos]);
@@ -672,7 +672,7 @@ class CourseService {
     }
 
     public function updateActivity(int $id, array $data): bool {
-        $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based'];
+        $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based','essay'];
         $type = $data['type'] ?? 'lecture'; if (!in_array($type, $allowedTypes, true)) { $type = 'lecture'; }
         $stmt = $this->db->prepare("UPDATE lesson_activities SET type=?, title=?, instructions=?, due_at=?, max_score=? WHERE id=?");
         return $stmt->execute([

@@ -266,12 +266,14 @@
 			ensureCreateTile();
 			bindCreateClassControls();
 			loadPublishedCoursesForCreate();
+			bindMyClassesNavExit();
 		});
 	} else {
   loadActiveClasses();
 		ensureCreateTile();
 		bindCreateClassControls();
 		loadPublishedCoursesForCreate();
+		bindMyClassesNavExit();
 	}
 
 	// Expose for manual refresh if needed
@@ -284,10 +286,62 @@
 		window.currentClassId = classId;
 		document.body.setAttribute('data-class-id', classId);
 		console.log('✅ Class ID set for teacher module creation:', classId);
-		// Redirect to class dashboard
-		window.location.href = 'class_dashboard.php?class_id=' + classId;
+		// Try to open inside My Classes via iframe container
+		var container = document.getElementById('classDetailContainer');
+		var frame = document.getElementById('classDetailFrame');
+		var grid = document.querySelector('.classes-grid');
+		var sectionTitle = document.querySelector('#my-classes .section-title');
+		var activeHeader = document.querySelector('.active-classes-header');
+		if (container && frame) {
+			if (grid) grid.style.display = 'none';
+			if (sectionTitle) sectionTitle.style.display = 'none';
+			if (activeHeader) activeHeader.style.display = 'none';
+			container.classList.add('full-bleed');
+			container.style.display = 'block';
+			frame.src = 'class_dashboard.php?class_id=' + encodeURIComponent(classId) + '&embedded=1';
+		} else {
+			// Fallback: full page navigation
+			window.location.href = 'class_dashboard.php?class_id=' + classId;
+		}
 	}
+
+	// Expose back handler for embedded class view
+	window.exitEmbeddedClass = function() {
+		var container = document.getElementById('classDetailContainer');
+		var frame = document.getElementById('classDetailFrame');
+		var grid = document.querySelector('.classes-grid');
+		var sectionTitle = document.querySelector('#my-classes .section-title');
+		var activeHeader = document.querySelector('.active-classes-header');
+		if (container) container.style.display = 'none';
+		if (container) container.classList.remove('full-bleed');
+		if (frame) frame.src = '';
+		if (grid) grid.style.display = '';
+		if (sectionTitle) sectionTitle.style.display = '';
+		if (activeHeader) activeHeader.style.display = '';
+	};
+
+
+
+	// Expose open handler for inline buttons
+	window.enterClass = enterClass;
 })();
+
+// Bind click on "My Classes" in sidebar to exit embedded view if open
+function bindMyClassesNavExit(){
+  try {
+    var items = document.querySelectorAll('#sidebar .nav-item');
+    items && items.forEach(function(li){
+      var label = (li.textContent || '').trim().toLowerCase();
+      if (label === 'my classes') {
+        li.addEventListener('click', function(){
+          if (typeof window.exitEmbeddedClass === 'function') {
+            window.exitEmbeddedClass();
+          }
+        });
+      }
+    });
+  } catch(_) {}
+}
 
 // ===== Create Class controls (moved) =====
 function bindCreateClassControls(){
@@ -529,6 +583,13 @@ function populateStep4WithSelectedCourse(courseId, courseTitle){
 function loadCourseOutlineForStep5(courseId){
     var lessonsContainer = document.getElementById('lessons');
     if (lessonsContainer) lessonsContainer.innerHTML = '<div class="empty-state">Loading outline...</div>';
+    
+    // Clear any existing draft to ensure we get the correct order from database
+    try { 
+        localStorage.removeItem('cr_step5_draft_course_' + courseId); 
+        console.log('Cleared localStorage draft for course', courseId);
+    } catch(_) {}
+    
     var url = 'course_outline.php?course_id=' + encodeURIComponent(courseId);
     fetch(url, { credentials: 'same-origin' })
         .then(function(r){ return r.text(); })
@@ -537,8 +598,7 @@ function loadCourseOutlineForStep5(courseId){
                 var d = JSON.parse(t);
                 if (d && d.success) {
                     populateStep5Outline(d.data || []);
-                    // Try applying any saved draft for this course
-                    try { loadStep5DraftAndApply(); } catch(_) {}
+                    // Don't apply draft - use database order
                     return;
                 }
             } catch(e) {
@@ -2142,8 +2202,8 @@ function createNewTopic(lessonEl, title){
                 try { saveStep5Draft(); } catch(_) {}
                 showSuccess('Deleted','Topic deleted.');
             });
-        });
-    }
+  });
+}
 
     // Update lesson item count
     updateLessonItemCount(lessonEl);

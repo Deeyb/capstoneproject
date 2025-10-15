@@ -6,6 +6,7 @@ Auth::requireAuth();
 
 $classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
 if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
+$embedded = isset($_GET['embedded']) ? (int)$_GET['embedded'] : 0;
 
 // Basic page scaffold; data for header can be fetched later
 ?>
@@ -29,6 +30,8 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
     .class-page .lesson-main-title {
       text-align: center !important;
     }
+    .nav-back-btn { background: none; border: none; padding: 8px 10px; color: #64748b; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .nav-back-btn:hover { background: #f1f5f9; }
   </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
@@ -48,10 +51,10 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
       
       <div class="nav-center">
         <div class="nav-tabs">
-          <button class="nav-tab" data-tab="overview">Overview</button>
           <button class="nav-tab active" data-tab="activities">Activities</button>
-          <button class="nav-tab" data-tab="students">Students</button>
-          <button class="nav-tab" data-tab="grades">Grades</button>
+          <button class="nav-tab" data-tab="classrecord">Class Record</button>
+          <button class="nav-tab" data-tab="newsfeed">Newsfeed</button>
+          <button class="nav-tab" data-tab="leaderboards">Leaderboards</button>
         </div>
       </div>
       
@@ -59,9 +62,16 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
         <button class="btn-create-activity" id="createActivityBtn">
           <i class="fas fa-plus"></i> Create activity
         </button>
-        <button class="nav-menu-btn" id="menuBtn">
-          <i class="fas fa-ellipsis-v"></i>
-        </button>
+        <div style="position: relative; display:inline-block;">
+          <button class="nav-menu-btn" id="menuBtn" title="Menu">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+          <div id="navMenuDropdown" style="display:none; position:absolute; right:0; top:36px; background:#fff; border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,0.08); border-radius:8px; min-width:180px; z-index:1000;">
+            <button id="copyClassCodeMenu" style="width:100%; background:none; border:none; padding:10px 12px; text-align:left; cursor:pointer; font-size:14px; color:#374151;">
+              <i class="fas fa-copy" style="margin-right:8px;"></i> Copy Class Code
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -82,244 +92,27 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
           </div>
         </div>
         
-        <div class="sidebar-section">
-          <h3 class="sidebar-title">
-            <i class="fas fa-lock"></i>
-            Class code
-          </h3>
-          <div class="class-code-info">
-            <p>You need to partner with us first to invite students.</p>
-            <button class="btn-partner">
-              <i class="fas fa-phone"></i>
-              Book a call to partner
-            </button>
-          </div>
-        </div>
+        
       </div>
 
       <!-- Main Content Area -->
       <div class="main-content">
-        <section id="tab-overview" class="tab-section">
-          <div class="overview-grid">
-            <div class="card">
-              <div class="card-header-row">
-                <h3>Teaching today</h3>
-                <button class="btn tiny" id="startLessonBtn"><i class="fas fa-play"></i> Start</button>
-              </div>
-              <div id="teachingToday">No lesson planned for today.</div>
+        <section id="tab-classrecord" class="tab-section">
+          <div class="card">
+            <div class="card-header-row">
+              <h3>Class Record</h3>
             </div>
-            <div class="card">
-              <div class="card-header-row">
-                <h3>Needs grading</h3>
-                <button class="btn tiny" id="openGradesBtn"><i class="fas fa-arrow-right"></i></button>
-              </div>
-              <ul class="simple-list" id="needsGradingList"><li>Nothing pending</li></ul>
-            </div>
-            <div class="card">
-              <div class="card-header-row">
-                <h3>Unpublished items</h3>
-                <button class="btn tiny" id="reviewDraftsBtn"><i class="fas fa-eye"></i></button>
-              </div>
-              <ul class="simple-list" id="unpublishedList"><li>No drafts</li></ul>
-            </div>
+            <div style="padding: 12px; color:#6b7280;">Coming soon.</div>
           </div>
         </section>
 
         <section id="tab-activities" class="tab-section active">
-          <div class="lesson-header" style="text-align: center !important; display: flex; flex-direction: column; align-items: center;">
-            <h2 class="lesson-title" style="text-align: center !important; margin: 0 0 8px 0; font-size: 16px; font-weight: 500; color: #64748b;">MODULE 1</h2>
-            <h1 class="lesson-main-title" style="text-align: center !important; margin: 0; font-size: 32px; font-weight: 700; color: #1e293b; line-height: 1.2;">Introduction to Computer Programming</h1>
-          </div>
-          
-          <!-- Module Topics Section -->
-          <div class="module-section">
-            <h3 class="section-title">📚 Module Topics</h3>
-            <div class="lesson-topics">
-              <div class="topic-item">
-                <div class="topic-header">
-                  <i class="fas fa-chevron-down topic-toggle"></i>
-                  <span class="topic-title">TOPIC 1: The Computer Systems</span>
-                  <div class="topic-meta">
-                    <span class="topic-status">Hardware & Software</span>
-                    <span class="topic-count">Lecture + Lab</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="topic-item">
-                <div class="topic-header">
-                  <i class="fas fa-chevron-down topic-toggle"></i>
-                  <span class="topic-title">TOPIC 2: Analog vs. Digital Computers</span>
-                  <div class="topic-meta">
-                    <span class="topic-status">Characteristics & Applications</span>
-                    <span class="topic-count">Lecture Only</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="topic-item">
-                <div class="topic-header">
-                  <i class="fas fa-chevron-down topic-toggle"></i>
-                  <span class="topic-title">TOPIC 3: Programming Languages</span>
-                  <div class="topic-meta">
-                    <span class="topic-status">Machine, Assembly, High-level</span>
-                    <span class="topic-count">Lecture Only</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="topic-item">
-                <div class="topic-header">
-                  <i class="fas fa-chevron-down topic-toggle"></i>
-                  <span class="topic-title">TOPIC 4: Scripting Languages</span>
-                  <div class="topic-meta">
-                    <span class="topic-status">Python, JavaScript, Bash</span>
-                    <span class="topic-count">Lecture Only</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="topic-item">
-                <div class="topic-header">
-                  <i class="fas fa-chevron-down topic-toggle"></i>
-                  <span class="topic-title">TOPIC 5: Programming Paradigm</span>
-                  <div class="topic-meta">
-                    <span class="topic-status">OOP, Functional, Procedural</span>
-                    <span class="topic-count">Lecture Only</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="topic-item">
-                <div class="topic-header">
-                  <i class="fas fa-chevron-down topic-toggle"></i>
-                  <span class="topic-title">TOPIC 6: Number Systems</span>
-                  <div class="topic-meta">
-                    <span class="topic-status">Binary, Octal, Hex, Decimal</span>
-                    <span class="topic-count">Lecture + Lab</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="topic-item">
-                <div class="topic-header">
-                  <i class="fas fa-chevron-down topic-toggle"></i>
-                  <span class="topic-title">TOPIC 7: Number System Conversion</span>
-                  <div class="topic-meta">
-                    <span class="topic-status">Conversion Methods & Shortcuts</span>
-                    <span class="topic-count">Lecture + Lab</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <!-- Dynamic Modules Section -->
+          <div class="lesson-topics">
+            <!-- Modules and lessons will be loaded dynamically here -->
           </div>
 
-          <!-- Exercises Section -->
-          <div class="module-section">
-            <h3 class="section-title">📚 Exercises</h3>
-            <div class="exercise-grid">
-              <div class="exercise-card">
-                <div class="exercise-header">
-                  <i class="fas fa-question-circle exercise-icon"></i>
-                  <h4>Self-Check Questions</h4>
-                </div>
-                <div class="exercise-content">
-                  <p class="exercise-description">15 multiple choice questions covering all 7 topics</p>
-                  <div class="exercise-meta">
-                    <span class="exercise-count">15 Questions</span>
-                    <span class="exercise-type">Multiple Choice</span>
-                  </div>
-                  <button class="exercise-btn" onclick="startSelfCheck()">
-                    <i class="fas fa-play"></i> Start Quiz
-                  </button>
-                </div>
-              </div>
-
-              <div class="exercise-card">
-                <div class="exercise-header">
-                  <i class="fas fa-clipboard-list exercise-icon"></i>
-                  <h4>30-Item Quiz</h4>
-                </div>
-                <div class="exercise-content">
-                  <p class="exercise-description">Comprehensive assessment of all module topics</p>
-                  <div class="exercise-meta">
-                    <span class="exercise-count">30 Questions</span>
-                    <span class="exercise-type">Timed Assessment</span>
-                  </div>
-                  <button class="exercise-btn" onclick="startMainQuiz()">
-                    <i class="fas fa-play"></i> Start Quiz
-                  </button>
-                </div>
-              </div>
-
-              <div class="exercise-card">
-                <div class="exercise-header">
-                  <i class="fas fa-chalkboard exercise-icon"></i>
-                  <h4>Board Recitation</h4>
-                </div>
-                <div class="exercise-content">
-                  <p class="exercise-description">Interactive number system conversion practice</p>
-                  <div class="exercise-meta">
-                    <span class="exercise-count">3 Problems</span>
-                    <span class="exercise-type">Step-by-Step</span>
-                  </div>
-                  <button class="exercise-btn" onclick="startBoardRecitation()">
-                    <i class="fas fa-play"></i> Start Practice
-                  </button>
-                </div>
-              </div>
-              <div class="exercise-card">
-                <div class="exercise-header">
-                  <i class="fas fa-desktop exercise-icon"></i>
-                  <h4>Hardware Identification</h4>
-                </div>
-                <div class="exercise-content">
-                  <p class="exercise-description">Identify and match computer hardware components</p>
-                  <div class="exercise-meta">
-                    <span class="exercise-count">8 Components</span>
-                    <span class="exercise-type">Matching Game</span>
-                  </div>
-                  <button class="exercise-btn" onclick="startHardwareID()">
-                    <i class="fas fa-play"></i> Start Activity
-                  </button>
-                </div>
-              </div>
-
-              <div class="exercise-card">
-                <div class="exercise-header">
-                  <i class="fas fa-calculator exercise-icon"></i>
-                  <h4>Number System Converter</h4>
-                </div>
-                <div class="exercise-content">
-                  <p class="exercise-description">Practice converting between different number systems</p>
-                  <div class="exercise-meta">
-                    <span class="exercise-count">Multiple Conversions</span>
-                    <span class="exercise-type">Interactive Tool</span>
-                  </div>
-                  <button class="exercise-btn" onclick="startNumberConverter()">
-                    <i class="fas fa-play"></i> Start Tool
-                  </button>
-                </div>
-              </div>
-
-              <div class="exercise-card">
-                <div class="exercise-header">
-                  <i class="fas fa-list-check exercise-icon"></i>
-                  <h4>Hardware Worksheet</h4>
-                </div>
-                <div class="exercise-content">
-                  <p class="exercise-description">Match hardware components with their functions</p>
-                  <div class="exercise-meta">
-                    <span class="exercise-count">8 Matches</span>
-                    <span class="exercise-type">Drag & Drop</span>
-                  </div>
-                  <button class="exercise-btn" onclick="startHardwareWorksheet()">
-                    <i class="fas fa-play"></i> Start Worksheet
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <!-- Exercises Section removed per request -->
         </section>
 
         <section id="tab-lessons" class="tab-section">
@@ -355,12 +148,22 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
           </div>
         </section>
         
-        <section id="tab-students" class="tab-section">
-          <div class="card">Students will appear here.</div>
+        <section id="tab-newsfeed" class="tab-section">
+          <div class="card">
+            <div class="card-header-row">
+              <h3>Newsfeed</h3>
+            </div>
+            <div style="padding: 12px; color:#6b7280;">Coming soon.</div>
+          </div>
         </section>
         
-        <section id="tab-grades" class="tab-section">
-          <div class="card">Grades will appear here.</div>
+        <section id="tab-leaderboards" class="tab-section">
+          <div class="card">
+            <div class="card-header-row">
+              <h3>Leaderboards</h3>
+            </div>
+            <div style="padding: 12px; color:#6b7280;">Coming soon.</div>
+          </div>
         </section>
       </div>
     </div>
@@ -368,6 +171,7 @@ if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
 
   <script>window.__CLASS_ID__ = <?php echo json_encode($classId); ?>;</script>
   <script src="assets/js/class_dashboard.js?v=<?php echo time(); ?>"></script>
+  <script></script>
 </body>
 </html>
 

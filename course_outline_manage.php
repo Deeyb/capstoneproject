@@ -423,10 +423,21 @@ try {
             break;
         case 'activity_update':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
-            $ok = $svc->updateActivity((int)$_POST['id'], [
+            // Preserve existing type if not explicitly provided to avoid coercion to lecture/coding
+            $actId = (int)($_POST['id'] ?? 0);
+            $incomingType = isset($_POST['type']) ? trim((string)$_POST['type']) : '';
+            if ($incomingType === '' && $actId > 0) {
+                try {
+                    $st = $db->prepare('SELECT type FROM lesson_activities WHERE id=?');
+                    $st->execute([$actId]);
+                    $existingType = (string)($st->fetchColumn() ?: '');
+                    $incomingType = $existingType !== '' ? $existingType : 'multiple_choice';
+                } catch (Throwable $e) { $incomingType = 'multiple_choice'; }
+            }
+            $ok = $svc->updateActivity($actId, [
                 'title' => $_POST['title'] ?? '',
                 'instructions' => $_POST['instructions'] ?? null,
-                'type' => $_POST['type'] ?? 'coding',
+                'type' => $incomingType,
                 'due_at' => $_POST['due_at'] ?? null,
                 'max_score' => (int)($_POST['max_score'] ?? 100)
             ]);
@@ -705,9 +716,28 @@ try {
                 $type = (string)($data['type'] ?? 'multiple_choice');
                 $title = trim((string)($data['title'] ?? ''));
                 $instructions = $data['instructions'] ?? null;
+                // Derive missing type from instructions.kind (e.g., essay, identification, true_false)
+                if ($type === '' || $type === null) {
+                    try {
+                        $meta = is_array($instructions) ? $instructions : json_decode((string)$instructions, true);
+                        if (is_array($meta) && !empty($meta['kind'])) {
+                            $k = strtolower(trim((string)$meta['kind']));
+                            if ($k !== '') { $type = $k; }
+                        }
+                    } catch (Throwable $e) {}
+                }
                 $maxScore = (int)($data['max_score'] ?? 100);
 
                 if ($lessonId <= 0 || $title === '') { throw new Exception('Missing lesson_id or title'); }
+
+                // If non-coding and questions provided, normalize max_score to sum of question points
+                try {
+                    $qsForScore = is_array($data['questions'] ?? null) ? $data['questions'] : [];
+                    if (!empty($qsForScore) && strtolower($type) !== 'coding') {
+                        $sum = 0; foreach ($qsForScore as $qq) { $sum += (int)($qq['points'] ?? 0); }
+                        if ($sum > 0) { $maxScore = $sum; }
+                    }
+                } catch (Throwable $e) {}
 
                 if ($id > 0) {
                     $svc->updateActivity($id, [
@@ -763,7 +793,14 @@ try {
                         try { $insArr = is_array($instructions) ? $instructions : json_decode((string)$instructions, true); $kind = strtolower((string)($insArr['kind'] ?? '')); } catch (Throwable $e) { $kind = null; }
                     }
                     foreach ($qs as $q) {
-                        $qid = $svc->addQuestion($activityId, trim((string)($q['text'] ?? '')), (int)($q['points'] ?? 1), (isset($q['explanation']) ? (string)$q['explanation'] : null));
+                        // Normalize explanation/answer per type
+                        $exp = isset($q['explanation']) ? (string)$q['explanation'] : '';
+                        if ($lower === 'identification' && $exp === '') {
+                            $exp = (string)($q['answer'] ?? '');
+                        } else if ($lower === 'essay' && $exp === '') {
+                            $exp = (string)($q['answer'] ?? '');
+                        }
+                        $qid = $svc->addQuestion($activityId, trim((string)($q['text'] ?? '')), (int)($q['points'] ?? 1), ($exp !== '' ? $exp : null));
                         if ($qid <= 0) continue;
                         $choices = is_array($q['choices'] ?? null) ? $q['choices'] : [];
                         if ($lower === 'multiple_choice' || ($lower === 'quiz' && ($kind === '' || $kind === 'multiple_choice'))) {

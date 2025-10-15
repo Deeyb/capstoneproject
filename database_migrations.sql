@@ -78,3 +78,35 @@ MODIFY COLUMN input_text TEXT NOT NULL;
 
 ALTER TABLE activity_test_cases 
 MODIFY COLUMN expected_output_text TEXT NOT NULL;
+ 
+ -- Teacher preview attempts (idempotent creation)
+ CREATE TABLE IF NOT EXISTS activity_attempts (
+   id INT AUTO_INCREMENT PRIMARY KEY,
+   activity_id INT NOT NULL,
+   user_id INT NOT NULL,
+   role VARCHAR(32) NOT NULL,
+   is_preview TINYINT(1) NOT NULL DEFAULT 0,
+   started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   submitted_at DATETIME NULL,
+   score DECIMAL(10,2) NULL,
+   time_spent_ms INT NULL,
+   meta TEXT NULL,
+   CONSTRAINT fk_attempts_activity FOREIGN KEY (activity_id) REFERENCES lesson_activities(id) ON DELETE CASCADE
+ );
+ 
+ CREATE INDEX IF NOT EXISTS idx_attempts_activity_id ON activity_attempts(activity_id);
+ CREATE INDEX IF NOT EXISTS idx_attempts_user_id ON activity_attempts(user_id);
+ 
+ CREATE TABLE IF NOT EXISTS activity_attempt_items (
+   id INT AUTO_INCREMENT PRIMARY KEY,
+   attempt_id INT NOT NULL,
+   question_id INT NULL,
+   response_text LONGTEXT NULL,
+   choice_ids TEXT NULL,
+   is_correct TINYINT(1) NULL,
+   points_awarded DECIMAL(10,2) NULL,
+   extra TEXT NULL,
+   CONSTRAINT fk_attempt_items_attempt FOREIGN KEY (attempt_id) REFERENCES activity_attempts(id) ON DELETE CASCADE
+ );
+ 
+ CREATE INDEX IF NOT EXISTS idx_attempt_items_attempt_id ON activity_attempt_items(attempt_id);

@@ -671,11 +671,14 @@ body.dark-mode .create-class:hover {
 .detail-toolbar { padding:10px; border-bottom:1px solid #edf0f2; display:flex; justify-content:flex-start; }
 .back-btn { background:#f1f3f5; color:#2c3e50; border:none; border-radius:8px; padding:8px 12px; cursor:pointer; }
 .back-btn:hover { background:#e9ecef; }
-.class-detail-frame { width:100%; height:78vh; border-radius:0 0 12px 12px; }
+.class-detail-frame { width:100%; height:calc(100vh - 240px); border-radius:0 0 12px 12px; display:block; }
 
 /* Full-bleed mode to make dashboard occupy the whole content area */
-.class-detail-container.full-bleed { border:none; box-shadow:none; margin-top:0; }
-.class-detail-container.full-bleed .detail-toolbar { border-bottom:none; padding:0 0 8px 0; }
+.class-detail-container.full-bleed { border:none; box-shadow:none; margin-top:0; padding:0; }
+.class-detail-container.full-bleed .detail-toolbar { display:none; border-bottom:none; padding:0; }
+/* Make iframe taller in full-bleed mode */
+.class-detail-container.full-bleed .class-detail-frame { height:calc(100vh - 120px); }
+
 
 /* Create tile should visually match a card size */
 .create-tile {

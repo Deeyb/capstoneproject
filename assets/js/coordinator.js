@@ -1459,9 +1459,11 @@ function viewOutline(courseId) {
                   }
                 } else {
                   st.type = 'lecture';
-                  // Determine subtype for quizzes using meta.kind if present
+                  // Determine subtype using instructions.meta.kind if present (applies to legacy saved activities too)
                   let subtype = null;
-                  if (t === 'quiz' && meta && typeof meta.kind === 'string') subtype = meta.kind.toLowerCase();
+                  if (meta && typeof meta.kind === 'string' && meta.kind.trim() !== '') {
+                    subtype = meta.kind.toLowerCase();
+                  }
                   // Fallback from DB type
                   if (!subtype) subtype = (t==='multiple_choice') ? 'multiple_choice' : (t==='true_false' ? 'true_false' : (t==='identification' ? 'identification' : (t==='essay' ? 'essay' : 'multiple_choice')));
                   st.questionType = subtype;
@@ -1489,11 +1491,20 @@ function viewOutline(courseId) {
                         const correct = choices.find(function(c){ return !!c.is_correct; });
                         base.answer = correct ? (correct.choice_text||'') : '';
                       }
+                    // Fallback to explanation field if still empty (legacy storage)
+                    if (!base.answer && base.explanation) {
+                      base.answer = base.explanation;
+                      }
                     } else if (subtype === 'essay') {
                       if (!base.answer && base.explanation) { base.answer = base.explanation; }
                     }
                     return base;
                   });
+                  // Heuristic: if subtype ended up as multiple_choice but there are no choices at all, treat as essay
+                  if (subtype === 'multiple_choice') {
+                    const anyChoices = st.questions.some(function(q){ return Array.isArray(q.choices) && q.choices.length > 0; });
+                    if (!anyChoices) { st.questionType = 'essay'; subtype = 'essay'; }
+                  }
                   if (!st.questions || !st.questions.length) {
                     if (subtype === 'multiple_choice') {
                       st.questions = [{ text:'', points:1, choices:[{text:'',correct:false},{text:'',correct:false}], answer:'', explanation:'' }];
@@ -1542,203 +1553,103 @@ function viewOutline(courseId) {
           return;
         }
         if (act === 'act-test') {
-          console.log('🔍 Test button clicked');
+          console.log('🔍 Test button clicked - Loading activity data first');
           
           const activityId = btn.getAttribute('data-id');
-          const activityContainer = btn.closest('[data-activity-id]');
-          const activityType = activityContainer?.getAttribute('data-type') || 'lecture';
-          const activityTitle = activityContainer?.getAttribute('data-title') || 'Activity';
+          const lessonEl = btn.closest('[data-lesson-id]');
+          const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
+          
+          if (!lessonId) {
+            console.error('🔍 No lesson ID found for test button');
+            return;
+          }
           
           console.log('🔍 TEST BUTTON DEBUG:', {
             activityId,
-            activityType,
-            activityTitle,
-            activityContainer
+            lessonId
           });
           
-          // Force refresh the activity data to get the latest type
-          console.log('🔍 FORCING ACTIVITY DATA REFRESH FOR TEST');
-          
-          // Refresh the outline to get the latest activity type
-          if (typeof viewOutline === 'function') {
-            const courseId = getCurrentCourseId();
-            if (courseId) {
-              console.log('🔍 REFRESHING OUTLINE FOR COURSE:', courseId);
-              // Force refresh with cache busting
-              setTimeout(() => {
-                viewOutline(courseId);
-              }, 100);
-            }
-          }
-          
-          // Create the student test modal directly
-          const testModal = document.createElement('div');
-          testModal.className = 'modal-overlay';
-          
-          const modalHTML = `
-            <div class="modal-card" style="max-width:800px;width:95%;max-height:90vh;display:flex;flex-direction:column;">
-              <div style="padding:12px 14px;border-bottom:1px solid #e9ecef;display:flex;align-items:center;gap:8px;">
-                <strong style="flex:1">📝 Student Test: ${activityTitle}</strong>
-                <button class="action-btn btn-gray" id="testClose">Close</button>
-              </div>
-              <div id="testBody" style="padding:12px 14px;overflow:auto;flex:1"></div>
-              <div style="padding:10px 14px;border-top:1px solid #e9ecef;display:flex;gap:8px;justify-content:flex-end;align-items:center;">
-                <button class="action-btn btn-green" id="testSubmit">Submit Test</button>
-              </div>
-            </div>`;
-          
-          testModal.innerHTML = modalHTML;
-          document.body.appendChild(testModal);
-          
-          // Add a simple visual indicator
-          testModal.style.zIndex = '9999';
-          testModal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-          console.log('🔍 DEEP DEBUG - Modal styling applied');
-          
-          // Close button handler
-          console.log('🔍 DEEP DEBUG - Setting up close button handler');
-          const closeBtn = testModal.querySelector('#testClose');
-          console.log('🔍 DEEP DEBUG - Close button found:', closeBtn);
-          if (closeBtn) {
-            closeBtn.onclick = function() {
-              console.log('🔍 DEEP DEBUG - Close button clicked');
-              testModal.remove();
-            };
-          } else {
-            console.error('🔍 DEEP DEBUG - Close button not found!');
-          }
-          
-          // Click outside to close
-          console.log('🔍 DEEP DEBUG - Setting up click outside handler');
-          testModal.addEventListener('click', function(e) {
-            console.log('🔍 DEEP DEBUG - Modal clicked, target:', e.target);
-            if (e.target === testModal) {
-              console.log('🔍 DEEP DEBUG - Clicked outside modal, closing');
-              testModal.remove();
-            }
-          });
-          
-          // Load activity data and show student interface
-          console.log('🔍 DEEP DEBUG - Setting up test body');
-          const testBody = testModal.querySelector('#testBody');
-          console.log('🔍 DEEP DEBUG - Test body found:', testBody);
-          if (testBody) {
-            testBody.innerHTML = '<div style="text-align:center;padding:40px;"><div class="loading-spinner">Loading activity...</div></div>';
-            console.log('🔍 DEEP DEBUG - Loading spinner set');
-          } else {
-            console.error('🔍 DEEP DEBUG - Test body not found!');
-          }
-          
-          // Fetch activity data
-          console.log('🔍 DEEP DEBUG - Creating FormData for activity fetch');
+          // First, fetch the actual activity data from database
           const fd = new FormData();
           fd.append('action', 'activity_get');
           fd.append('id', activityId);
-          console.log('🔍 DEEP DEBUG - FormData created with action=activity_get, id=' + activityId);
           
-          console.log('🔍 DEEP DEBUG - Starting fetch request to course_outline_manage.php');
           fetch('course_outline_manage.php', { method: 'POST', body: fd, credentials: 'same-origin' })
-            .then(r => {
-              console.log('🔍 DEEP DEBUG - Fetch response received:', r);
-              console.log('🔍 DEEP DEBUG - Response status:', r.status);
-              console.log('🔍 DEEP DEBUG - Response ok:', r.ok);
-              return r.json();
-            })
-            .then(data => {
-              console.log('🔍 DEEP DEBUG - Activity data received:', data);
-              console.log('🔍 DEEP DEBUG - Data success:', data?.success);
-              console.log('🔍 DEEP DEBUG - Data data:', data?.data);
+            .then(r => r.json())
+            .then(res => {
+              console.log('🔍 Activity data fetched:', res);
               
-              if (data && data.success && data.data) {
-                const activity = data.data;
-                console.log('🔍 DEEP DEBUG - Activity object:', activity);
-                console.log('🔍 DEEP DEBUG - Calling renderStudentTestInterface');
+              if (res && res.success && res.data) {
+                const activityData = res.data;
+                console.log('🔍 Real activity data:', activityData);
+                console.log('🔍 Activity type from DB:', activityData.type);
+                console.log('🔍 Activity title from DB:', activityData.title);
+                console.log('🔍 Questions from DB:', activityData.questions);
                 
-                const studentHTML = renderStudentTestInterface(activity, activityType);
-                console.log('🔍 DEEP DEBUG - Student HTML generated:', studentHTML);
-                console.log('🔍 DEEP DEBUG - Activity type for rendering:', activityType);
-                console.log('🔍 DEEP DEBUG - Activity data:', activity);
+                // Open the activity editor with the REAL data
+                showCreateActivityForm(lessonId, { editActivityId: activityId });
                 
-                if (testBody) {
-                  testBody.innerHTML = studentHTML;
-                  console.log('🔍 DEEP DEBUG - Student interface rendered');
-                } else {
-                  console.error('🔍 DEEP DEBUG - Test body not available for rendering!');
-                }
-                
-                // Handle test submission
-                console.log('🔍 DEEP DEBUG - Setting up submit button handler');
-                const submitBtn = testModal.querySelector('#testSubmit');
-                console.log('🔍 DEEP DEBUG - Submit button found:', submitBtn);
-                if (submitBtn) {
-                  submitBtn.onclick = function() {
-                    console.log('🔍 DEEP DEBUG - Submit button clicked');
-                    const results = collectStudentAnswers();
-                    console.log('🔍 DEEP DEBUG - Student answers collected:', results);
-                    showTestResults(results, activityTitle);
-                    testModal.remove();
-                  };
-                } else {
-                  console.error('🔍 DEEP DEBUG - Submit button not found!');
-                }
-                // Wire coding Run button if present
-                try {
-                  const runBtn = testModal.querySelector('#codingRunBtn');
-                  if (runBtn) {
-                    // Upgrade textarea to CodeMirror if available
-                    const txt = testModal.querySelector('textarea[name="test-code"]');
-                    try { if (window.enableCodeEditor) window.enableCodeEditor(txt); } catch(_){}
-                    runBtn.onclick = function(){
-                      if (runBtn.disabled) return; // Prevent double-clicks
-                      let src = '';
-                      try { src = (txt && txt.__cm) ? txt.__cm.getValue() : (txt ? (txt.value||'') : ''); } catch(_) { src = txt ? (txt.value||'') : ''; }
-                      const out = testModal.querySelector('#codingRunOut'); if (out) out.innerHTML = '<div class="loading-spinner">Running…</div>';
-                      runBtn.disabled = true;
-                      runBtn.textContent = 'Running...';
-                      const fd = new FormData();
-                      fd.append('action','run_activity');
-                      fd.append('activity_id', activityId);
-                      fd.append('source', src);
-                      fd.append('quick','1');
-                      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
-                        .then(function(r){ return r.json(); })
-                        .then(function(data){
-                          const results = (data && data.results) ? data.results : null;
-                          let html = '';
-                          if (Array.isArray(results)){
-                            html = results.map(function(r, i){
-                              const ok = r && (r.success===true || r.status===200);
-                              const out = (r && r.data && r.data.output) ? r.data.output : (r && r.data && r.data.stdout) ? r.data.stdout : (r && r.raw) ? r.raw : '';
-                              const err = (r && r.data && r.data.stderr) ? r.data.stderr : (r && r.error) ? r.error : '';
-                              return '<div style="margin-bottom:10px;">'+
-                                     '<div style="font-weight:600;">Case '+(i+1)+(ok?' ✅':' ❌')+'</div>'+
-                                     (out?('<pre style="white-space:pre-wrap;background:#f7f7f7;padding:8px;border-radius:4px;">'+out.replace(/</g,'&lt;')+'</pre>'):'')+
-                                     (err?('<pre style="white-space:pre-wrap;background:#fff3f3;padding:8px;border-radius:4px;color:#b30000;">'+String(err).replace(/</g,'&lt;')+'</pre>'):'')+
-                                     '</div>';
-                            }).join('');
-                          } else {
-                            html = '<div>'+ (data && data.message ? String(data.message) : 'No results') +'</div>';
-                          }
-                          const mount = testModal.querySelector('#codingRunOut'); if (mount) mount.innerHTML = html;
-                        })
-                        .catch(function(){ const mount = testModal.querySelector('#codingRunOut'); if (mount) mount.innerHTML = '<div style="color:#dc3545;">Network error</div>'; })
-                        .finally(function(){ runBtn.disabled = false; runBtn.textContent = 'Run'; });
-                    };
+                // Set to preview mode and load the real data
+                setTimeout(() => {
+                  try {
+                    if (window.createActivityState) {
+                      // Load the real activity data into the state
+                      window.createActivityState.name = activityData.title || 'Untitled Activity';
+                      window.createActivityState.type = activityData.type === 'coding' ? 'laboratory' : 'lecture';
+                      window.createActivityState.questionType = activityData.type;
+                      window.createActivityState.instructionsText = activityData.instructions ? 
+                        (typeof activityData.instructions === 'string' ? 
+                          (activityData.instructions.startsWith('{') ? JSON.parse(activityData.instructions).instructions || '' : activityData.instructions) : 
+                          '') : '';
+                      window.createActivityState.questions = activityData.questions || [];
+                      console.log('🔍 Questions loaded into state:', window.createActivityState.questions);
+                      console.log('🔍 First question details:', window.createActivityState.questions[0]);
+                      if (window.createActivityState.questions[0]) {
+                        console.log('🔍 First question text:', window.createActivityState.questions[0].question_text);
+                        console.log('🔍 First question choices:', window.createActivityState.questions[0].choices);
+                      }
+                      window.createActivityState.max_score = activityData.max_score || 0;
+                      
+                      // Update modal title to show activity name
+                      updateModalTitle('preview');
+                      
+                      // For coding activities, parse the instructions
+                      if (activityData.type === 'coding' && activityData.instructions) {
+                        try {
+                          const meta = JSON.parse(activityData.instructions);
+                          window.createActivityState.language = meta.language || 'cpp';
+                          window.createActivityState.starterCode = meta.starterCode || '';
+                          window.createActivityState.testCases = activityData.test_cases || [];
+                        } catch (e) {
+                          console.warn('Failed to parse coding instructions:', e);
+                        }
+                      }
+                      
+                      window.createActivityState.viewMode = 'preview';
+                      window.dispatchEvent(new CustomEvent('createActivityRender'));
+                      console.log('🔍 Loaded real activity data and switched to Preview mode');
+                      console.log('🔍 Final state after loading:', {
+                        name: window.createActivityState.name,
+                        type: window.createActivityState.type,
+                        questionType: window.createActivityState.questionType,
+                        questions: window.createActivityState.questions,
+                        viewMode: window.createActivityState.viewMode
+                      });
+                    }
+                  } catch (e) {
+                    console.error('🔍 Error loading activity data:', e);
                   }
-                } catch (e) { console.warn('Run wiring error', e); }
+                }, 100);
               } else {
-                console.log('🔍 DEEP DEBUG - Data fetch failed or no data');
-                if (testBody) {
-                  testBody.innerHTML = '<div style="padding:40px;text-align:center;color:#6c757d;">❌ Failed to load activity data</div>';
-                }
+                console.error('🔍 Failed to fetch activity data');
+                alert('Failed to load activity data for preview');
               }
             })
             .catch(err => {
-              console.error('🔍 DEEP DEBUG - Fetch error:', err);
-              if (testBody) {
-                testBody.innerHTML = '<div style="padding:40px;text-align:center;color:#dc3545;">❌ Error loading activity</div>';
-              }
+              console.error('🔍 Error fetching activity:', err);
+              alert('Error loading activity for preview');
             });
+          
           return;
         }
         if (act === 'act-run') {
@@ -1892,7 +1803,34 @@ function renderOutline(outline, mount) {
       }).join('');
       const activities = (l.activities||[]).map(a => {
         const t = String(a.type||'').toLowerCase();
-        const label = ((t==='quiz' || t==='upload_based') && a.instructions) ? (function(){ try { const meta = JSON.parse(a.instructions); const kind = (meta && meta.kind) ? String(meta.kind).toUpperCase() : null; return kind || (t==='upload_based' ? 'UPLOAD_BASED' : 'QUIZ'); } catch(_){ return (t==='upload_based' ? 'UPLOAD_BASED' : 'QUIZ'); } })() : String(a.type||'').toUpperCase();
+        // Prefer explicit DB type
+        let label = (String(a.type||'').trim() || '').toUpperCase();
+        // Fallback to instructions.kind
+        if ((!label || label === 'QUIZ') && a && a.instructions) {
+          try {
+            const meta = JSON.parse(a.instructions||'{}');
+            if (meta && meta.kind) label = String(meta.kind).toUpperCase();
+          } catch(_) {}
+        }
+        // Heuristics if still empty or generic
+        if (!label || label === 'QUIZ') {
+          try {
+            const qs = Array.isArray(a.questions) ? a.questions : [];
+            if (Array.isArray(a.test_cases) && a.test_cases.length) label = 'CODING';
+            else if (qs.length) {
+              if (qs.every(q => Array.isArray(q.choices) && q.choices.length > 0)) label = 'MULTIPLE_CHOICE';
+              else if (qs.every(q => !Array.isArray(q.choices) || q.choices.length === 0)) {
+                // No choices: treat as textual responses
+                const hasLong = qs.some(q => ((q.explanation||'').length > 50) || ((q.answer||'').length > 50));
+                // If there is any configured short answer, it's identification; otherwise assume ESSAY
+                const hasShortAns = qs.some(q => (q.answer && String(q.answer).length > 0) || (q.explanation && String(q.explanation).length > 0));
+                label = hasShortAns ? (hasLong ? 'ESSAY' : 'IDENTIFICATION') : 'ESSAY';
+              }
+            }
+          } catch(_) {}
+        }
+        if ((!label || label === '') && a && a.title && /essay/i.test(String(a.title))) label = 'ESSAY';
+        // Keep TRUE_FALSE label as-is
         return `
         <div data-activity-id="${a.id}" data-title="${(a.title||'').replace(/"/g,'&quot;')}" data-type="${(a.type||'').toLowerCase()}" draggable="true" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px dotted #ccc;border-radius:6px;margin:4px 0;">
           <button class="action-btn" data-act="act-open-editor" data-id="${a.id}" style="flex:1;text-align:left;background:transparent;border:0;color:#212529;padding:0;cursor:pointer;font-size:12px;"><strong>${label}</strong>: ${a.title}</button>
@@ -1974,12 +1912,21 @@ function renderOutline(outline, mount) {
         fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
           .then(r=>r.json())
           .then(function(j){
-            if (!j || !j.success || !j.data) { badge.textContent = '—'; return; }
+            console.log('🔍 Points API response for activity', actId, ':', j);
+            if (!j || !j.success || !j.data) { 
+              console.log('🔍 No data returned, setting badge to —');
+              badge.textContent = '—'; 
+              return; 
+            }
             const a = j.data;
             const t = String(a.type||'').toLowerCase();
+            console.log('🔍 Activity type:', t, 'Max score:', a.max_score, 'Questions:', a.questions);
+            
             if (t === 'coding') {
               const ms = Number(a.max_score || 0);
-              badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
+              const displayPoints = (isFinite(ms) ? ms : 0) + ' pts';
+              console.log('🔍 Coding activity, displaying:', displayPoints);
+              badge.textContent = displayPoints;
               return;
             }
             // Sum question points if available
@@ -1988,13 +1935,23 @@ function renderOutline(outline, mount) {
               const p = Number(q.points||1);
               return sum + (isFinite(p) ? p : 0);
             }, 0);
-            if (total > 0) { badge.textContent = total + ' pts'; }
+            console.log('🔍 Total question points:', total);
+            if (total > 0) { 
+              const displayPoints = total + ' pts';
+              console.log('🔍 Using question points, displaying:', displayPoints);
+              badge.textContent = displayPoints; 
+            }
             else {
               const ms = Number(a.max_score || 0);
-              badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
+              const displayPoints = (isFinite(ms) ? ms : 0) + ' pts';
+              console.log('🔍 Using max_score, displaying:', displayPoints);
+              badge.textContent = displayPoints;
             }
           })
-          .catch(function(){ badge.textContent = '—'; });
+          .catch(function(err){ 
+            console.log('🔍 Points API error for activity', actId, ':', err);
+            badge.textContent = '—'; 
+          });
       });
     } catch(_) {}
   })();
@@ -3453,6 +3410,21 @@ function showCreateActivityWizard(lessonId){
 
   render();
 }
+// ===== Update Modal Title =====
+function updateModalTitle(mode) {
+  const titleEl = document.getElementById('cafModalTitle');
+  if (!titleEl) return;
+  
+  const state = window.createActivityState;
+  if (!state) return;
+  
+  if (mode === 'preview') {
+    titleEl.textContent = state.title ? `Preview: ${state.title}` : 'Preview Activity';
+  } else if (mode === 'edit') {
+    titleEl.textContent = state.title ? `Edit: ${state.title}` : 'Create Activity';
+  }
+}
+
 // ===== Create Activity Open Form (all steps visible) =====
 function showCreateActivityForm(lessonId, opts){
   let modal = document.getElementById('createActivityForm');
@@ -3463,7 +3435,11 @@ function showCreateActivityForm(lessonId, opts){
     modal.innerHTML = `
       <div class="modal-card" style="max-width:900px;width:95%;max-height:90vh;display:flex;flex-direction:column;">
         <div style="padding:12px 14px;border-bottom:1px solid #e9ecef;display:flex;align-items:center;gap:8px;">
-          <strong style="flex:1">Create Activity</strong>
+          <strong style="flex:1" id="cafModalTitle">Create Activity</strong>
+          <div id="cafMode" style="display:flex;gap:6px;align-items:center;">
+            <button class="action-btn btn-gray" id="cafEditMode">Edit</button>
+            <button class="action-btn btn-gray" id="cafPreviewMode">Preview</button>
+          </div>
           <button class="action-btn btn-gray" id="cafClose">Close</button>
         </div>
         <div id="cafBody" style="padding:12px 14px;overflow:auto;flex:1"></div>
@@ -3474,6 +3450,13 @@ function showCreateActivityForm(lessonId, opts){
     document.body.appendChild(modal);
     modal.addEventListener('click', function(e){ if (e.target===modal) modal.style.display='none'; });
     modal.querySelector('#cafClose').onclick=function(){ modal.style.display='none'; };
+    // Mode toggle buttons
+    try {
+      const editBtn = modal.querySelector('#cafEditMode');
+      const previewBtn = modal.querySelector('#cafPreviewMode');
+      if (editBtn) editBtn.onclick = function(){ try { window.createActivityState.viewMode = 'edit'; updateModalTitle('edit'); window.dispatchEvent(new CustomEvent('createActivityRender')); } catch(_){ } };
+      if (previewBtn) previewBtn.onclick = function(){ try { window.createActivityState.viewMode = 'preview'; updateModalTitle('preview'); window.dispatchEvent(new CustomEvent('createActivityRender')); } catch(_){ } };
+    } catch(_){ }
   }
   modal.style.display='flex';
 
@@ -3508,7 +3491,8 @@ function showCreateActivityForm(lessonId, opts){
     codingDifficulty: 'beginner',
     testCases: [],
     additionalRequirements: '',
-    hints: ''
+    hints: '',
+    viewMode: 'edit'
   };
   
   // Attach editActivityId if provided
@@ -3572,6 +3556,169 @@ function showCreateActivityForm(lessonId, opts){
     console.log('🔍 RENDERING FORM - Body element:', body);
     console.log('🔍 RENDERING FORM - Modal element:', modal);
     console.log('🔍 RENDERING FORM - Laboratory check:', state.type === 'laboratory');
+    // Update mode button visuals
+    try {
+      const editBtn = modal.querySelector('#cafEditMode');
+      const previewBtn = modal.querySelector('#cafPreviewMode');
+      if (editBtn) { editBtn.style.background = (state.viewMode==='edit') ? '#28a745' : ''; editBtn.style.color = (state.viewMode==='edit') ? '#fff' : ''; }
+      if (previewBtn) { previewBtn.style.background = (state.viewMode==='preview') ? '#28a745' : ''; previewBtn.style.color = (state.viewMode==='preview') ? '#fff' : ''; }
+    } catch(_){ }
+
+    // Render PREVIEW mode using professional test interface
+    if (state.viewMode === 'preview') {
+      console.log('🔍 PREVIEW MODE - State:', state);
+      const activityType = (state.type === 'laboratory') ? 'coding' : (state.questionType || 'multiple_choice');
+        const activity = { 
+          id: state.editActivityId ? parseInt(state.editActivityId,10) : 0, 
+          title: state.name || 'Untitled Activity', 
+          instructions: '', 
+          questions: state.questions || [],
+          max_score: state.max_score || 0
+        };
+      if (activityType === 'coding') {
+        const meta = { language: state.language || 'cpp', starterCode: state.starterCode || '', instructions: state.instructionsText || '' };
+        activity.instructions = JSON.stringify(meta);
+        activity.testCases = Array.isArray(state.testCases) ? state.testCases : [];
+      } else if (activityType === 'upload_based') {
+        const meta = { kind: 'upload_based', instructions: state.instructionsText || '' };
+        activity.instructions = JSON.stringify(meta);
+        const q0 = state.questions && state.questions[0] ? state.questions[0] : {};
+        activity.acceptedFiles = q0.acceptedFiles || ['pdf','docx','pptx','jpg','png','txt','zip'];
+        activity.maxFileSize = q0.maxFileSize || 10;
+      } else {
+        const meta = { kind: activityType, instructions: state.instructionsText || '' };
+        activity.instructions = JSON.stringify(meta);
+        const qs = Array.isArray(state.questions) ? state.questions : [];
+        activity.questions = qs.map(function(q, idx){
+          // Handle both editor format (q.text) and database format (q.question_text)
+          const questionText = q.question_text || q.text || ('Question ' + (idx+1));
+          const base = { question_text: questionText, points: parseInt(q.points||1,10) };
+          if (activityType === 'multiple_choice') { 
+            base.choices = (q.choices||[]).map(function(c, ci){ 
+              // Handle both editor format (c.text) and database format (c.choice_text)
+              const choiceText = c.choice_text || c.text || ('Choice ' + (ci+1));
+              return { id: ci+1, choice_text: choiceText, is_correct: !!c.is_correct || !!c.correct }; 
+            }); 
+          }
+          return base;
+        });
+      }
+      
+          // Calculate total points
+          const totalPoints = activity.questions && activity.questions.length > 0 ? 
+            activity.questions.reduce((sum, q) => sum + (q.points || 1), 0) : 
+            (activity.max_score || 0);
+      
+      // Professional test interface
+      body.innerHTML = `
+        <div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;">
+          <!-- Test Header -->
+          <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h2 style="margin:0;font-size:24px;font-weight:600;">${activity.title}</h2>
+              <div style="text-align:right;">
+                <div style="font-size:14px;opacity:0.9;">Total Points</div>
+                <div style="font-size:20px;font-weight:700;">${totalPoints}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:20px;font-size:14px;opacity:0.9;">
+              <span>📝 ${activityType.toUpperCase().replace('_', ' ')}</span>
+              <span>⏱️ No time limit</span>
+              <span>📊 ${activity.questions ? activity.questions.length : 0} question${(activity.questions ? activity.questions.length : 0) !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          
+          <!-- Instructions -->
+          ${state.instructionsText ? `
+            <div style="padding:20px;border-bottom:1px solid #e9ecef;background:#f8f9fa;">
+              <h3 style="margin:0 0 12px 0;color:#333;font-size:16px;">📋 Instructions</h3>
+              <p style="margin:0;color:#555;line-height:1.6;">${state.instructionsText}</p>
+            </div>
+          ` : ''}
+          
+          <!-- Question Navigation Sidebar -->
+          <div style="display:flex;">
+            <div style="width:200px;background:#f8f9fa;border-right:1px solid #e9ecef;padding:20px;">
+              <h4 style="margin:0 0 16px 0;color:#333;font-size:14px;">Question Navigation</h4>
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+                ${activity.questions && activity.questions.length > 0 ? activity.questions.map((q, idx) => `
+                  <div id="nav-${idx}" style="width:32px;height:32px;border:2px solid #dee2e6;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:white;font-size:12px;font-weight:600;color:#495057;transition:all 0.2s;" onclick="console.log('Nav clicked:', ${idx}); window.scrollToQuestion(${idx})">
+                    ${idx + 1}
+                  </div>
+                `).join('') : '<div style="grid-column:1/-1;text-align:center;color:#6c757d;font-size:12px;padding:8px;">No questions</div>'}
+              </div>
+              <div style="margin-top:20px;padding:12px;background:white;border-radius:6px;border:1px solid #e9ecef;">
+                <div style="font-size:12px;color:#6c757d;margin-bottom:4px;">Progress</div>
+                <div id="progress-counter" style="font-size:14px;font-weight:600;color:#28a745;">0 / ${activity.questions ? activity.questions.length : 0} answered</div>
+              </div>
+            </div>
+            
+            <!-- Questions Content -->
+            <div style="flex:1;padding:20px;">
+              ${activity.questions && activity.questions.length > 0 ? 
+                renderProfessionalTestQuestions(activity, activityType) : 
+                `
+                <div style="text-align:center;padding:40px;color:#6c757d;">
+                  <div style="font-size:48px;margin-bottom:16px;">📝</div>
+                  <h3 style="margin:0 0 8px 0;color:#333;">No Questions Added</h3>
+                  <p style="margin:0 0 16px 0;">Add questions in Edit mode to see the preview</p>
+                  <button onclick="window.createActivityState.viewMode = 'edit'; window.dispatchEvent(new CustomEvent('createActivityRender'));" style="background:#28a745;color:white;border:none;padding:10px 20px;border-radius:6px;font-size:14px;cursor:pointer;">
+                    Switch to Edit Mode
+                  </button>
+                </div>
+                `}
+              
+              <!-- Submit Section -->
+              ${activity.questions && activity.questions.length > 0 ? `
+              <div style="margin-top:30px;padding:20px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div>
+                    <div style="font-size:14px;color:#6c757d;margin-bottom:4px;">Ready to submit?</div>
+                    <div style="font-size:12px;color:#6c757d;">Make sure you've answered all questions</div>
+                  </div>
+                  <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);" onclick="window.finishPreviewAttempt()">
+                    Finish Attempt
+                  </button>
+                </div>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+      if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
+      
+      // Initialize interactive features
+      setTimeout(() => {
+        console.log('🔍 Initializing preview interactive features');
+        console.log('🔍 Available functions:', {
+          updateProgress: typeof window.updateProgress,
+          scrollToQuestion: typeof window.scrollToQuestion,
+          finishPreviewAttempt: typeof window.finishPreviewAttempt
+        });
+        try {
+          if (typeof window.updateProgress === 'function') {
+            window.updateProgress();
+          } else {
+            console.error('🔍 updateProgress function not found!');
+          }
+          // Set first question as active
+          if (activity.questions && activity.questions.length > 0 && typeof window.scrollToQuestion === 'function') {
+            window.scrollToQuestion(0);
+          } else if (!activity.questions || activity.questions.length === 0) {
+            console.log('🔍 No questions to navigate to');
+          } else {
+            console.error('🔍 scrollToQuestion function not found!');
+          }
+          console.log('🔍 Preview initialization complete');
+        } catch (e) {
+          console.error('🔍 Preview initialization error:', e);
+        }
+      }, 100);
+      
+      return;
+    }
+
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr;gap:16px;">
         <!-- STEP 1: Lecture or Laboratory -->
@@ -3697,7 +3844,7 @@ function showCreateActivityForm(lessonId, opts){
                     
                     <div>
                       <label style="display:block;margin-bottom:6px;font-weight:500;color:#333;">Correct Answer:</label>
-                      <input type="text" class="modal-input" value="${q.answer || ''}" placeholder="Enter the correct answer..." onchange="updateQuestion(${index}, 'answer', this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+                      <input type="text" class="modal-input" value="${q.answer || q.explanation || ''}" placeholder="Enter the correct answer..." onchange="updateQuestion(${index}, 'answer', this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
                     </div>
                   </div>
                 `).join('')}
@@ -3730,7 +3877,7 @@ function showCreateActivityForm(lessonId, opts){
                     
                     <div>
                       <label style="display:block;margin-bottom:6px;font-weight:500;color:#333;">Expected Answer (for reference):</label>
-                      <textarea class="modal-input" rows="4" placeholder="Enter expected answer or key points..." onchange="updateQuestion(${index}, 'answer', this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">${q.answer || ''}</textarea>
+                      <textarea class="modal-input" rows="4" placeholder="Enter expected answer or key points..." onchange="updateQuestion(${index}, 'answer', this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">${q.answer || q.explanation || ''}</textarea>
                     </div>
                   </div>
                 `).join('')}
@@ -4210,13 +4357,21 @@ function showCreateActivityForm(lessonId, opts){
     if (isCoding) backendType = 'coding';
     else {
       const qt = String(state.questionType||'').toLowerCase();
-      backendType = (qt==='multiple_choice') ? 'multiple_choice' : (qt==='upload_based') ? 'upload_based' : 'quiz';
+      // Persist the exact type for all supported kinds
+      if (qt==='multiple_choice' || qt==='upload_based' || qt==='identification' || qt==='essay' || qt==='true_false') {
+        backendType = qt;
+      } else {
+        backendType = 'quiz';
+      }
     }
 
     // Ensure latest CodeMirror value is captured for coding starter code
     if (isCoding) {
       try { const starter = modal.querySelector('#cafStarterCode'); if (starter && starter.__cm) { state.starterCode = starter.__cm.getValue(); } } catch(_){ }
     }
+    // Snapshot current state before building payload
+    try { console.log('🔍 BUILD PAYLOAD STATE SNAPSHOT:', JSON.stringify(state)); } catch(_){ }
+
     const payload = {
       id: isEdit ? Number(state.editActivityId) : undefined,
       lesson_id: Number(lessonId),
@@ -4259,6 +4414,8 @@ function showCreateActivityForm(lessonId, opts){
       payload.questions = (Array.isArray(state.questions)?state.questions:[]).map(function(q){
         const qt = String(state.questionType||'multiple_choice').toLowerCase();
         const item = { text: q.text||'', points: Number(q.points||1), explanation: q.explanation || '' };
+        if (qt==='identification') { item.answer = q.answer || item.explanation || ''; }
+        if (qt==='essay' && !item.explanation) { item.explanation = q.answer || ''; }
         if (qt==='multiple_choice' || qt==='quiz') {
           item.choices = (Array.isArray(q.choices)?q.choices:[]).map(function(c){ return { text: c.text||'', is_correct: !!c.correct }; });
         } else if (qt==='identification') {
@@ -4283,7 +4440,7 @@ function showCreateActivityForm(lessonId, opts){
       });
     }
 
-    console.log('🔍 SYNC payload:', payload);
+    try { console.log('🔍 SYNC payload:', JSON.stringify(payload)); } catch(_){ console.log('🔍 SYNC payload (object)', payload); }
     let handledSuccess = false;
     const syncFd = new FormData();
     syncFd.append('action','activity_sync');
@@ -4614,6 +4771,247 @@ function renderGenericTestInterface(activity) {
       </div>
     </div>
   `;
+}
+
+// Function to render professional test questions for coordinator preview
+function renderProfessionalTestQuestions(activity, activityType) {
+  console.log('🔍 renderProfessionalTestQuestions called with:', { activity, activityType });
+  console.log('🔍 Activity questions:', activity.questions);
+  
+  if (!activity.questions || !Array.isArray(activity.questions) || activity.questions.length === 0) {
+    console.log('🔍 No questions found, showing empty message');
+    return `
+      <div style="text-align:center;padding:40px;color:#6c757d;">
+        <div style="font-size:48px;margin-bottom:16px;">📝</div>
+        <h3 style="margin:0 0 8px 0;color:#495057;">No Questions Added</h3>
+        <p style="margin:0;font-size:14px;">Add questions in Edit mode to see the preview</p>
+      </div>
+    `;
+  }
+  
+  let html = '';
+  activity.questions.forEach((question, index) => {
+    console.log(`🔍 Rendering question ${index + 1}:`, question);
+    console.log(`🔍 Question text: "${question.question_text}"`);
+    console.log(`🔍 Question choices:`, question.choices);
+    
+    html += `
+      <div id="question-${index}" style="border:1px solid #e9ecef;border-radius:8px;padding:24px;margin-bottom:24px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h3 style="margin:0;color:#333;font-size:18px;font-weight:600;">Question ${index + 1}</h3>
+          <div style="background:#e9ecef;color:#495057;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">
+            ${question.points || 1} point${(question.points || 1) !== 1 ? 's' : ''}
+          </div>
+        </div>
+        
+        <div style="margin-bottom:20px;">
+          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;">${question.question_text || 'Question text not available'}</p>
+        </div>
+        
+        ${renderQuestionInput(question, index, activityType)}
+      </div>
+    `;
+  });
+  
+  return html;
+}
+
+// Function to render question input based on activity type
+function renderQuestionInput(question, index, activityType) {
+  if (activityType === 'multiple_choice') {
+    if (!question.choices || !Array.isArray(question.choices)) {
+      return '<div style="color:#dc3545;font-size:14px;">No choices available</div>';
+    }
+    
+    return `
+      <div style="space-y:12px;">
+        ${question.choices.map((choice, choiceIndex) => `
+          <label style="display:flex;align-items:center;gap:12px;padding:16px;border:2px solid #e9ecef;border-radius:8px;cursor:pointer;background:white;transition:all 0.2s;hover:border-color:#28a745;hover:background:#f8fff9;">
+            <input type="radio" name="preview-q${index + 1}" value="${choice.id}" style="margin:0;width:18px;height:18px;accent-color:#28a745;" onchange="console.log('Radio changed:', this.value); window.updateProgress()">
+            <span style="flex:1;font-size:15px;color:#333;">${choice.choice_text || 'Choice not available'}</span>
+          </label>
+        `).join('')}
+      </div>
+    `;
+  } else if (activityType === 'identification') {
+    return `
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:500;color:#333;font-size:14px;">Your Answer:</label>
+        <input type="text" name="preview-q${index + 1}" placeholder="Enter your answer here..." style="width:100%;padding:12px;border:2px solid #e9ecef;border-radius:6px;font-size:15px;transition:border-color 0.2s;focus:outline:none;focus:border-color:#28a745;" oninput="window.updateProgress()">
+      </div>
+    `;
+  } else if (activityType === 'true_false') {
+    return `
+      <div style="display:flex;gap:12px;">
+        <label style="flex:1;display:flex;align-items:center;gap:12px;padding:16px;border:2px solid #e9ecef;border-radius:8px;cursor:pointer;background:white;transition:all 0.2s;hover:border-color:#28a745;hover:background:#f8fff9;">
+          <input type="radio" name="preview-q${index + 1}" value="true" style="margin:0;width:18px;height:18px;accent-color:#28a745;" onchange="window.updateProgress()">
+          <span style="font-size:15px;color:#333;font-weight:500;">True</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:12px;padding:16px;border:2px solid #e9ecef;border-radius:8px;cursor:pointer;background:white;transition:all 0.2s;hover:border-color:#28a745;hover:background:#f8fff9;">
+          <input type="radio" name="preview-q${index + 1}" value="false" style="margin:0;width:18px;height:18px;accent-color:#28a745;" onchange="window.updateProgress()">
+          <span style="font-size:15px;color:#333;font-weight:500;">False</span>
+        </label>
+      </div>
+    `;
+  } else if (activityType === 'essay') {
+    return `
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:500;color:#333;font-size:14px;">Your Answer:</label>
+        <textarea name="preview-q${index + 1}" rows="6" placeholder="Write your essay here..." style="width:100%;padding:12px;border:2px solid #e9ecef;border-radius:6px;font-size:15px;resize:vertical;transition:border-color 0.2s;focus:outline:none;focus:border-color:#28a745;" oninput="window.updateProgress()"></textarea>
+      </div>
+    `;
+  } else if (activityType === 'upload_based') {
+    return `
+      <div style="border:2px dashed #dee2e6;border-radius:8px;padding:24px;text-align:center;background:#f8f9fa;">
+        <div style="font-size:32px;margin-bottom:12px;">📎</div>
+        <h4 style="margin:0 0 8px 0;color:#333;">Upload Your File</h4>
+        <p style="margin:0 0 16px 0;color:#6c757d;font-size:14px;">Accepted formats: ${(question.acceptedFiles || ['PDF', 'DOCX', 'JPG', 'PNG']).join(', ')}</p>
+        <p style="margin:0 0 16px 0;color:#6c757d;font-size:14px;">Maximum file size: ${question.maxFileSize || 10}MB</p>
+        <button style="background:#28a745;color:white;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;" onclick="window.updateProgress()">
+          Choose File
+        </button>
+      </div>
+    `;
+  } else if (activityType === 'coding') {
+    return `
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:500;color:#333;font-size:14px;">Your Code:</label>
+        <textarea name="preview-q${index + 1}" rows="12" placeholder="Write your code here..." style="width:100%;padding:12px;border:2px solid #e9ecef;border-radius:6px;font-family:monospace;font-size:14px;resize:vertical;transition:border-color 0.2s;focus:outline:none;focus:border-color:#28a745;" oninput="window.updateProgress()"></textarea>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <button style="background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;font-size:12px;cursor:pointer;">
+            Run Code
+          </button>
+          <button style="background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:4px;font-size:12px;cursor:pointer;">
+            Clear
+          </button>
+        </div>
+      </div>
+    `;
+  }
+  
+  return '<div style="color:#6c757d;font-size:14px;">Question type not supported</div>';
+}
+
+// Function to scroll to question (for navigation) - Global scope
+window.scrollToQuestion = function(index) {
+  console.log('🔍 scrollToQuestion called with index:', index);
+  const questionElement = document.getElementById('question-' + index);
+  console.log('🔍 Question element found:', questionElement);
+  
+  if (questionElement) {
+    questionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // Update navigation visual state
+    document.querySelectorAll('[id^="nav-"]').forEach(nav => {
+      nav.style.background = 'white';
+      nav.style.borderColor = '#dee2e6';
+      nav.style.color = '#495057';
+    });
+    
+    const currentNav = document.getElementById('nav-' + index);
+    console.log('🔍 Current nav element:', currentNav);
+    if (currentNav) {
+      currentNav.style.background = '#e3f2fd';
+      currentNav.style.borderColor = '#2196f3';
+      currentNav.style.color = '#1976d2';
+    }
+  }
+}
+
+// Function to finish preview attempt - Global scope
+window.finishPreviewAttempt = function() {
+  console.log('🔍 finishPreviewAttempt called');
+  
+  // Count answered questions accurately
+  let answeredQuestions = 0;
+  const questionElements = document.querySelectorAll('[id^="question-"]');
+  
+  questionElements.forEach(questionEl => {
+    const hasRadioAnswer = questionEl.querySelector('input[type="radio"]:checked');
+    const hasTextAnswer = questionEl.querySelector('input[type="text"]:not([value=""])');
+    const hasTextareaAnswer = questionEl.querySelector('textarea:not([value=""])');
+    
+    if (hasRadioAnswer || hasTextAnswer || hasTextareaAnswer) {
+      answeredQuestions++;
+    }
+  });
+  
+  const totalQuestions = questionElements.length;
+  
+  console.log('🔍 Submit attempt:', { answeredQuestions, totalQuestions });
+  
+  if (answeredQuestions === 0) {
+    alert('Please answer at least one question before submitting.');
+    return;
+  }
+  
+  // Show results
+  const body = document.querySelector('#cafBody');
+  if (body) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:40px;background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <div style="font-size:64px;margin-bottom:20px;">🎉</div>
+        <h2 style="margin:0 0 16px 0;color:#28a745;font-size:28px;">Preview Submitted!</h2>
+        <div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
+          <div style="font-size:18px;color:#333;margin-bottom:8px;">Preview Results</div>
+          <div style="font-size:14px;color:#6c757d;">Answered: ${answeredQuestions} / ${totalQuestions} questions</div>
+          <div style="font-size:14px;color:#6c757d;margin-top:4px;">This is a preview - no actual submission was made</div>
+        </div>
+        <button onclick="window.createActivityState.viewMode = 'edit'; window.dispatchEvent(new CustomEvent('createActivityRender'));" style="background:#28a745;color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-top:16px;">
+          Back to Edit
+        </button>
+      </div>
+    `;
+  }
+}
+
+// Function to update progress counter - Global scope
+window.updateProgress = function() {
+  console.log('🔍 updateProgress called');
+  
+  // Count answered questions more accurately
+  let answeredQuestions = 0;
+  const questionElements = document.querySelectorAll('[id^="question-"]');
+  
+  questionElements.forEach(questionEl => {
+    const hasRadioAnswer = questionEl.querySelector('input[type="radio"]:checked');
+    const hasTextAnswer = questionEl.querySelector('input[type="text"]:not([value=""])');
+    const hasTextareaAnswer = questionEl.querySelector('textarea:not([value=""])');
+    
+    if (hasRadioAnswer || hasTextAnswer || hasTextareaAnswer) {
+      answeredQuestions++;
+    }
+  });
+  
+  const totalQuestions = questionElements.length;
+  const progressCounter = document.getElementById('progress-counter');
+  
+  console.log('🔍 Progress update:', { answeredQuestions, totalQuestions, progressCounter });
+  
+  if (progressCounter) {
+    progressCounter.textContent = `${answeredQuestions} / ${totalQuestions} answered`;
+    
+    // Update navigation buttons
+    document.querySelectorAll('[id^="nav-"]').forEach((nav, index) => {
+      const questionElement = document.getElementById('question-' + index);
+      if (questionElement) {
+        const hasRadioAnswer = questionElement.querySelector('input[type="radio"]:checked');
+        const hasTextAnswer = questionElement.querySelector('input[type="text"]:not([value=""])');
+        const hasTextareaAnswer = questionElement.querySelector('textarea:not([value=""])');
+        const hasAnswer = hasRadioAnswer || hasTextAnswer || hasTextareaAnswer;
+        
+        if (hasAnswer) {
+          nav.style.background = '#d4edda';
+          nav.style.borderColor = '#28a745';
+          nav.style.color = '#155724';
+        } else {
+          nav.style.background = 'white';
+          nav.style.borderColor = '#dee2e6';
+          nav.style.color = '#495057';
+        }
+      }
+    });
+  }
 }
 
 // Function to collect student answers
