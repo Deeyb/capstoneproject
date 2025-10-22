@@ -98,7 +98,7 @@ class CourseService {
             $this->db->exec("CREATE TABLE IF NOT EXISTS lesson_materials (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 lesson_id INT NOT NULL,
-                type ENUM('pdf','video','link','code','file','page') NOT NULL,
+                type ENUM('pdf','link','page') NOT NULL,
                 url VARCHAR(255) NULL,
                 filename VARCHAR(255) NULL,
                 size_bytes BIGINT NULL,
@@ -516,13 +516,7 @@ class CourseService {
         $original = $file['name'] ?? 'upload.bin';
         $ext = strtolower(pathinfo($original, PATHINFO_EXTENSION));
         $allowedExt = [
-            'pdf',
-            // videos
-            'mp4','m4v','mov','mkv','avi','webm','ogv','3gp',
-            // archives & docs & images & misc
-            'zip','rar','7z','txt','doc','docx','ppt','pptx','xls','xlsx','png','jpg','jpeg','gif','webp','csv',
-            // code
-            'cpp','c','h','hpp','java','py','js','ts','php'
+            'pdf'
         ];
         if (!in_array($ext, $allowedExt, true)) {
             return ['success' => false, 'message' => 'File type not allowed'];
@@ -538,10 +532,7 @@ class CourseService {
             return ['success' => false, 'message' => 'Failed to store file'];
         }
         // Determine material type
-        $type = 'file';
-        if ($ext === 'pdf') $type = 'pdf';
-        else if (in_array($ext, ['mp4','m4v','mov','mkv','avi','webm','ogv','3gp'], true)) $type = 'video';
-        else if (in_array($ext, ['cpp','c','h','hpp','java','py'], true)) $type = 'code';
+        $type = 'pdf';
         $relativePath = 'material_download.php?f=' . rawurlencode($unique);
         $id = $this->addMaterial($lessonId, $type, $relativePath, $original, (int)($file['size'] ?? 0));
         return $id > 0 ? ['success' => true, 'id' => $id, 'url' => $relativePath] : ['success' => false, 'message' => 'DB save failed'];
@@ -606,7 +597,6 @@ class CourseService {
         // Determine material type
         $type = 'file';
         if ($ext === 'pdf') $type = 'pdf';
-        else if (in_array($ext, ['mp4','m4v','mov','mkv','avi','webm','ogv','3gp'], true)) $type = 'video';
         else if (in_array($ext, ['cpp','c','h','hpp','java','py','js','ts','php'], true)) $type = 'code';
         $relativePath = 'material_download.php?f=' . rawurlencode($unique);
         $id = $this->addMaterial($lessonId, $type, $relativePath, $basename, (int)$size);

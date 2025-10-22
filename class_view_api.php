@@ -67,13 +67,33 @@ try {
             break;
         case 'get_lesson_details':
             $lessonId = isset($_GET['lesson_id']) ? (int)$_GET['lesson_id'] : 0;
-            if ($lessonId <= 0) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Invalid lesson id']); exit; }
+            error_log("🔍 get_lesson_details called with lesson_id: " . $lessonId);
+            if ($lessonId <= 0) { 
+                error_log("❌ Invalid lesson id: " . $lessonId);
+                http_response_code(400); 
+                echo json_encode(['success'=>false,'message'=>'Invalid lesson id']); 
+                exit; 
+            }
             $courseSvc = new CourseService($db);
             $materials = [];
             $activities = [];
-            try { $materials = $courseSvc->listMaterials($lessonId); } catch (Throwable $e) { $materials = []; }
-            try { $activities = $courseSvc->listActivities($lessonId); } catch (Throwable $e) { $activities = []; }
-            echo json_encode(['success'=>true, 'materials'=>$materials, 'activities'=>$activities]);
+            try { 
+                $materials = $courseSvc->listMaterials($lessonId); 
+                error_log("✅ Materials found: " . count($materials));
+            } catch (Throwable $e) { 
+                error_log("❌ Error getting materials: " . $e->getMessage());
+                $materials = []; 
+            }
+            try { 
+                $activities = $courseSvc->listActivities($lessonId); 
+                error_log("✅ Activities found: " . count($activities));
+            } catch (Throwable $e) { 
+                error_log("❌ Error getting activities: " . $e->getMessage());
+                $activities = []; 
+            }
+            $response = ['success'=>true, 'materials'=>$materials, 'activities'=>$activities];
+            error_log("📤 Sending response: " . json_encode($response));
+            echo json_encode($response);
             break;
         case 'get_first_module':
             if ($classId <= 0) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Invalid class id']); exit; }

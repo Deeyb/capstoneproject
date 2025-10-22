@@ -1,4 +1,5 @@
 (function initTeacherDashboardMain(){
+    
 	function qs(sel, root){ return (root||document).querySelector(sel); }
 	function qsa(sel, root){ return Array.from((root||document).querySelectorAll(sel)); }
 
@@ -408,18 +409,46 @@ function bindCreateClassControls(){
 
 // Attach handlers to material action buttons
 function wireMaterialItemEvents(itemDiv){
+    console.log('🔧 wireMaterialItemEvents called for:', itemDiv);
     var downloadBtn = itemDiv.querySelector('.download-material-btn');
     var editBtn = itemDiv.querySelector('.edit-material-btn');
     var deleteBtn = itemDiv.querySelector('.delete-material-btn');
+    console.log('🔧 Buttons found:', {download: !!downloadBtn, edit: !!editBtn, delete: !!deleteBtn});
 
     if (downloadBtn) {
-        downloadBtn.addEventListener('click', function(){
+        downloadBtn.addEventListener('click', function(e){
             var materialId = itemDiv.getAttribute('data-material-id');
             var url = itemDiv.getAttribute('data-url');
+            var type = itemDiv.getAttribute('data-type');
+            var filename = itemDiv.getAttribute('data-filename');
+            
             if (materialId) {
-                window.open('material_download.php?id=' + encodeURIComponent(materialId), '_blank');
+                // Use material viewer instead of direct download
+                const materialData = {
+                    id: materialId,
+                    url: 'material_download.php?id=' + encodeURIComponent(materialId),
+                    filename: itemDiv.getAttribute('data-filename') || 'Material',
+                    type: type
+                };
+                
+                // Check if openMaterialViewer function exists
+                if (typeof openMaterialViewer === 'function') {
+                    openMaterialViewer(materialData);
+                } else if (typeof window.openMaterialViewer === 'function') {
+                    window.openMaterialViewer(materialData);
+                } else {
+                    window.open('material_download.php?id=' + encodeURIComponent(materialId), '_blank');
+                }
             } else if (url) {
-                window.open(url, '_blank');
+                // Use material viewer for external links
+                if (typeof showLinkViewer === 'function') {
+                    showLinkViewer(url);
+                } else if (typeof window.showLinkViewer === 'function') {
+                    window.showLinkViewer(url);
+                } else {
+                    // Fallback to opening in new tab
+                    window.open(url, '_blank');
+                }
             } else {
                 showWarning('File Not Ready', 'File is not available yet. Please try again shortly.');
             }
@@ -2511,12 +2540,8 @@ function showAddMaterialModal(topicItem, topicTitle){
                 '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Material Type</label>' +
                 '<select id="materialTypeSelect" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;background:white;">' +
                 '<option value="pdf">PDF Document</option>' +
-                '<option value="video">Video</option>' +
                 '<option value="link">External Link</option>' +
-                '<option value="code">Code File</option>' +
-                '<option value="file">General File</option>' +
                 '<option value="page">Page Content</option>' +
-                    '<option value="pptx">PowerPoint (.pptx)</option>' +
             '</select>' +
         '</div>' +
             '<div id="materialUrlSection" style="margin-bottom:20px;display:none;">' +
@@ -2553,9 +2578,6 @@ function showAddMaterialModal(topicItem, topicTitle){
             // Set file input accept attribute
             var fileInput = modal.querySelector('#materialFileInput');
             if (type === 'pdf') fileInput.accept = '.pdf,application/pdf';
-            else if (type === 'video') fileInput.accept = 'video/*';
-            else if (type === 'code') fileInput.accept = '.js,.py,.java,.cpp,.c,.html,.css,.php,.sql,.json,.xml';
-            else if (type === 'pptx') fileInput.accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation';
             else fileInput.accept = '*/*';
   } else {
             urlSection.style.display = 'none';
@@ -2852,8 +2874,6 @@ function addMaterialToTopic(topicItem, type, url, file){
     
     var icon = 'fa-file';
     if (type === 'pdf') icon = 'fa-file-pdf';
-    else if (type === 'video') icon = 'fa-video';
-    else if (type === 'code') icon = 'fa-code';
     else if (type === 'link') icon = 'fa-link';
     else if (type === 'page') icon = 'fa-file-alt';
     
@@ -3299,12 +3319,31 @@ function updateActivityDisplay(topicItem, activityId, type, title){
     }
 }
 
-// Show error notification
-function showErrorNotification(message){
+// Notification functions following the existing functional pattern
+function showSuccess(title, message){
+    console.log('Success:', title, message);
     if (typeof showNotification === 'function') {
-        showNotification('error', 'Error', message);
+        showNotification('success', title, message);
     } else {
-        showError('Error', message);
+        alert(title + ': ' + message);
+    }
+}
+
+function showError(title, message){
+    console.error('Error:', title, message);
+    if (typeof showNotification === 'function') {
+        showNotification('error', title, message);
+    } else {
+        alert(title + ': ' + message);
+    }
+}
+
+function showWarning(title, message){
+    console.warn('Warning:', title, message);
+    if (typeof showNotification === 'function') {
+        showNotification('warning', title, message);
+    } else {
+        alert(title + ': ' + message);
     }
 }
 
@@ -3393,10 +3432,7 @@ function showAddMaterialToLessonModal(lessonEl){
             '<label style="display:block;margin-bottom:5px;color:#374151;font-weight:600;">Material type:</label>' +
             '<select id="lessonMaterialTypeSelect" style="width:100%;padding:8px 12px;border:1px solid #1d9b3e;border-radius:6px;font-size:14px;outline:none;">' +
                 '<option value="pdf">PDF Document</option>' +
-                '<option value="video">Video</option>' +
                 '<option value="link">External Link</option>' +
-                '<option value="code">Code File</option>' +
-                '<option value="file">General File</option>' +
                 '<option value="page">Page Content</option>' +
             '</select>' +
         '</div>' +
@@ -3641,12 +3677,8 @@ function showCoordinatorMaterialModal(element, elementTitle){
                 '<label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;">Material Type</label>' +
                 '<select id="materialTypeSelect" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;background:white;">' +
                     '<option value="pdf">PDF Document</option>' +
-                    '<option value="video">Video</option>' +
                     '<option value="link">External Link</option>' +
-                    '<option value="code">Code File</option>' +
-                    '<option value="file">General File</option>' +
                     '<option value="page">Page Content</option>' +
-                    '<option value="pptx">PowerPoint (.pptx)</option>' +
                 '</select>' +
             '</div>' +
             '<div id="materialUrlSection" style="margin-bottom:20px;display:none;">' +
@@ -3684,9 +3716,6 @@ function showCoordinatorMaterialModal(element, elementTitle){
             fileSection.style.display = 'block';
             // Set file input accept attribute
             if (type === 'pdf') fileInput.accept = '.pdf,application/pdf';
-            else if (type === 'video') fileInput.accept = 'video/*';
-            else if (type === 'code') fileInput.accept = '.js,.py,.java,.cpp,.c,.html,.css,.php,.sql,.json,.xml';
-            else if (type === 'pptx') fileInput.accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation';
             else fileInput.accept = '*/*';
       } else {
             urlSection.style.display = 'none';
@@ -3893,10 +3922,7 @@ function addCoordinatorStyleMaterial(lessonEl, type, url, file){
         var materialInfo = '';
         var icon = 'fa-file';
         if (type === 'pdf') icon = 'fa-file-pdf';
-        else if (type === 'video') icon = 'fa-video';
-        else if (type === 'code') icon = 'fa-code';
         else if (type === 'link') icon = 'fa-link';
-        else if (type === 'pptx') icon = 'fa-file-powerpoint';
         else if (type === 'page') icon = 'fa-file-alt';
         
         if (url) {
@@ -3932,7 +3958,13 @@ function addCoordinatorStyleMaterial(lessonEl, type, url, file){
             // First material - replace "No materials"
             materialsSection.innerHTML = '<div style="font-size:11px;color:#374151;font-weight:600;margin:2px 0 2px;">Materials (1)</div>' +
                 '<div class="material-item" style="font-size:11px;color:#495057;padding:8px;background:#f8f9fa;border-radius:4px;border:1px solid #e5e7eb;">' + materialInfo + '</div>';
-      } else {
+            
+            // Wire events for the first material
+            var firstMaterialDiv = materialsSection.querySelector('.material-item');
+            if (firstMaterialDiv) {
+                wireMaterialItemEvents(firstMaterialDiv);
+            }
+        } else {
             // Add to existing materials
             var materialsHeader = materialsSection.querySelector('div[style*="font-size:11px;color:#374151;font-weight:600;"]');
             if (materialsHeader) {
@@ -4717,7 +4749,7 @@ function addMaterialToLesson(lessonEl, type, url, file){
     var left = document.createElement('div');
     left.style.cssText = 'display:flex;align-items:center;gap:10px;color:#374151;font-size:12px;';
     var icon = document.createElement('span');
-    icon.innerHTML = '<i class="fas ' + (type === 'pdf' ? 'fa-file-pdf' : type === 'video' ? 'fa-video' : type === 'link' ? 'fa-link' : 'fa-file') + '"></i>';
+    icon.innerHTML = '<i class="fas ' + (type === 'pdf' ? 'fa-file-pdf' : type === 'link' ? 'fa-link' : type === 'page' ? 'fa-file-alt' : 'fa-file') + '"></i>';
     icon.style.cssText = 'color:#1d9b3e;';
     var meta = document.createElement('div');
     meta.innerHTML = '<div style="font-weight:600;text-transform:uppercase;">' + type + '</div>' +
@@ -4730,9 +4762,28 @@ function addMaterialToLesson(lessonEl, type, url, file){
     var btnDownload = document.createElement('button');
     btnDownload.className = 'btn tiny';
     btnDownload.textContent = 'Download';
-    btnDownload.addEventListener('click', function(){
+    btnDownload.addEventListener('click', function(e){
         var id = row.getAttribute('data-material-id');
-        if (id) window.open('material_download.php?id=' + encodeURIComponent(id), '_blank');
+        var type = row.getAttribute('data-type');
+        var filename = row.getAttribute('data-filename');
+        
+        if (id) {
+            // Use material viewer instead of direct download
+            const materialData = {
+                id: id,
+                url: 'material_download.php?id=' + encodeURIComponent(id),
+                filename: filename || 'Material',
+                type: type
+            };
+            
+            if (typeof openMaterialViewer === 'function') {
+                openMaterialViewer(materialData);
+            } else if (typeof window.openMaterialViewer === 'function') {
+                window.openMaterialViewer(materialData);
+            } else {
+                window.open('material_download.php?id=' + encodeURIComponent(id), '_blank');
+            }
+        }
     });
     var btnDelete = document.createElement('button');
     btnDelete.className = 'btn tiny';
@@ -6441,9 +6492,6 @@ function showNotification(type, title, message){
     }, 5000);
 }
 
-function showErrorNotification(message){
-    showNotification('error', 'Error', message);
-}
 
 // Add Lesson Modal
 function showAddLessonModal(moduleEl){

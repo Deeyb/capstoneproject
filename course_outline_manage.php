@@ -120,8 +120,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($earlyAction !== 'get_csrf_token') {
         $csrfToken = $_POST[CSRFProtection::getTokenName()] ?? '';
         error_log("CSRF Debug - Action: $earlyAction, Token: " . substr($csrfToken, 0, 10) . "...");
+        error_log("CSRF Debug - POST data keys: " . implode(', ', array_keys($_POST)));
+        error_log("CSRF Debug - Session ID: " . session_id());
+        error_log("CSRF Debug - Session status: " . session_status());
         if (!CSRFProtection::validateToken($csrfToken)) {
             error_log("CSRF Debug - Token validation failed for action: $earlyAction");
+            error_log("CSRF Debug - Available tokens in session: " . (isset($_SESSION['csrf_tokens']) ? count($_SESSION['csrf_tokens']) : 'none'));
             echo json_encode(['success'=>false,'message'=>'Invalid CSRF token']);
             exit;
         }
@@ -248,10 +252,7 @@ try {
             // Dynamic material types listing. For now, mirror DB enum values and keep labels.
             $types = [
                 ['value'=>'pdf','label'=>'PDF'],
-                ['value'=>'video','label'=>'Video'],
                 ['value'=>'link','label'=>'Link'],
-                ['value'=>'code','label'=>'Code'],
-                ['value'=>'file','label'=>'General File'],
                 ['value'=>'page','label'=>'Page']
             ];
             echo json_encode(['success'=>true,'types'=>$types]);

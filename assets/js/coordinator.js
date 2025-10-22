@@ -986,7 +986,7 @@ function viewOutline(courseId) {
             .then(function(r){ return r.json(); })
             .then(function(resp){
               let opts = (resp && resp.success && Array.isArray(resp.types)) ? resp.types : [
-            {value:'pdf',label:'PDF'}, {value:'video',label:'Video'}, {value:'link',label:'Link'}, {value:'code',label:'Code'}, {value:'file',label:'General File'}
+            {value:'pdf',label:'PDF'}, {value:'link',label:'Link'}, {value:'code',label:'Code'}, {value:'file',label:'General File'}
               ];
               // Add PowerPoint convenience option
               opts.push({ value: 'pptx', label: 'PowerPoint (.pptx)' });
@@ -994,12 +994,11 @@ function viewOutline(courseId) {
             type = (val||'link').toLowerCase();
             if (!type) return;
 
-          if (type === 'file' || type === 'pdf' || type === 'video' || type === 'code' || type === 'pptx') {
+          if (type === 'file' || type === 'pdf' || type === 'code' || type === 'pptx') {
             // Use a file picker and upload to backend
             const input = document.createElement('input');
             input.type = 'file';
             if (type === 'pdf') input.accept = '.pdf,application/pdf';
-            else if (type === 'video') input.accept = 'video/*';
             else if (type === 'pptx') input.accept = '.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation';
             else if (type === 'code') input.accept = '.txt,.md,.c,.cpp,.h,.hpp,.java,.py,.js,.ts,.tsx,.jsx,.html,.css,.scss,.json,.xml,.yml,.yaml,.sql,.sh,.bash,.bat,.ps1,.rb,.go,.php,.cs,.kt,.swift,.r,.ipynb,text/plain,application/json';
             input.onchange = function() {
@@ -1038,61 +1037,132 @@ function viewOutline(courseId) {
             return;
           }
           if (type === 'page') {
-            // Simple page creator: ask for title and content
-            outlinePrompt({ title: 'Page title', label: 'Title', placeholder: 'e.g., Topic Content' }, function(title){
-              if (!title) return;
-              // open big editor modal for content
+            // Minimalist page editor with title inside and live preview
               const modal = document.createElement('div');
               modal.className = 'modal';
               modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
               modal.innerHTML = `
-                <div class="modal-card" style="max-width:1000px;width:95%;height:80vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">
-                  <div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">
-                    <strong style="font-size:16px;color:#333;">Create Page</strong>
-                    <div style="display:flex;gap:8px;align-items:center;">
-                      <button class="action-btn btn-gray" id="pageCancel" style="padding:6px 12px;">Cancel</button>
-                      <button class="action-btn" id="pageSave" style="padding:6px 12px;background:#28a745;color:#fff;">Save</button>
+              <div class="modal-card" style="max-width:1100px;width:95%;height:85vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.12);">
+                <div style="padding:16px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#fff;">
+                  <div>
+                    <div style="font-size:18px;color:#111827;font-weight:600;">Create Content Page</div>
+                    <div style="font-size:13px;color:#6b7280;margin-top:4px;">Clean editor with professional features</div>
+                    </div>
+                  <div style="display:flex;gap:10px;align-items:center;">
+                    <button id="pagePreview" class="action-btn btn-gray" style="padding:8px 14px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;color:#111827;">Preview</button>
+                    <button id="pageCancel" class="action-btn btn-gray" style="padding:8px 14px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;color:#111827;">Cancel</button>
+                    <button id="pageSave" class="action-btn" style="padding:8px 14px;border:none;border-radius:6px;background:#28a745;color:#fff;font-weight:600;">Save Page</button>
+                  </div>
+                </div>
+                <div style="flex:1;display:flex;background:#f8fafc;">
+                  <div id="editorPanel" style="flex:1;display:flex;flex-direction:column;border-right:1px solid #e5e7eb;background:#fff;">
+                    <div style="padding:14px 16px;border-bottom:1px solid #e5e7eb;background:#fff;">
+                      <label for="peTitle" style="display:block;font-size:13px;color:#374151;margin-bottom:6px;">Page Title</label>
+                      <input id="peTitle" type="text" placeholder="e.g., Introduction to Programming" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:15px;outline:none;" />
+                    </div>
+                    <div id="editorToolbar" style="padding:10px 12px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap;">
+                      <button class="tb" data-action="bold">Bold</button>
+                      <button class="tb" data-action="italic">Italic</button>
+                      <button class="tb" data-action="h1">Heading 1</button>
+                      <button class="tb" data-action="h2">Heading 2</button>
+                      <button class="tb" data-action="ul">List</button>
+                      <button class="tb" data-action="ol">Numbered</button>
+                      <button class="tb" data-action="code">Code</button>
+                      <button class="tb" data-action="link">Link</button>
+                      <button class="tb" data-action="template">Templates</button>
+                    </div>
+                    <textarea id="peContent" style="flex:1;width:100%;height:100%;border:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;font-size:14px;line-height:1.6;outline:none;resize:none;" placeholder="# Welcome to your Page\n\nWrite content in Markdown.\n\n## Tips\n- Use headings and lists\n- Insert code blocks\n- Add links and images"></textarea>
+                  </div>
+                  <div id="previewPanel" style="flex:1;display:none;flex-direction:column;background:#fff;">
+                    <div style="padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+                      <span style="font-size:13px;color:#374151;font-weight:500;">Live Preview</span>
+                      <button id="closePreview" class="action-btn btn-gray" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;color:#111827;">Close</button>
+                    </div>
+                    <div id="previewContent" style="flex:1;padding:18px;overflow:auto;">
+                      <div style="text-align:center;color:#9ca3af;padding:40px 20px;">Start typing to see preview</div>
                     </div>
                   </div>
-                  <div style="flex:1;display:flex;">
-                    <textarea id="pageContent" style="flex:1;width:100%;height:100%;border:0;padding:12px;font-family:monospace;font-size:14px;outline:none;" placeholder="# Title\n\nWrite content here in Markdown...\n\n\`\`\`cpp\n// code here\n\`\`\`"></textarea>
                   </div>
                 </div>`;
               document.body.appendChild(modal);
-              // Try EasyMDE (Markdown WYSIWYG). Fallback to plain textarea if CDN blocked.
-              const loadScript = (src) => new Promise((res, rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.body.appendChild(s); });
-              const loadCSS = (href) => { const l=document.createElement('link'); l.rel='stylesheet'; l.href=href; document.head.appendChild(l); };
-              let editorInstance = null;
-              (async function(){
-                try {
-                  loadCSS('https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css');
-                  await loadScript('https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js');
-                  editorInstance = new window.EasyMDE({ element: modal.querySelector('#pageContent'), spellChecker: false, autofocus: true, placeholder: '# Title\n\nWrite content here in Markdown...\n\n```cpp\n// code here\n```' });
-                  // Make editor occupy full modal content area
+
+            // styling for toolbar buttons and focus
                   (function(){
-                    try {
                       const style = document.createElement('style');
-                      style.textContent = '.EasyMDEContainer{height:100%;width:100%;display:flex;flex-direction:column;flex:1 1 auto;} .EasyMDEContainer .editor-toolbar{flex:0 0 auto;} .EasyMDEContainer .CodeMirror{flex:1 1 auto;height:100%;width:100%;} .EasyMDEContainer .CodeMirror-scroll{min-height:100%;}';
+              style.textContent = '.tb{background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer} .tb:hover{background:#f9fafb;border-color:#9ca3af} #peTitle:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)} #previewContent h1{font-size:28px;margin:14px 0;border-bottom:2px solid #e5e7eb;padding-bottom:6px} #previewContent h2{font-size:22px;margin:12px 0} #previewContent p, #previewContent li{color:#374151} #previewContent pre{background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;overflow:auto} #previewContent code{background:#f3f4f6;color:#111827;padding:2px 6px;border-radius:4px} #previewContent pre code{background:transparent;color:inherit;padding:0;border-radius:0}';
                       document.head.appendChild(style);
-                      setTimeout(function(){
-                        const cm = editorInstance && editorInstance.codemirror;
-                        if (cm) { cm.setSize('100%','100%'); }
-                        const cont = modal.querySelector('.EasyMDEContainer'); if (cont) { cont.style.height = '100%'; cont.style.width='100%'; cont.style.flex='1 1 auto'; }
-                      }, 0);
-                    } catch(_) {}
                   })();
-                } catch (_) { /* leave textarea */ }
+
+            // load marked for preview
+            const loadScript = (src) => new Promise((res, rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.body.appendChild(s); });
+            let markedReady = false;
+            (async function(){
+              try { await loadScript('https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js'); markedReady = true; } catch(_) {}
               })();
 
+            const textarea = modal.querySelector('#peContent');
+            const previewPanel = modal.querySelector('#previewPanel');
+            const previewContent = modal.querySelector('#previewContent');
+
+            function balanceCodeFences(markdown){
+              try {
+                const fences = (markdown.match(/```/g) || []).length;
+                if (fences % 2 === 1) {
+                  return { text: markdown + '\n```', fixed: true };
+                }
+              } catch(_) {}
+              return { text: markdown, fixed: false };
+            }
+
+            function updatePreview(){
+              if (!markedReady) return;
+              const val = textarea.value || '';
+              if (!val.trim()) {
+                previewContent.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:40px 20px;">Start typing to see preview</div>';
+                return;
+              }
+              const balanced = balanceCodeFences(val);
+              const html = window.marked.parse(balanced.text);
+              const hint = balanced.fixed ? '<div style="margin-top:8px;font-size:12px;color:#6b7280;">Note: Unclosed code block was auto-closed for preview only.</div>' : '';
+              previewContent.innerHTML = html + hint;
+            }
+            textarea.addEventListener('input', updatePreview);
+
+            // toolbar handlers
+            modal.querySelectorAll('#editorToolbar .tb').forEach(function(b){
+              b.addEventListener('click', function(){
+                const act = this.getAttribute('data-action');
+                const start = textarea.selectionStart; const end = textarea.selectionEnd; const text = textarea.value; const sel = text.substring(start, end);
+                let insert = '';
+                if (act==='bold') insert = `**${sel||'bold text'}**`;
+                else if (act==='italic') insert = `*${sel||'italic'}*`;
+                else if (act==='h1') insert = `# ${sel||'Heading 1'}`;
+                else if (act==='h2') insert = `## ${sel||'Heading 2'}`;
+                else if (act==='ul') insert = `- ${sel||'List item'}`;
+                else if (act==='ol') insert = `1. ${sel||'List item'}`;
+                else if (act==='code') insert = `\n\n\`\`\`cpp\n${sel||'// code'}\n\`\`\`\n`;
+                else if (act==='link') insert = `[${sel||'link'}](https://)`;
+                else if (act==='template') insert = `# Lesson Introduction\n\n## Objectives\n- Objective 1\n- Objective 2\n\n## Content\nWrite here...`;
+                if (insert){ textarea.value = text.substring(0,start) + insert + text.substring(end); textarea.focus(); textarea.setSelectionRange(start+insert.length, start+insert.length); updatePreview(); }
+              });
+            });
+
+            // preview toggles
+            modal.querySelector('#pagePreview').onclick = function(){ previewPanel.style.display='flex'; updatePreview(); };
+            modal.querySelector('#closePreview').onclick = function(){ previewPanel.style.display='none'; };
               modal.querySelector('#pageCancel').onclick = function(){ modal.remove(); };
+
+            // save handler
               modal.querySelector('#pageSave').onclick = function(){
-                const content = editorInstance ? editorInstance.value() : (modal.querySelector('#pageContent').value || '');
+              const title = (modal.querySelector('#peTitle').value||'').trim();
+              const content = modal.querySelector('#peContent').value || '';
+              if (!title){ if (typeof window.showNotification==='function') window.showNotification('warning','Missing title','Please enter a page title'); modal.querySelector('#peTitle').focus(); return; }
                 (async function(){
                   let fd = new FormData();
                   fd.append('action','material_page_create');
                   fd.append('lesson_id', lessonId);
                   fd.append('title', title);
-                  fd.append('content', content || '');
+                fd.append('content', content);
                   try { fd = await addCSRFToken(fd); } catch(_){ }
                   fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
                     .then(r=>r.json())
@@ -1100,7 +1170,6 @@ function viewOutline(courseId) {
                     .catch(()=> { if (typeof window.showNotification === 'function') window.showNotification('error','Error','Save failed'); });
                 })();
               };
-            });
             return;
           }
           outlinePrompt({ title: 'Material URL', label: 'URL' }, function(value){
@@ -1275,9 +1344,6 @@ function viewOutline(courseId) {
             // Open PDF in modal viewer (add view=true parameter)
             const viewUrl = absoluteUrl + (absoluteUrl.includes('?') ? '&' : '?') + 'view=true';
             showPDFViewer(viewUrl);
-          } else if (type === 'video') {
-            // Open video in modal player
-            showVideoPlayer(absoluteUrl);
           } else if (type === 'code') {
             // Open code in modal viewer
             showCodeViewer(absoluteUrl);
@@ -1772,8 +1838,6 @@ function renderOutline(outline, mount) {
         if (matUrl) {
           if (matType === 'pdf') {
             viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="pdf" style="background:#007bff;color:#fff;">📄 View PDF</button>`;
-          } else if (matType === 'video') {
-            viewBtn = `<button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="video" style="background:#dc3545;color:#fff;">▶️ Play Video</button>`;
           } else if (matType === 'link') {
             viewBtn = `<div style="display:flex;gap:6px;">
               <button class="action-btn" data-act="mat-view" data-url="${matUrl}" data-type="link" style="background:#17a2b8;color:#fff;">🔗 Open Link</button>
@@ -3433,7 +3497,7 @@ function showCreateActivityForm(lessonId, opts){
     modal.id = 'createActivityForm';
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-      <div class="modal-card" style="max-width:900px;width:95%;max-height:90vh;display:flex;flex-direction:column;">
+      <div class="modal-card" style="max-width:1200px;width:95%;max-height:90vh;display:flex;flex-direction:column;">
         <div style="padding:12px 14px;border-bottom:1px solid #e9ecef;display:flex;align-items:center;gap:8px;">
           <strong style="flex:1" id="cafModalTitle">Create Activity</strong>
           <div id="cafMode" style="display:flex;gap:6px;align-items:center;">
@@ -3567,7 +3631,7 @@ function showCreateActivityForm(lessonId, opts){
     // Render PREVIEW mode using professional test interface
     if (state.viewMode === 'preview') {
       console.log('🔍 PREVIEW MODE - State:', state);
-      const activityType = (state.type === 'laboratory') ? 'coding' : (state.questionType || 'multiple_choice');
+      const activityType = state.questionType || 'multiple_choice';
         const activity = { 
           id: state.editActivityId ? parseInt(state.editActivityId,10) : 0, 
           title: state.name || 'Untitled Activity', 
@@ -3604,12 +3668,30 @@ function showCreateActivityForm(lessonId, opts){
         });
       }
       
-          // Calculate total points
-          const totalPoints = activity.questions && activity.questions.length > 0 ? 
-            activity.questions.reduce((sum, q) => sum + (q.points || 1), 0) : 
-            (activity.max_score || 0);
+          // Calculate total points - use max_score for upload_based and coding activities
+          let totalPoints = 0;
+          if (activityType === 'upload_based' || activityType === 'coding') {
+            totalPoints = activity.max_score || 0;
+          } else if (activity.questions && activity.questions.length > 0) {
+            totalPoints = activity.questions.reduce((sum, q) => sum + (q.points || 1), 0);
+          } else {
+            totalPoints = activity.max_score || 0;
+          }
       
       // Professional test interface
+      if (activityType === 'coding') {
+        // Render dedicated coding preview (does not require questions array)
+        try {
+          body.innerHTML = renderCodingPreview(activity);
+        } catch(e) {
+          console.error('Coding preview render error:', e);
+          body.innerHTML = '<div class="empty-state">Failed to render coding preview</div>';
+        }
+        if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
+        return;
+      }
+      
+
       body.innerHTML = `
         <div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;">
           <!-- Test Header -->
@@ -3638,7 +3720,7 @@ function showCreateActivityForm(lessonId, opts){
           
           <!-- Question Navigation Sidebar -->
           <div style="display:flex;">
-            <div style="width:200px;background:#f8f9fa;border-right:1px solid #e9ecef;padding:20px;">
+            <div style="width:150px;background:#f8f9fa;border-right:1px solid #e9ecef;padding:16px;">
               <h4 style="margin:0 0 16px 0;color:#333;font-size:14px;">Question Navigation</h4>
               <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
                 ${activity.questions && activity.questions.length > 0 ? activity.questions.map((q, idx) => `
@@ -3654,7 +3736,7 @@ function showCreateActivityForm(lessonId, opts){
             </div>
             
             <!-- Questions Content -->
-            <div style="flex:1;padding:20px;">
+            <div style="flex:1;padding:24px;">
               ${activity.questions && activity.questions.length > 0 ? 
                 renderProfessionalTestQuestions(activity, activityType) : 
                 `
@@ -4816,6 +4898,48 @@ function renderProfessionalTestQuestions(activity, activityType) {
   return html;
 }
 
+// Coordinator preview for coding activities (reads instructions JSON)
+function renderCodingPreview(activity){
+  let meta = {};
+  try { meta = JSON.parse(activity.instructions||'{}'); } catch(_){ meta = {}; }
+  const language = (meta.language || 'cpp').toString();
+  const timeLimit = meta.timeLimit ? meta.timeLimit + 's' : 'No time limit';
+  const starter = meta.starterCode || '';
+  const expected = Array.isArray(activity.testCases) ? activity.testCases.filter(tc=>tc && tc.expectedOutput).map((tc,i)=>`Case ${i+1}: ${tc.expectedOutput}`).join('\n') : '';
+  const pts = activity.max_score || 0;
+  return `
+    <div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#28a745 0%,#20c997 100%);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <h2 style="margin:0;font-size:24px;font-weight:600;">${activity.title||'Coding Exercise'}</h2>
+          <div style="margin-top:6px;opacity:.9;font-size:14px;">💻 ${language.toUpperCase()} • ⏱️ ${timeLimit}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:14px;opacity:.9;">Total Points</div>
+          <div style="font-size:20px;font-weight:700;">${pts}</div>
+        </div>
+      </div>
+      ${meta.instructions ? `<div style="padding:18px;border-bottom:1px solid #e9ecef;background:#f8f9fa;"><h3 style="margin:0 0 8px 0;font-size:16px;color:#374151;">Instructions</h3><div style="color:#4b5563;white-space:pre-wrap;">${meta.instructions}</div></div>` : ''}
+      <div style="display:flex;">
+        <div style="flex:1;padding:18px;">
+          <div style="margin-bottom:10px;font-weight:600;color:#374151;">Starter Code</div>
+          <textarea rows="14" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:8px;font-family:monospace;font-size:14px;resize:vertical;">${starter.replace(/</g,'&lt;')}</textarea>
+          <div style="margin-top:12px;display:flex;gap:8px;">
+            <button style="background:#28a745;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Run</button>
+            <button style="background:#6b7280;color:#fff;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;">Reset</button>
+          </div>
+        </div>
+        <div style="width:280px;border-left:1px solid #e9ecef;background:#f8f9fa;padding:18px;">
+          <div style="font-weight:600;color:#374151;margin-bottom:8px;">Progress</div>
+          <div style="font-size:14px;color:#10b981;font-weight:700;">Ready to code</div>
+          ${expected ? `<div style="margin-top:18px;"><div style="font-weight:600;color:#374151;margin-bottom:6px;">Expected Output</div><pre style="background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;white-space:pre-wrap;">${expected.replace(/</g,'&lt;')}</pre></div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
 // Function to render question input based on activity type
 function renderQuestionInput(question, index, activityType) {
   if (activityType === 'multiple_choice') {
@@ -5504,45 +5628,6 @@ function showPDFViewer(url) {
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
-function showVideoPlayer(url) {
-  const getExt = function(u){
-    try {
-      const q = new URL(u, window.location.origin).searchParams.get('f');
-      const name = q || u;
-      const m = String(name).match(/\.([A-Za-z0-9]+)(?:$|\b)/);
-      return m ? m[1].toLowerCase() : '';
-    } catch(_) { return ''; }
-  };
-  const ext = getExt(url);
-  const mimeByExt = {
-    mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', mkv: 'video/x-matroska', avi: 'video/x-msvideo',
-    webm: 'video/webm', ogv: 'video/ogg', '3gp': 'video/3gpp'
-  };
-  const mime = mimeByExt[ext] || '';
-  const sourceTypeAttr = mime ? ` type="${mime}"` : '';
-
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
-  modal.innerHTML = `
-    <div class="modal-card" style="max-width:98%;width:98%;display:flex;flex-direction:column;background:#000;border-radius:8px;overflow:hidden;">
-      <div style="padding:10px 12px;border-bottom:1px solid #333;display:flex;align-items:center;justify-content:space-between;background:#1a1a1a;">
-        <strong style="font-size:16px;color:#fff;">▶️ Video Player</strong>
-        <button class="action-btn" id="videoPlayerClose" style="padding:6px 12px;background:#dc3545;color:#fff;">Close</button>
-      </div>
-      <div style="background:#000;">
-        <video controls style="width:100%;max-height:80vh;" autoplay>
-          <source src="${url}"${sourceTypeAttr}>
-          Your browser does not support the video tag.
-        </video>
-        <div style="padding:8px 12px;color:#bbb;font-size:12px;">${ext ? ('File type: '+ext.toUpperCase()) : ''}</div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  modal.querySelector('#videoPlayerClose').onclick = () => modal.remove();
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-}
 
 function showCodeViewer(url) {
   const modal = document.createElement('div');
