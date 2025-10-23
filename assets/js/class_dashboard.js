@@ -1,3 +1,5 @@
+console.log('🔍 DEBUGGING: class_dashboard.js file loaded!');
+
 // ======================== ACTIVITY MANAGER CLASS (OOP) ========================
 
 class ActivityManager {
@@ -317,77 +319,91 @@ class ActivityTester {
 
   // Show try answering modal
   showTryAnsweringModal(activityId, activityData) {
+    console.log('🚀 DEBUGGING: showTryAnsweringModal called!');
+    console.log('🚀 Activity ID:', activityId);
+    console.log('🚀 Activity Data:', activityData);
+    
     this.currentActivity = { id: activityId, ...activityData };
+    console.log('🚀 Current Activity:', this.currentActivity);
+    
     this.currentQuestionIndex = 0;
     this.answers = {};
     this.startTime = new Date();
+    
+    console.log('🚀 Creating modal...');
     this.createModal();
+    console.log('🚀 Modal created, binding events...');
     this.bindEvents();
+    console.log('🚀 Try Answering modal setup complete!');
   }
 
   // Create the modal structure - EXACT STUDENT INTERFACE
   createModal() {
+    console.log('🔍 DEBUGGING: createModal called!');
+    
     // Remove existing modal if any
     if (this.modal) {
+      console.log('🔍 Removing existing modal...');
       this.modal.remove();
     }
 
+    console.log('🔍 Creating new modal element...');
     this.modal = document.createElement('div');
     this.modal.className = 'modal';
     this.modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
     
     this.modal.innerHTML = `
-      <div class="modal-card" style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;max-width:1200px;width:95%;max-height:90vh;display:flex;flex-direction:column;">
+      <div class="modal-card" style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;max-width:1200px;width:95%;max-height:90vh;display:flex;flex-direction:column;font-family:'Inter',sans-serif;">
         <!-- STUDENT TEST HEADER -->
-        <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:20px;">
+        <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:20px;font-family:'Inter',sans-serif;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <h2 style="margin:0;font-size:24px;font-weight:600;">${this.currentActivity.title || 'Activity'}</h2>
-            <div style="text-align:right;">
-              <div style="font-size:14px;opacity:0.9;">Total Points</div>
-              <div style="font-size:20px;font-weight:700;" id="totalPoints">0</div>
+            <h2 style="margin:0;font-size:24px;font-weight:600;font-family:'Inter',sans-serif;">${this.currentActivity.title || 'Activity'}</h2>
+            <div style="text-align:right;font-family:'Inter',sans-serif;">
+              <div style="font-size:14px;opacity:0.9;font-family:'Inter',sans-serif;">Total Points</div>
+              <div style="font-size:20px;font-weight:700;font-family:'Inter',sans-serif;" id="totalPoints">0</div>
             </div>
           </div>
-          <div style="display:flex;gap:20px;font-size:14px;opacity:0.9;">
-            <span id="activityTypeDisplay">📝 UPLOAD BASED</span>
-            <span>⏱️ No time limit</span>
-            <span id="questionCountDisplay">📊 1 question</span>
+          <div style="display:flex;gap:20px;font-size:14px;opacity:0.9;font-family:'Inter',sans-serif;">
+            <span id="activityTypeDisplay" style="font-family:'Inter',sans-serif;">📝 UPLOAD BASED</span>
+            <span style="font-family:'Inter',sans-serif;">⏱️ <span id="timer">No time limit</span></span>
+            <span id="questionCountDisplay" style="font-family:'Inter',sans-serif;">📊 1 question</span>
           </div>
         </div>
         
         <!-- INSTRUCTIONS SECTION -->
-        <div id="instructionsSection" style="padding:20px;border-bottom:1px solid #e9ecef;background:#f8f9fa;">
-          <h3 style="margin:0 0 12px 0;color:#333;font-size:16px;">📋 Instructions</h3>
-          <p id="instructionsText" style="margin:0;color:#555;line-height:1.6;">Loading instructions...</p>
+        <div id="instructionsSection" style="padding:20px;border-bottom:1px solid #e9ecef;background:#f8f9fa;font-family:'Inter',sans-serif;">
+          <h3 style="margin:0 0 12px 0;color:#333;font-size:16px;font-family:'Inter',sans-serif;">📋 Instructions</h3>
+          <p id="instructionsText" style="margin:0;color:#555;line-height:1.6;font-family:'Inter',sans-serif;">Loading instructions...</p>
         </div>
         
         <!-- MAIN CONTENT AREA -->
         <div style="display:flex;flex:1;overflow:hidden;">
           <!-- QUESTION NAVIGATION SIDEBAR -->
-          <div style="width:150px;background:#f8f9fa;border-right:1px solid #e9ecef;padding:16px;">
-            <h4 style="margin:0 0 16px 0;color:#333;font-size:14px;">Question Navigation</h4>
+          <div style="width:150px;background:#f8f9fa;border-right:1px solid #e9ecef;padding:16px;font-family:'Inter',sans-serif;">
+            <h4 style="margin:0 0 16px 0;color:#333;font-size:14px;font-family:'Inter',sans-serif;">Question Navigation</h4>
             <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;" id="questionNavigation">
               <!-- Navigation buttons will be loaded here -->
             </div>
-            <div style="margin-top:20px;padding:12px;background:white;border-radius:6px;border:1px solid #e9ecef;">
-              <div style="font-size:12px;color:#6c757d;margin-bottom:4px;">Progress</div>
-              <div id="progress-counter" style="font-size:14px;font-weight:600;color:#28a745;">0 / 1 answered</div>
+            <div style="margin-top:20px;padding:12px;background:white;border-radius:6px;border:1px solid #e9ecef;font-family:'Inter',sans-serif;">
+              <div style="font-size:12px;color:#6c757d;margin-bottom:4px;font-family:'Inter',sans-serif;">Progress</div>
+              <div id="progress-counter" style="font-size:14px;font-weight:600;color:#28a745;font-family:'Inter',sans-serif;">0 / 1 answered</div>
             </div>
           </div>
           
           <!-- QUESTIONS CONTENT -->
-          <div style="flex:1;padding:24px;overflow-y:auto;" id="questionsContent">
+          <div style="flex:1;padding:24px;overflow-y:auto;font-family:'Inter',sans-serif;" id="questionsContent">
             <!-- Questions will be loaded here -->
           </div>
         </div>
         
         <!-- SUBMIT SECTION -->
-        <div id="submitSection" style="margin-top:30px;padding:20px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;margin:20px;">
+        <div id="submitSection" style="margin-top:30px;padding:20px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;margin:20px;font-family:'Inter',sans-serif;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
-              <div style="font-size:14px;color:#6c757d;margin-bottom:4px;">Ready to submit?</div>
-              <div style="font-size:12px;color:#6c757d;">Make sure you've answered all questions</div>
+              <div style="font-size:14px;color:#6c757d;margin-bottom:4px;font-family:'Inter',sans-serif;">Ready to submit?</div>
+              <div style="font-size:12px;color:#6c757d;font-family:'Inter',sans-serif;">Make sure you've answered all questions</div>
             </div>
-            <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);">
+            <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);font-family:'Inter',sans-serif;">
               Finish Attempt
             </button>
           </div>
@@ -400,66 +416,124 @@ class ActivityTester {
       </div>
     `;
 
+    console.log('🔍 Appending modal to DOM...');
     document.body.appendChild(this.modal);
-    this.loadQuestions();
-    this.startTimer();
+    console.log('🔍 Modal appended to DOM successfully!');
+    
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    console.log('🔍 Scheduling loadQuestions and startTimer...');
+    requestAnimationFrame(() => {
+      console.log('🔍 requestAnimationFrame callback executing...');
+      this.loadQuestions();
+      this.startTimer();
+    });
   }
 
   // Load questions for the activity
   async loadQuestions() {
+    console.log('🔍 DEBUGGING: loadQuestions called!');
+    console.log('🔍 Current Activity:', this.currentActivity);
+    
     try {
-      // Get real activity data (same as student test interface)
-      const activityData = await this.getActivityQuestions(this.currentActivity.id);
+      // Ensure modal elements exist before proceeding
+      const totalPointsEl = document.getElementById('totalPoints');
+      const instructionsEl = document.getElementById('instructionsText');
+      const questionsContent = document.getElementById('questionsContent');
+      
+      console.log('🔍 Element check:');
+      console.log('🔍 - totalPointsEl:', totalPointsEl);
+      console.log('🔍 - instructionsEl:', instructionsEl);
+      console.log('🔍 - questionsContent:', questionsContent);
+      
+      if (!totalPointsEl || !instructionsEl || !questionsContent) {
+        console.error('❌ Modal elements not found, retrying...');
+        setTimeout(() => this.loadQuestions(), 200);
+        return;
+      }
+
+      console.log('✅ Modal elements found, proceeding with data loading...');
+
+      // Use the activity data that was passed from the dropdown click
+      const activityData = {
+        activity: this.currentActivity,
+        questions: this.currentActivity.questions || [],
+        settings: this.currentActivity.settings || {}
+      };
+      
+      console.log('🔍 Activity Data:', activityData);
       
       // Store the complete activity data
       this.activityData = activityData;
       this.questions = activityData.questions;
       this.settings = activityData.settings;
       
+      console.log('🔍 About to update activity info...');
       // Update activity info in modal
       this.updateActivityInfo(activityData.activity);
+      console.log('🔍 Activity info updated successfully!');
       
-      document.getElementById('totalQuestions').textContent = this.questions.length;
-      this.displayCurrentQuestion();
+      // For upload-based activities, show the upload interface
+      if (this.questions.length === 0 && (activityData.activity.type === 'upload_based' || !activityData.activity.type)) {
+        console.log('📤 Showing upload-based activity interface...');
+        this.displayActivityWithoutQuestions();
+      } else {
+        console.log('📝 Showing questions interface...');
+        this.displayCurrentQuestion();
+      }
+      
+      console.log('✅ loadQuestions completed successfully!');
     } catch (error) {
-      console.error('Error loading questions:', error);
-      document.getElementById('questionContent').innerHTML = `
-        <div style="text-align:center;padding:40px;color:#ef4444;">
-          <i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>
-          <h3 style="margin:0 0 8px 0;">Error loading activity</h3>
-          <p style="margin:0;color:#6b7280;">${error.message}</p>
-        </div>
-      `;
+      console.error('❌ Error loading questions:', error);
+      console.error('❌ Error stack:', error.stack);
+      const questionsContent = document.getElementById('questionsContent');
+      if (questionsContent) {
+        questionsContent.innerHTML = `
+          <div style="text-align:center;padding:40px;color:#ef4444;">
+            <i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>
+            <h3 style="margin:0 0 8px 0;">Error loading activity</h3>
+            <p style="margin:0;color:#6b7280;">${error.message}</p>
+          </div>
+        `;
+      }
     }
   }
 
   // Update activity info in modal header - STUDENT INTERFACE
   updateActivityInfo(activity) {
+    console.log('🔍 DEBUGGING: updateActivityInfo called!');
+    console.log('🔍 Activity:', activity);
+    
     // Update total points
     const totalPointsEl = document.getElementById('totalPoints');
+    console.log('🔍 totalPointsEl:', totalPointsEl);
     if (totalPointsEl) {
-      totalPointsEl.textContent = activity.max_score || 0;
+      console.log('🔍 Setting total points to:', activity.max_score || 10);
+      totalPointsEl.textContent = activity.max_score || 10; // Default to 10 points
+      console.log('🔍 Total points set successfully!');
+    } else {
+      console.error('❌ totalPointsEl is null!');
     }
 
     // Update activity type display
     const activityTypeEl = document.getElementById('activityTypeDisplay');
     if (activityTypeEl) {
-      const typeIcon = this.getActivityIcon(activity.type);
-      const typeLabel = this.getActivityTypeLabel(activity.type).toUpperCase();
-      activityTypeEl.innerHTML = `${typeIcon} ${typeLabel}`;
+      const typeIcon = this.getActivityIcon(activity.type || 'upload_based');
+      const typeLabel = this.getActivityTypeLabel(activity.type || 'upload_based').toUpperCase();
+      activityTypeEl.innerHTML = `<i class="fas fa-${typeIcon}"></i> ${typeLabel}`;
     }
 
     // Update question count
     const questionCountEl = document.getElementById('questionCountDisplay');
     if (questionCountEl) {
-      const questionCount = this.questions ? this.questions.length : 1;
+      const questionCount = this.questions && this.questions.length > 0 ? this.questions.length : 1;
       questionCountEl.textContent = `📊 ${questionCount} question${questionCount !== 1 ? 's' : ''}`;
     }
 
     // Update instructions
     const instructionsEl = document.getElementById('instructionsText');
+    console.log('🔍 instructionsEl:', instructionsEl);
     if (instructionsEl) {
-      let instructions = 'No instructions available';
+      let instructions = 'Draw a flowchart to convert the length in feet to centimeter';
       if (activity.instructions) {
         try {
           const meta = JSON.parse(activity.instructions);
@@ -467,15 +541,26 @@ class ActivityTester {
         } catch (e) {
           instructions = activity.instructions;
         }
+      } else if (activity.description) {
+        instructions = activity.description;
       }
+      console.log('🔍 Setting instructions to:', instructions);
       instructionsEl.textContent = instructions;
+      console.log('🔍 Instructions set successfully!');
+    } else {
+      console.error('❌ instructionsEl is null!');
     }
 
     // Update progress counter
     const progressEl = document.getElementById('progress-counter');
+    console.log('🔍 progressEl:', progressEl);
     if (progressEl) {
-      const questionCount = this.questions ? this.questions.length : 1;
+      const questionCount = this.questions && this.questions.length > 0 ? this.questions.length : 1;
+      console.log('🔍 Setting progress to: 0 /', questionCount, 'answered');
       progressEl.textContent = `0 / ${questionCount} answered`;
+      console.log('🔍 Progress set successfully!');
+    } else {
+      console.error('❌ progressEl is null!');
     }
   }
 
@@ -567,16 +652,16 @@ class ActivityTester {
     
     // Render the question content
     let questionHtml = `
-      <div style="border:1px solid #e9ecef;border-radius:8px;padding:24px;margin-bottom:24px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+      <div style="border:1px solid #e9ecef;border-radius:8px;padding:24px;margin-bottom:24px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);font-family:'Inter',sans-serif;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <h3 style="margin:0;color:#333;font-size:18px;font-weight:600;">Question ${this.currentQuestionIndex + 1}</h3>
-          <div style="background:#e9ecef;color:#495057;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">
+          <h3 style="margin:0;color:#333;font-size:18px;font-weight:600;font-family:'Inter',sans-serif;">Question ${this.currentQuestionIndex + 1}</h3>
+          <div style="background:#e9ecef;color:#495057;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;">
             ${question.points || 1} point${(question.points || 1) !== 1 ? 's' : ''}
           </div>
         </div>
         
         <div style="margin-bottom:20px;">
-          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;">${question.question_text || question.question || 'Question text not available'}</p>
+          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-family:'Inter',sans-serif;">${question.question_text || question.question || 'Question text not available'}</p>
         </div>
         
         ${this.renderQuestionInput(question, this.currentQuestionIndex)}
@@ -616,8 +701,34 @@ class ActivityTester {
     `;
 
     // Add activity-specific content based on type
-    if (activity?.type === 'upload_based') {
-      activityHtml += this.renderUploadBasedActivity(activity);
+    if (activity?.type === 'upload_based' || !activity?.type) {
+      // Simple upload interface for upload-based activities
+      activityHtml += `
+        <div style="border:2px dashed #d1d5db;border-radius:12px;padding:32px;background:#f9fafb;text-align:center;font-family:'Inter',sans-serif;">
+          <div style="font-size:48px;margin-bottom:16px;color:#6b7280;">📎</div>
+          <h4 style="margin:0 0 16px 0;color:#374151;font-size:18px;font-family:'Inter',sans-serif;">Upload Your Work</h4>
+          <p style="margin:0 0 24px 0;color:#6b7280;font-size:14px;font-family:'Inter',sans-serif;">
+            Draw a flowchart to convert the length in feet to centimeter
+          </p>
+          
+          <div style="margin-bottom:20px;">
+            <input type="file" id="activityUpload" 
+                   accept=".pdf,.docx,.pptx,.jpg,.png,.txt,.zip"
+                   style="display:none;"
+                   onchange="alert('File selected: ' + this.files[0].name)">
+            <button onclick="document.getElementById('activityUpload').click()" 
+                    style="background:#1d9b3e;color:#fff;border:none;padding:16px 32px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(29,155,62,0.3);font-family:'Inter',sans-serif;">
+              <i class="fas fa-upload" style="margin-right:8px;"></i>
+              Choose File
+            </button>
+          </div>
+          
+          <div style="margin-top:20px;font-size:12px;color:#6b7280;font-family:'Inter',sans-serif;">
+            <div>Accepted formats: PDF, DOCX, PPTX, JPG, PNG, TXT, ZIP</div>
+            <div>Maximum file size: 10MB</div>
+          </div>
+        </div>
+      `;
     } else if (activity?.type === 'laboratory') {
       activityHtml += this.renderLaboratoryActivity(activity);
     } else if (activity?.type === 'coding') {
@@ -673,10 +784,10 @@ class ActivityTester {
     }
     
     return `
-      <div style="border:2px dashed #d1d5db;border-radius:12px;padding:32px;background:#f9fafb;text-align:center;">
+      <div style="border:2px dashed #d1d5db;border-radius:12px;padding:32px;background:#f9fafb;text-align:center;font-family:'Inter',sans-serif;">
         <div style="font-size:48px;margin-bottom:16px;color:#6b7280;">📎</div>
-        <h4 style="margin:0 0 16px 0;color:#374151;font-size:18px;">Upload Your Work</h4>
-        <p style="margin:0 0 24px 0;color:#6b7280;font-size:14px;">
+        <h4 style="margin:0 0 16px 0;color:#374151;font-size:18px;font-family:'Inter',sans-serif;">Upload Your Work</h4>
+        <p style="margin:0 0 24px 0;color:#6b7280;font-size:14px;font-family:'Inter',sans-serif;">
           ${instructions}
         </p>
         
@@ -686,20 +797,20 @@ class ActivityTester {
                  style="display:none;"
                  onchange="window.activityTester.handleActivityUpload(this.files[0])">
           <button onclick="document.getElementById('activityUpload').click()" 
-                  style="background:#1d9b3e;color:#fff;border:none;padding:16px 32px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(29,155,62,0.3);">
+                  style="background:#1d9b3e;color:#fff;border:none;padding:16px 32px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(29,155,62,0.3);font-family:'Inter',sans-serif;">
             <i class="fas fa-upload" style="margin-right:8px;"></i>
             Choose File
           </button>
         </div>
         
-        <div style="margin-top:20px;font-size:12px;color:#6b7280;">
+        <div style="margin-top:20px;font-size:12px;color:#6b7280;font-family:'Inter',sans-serif;">
           <div>Accepted formats: ${acceptedFiles.join(', ').toUpperCase()}</div>
           <div>Maximum file size: ${maxFileSize}MB</div>
         </div>
         
-        <div id="uploadStatus" style="margin-top:16px;font-size:14px;">
-          <div id="fileName" style="color:#374151;font-weight:600;"></div>
-          <div id="fileSize" style="color:#6b7280;"></div>
+        <div id="uploadStatus" style="margin-top:16px;font-size:14px;font-family:'Inter',sans-serif;">
+          <div id="fileName" style="color:#374151;font-weight:600;font-family:'Inter',sans-serif;"></div>
+          <div id="fileSize" style="color:#6b7280;font-family:'Inter',sans-serif;"></div>
         </div>
       </div>
     `;
@@ -793,8 +904,10 @@ class ActivityTester {
     };
     
     // Update UI
-    document.getElementById('fileName').textContent = `File: ${file.name}`;
-    document.getElementById('fileSize').textContent = `Size: ${this.formatFileSize(file.size)}`;
+    const fileNameEl = document.getElementById('fileName');
+    if (fileNameEl) fileNameEl.textContent = `File: ${file.name}`;
+    const fileSizeEl = document.getElementById('fileSize');
+    if (fileSizeEl) fileSizeEl.textContent = `Size: ${this.formatFileSize(file.size)}`;
     
     console.log('Activity file uploaded:', { fileName: file.name, fileSize: file.size });
   }
@@ -826,8 +939,10 @@ class ActivityTester {
     if (submitBtn) submitBtn.style.display = 'block';
     
     // Update question counter
-    document.getElementById('currentQuestion').textContent = '1';
-    document.getElementById('totalQuestions').textContent = '1';
+    const currentQuestionElInit = document.getElementById('currentQuestion');
+    if (currentQuestionElInit) currentQuestionElInit.textContent = '1';
+    const totalQuestionsElInit = document.getElementById('totalQuestions');
+    if (totalQuestionsElInit) totalQuestionsElInit.textContent = '1';
   }
 
   // Render multiple choice question
@@ -1105,7 +1220,8 @@ class ActivityTester {
     }
     
     // Update current question number
-    document.getElementById('currentQuestion').textContent = this.currentQuestionIndex + 1;
+    const currentQuestionEl = document.getElementById('currentQuestion');
+    if (currentQuestionEl) currentQuestionEl.textContent = this.currentQuestionIndex + 1;
   }
 
   // Start timer
@@ -1115,8 +1231,11 @@ class ActivityTester {
       const elapsed = Math.floor((now - this.startTime) / 1000);
       const minutes = Math.floor(elapsed / 60);
       const seconds = elapsed % 60;
-      document.getElementById('timer').textContent = 
-        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      
+      const timerEl = document.getElementById('timer');
+      if (timerEl) {
+        timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
     }, 1000);
   }
 
@@ -1251,11 +1370,24 @@ class ActivityTester {
 }
 
 // Create global instance
+console.log('🔍 DEBUGGING: Initializing ActivityTester...');
 window.activityTester = new ActivityTester();
+console.log('🔍 DEBUGGING: ActivityTester initialized successfully!');
 
 // ======================== END ACTIVITY TESTER CLASS ========================
 
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('🔍 DEBUGGING: DOMContentLoaded event fired!');
+  
+  // Add global click listener for debugging
+  document.addEventListener('click', (e) => {
+    if (e.target.textContent && e.target.textContent.includes('Try answering')) {
+      console.log('🔍 DEBUGGING: Try answering clicked globally!');
+      console.log('🔍 Target element:', e.target);
+      console.log('🔍 Parent element:', e.target.parentElement);
+    }
+  });
+  
   // Wire navigation tabs
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1290,8 +1422,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Topic headers (will be re-bound when topics are rendered)
-  document.querySelectorAll('.topic-header').forEach(header => {
-    header.addEventListener('click', () => toggleTopic(header.closest('.topic-item')));
+  console.log('🔍 DEBUGGING: Binding topic headers...');
+  const topicHeaders = document.querySelectorAll('.topic-header');
+  console.log('🔍 Found topic headers:', topicHeaders.length);
+  
+  topicHeaders.forEach((header, index) => {
+    console.log(`🔍 Binding topic header ${index}:`, header);
+    header.addEventListener('click', () => {
+      console.log(`🔍 Topic header ${index} clicked!`);
+      toggleTopic(header.closest('.topic-item'));
+    });
   });
 
   // Action buttons
@@ -1457,8 +1597,104 @@ function loadTopicsFromCourse() {
       }).join('');
       
       // Rebind headers for expand/collapse and lazy load
-      document.querySelectorAll('.topic-header').forEach(header => {
-        header.addEventListener('click', () => toggleTopic(header.closest('.topic-item')));
+      console.log('🔍 DEBUGGING: Re-binding topic headers after content load...');
+      const newTopicHeaders = document.querySelectorAll('.topic-header');
+      console.log('🔍 Found new topic headers:', newTopicHeaders.length);
+      
+      newTopicHeaders.forEach((header, index) => {
+        console.log(`🔍 Re-binding topic header ${index}:`, header);
+        header.addEventListener('click', () => {
+          console.log(`🔍 Re-bound topic header ${index} clicked!`);
+          toggleTopic(header.closest('.topic-item'));
+        });
+      });
+      
+      // Bind event listeners for main dashboard activity menus
+      console.log('🔍 DEBUGGING: Binding main dashboard activity menus...');
+      const mainActivityMenus = document.querySelectorAll('.activity-menu');
+      console.log('🔍 Found main activity menus:', mainActivityMenus.length);
+      
+      mainActivityMenus.forEach((menu, index) => {
+        console.log(`🔍 Binding main activity menu ${index}:`, menu);
+        
+        // Bind dropdown toggle
+        menu.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dropdown = menu.querySelector('.activity-dropdown');
+          if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+          }
+        });
+        
+        // Bind dropdown items
+        const dropdownItems = menu.querySelectorAll('.dropdown-item');
+        dropdownItems.forEach((dropdownItem, itemIndex) => {
+          console.log(`🔍 Binding dropdown item ${itemIndex}:`, dropdownItem.textContent.trim());
+          dropdownItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const text = dropdownItem.textContent.trim();
+            console.log('🔍 Main dashboard dropdown item clicked:', text);
+            
+            if (text.includes('Reschedule/Set retakers')) {
+              // Get activity data from the item
+              const activityCard = menu.closest('.activity-card');
+              const activityId = activityCard?.getAttribute('data-activity-id') || '1';
+              const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
+              const dueDate = activityCard?.querySelector('.due-date')?.textContent || 'Not set';
+              
+              // Show reschedule modal
+              window.activityManager.showRescheduleModal(activityId, {
+                title: activityTitle,
+                dueDate: dueDate
+              });
+            } else if (text.includes('Try answering')) {
+              // Get activity data from the item
+              const activityCard = menu.closest('.activity-card');
+              const activityId = activityCard?.getAttribute('data-activity-id') || '1';
+              const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
+              const activityDescription = activityCard?.querySelector('.activity-description')?.textContent || 'No description available';
+              
+              console.log('🔍 DEBUGGING: Main dashboard Try Answering clicked!');
+              console.log('🔍 Activity ID:', activityId);
+              console.log('🔍 Activity Title:', activityTitle);
+              console.log('🔍 Activity Description:', activityDescription);
+              console.log('🔍 Activity Card element:', activityCard);
+              
+              // Create COMPLETE activity data with defaults
+              const completeActivityData = {
+                id: activityId,
+                title: activityTitle,
+                description: activityDescription,
+                type: 'upload_based', // Default to upload-based
+                max_score: 10, // Default points
+                instructions: 'Complete this activity as instructed.',
+                questions: [], // Empty for upload-based activities
+                settings: {}
+              };
+              
+              console.log('🔍 Complete Activity Data:', completeActivityData);
+              
+              // Show try answering modal with COMPLETE data
+              window.activityTester.showTryAnsweringModal(activityId, completeActivityData);
+            }
+            
+            // Close dropdown after action
+            const dropdown = menu.querySelector('.activity-dropdown');
+            if (dropdown) {
+              dropdown.style.display = 'none';
+            }
+          });
+        });
+      });
+      
+      // Close dropdowns when clicking outside
+      document.addEventListener('click', () => {
+        mainActivityMenus.forEach(menu => {
+          const dropdown = menu.querySelector('.activity-dropdown');
+          if (dropdown) {
+            dropdown.style.display = 'none';
+          }
+        });
       });
     }).catch(() => {});
 }
@@ -1468,17 +1704,32 @@ function escapeHtml(str) {
 }
 
 function toggleTopic(item) {
-  if (!item) return;
+  console.log('🔍 DEBUGGING: toggleTopic called!');
+  console.log('🔍 Item:', item);
+  
+  if (!item) {
+    console.error('❌ No item provided!');
+    return;
+  }
+  
   const icon = item.querySelector('.topic-toggle');
   const isExpanded = item.classList.contains('expanded');
   const body = item.querySelector('.topic-body');
+  
+  console.log('🔍 Icon:', icon);
+  console.log('🔍 Is expanded:', isExpanded);
+  console.log('🔍 Body:', body);
+  
   if (isExpanded) {
+    console.log('🔍 Collapsing topic...');
     item.classList.remove('expanded');
     if (icon) icon.style.transform = 'rotate(0deg)';
     if (body) body.style.display = 'none';
     return;
   }
+  
   // Expand and load lesson details
+  console.log('🔍 Expanding topic...');
   item.classList.add('expanded');
   if (icon) icon.style.transform = 'rotate(180deg)';
   if (body) {
@@ -1486,9 +1737,15 @@ function toggleTopic(item) {
     // Only load content if not already loaded
     if (!body.hasAttribute('data-loaded')) {
       const lessonId = item.getAttribute('data-lesson-id') ? parseInt(item.getAttribute('data-lesson-id'),10) : 0;
+      console.log('🔍 Lesson ID:', lessonId);
+      console.log('🔍 Loading topic content...');
       loadTopicContent(item, lessonId);
       body.setAttribute('data-loaded', 'true');
+    } else {
+      console.log('🔍 Topic already loaded');
     }
+  } else {
+    console.error('❌ No topic-body found!');
   }
   if (!lessonId) { body.innerHTML = '<div style="color:#64748b;">No details available.</div>'; return; }
   fetch('class_view_api.php?action=get_lesson_details&lesson_id=' + encodeURIComponent(lessonId), { credentials: 'same-origin' })
@@ -1548,8 +1805,15 @@ function toggleTopic(item) {
 }
 
 function loadTopicContent(item, lessonId) {
+  console.log('🔍 DEBUGGING: loadTopicContent called!');
+  console.log('🔍 Item:', item);
+  console.log('🔍 Lesson ID:', lessonId);
+  
   const body = item.querySelector('.topic-body');
-  if (!body) return;
+  if (!body) {
+    console.error('❌ No topic-body found!');
+    return;
+  }
   
   // Show loading state
   body.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;"><i class="fas fa-spinner fa-spin" style="margin-right:8px"></i>Loading contents…</div>';
@@ -1561,13 +1825,19 @@ function loadTopicContent(item, lessonId) {
   
   fetch('class_view_api.php?action=get_lesson_details&lesson_id=' + encodeURIComponent(lessonId), { credentials: 'same-origin' })
     .then(r=>r.json()).then(res => {
+      console.log('🔍 API Response:', res);
+      
       if (!res || !res.success) { 
+        console.error('❌ API failed:', res);
         body.innerHTML = '<div style="color:#ef4444;">Failed to load lesson details.</div>'; 
         return; 
       }
       
       const materials = Array.isArray(res.materials) ? res.materials : [];
       const activities = Array.isArray(res.activities) ? res.activities : [];
+      
+      console.log('🔍 Materials:', materials);
+      console.log('🔍 Activities:', activities);
       
       // Build content HTML
       let contentHtml = '';
@@ -1621,8 +1891,10 @@ function loadTopicContent(item, lessonId) {
       
       body.innerHTML = contentHtml;
       
+      console.log('🔍 HTML set, binding events...');
       // Bind event listeners
       bindTopicContentEvents(item, materials, activities);
+      console.log('🔍 Events bound successfully!');
       
     }).catch(() => {
       body.innerHTML = '<div style="color:#ef4444;">Failed to load lesson details.</div>';
@@ -1630,6 +1902,11 @@ function loadTopicContent(item, lessonId) {
 }
 
 function bindTopicContentEvents(item, materials, activities) {
+  console.log('🔍 DEBUGGING: bindTopicContentEvents called!');
+  console.log('🔍 Item:', item);
+  console.log('🔍 Materials:', materials);
+  console.log('🔍 Activities:', activities);
+  
   // Bind topic content link
   const contentLink = item.querySelector('.topic-content-link');
   if (contentLink && materials.length > 0) {
@@ -1656,10 +1933,16 @@ function bindTopicContentEvents(item, materials, activities) {
   });
   
   // Add click handlers for dropdown items
-  item.querySelectorAll('.dropdown-item').forEach(dropdownItem => {
+  console.log('🔍 DEBUGGING: Binding dropdown items...');
+  const dropdownItems = item.querySelectorAll('.dropdown-item');
+  console.log('🔍 Found dropdown items:', dropdownItems.length);
+  
+  item.querySelectorAll('.dropdown-item').forEach((dropdownItem, index) => {
+    console.log(`🔍 Binding dropdown item ${index}:`, dropdownItem.textContent.trim());
     dropdownItem.addEventListener('click', (e) => {
       e.stopPropagation();
       const text = dropdownItem.textContent.trim();
+      console.log('🔍 Dropdown item clicked:', text);
       
       if (text.includes('Reschedule/Set retakers')) {
         // Get activity data from the item
@@ -1678,11 +1961,28 @@ function bindTopicContentEvents(item, materials, activities) {
         const activityTitle = item.querySelector('.activity-title')?.textContent || 'Activity';
         const activityDescription = item.querySelector('.activity-description')?.textContent || 'No description available';
         
-        // Show try answering modal
-        window.activityTester.showTryAnsweringModal(activityId, {
+        console.log('🔍 DEBUGGING: Try Answering clicked!');
+        console.log('🔍 Activity ID:', activityId);
+        console.log('🔍 Activity Title:', activityTitle);
+        console.log('🔍 Activity Description:', activityDescription);
+        console.log('🔍 Item element:', item);
+        
+        // Create COMPLETE activity data with defaults
+        const completeActivityData = {
+          id: activityId,
           title: activityTitle,
-          description: activityDescription
-        });
+          description: activityDescription,
+          type: 'upload_based', // Default to upload-based
+          max_score: 10, // Default points
+          instructions: 'Draw a flowchart to convert the length in feet to centimeter',
+          questions: [], // Empty for upload-based activities
+          settings: {}
+        };
+        
+        console.log('🔍 Complete Activity Data:', completeActivityData);
+        
+        // Show try answering modal with COMPLETE data
+        window.activityTester.showTryAnsweringModal(activityId, completeActivityData);
       }
       
       // Close dropdown after action

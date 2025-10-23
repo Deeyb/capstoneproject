@@ -1284,15 +1284,15 @@ function showAddModuleModal(){
     // Create modal
     var modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:400px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);">' +
-        '<h3 style="margin:0 0 15px 0;color:#374151;font-weight:700;">Create New Module</h3>' +
+    modal.innerHTML = '<div style="background:white;border-radius:8px;padding:20px;max-width:400px;width:90%;box-shadow:0 10px 25px rgba(0,0,0,0.2);font-family:\'Inter\',sans-serif;">' +
+        '<h3 style="margin:0 0 15px 0;color:#374151;font-weight:700;font-family:\'Inter\',sans-serif;">Create New Module</h3>' +
         '<div style="margin-bottom:15px;">' +
-            '<label style="display:block;margin-bottom:5px;color:#374151;font-weight:600;">Module Title</label>' +
-            '<input type="text" id="moduleTitleInput" placeholder="e.g., Module 1 - Introduction to Programming" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;transition:border-color 0.2s;" />' +
+            '<label style="display:block;margin-bottom:5px;color:#374151;font-weight:600;font-family:\'Inter\',sans-serif;">Module Title</label>' +
+            '<input type="text" id="moduleTitleInput" placeholder="e.g., Module 1 - Introduction to Programming" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;transition:border-color 0.2s;font-family:\'Inter\',sans-serif;" />' +
         '</div>' +
         '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
-            '<button id="cancelModuleBtn" style="background:#6b7280;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;transition:background 0.2s;">Cancel</button>' +
-            '<button id="createModuleBtn" style="background:#1d9b3e;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;transition:background 0.2s;">OK</button>' +
+            '<button id="cancelModuleBtn" style="background:#6b7280;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;transition:background 0.2s;font-family:\'Inter\',sans-serif;">Cancel</button>' +
+            '<button id="createModuleBtn" style="background:#1d9b3e;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;transition:background 0.2s;font-family:\'Inter\',sans-serif;">OK</button>' +
         '</div>' +
     '</div>';
     

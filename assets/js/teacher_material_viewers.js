@@ -32,21 +32,21 @@
     }
   }
   
-  modal.innerHTML = '<div class="modal-card" style="max-width:95%;width:95%;height:90%;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">' +
-    '<div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">' +
-      '<strong style="font-size:16px;color:#333;">' + title + '</strong>' +
+  modal.innerHTML = '<div class="modal-card" style="max-width:95%;width:95%;height:90%;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;font-family:\'Inter\',sans-serif;">' +
+    '<div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;font-family:\'Inter\',sans-serif;">' +
+      '<strong style="font-size:16px;color:#333;font-family:\'Inter\',sans-serif;">' + title + '</strong>' +
       '<div style="display:flex;gap:8px;">' +
-        '<button class="action-btn" onclick="window.open(\'' + url + '\', \'_blank\')" style="padding:6px 12px;background:#17a2b8;color:#fff;border:none;border-radius:4px;cursor:pointer;">🔗 Open Original</button>' +
-        '<button class="action-btn" id="linkViewerClose" style="padding:6px 12px;background:#dc3545;color:#fff;border:none;border-radius:4px;cursor:pointer;">Close</button>' +
+        '<button class="action-btn" onclick="window.open(\'' + url + '\', \'_blank\')" style="padding:6px 12px;background:#17a2b8;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:\'Inter\',sans-serif;">🔗 Open Original</button>' +
+        '<button class="action-btn" id="linkViewerClose" style="padding:6px 12px;background:#dc3545;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:\'Inter\',sans-serif;">Close</button>' +
       '</div>' +
     '</div>' +
-    '<div style="flex:1;position:relative;background:#f5f5f5;">' +
+    '<div style="flex:1;position:relative;background:#f5f5f5;font-family:\'Inter\',sans-serif;">' +
       (provider === 'generic' ? 
-        '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#6c757d;">' +
+        '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#6c757d;font-family:\'Inter\',sans-serif;">' +
           '<div style="font-size:48px;margin-bottom:16px;">🔗</div>' +
-          '<h3>External Link</h3>' +
-          '<p>This link cannot be embedded in the viewer.</p>' +
-          '<button onclick="window.open(\'' + url + '\', \'_blank\')" style="padding:8px 16px;background:#007bff;color:#fff;border:none;border-radius:4px;margin-top:12px;cursor:pointer;">Open in New Tab</button>' +
+          '<h3 style="font-family:\'Inter\',sans-serif;">External Link</h3>' +
+          '<p style="font-family:\'Inter\',sans-serif;">This link cannot be embedded in the viewer.</p>' +
+          '<button onclick="window.open(\'' + url + '\', \'_blank\')" style="padding:8px 16px;background:#007bff;color:#fff;border:none;border-radius:4px;margin-top:12px;cursor:pointer;font-family:\'Inter\',sans-serif;">Open in New Tab</button>' +
         '</div>' : 
         '<iframe src="' + embedUrl + '" style="width:100%;height:100%;border:none;" frameborder="0" allowfullscreen></iframe>'
       ) +
@@ -96,16 +96,16 @@
       wrap.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.25);width:96%;height:90vh;display:flex;flex-direction:column;overflow:hidden;';
       
       wrap.innerHTML = ''+
-        '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);font-family:\'Inter\',sans-serif;">'+
           '<div style="display:flex;align-items:center;gap:10px;">'+
             '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#1d9b3e,#28a745);display:flex;align-items:center;justify-content:center;color:#fff;"><i class="fas fa-file"></i></div>'+
-            '<div style="font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw;">'+ title +'</div>'+
+            '<div style="font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw;font-family:\'Inter\',sans-serif;">'+ title +'</div>'+
           '</div>'+
           '<div style="display:flex;gap:8px;">'+
-            '<button id="matCloseBtn" style="background:#6b7280;color:#fff;border:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;">Close</button>'+
+            '<button id="matCloseBtn" style="background:#6b7280;color:#fff;border:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;font-family:\'Inter\',sans-serif;">Close</button>'+
           '</div>'+
         '</div>'+
-        '<div id="matViewerBody" style="flex:1;background:#f8fafc;"></div>';
+        '<div id="matViewerBody" style="flex:1;background:#f8fafc;font-family:\'Inter\',sans-serif;"></div>';
       overlay.appendChild(wrap);
       document.body.appendChild(overlay);
 
