@@ -1,12 +1,18 @@
 <?php
+/**
+ * ADMIN PANEL
+ * Using original auth system to avoid redirect loops
+ */
 session_start();
 require_once 'config.php';
 require_once 'classes/auth_helpers.php';
-Auth::requireAuth();
-Auth::requireRole('admin');
 require_once __DIR__ . '/config/Database.php';
 require_once __DIR__ . '/classes/AdminService.php';
 require_once __DIR__ . '/classes/ProfileService.php';
+
+// Use original auth system
+Auth::requireAuth();
+Auth::requireRole('admin');
 
 // Database connection
 $db = (new Database())->getConnection();

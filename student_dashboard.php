@@ -1,18 +1,17 @@
 <?php
+/**
+ * STUDENT DASHBOARD
+ * Using original auth system to avoid redirect loops
+ */
 session_start();
 require_once 'config.php';
 require_once 'classes/auth_helpers.php';
 require_once 'classes/ProfileService.php';
 require_once 'config/Database.php';
 
+// Use original auth system
 Auth::requireAuth();
 Auth::requireRole('student');
-
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
 
 // Get user profile data
 $db = (new Database())->getConnection();

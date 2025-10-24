@@ -6,12 +6,10 @@ async function getCSRFToken() {
   // Refresh token if missing or older than 5 minutes
   try {
     if (csrfToken && (Date.now() - csrfTokenTs) < 5 * 60 * 1000) {
-      console.log('🔐 Using cached CSRF token:', csrfToken);
       return csrfToken;
     }
   } catch(_) {}
   
-  console.log('🔐 Fetching new CSRF token...');
   try {
     const fd = new FormData();
     fd.append('action','get_csrf_token');
@@ -20,32 +18,24 @@ async function getCSRFToken() {
       body: fd,
       credentials: 'same-origin'
     });
-    console.log('🔐 CSRF token response status:', response.status);
     const data = await response.json();
-    console.log('🔐 CSRF token response data:', data);
     if (data.success && data.token) {
       csrfToken = data.token;
       csrfTokenTs = Date.now();
-      console.log('🔐 New CSRF token obtained:', csrfToken);
       return csrfToken;
     } else {
-      console.error('🔐 Failed to get CSRF token - invalid response:', data);
-    }
+      }
   } catch (e) {
-    console.error('🔐 Failed to get CSRF token:', e);
-  }
+    }
   return null;
 }
 
 async function addCSRFToken(formData) {
   const token = await getCSRFToken();
-  console.log('🔐 CSRF Token:', token);
   if (token) {
     formData.append('csrf_token', token);
-    console.log('🔐 CSRF token added to form data');
-  } else {
-    console.error('🔐 No CSRF token available!');
-  }
+    } else {
+    }
   return formData;
 }
 
@@ -121,14 +111,11 @@ function cafEnableAutosave(modal, lessonId, type){
 
 // Initialize coordinator tabs
 function initCoordinatorTabs() {
-  console.log('🔄 Initializing coordinator tabs...');
-  
   // Handle URL section parameter
   const urlParams = new URLSearchParams(window.location.search);
   const section = urlParams.get('section');
   
   if (section) {
-    console.log('📍 URL section parameter:', section);
     showSection(section);
   }
   
@@ -157,8 +144,6 @@ function initCoordinatorTabs() {
 
 // Function to show a specific section
 function showSection(sectionId) {
-  console.log('🔄 Coordinator Dashboard: Switching to section:', sectionId);
-  
   // Hide all sections
   document.querySelectorAll('.section-content').forEach(section => {
     section.classList.remove('active');
@@ -170,8 +155,6 @@ function showSection(sectionId) {
   if (targetSection) {
     targetSection.classList.add('active');
     targetSection.style.display = 'block';
-    console.log(`✅ Coordinator Dashboard: Section ${sectionId} activated`);
-    
     // Load section-specific content
     if (sectionId === 'dashboard') {
       loadCoordinatorDashboardStats();
@@ -183,24 +166,19 @@ function showSection(sectionId) {
       initCoordinatorUploads();
     } else if (sectionId === 'profile') {
       if (typeof initSharedProfile === 'function') {
-        try { initSharedProfile(); } catch (e) { console.error('Profile init error:', e); }
+        try { initSharedProfile(); } catch (e) { }
       }
     }
   } else {
-    console.error(`❌ Coordinator Dashboard: Section ${sectionId} not found`);
-  }
+    }
 }
 
 // Load coordinator dashboard statistics
 function loadCoordinatorDashboardStats() {
-  console.log('📊 Loading coordinator dashboard statistics...');
-  
   fetch('coordinator_dashboard_counts.php', { credentials: 'same-origin' })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        console.log('✅ Dashboard stats loaded:', data);
-        
         // Update dashboard statistics
         const elements = {
           'coordTotalStudents': data.data.total_students || 0,
@@ -215,20 +193,17 @@ function loadCoordinatorDashboardStats() {
           if (element) {
             element.textContent = elements[id];
           } else {
-            console.error(`❌ Error fetching dashboard stats: Element ${id} not found`);
-          }
+            }
         });
         
         // Load recent registrations
         loadRecentRegistrations();
         loadRecentLogins();
       } else {
-        console.error('❌ Error fetching dashboard stats:', data.message);
-      }
+        }
     })
     .catch(err => {
-      console.error('❌ Error fetching dashboard stats:', err);
-    });
+      });
 }
 
 // Load recent registrations
@@ -237,15 +212,12 @@ function loadRecentRegistrations() {
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        console.log('✅ Recent registrations loaded:', data.data);
         updateRecentRegistrations(data.data);
       } else {
-        console.error('❌ Error loading recent registrations:', data.message);
-      }
+        }
     })
     .catch(err => {
-      console.error('❌ Error loading recent registrations:', err);
-    });
+      });
 }
 
 // Update recent registrations display
@@ -279,15 +251,12 @@ function loadRecentLogins() {
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        console.log('✅ Recent logins loaded:', data.data);
         updateRecentLogins(data.data);
       } else {
-        console.error('❌ Error loading recent logins:', data.message);
-      }
+        }
     })
     .catch(err => {
-      console.error('❌ Error loading recent logins:', err);
-    });
+      });
 }
 
 // Update recent logins display
@@ -317,18 +286,14 @@ function updateRecentLogins(logins) {
 
 // Initialize coordinator courses
 function initCoordinatorCourses() {
-  console.log('📚 Initializing coordinator course management...');
-  
   // Set up create course button
   const createBtn = document.getElementById('createCourseBtn');
   if (createBtn) {
-    console.log('✅ Create Course button found, setting up click handler');
     createBtn.onclick = function() {
       ensureCreateCourseModal();
     };
   } else {
-    console.error('❌ Create Course button NOT found!');
-  }
+    }
 
   // Optional search/filter wiring if elements exist
   const searchInput = document.getElementById('courseSearch');
@@ -349,8 +314,6 @@ function initCoordinatorCourses() {
 }
 // Load coordinator courses
 function loadCoordinatorCourses() {
-  console.log('📚 Loading coordinator courses...');
-  
   // Build query from optional search/filter
   const params = new URLSearchParams();
   const s = document.getElementById('courseSearch');
@@ -362,15 +325,12 @@ function loadCoordinatorCourses() {
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        console.log('✅ Courses loaded:', data.data);
         renderCoordinatorCourses(data.data);
       } else {
-        console.error('❌ Error loading courses:', data.message);
-      }
+        }
     })
     .catch(err => {
-      console.error('❌ Error loading courses:', err);
-    });
+      });
 }
 
 // Status normalization utility
@@ -378,7 +338,6 @@ function normalizeStatus(rawStatus) {
   const status = String(rawStatus || '').toLowerCase().trim();
   const validStatuses = ['draft', 'published', 'archived'];
   const result = validStatuses.includes(status) ? status : 'draft';
-  console.log('🔍 normalizeStatus:', { rawStatus, status, result });
   return result;
 }
 
@@ -423,7 +382,6 @@ function renderCoordinatorCourses(courses) {
           const rawStatus = course.status || course.course_status || '';
           const statusKey = normalizeStatus(rawStatus);
           const statusLabel = getStatusLabel(statusKey);
-          console.log('🎨 Rendering course:', { id, code, title, rawStatus, statusKey, statusLabel });
           const modulesCount = course.modules_count != null ? course.modules_count : (course.modulesCount || course.modules || 0);
           const lessonsCount = course.lessons_count != null ? course.lessons_count : (course.lessonsCount || course.lessons || 0);
           const updatedRaw = course.updated_at || course.updated || course.last_updated;
@@ -581,7 +539,6 @@ function ensureCreateCourseModal() {
           }
         })
         .catch(err => {
-          console.error('Course creation error:', err);
           if (errorDiv) errorDiv.textContent = 'Network error. Please try again.';
         })
         .finally(() => {
@@ -773,7 +730,6 @@ function closeEditCourseModal() {
 
 // Edit course function
 function editCourse(courseId) {
-  console.log('✏️ Edit course:', courseId);
   const modal = ensureEditCourseModal();
   const idInput = document.getElementById('editCourseId');
   const codeInput = document.getElementById('editCourseCode');
@@ -813,9 +769,6 @@ function viewOutline(courseId) {
       if (!courseId && typeof window.__currentCourseId !== 'undefined') courseId = window.__currentCourseId;
     } catch(_){}
   }
-  console.log('📋 View outline:', courseId);
-  console.log('📋 View outline - Starting outline fetch for course:', courseId);
-  
   // Ensure container exists once
   let cont = document.getElementById('courseOutlineModal');
   if (!cont) {
@@ -862,23 +815,17 @@ function viewOutline(courseId) {
       }
     }
     let url = buildUrl();
-    console.log('📋 Fetching outline from URL:', url);
     fetch(url, { credentials:'same-origin' })
     .then(async r => {
-      console.log('📋 Outline fetch response status:', r.status);
       if (!r.ok) { 
-        console.error('📋 Outline fetch failed with status:', r.status);
         body.innerHTML = '<div class="empty-state">Failed to load outline</div>'; 
         return null; 
       }
       const text = await r.text();
-      console.log('📋 Outline response text length:', text.length);
       try {
         const json = JSON.parse(text);
-        console.log('📋 Outline JSON parsed successfully:', json);
         return json;
       } catch (e) {
-        console.error('📋 JSON parse error:', e);
         const looksHtml = /^\s*<!DOCTYPE|^\s*<html/i.test(text);
         if (looksHtml) {
           const parts = window.location.pathname.split('/').filter(Boolean);
@@ -893,23 +840,18 @@ function viewOutline(courseId) {
       }
     })
     .then(res => {
-      console.log('📋 Outline response received:', res);
       const ok = !!(res && (res.success === true || res.success === 'true'));
-      console.log('📋 Outline response success:', ok);
       if (!ok) {
         const msg = res && (res.message || JSON.stringify(res));
         console.warn('📋 Outline load failed', { url, res });
         body.innerHTML = '<div class="empty-state">Failed to load outline</div>' + (msg ? '<div style="color:#6c757d;margin-top:6px;max-width:90%;word-break:break-word;">' + String(msg) + '</div>' : '');
         return;
       }
-      console.log('📋 Outline data:', res.data);
-      console.log('📋 Outline modules count:', res.data ? res.data.length : 0);
       if (!Array.isArray(res.data)) { res.data = []; }
       try {
       renderOutline(res.data, body);
       initOutlineSortables(courseId, body);
       } catch (e) {
-        console.error('Render outline error:', e);
         body.innerHTML = '<div class="empty-state">Failed to load outline</div><div style="color:#6c757d;margin-top:6px;">Render error: ' + (e && e.message ? e.message : e) + '</div>';
       }
 
@@ -1014,22 +956,18 @@ function viewOutline(courseId) {
               })()
                 .then(r=>r.json())
                 .then(function(response){
-                  console.log('Upload response:', response);
                   if (response && response.success) {
-                    console.log('Upload successful, refreshing outline...');
                     viewOutline(courseId);
                     if (typeof window.showNotification === 'function') {
                       window.showNotification('success','Success','Material uploaded successfully!');
                     }
                   } else {
-                    console.error('Upload failed:', response);
                     if (typeof window.showNotification === 'function') {
                       window.showNotification('error','Error','Upload failed: ' + (response.message || 'Unknown error'));
                     }
                   }
                 })
                 .catch(function(error){
-                  console.error('Upload error:', error);
                   if (typeof window.showNotification === 'function') window.showNotification('error','Error','Upload failed'); 
                 });
             };
@@ -1221,38 +1159,30 @@ function viewOutline(courseId) {
         }
         if (act === 'mat-open-editor' || act === 'mat-edit') {
           // If it's a Page material, open the rich editor with current content loaded
-          console.log('🔍 mat-open-editor clicked, Material ID:', btn.getAttribute('data-id'));
+          // Open material editor
           try {
             const row = btn.closest('[data-mat-id]');
             const mid = row ? row.getAttribute('data-mat-id') : btn.getAttribute('data-id');
             if (row) {
               const id = mid;
-              console.log('🔍 Found row, fetching material with ID:', id);
               const fd = new FormData(); fd.append('action','material_get'); fd.append('id', id);
               fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
                 .then(r=>r.json())
                 .then(function(j){
-                  console.log('🔍 material_get response:', j);
                   const m = j && j.data ? j.data : null;
-                  if (!m) { console.log('🔍 No material data, falling back to mat-edit'); btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
+                  if (!m) { btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
                   const t = String(m.type||'').toLowerCase();
-                  console.log('🔍 Material type:', t);
-                  if (t !== 'page') { console.log('🔍 Not a page type, falling back to mat-edit'); btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
+                  if (t !== 'page') { btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
                   const url = m.url || '';
-                  console.log('🔍 Material URL:', url);
                   const match = url.match(/f=([^&]+)/);
                   const fileId = match ? decodeURIComponent(match[1]) : null;
-                  console.log('🔍 Extracted fileId:', fileId);
-                  if (!fileId) { console.log('🔍 No fileId found, falling back to mat-edit'); btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
-                  console.log('🔍 Fetching file:', 'uploads/materials/pages/' + fileId);
+                  if (!fileId) { btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
                   fetch('uploads/materials/pages/' + fileId, { credentials:'same-origin' })
                     .then(r=>{
-                      console.log('🔍 File fetch response status:', r.status);
                       return r.text();
                     })
                     .then(function(md){
-                      console.log('🔍 File content length:', md ? md.length : 0);
-                      console.log('🔍 File content preview:', md ? md.substring(0, 100) + '...' : 'null');
+                      // File content loaded
                       const modal = document.createElement('div');
                       modal.className = 'modal';
                       modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
@@ -1298,10 +1228,10 @@ function viewOutline(courseId) {
                       };
                     });
                 })
-                .catch(function(e){ console.log('🔍 Fetch error:', e); btn.setAttribute('data-act','mat-edit'); btn.click(); });
+                .catch(function(e){ btn.setAttribute('data-act','mat-edit'); btn.click(); });
               return;
             }
-          } catch(e) { console.log('🔍 Try/catch error:', e); }
+          } catch(e) { }
           const item = btn.closest('[data-mat-id]');
           const current = item ? (item.querySelector('span')?.textContent || '') : '';
           outlinePrompt({ title: 'Update material', label: 'URL or filename', value: current.replace(/^.*•\\s*/,'').trim() }, function(value){
@@ -1332,10 +1262,6 @@ function viewOutline(courseId) {
               absoluteUrl = window.location.origin + '/' + url.replace(/^\.\//, '');
             }
           }
-          
-          console.log('🔍 Material view - Original URL:', url);
-          console.log('🔍 Material view - Absolute URL:', absoluteUrl);
-          console.log('🔍 Material view - Type:', type);
           
           if (type === 'link') {
             // Open external link in a new tab (original behavior)
@@ -1442,7 +1368,6 @@ function viewOutline(courseId) {
             const fd = new FormData(); fd.append('action','activity_get'); fd.append('id', aId);
             // Add cache-busting parameter to force fresh data
             fd.append('_t', Date.now());
-            console.log('🔍 EDIT BUTTON - Loading activity data for ID:', aId);
             fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
               .then(r=>r.json()).then(function(res){
                 if (!res || !res.success || !res.data) return;
@@ -1452,16 +1377,8 @@ function viewOutline(courseId) {
                 const st = window.createActivityState;
                 // Map backend types -> UI questionType
                 const t = String((data.type||'').toLowerCase());
-                console.log('🔍 ACTIVITY TYPE DETECTION:', { 
-                  rawType: data.type, 
-                  normalizedType: t, 
-                  data: data,
-                  meta: meta 
-                });
-                
                 // Force refresh the form if type detection changes
                 if (t === 'upload_based' && st.questionType !== 'upload_based') {
-                  console.log('🔍 FORCING FORM REFRESH FOR UPLOAD_BASED');
                   // Set the correct question type
                   st.questionType = 'upload_based';
                   st.type = 'laboratory';
@@ -1480,14 +1397,12 @@ function viewOutline(courseId) {
                   st.timeLimit = meta.timeLimit || st.timeLimit;
                   st.testCases = (data.test_cases||[]).map(function(tc){ return { input: tc.input_text||'', output: tc.expected_output_text||'', isSample: !!tc.is_sample }; });
                 } else if (t === 'upload_based') {
-                  console.log('🔍 LOADING UPLOAD_BASED ACTIVITY:', { data, meta });
                   st.type = 'laboratory';
                   st.questionType = 'upload_based';
                   st.instructionsText = meta.instructions || '';
                   
                   // Parse questions from database or create default from instructions
                   if (data.questions && data.questions.length > 0) {
-                    console.log('🔍 LOADING EXISTING QUESTIONS:', data.questions);
                     st.questions = data.questions.map(function(q){ 
                       // Parse acceptedFiles and maxFileSize from choices
                       let acceptedFiles = ['PDF','DOCX','JPG','PNG','TXT','XML'];
@@ -1512,7 +1427,6 @@ function viewOutline(courseId) {
                     });
                   } else {
                     // Create default task from instructions JSON
-                    console.log('🔍 CREATING DEFAULT TASK FROM INSTRUCTIONS:', { meta });
                     const defaultAcceptedFiles = meta.acceptedFiles || ['PDF','DOCX','JPG','PNG','TXT','XML'];
                     const defaultMaxFileSize = meta.maxFileSize || 5;
                     st.questions = [{ 
@@ -1521,8 +1435,7 @@ function viewOutline(courseId) {
                       acceptedFiles: defaultAcceptedFiles, 
                       maxFileSize: defaultMaxFileSize 
                     }];
-                    console.log('🔍 CREATED DEFAULT QUESTIONS:', st.questions);
-                  }
+                    }
                 } else {
                   st.type = 'lecture';
                   // Determine subtype using instructions.meta.kind if present (applies to legacy saved activities too)
@@ -1619,21 +1532,13 @@ function viewOutline(courseId) {
           return;
         }
         if (act === 'act-test') {
-          console.log('🔍 Test button clicked - Loading activity data first');
-          
           const activityId = btn.getAttribute('data-id');
           const lessonEl = btn.closest('[data-lesson-id]');
           const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
           
           if (!lessonId) {
-            console.error('🔍 No lesson ID found for test button');
             return;
           }
-          
-          console.log('🔍 TEST BUTTON DEBUG:', {
-            activityId,
-            lessonId
-          });
           
           // First, fetch the actual activity data from database
           const fd = new FormData();
@@ -1643,15 +1548,8 @@ function viewOutline(courseId) {
           fetch('course_outline_manage.php', { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(r => r.json())
             .then(res => {
-              console.log('🔍 Activity data fetched:', res);
-              
               if (res && res.success && res.data) {
                 const activityData = res.data;
-                console.log('🔍 Real activity data:', activityData);
-                console.log('🔍 Activity type from DB:', activityData.type);
-                console.log('🔍 Activity title from DB:', activityData.title);
-                console.log('🔍 Questions from DB:', activityData.questions);
-                
                 // Open the activity editor with the REAL data
                 showCreateActivityForm(lessonId, { editActivityId: activityId });
                 
@@ -1668,12 +1566,8 @@ function viewOutline(courseId) {
                           (activityData.instructions.startsWith('{') ? JSON.parse(activityData.instructions).instructions || '' : activityData.instructions) : 
                           '') : '';
                       window.createActivityState.questions = activityData.questions || [];
-                      console.log('🔍 Questions loaded into state:', window.createActivityState.questions);
-                      console.log('🔍 First question details:', window.createActivityState.questions[0]);
                       if (window.createActivityState.questions[0]) {
-                        console.log('🔍 First question text:', window.createActivityState.questions[0].question_text);
-                        console.log('🔍 First question choices:', window.createActivityState.questions[0].choices);
-                      }
+                        }
                       window.createActivityState.max_score = activityData.max_score || 0;
                       
                       // Update modal title to show activity name
@@ -1693,26 +1587,15 @@ function viewOutline(courseId) {
                       
                       window.createActivityState.viewMode = 'preview';
                       window.dispatchEvent(new CustomEvent('createActivityRender'));
-                      console.log('🔍 Loaded real activity data and switched to Preview mode');
-                      console.log('🔍 Final state after loading:', {
-                        name: window.createActivityState.name,
-                        type: window.createActivityState.type,
-                        questionType: window.createActivityState.questionType,
-                        questions: window.createActivityState.questions,
-                        viewMode: window.createActivityState.viewMode
-                      });
-                    }
+                      }
                   } catch (e) {
-                    console.error('🔍 Error loading activity data:', e);
-                  }
+                    }
                 }, 100);
               } else {
-                console.error('🔍 Failed to fetch activity data');
                 alert('Failed to load activity data for preview');
               }
             })
             .catch(err => {
-              console.error('🔍 Error fetching activity:', err);
               alert('Error loading activity for preview');
             });
           
@@ -1815,20 +1698,14 @@ function viewOutline(courseId) {
 
 // Render outline JSON into HTML (copied from admin_panel.js)
 function renderOutline(outline, mount) {
-  console.log('📋 renderOutline called with:', outline);
   if (!Array.isArray(outline) || outline.length === 0) {
-    console.log('📋 No outline data, showing empty state');
     mount.innerHTML = '<div class="empty-state">No modules yet</div>';
     return;
   }
-  console.log('📋 Rendering outline with', outline.length, 'modules');
-  
   const renderModule = (m) => {
-    console.log('📋 Rendering module:', m.title);
     const lessons = (m.lessons||[]).map(l => {
-      console.log('📋 Rendering lesson:', l.title, 'with', (l.materials||[]).length, 'materials');
+      // Rendering lesson
       const mats = (l.materials||[]).map(mat => {
-        console.log('📋 Rendering material:', mat.type, mat.filename);
         const matType = String(mat.type||'').toLowerCase();
         const matUrl = mat.url || '';
         const matFilename = mat.filename || '';
@@ -1976,20 +1853,15 @@ function renderOutline(outline, mount) {
         fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
           .then(r=>r.json())
           .then(function(j){
-            console.log('🔍 Points API response for activity', actId, ':', j);
             if (!j || !j.success || !j.data) { 
-              console.log('🔍 No data returned, setting badge to —');
               badge.textContent = '—'; 
               return; 
             }
             const a = j.data;
             const t = String(a.type||'').toLowerCase();
-            console.log('🔍 Activity type:', t, 'Max score:', a.max_score, 'Questions:', a.questions);
-            
             if (t === 'coding') {
               const ms = Number(a.max_score || 0);
               const displayPoints = (isFinite(ms) ? ms : 0) + ' pts';
-              console.log('🔍 Coding activity, displaying:', displayPoints);
               badge.textContent = displayPoints;
               return;
             }
@@ -1999,21 +1871,17 @@ function renderOutline(outline, mount) {
               const p = Number(q.points||1);
               return sum + (isFinite(p) ? p : 0);
             }, 0);
-            console.log('🔍 Total question points:', total);
             if (total > 0) { 
               const displayPoints = total + ' pts';
-              console.log('🔍 Using question points, displaying:', displayPoints);
               badge.textContent = displayPoints; 
             }
             else {
               const ms = Number(a.max_score || 0);
               const displayPoints = (isFinite(ms) ? ms : 0) + ' pts';
-              console.log('🔍 Using max_score, displaying:', displayPoints);
               badge.textContent = displayPoints;
             }
           })
           .catch(function(err){ 
-            console.log('🔍 Points API error for activity', actId, ':', err);
             badge.textContent = '—'; 
           });
       });
@@ -2118,8 +1986,7 @@ function publishCourse(courseId, nextStatus, btnEl, ev) {
       btnEl.setAttribute('onclick', `publishCourse(${courseId}, '${nextToggle}', this, event); return false;`);
     }
   } catch (e) {
-    console.error('Error in optimistic UI update:', e);
-  }
+    }
 
   const fd = new FormData();
   fd.append('action','status');
@@ -2132,8 +1999,7 @@ function publishCourse(courseId, nextStatus, btnEl, ev) {
       if (data.success) {
         if (typeof window.showNotification === 'function') window.showNotification('success','Success','Course status updated');
         // Don't reload the table - keep the optimistic UI since it's already correct
-        console.log('✅ Status updated successfully, keeping optimistic UI');
-      } else {
+        } else {
         if (typeof window.showNotification === 'function') window.showNotification('error','Error', data.message || 'Failed to update status');
         // Revert UI on failure
         revertStatusChange(btnEl, courseId);
@@ -2166,12 +2032,10 @@ function revertStatusChange(btnEl, courseId) {
     const nextToggle = prevStatus === 'published' ? 'draft' : 'published';
     btnEl.setAttribute('onclick', `publishCourse(${courseId}, '${nextToggle}', this, event); return false;`);
   } catch (e) {
-    console.error('Error reverting status change:', e);
-  }
+    }
 }
 // Archive course function
 function archiveCourse(courseId, btnEl, ev) {
-  console.log('📦 Archive course:', courseId);
   if (ev && ev.preventDefault) ev.preventDefault();
   if (ev && ev.stopPropagation) ev.stopPropagation();
   coordinatorConfirm('Archive this course?', function(){
@@ -2206,7 +2070,6 @@ function archiveCourse(courseId, btnEl, ev) {
 
 // Delete course function
 function deleteCourse(courseId) {
-  console.log('🗑️ Delete course:', courseId);
   coordinatorConfirm('Delete this course?', function(){
     const fd = new FormData();
     fd.append('action','delete');
@@ -2251,7 +2114,6 @@ function getRoleColorClass(role) {
 
 // Initialize coordinator settings
 function initCoordinatorSettings() {
-  console.log('⚙️ Initializing coordinator settings...');
   // Settings functionality will be handled by admin panel functions
 }
 // Helper: confirmation dialog with graceful fallbacks
@@ -2395,13 +2257,13 @@ function outlinePrompt(options, onSubmit) {
 (function bootstrapCoordinator(){
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function(){
-      try { if (typeof initCoordinatorTabs === 'function') initCoordinatorTabs(); } catch(e) { console.error(e); }
+      try { if (typeof initCoordinatorTabs === 'function') initCoordinatorTabs(); } catch(e) { }
       // Ensure dashboard widgets load once on initial view
-      try { if (typeof loadCoordinatorDashboardStats === 'function') loadCoordinatorDashboardStats(); } catch(e) { console.error(e); }
+      try { if (typeof loadCoordinatorDashboardStats === 'function') loadCoordinatorDashboardStats(); } catch(e) { }
     });
   } else {
-    try { if (typeof initCoordinatorTabs === 'function') initCoordinatorTabs(); } catch(e) { console.error(e); }
-    try { if (typeof loadCoordinatorDashboardStats === 'function') loadCoordinatorDashboardStats(); } catch(e) { console.error(e); }
+    try { if (typeof initCoordinatorTabs === 'function') initCoordinatorTabs(); } catch(e) { }
+    try { if (typeof loadCoordinatorDashboardStats === 'function') loadCoordinatorDashboardStats(); } catch(e) { }
   }
 })();
 
@@ -2916,7 +2778,6 @@ function showContentSeparationModal() {
           }
         })
         .catch(err => {
-          console.error('Content separation error:', err);
           if (errorDiv) errorDiv.textContent = 'Network error. Please try again.';
         })
         .finally(() => {
@@ -3600,26 +3461,12 @@ function showCreateActivityForm(lessonId, opts){
   try { if (window.__cafRenderHandler) { window.removeEventListener('createActivityRender', window.__cafRenderHandler); } } catch(_){ }
   window.__cafRenderHandler = function(){ try { render(); } catch(_){ } };
   window.addEventListener('createActivityRender', window.__cafRenderHandler);
-  console.log('🔍 INITIAL STATE:', state);
   const body = modal.querySelector('#cafBody');
   
   // Test if elements exist
-  console.log('🔍 Modal element:', modal);
-  console.log('🔍 Body element:', body);
-  console.log('🔍 Modal display:', modal.style.display);
-  console.log('🔍 Body innerHTML length:', body ? body.innerHTML.length : 'BODY NOT FOUND');
-
   function render(){
     // Preserve scroll position within the modal body across renders
     var prevScrollTop = body ? body.scrollTop : 0;
-    console.log('🔍 RENDERING FORM - Current state:', {
-      type: state.type,
-      questionType: state.questionType,
-      questions: state.questions.length
-    });
-    console.log('🔍 RENDERING FORM - Body element:', body);
-    console.log('🔍 RENDERING FORM - Modal element:', modal);
-    console.log('🔍 RENDERING FORM - Laboratory check:', state.type === 'laboratory');
     // Update mode button visuals
     try {
       const editBtn = modal.querySelector('#cafEditMode');
@@ -3630,7 +3477,6 @@ function showCreateActivityForm(lessonId, opts){
 
     // Render PREVIEW mode using professional test interface
     if (state.viewMode === 'preview') {
-      console.log('🔍 PREVIEW MODE - State:', state);
       const activityType = state.questionType || 'multiple_choice';
         const activity = { 
           id: state.editActivityId ? parseInt(state.editActivityId,10) : 0, 
@@ -3684,7 +3530,6 @@ function showCreateActivityForm(lessonId, opts){
         try {
           body.innerHTML = renderCodingPreview(activity);
         } catch(e) {
-          console.error('Coding preview render error:', e);
           body.innerHTML = '<div class="empty-state">Failed to render coding preview</div>';
         }
         if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
@@ -3724,7 +3569,7 @@ function showCreateActivityForm(lessonId, opts){
               <h4 style="margin:0 0 16px 0;color:#333;font-size:14px;">Question Navigation</h4>
               <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
                 ${activity.questions && activity.questions.length > 0 ? activity.questions.map((q, idx) => `
-                  <div id="nav-${idx}" style="width:32px;height:32px;border:2px solid #dee2e6;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:white;font-size:12px;font-weight:600;color:#495057;transition:all 0.2s;" onclick="console.log('Nav clicked:', ${idx}); window.scrollToQuestion(${idx})">
+                  <div id="nav-${idx}" style="width:32px;height:32px;border:2px solid #dee2e6;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:white;font-size:12px;font-weight:600;color:#495057;transition:all 0.2s;" onclick="window.scrollToQuestion(${idx})">
                     ${idx + 1}
                   </div>
                 `).join('') : '<div style="grid-column:1/-1;text-align:center;color:#6c757d;font-size:12px;padding:8px;">No questions</div>'}
@@ -3772,30 +3617,19 @@ function showCreateActivityForm(lessonId, opts){
       
       // Initialize interactive features
       setTimeout(() => {
-        console.log('🔍 Initializing preview interactive features');
-        console.log('🔍 Available functions:', {
-          updateProgress: typeof window.updateProgress,
-          scrollToQuestion: typeof window.scrollToQuestion,
-          finishPreviewAttempt: typeof window.finishPreviewAttempt
-        });
         try {
           if (typeof window.updateProgress === 'function') {
             window.updateProgress();
           } else {
-            console.error('🔍 updateProgress function not found!');
-          }
+            }
           // Set first question as active
           if (activity.questions && activity.questions.length > 0 && typeof window.scrollToQuestion === 'function') {
             window.scrollToQuestion(0);
           } else if (!activity.questions || activity.questions.length === 0) {
-            console.log('🔍 No questions to navigate to');
-          } else {
-            console.error('🔍 scrollToQuestion function not found!');
+            } else {
+            }
+          } catch (e) {
           }
-          console.log('🔍 Preview initialization complete');
-        } catch (e) {
-          console.error('🔍 Preview initialization error:', e);
-        }
       }, 100);
       
       return;
@@ -3854,12 +3688,7 @@ function showCreateActivityForm(lessonId, opts){
         ${(() => {
           // Normalize deprecated type 'matching' to 'multiple_choice'
           if (state.questionType === 'matching') { state.questionType = 'multiple_choice'; }
-          console.log('🔍 CHECKING ACTIVITY TYPE:', state.questionType);
-          console.log('🔍 QUESTIONS ARRAY:', state.questions);
-          console.log('🔍 QUESTIONS LENGTH:', state.questions.length);
-          
           if (state.questionType === 'multiple_choice') {
-            console.log('🔍 RENDERING MULTIPLE CHOICE');
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="font-weight:600;margin-bottom:12px;color:#333;">📝 Multiple Choice Questions</div>
@@ -3902,7 +3731,6 @@ function showCreateActivityForm(lessonId, opts){
             </div>
             `;
           } else if (state.questionType === 'identification') {
-            console.log('🔍 RENDERING IDENTIFICATION');
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="font-weight:600;margin-bottom:12px;color:#333;">🔍 Identification Questions</div>
@@ -3935,7 +3763,6 @@ function showCreateActivityForm(lessonId, opts){
             </div>
             `;
           } else if (state.questionType === 'essay') {
-            console.log('🔍 RENDERING ESSAY');
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="font-weight:600;margin-bottom:12px;color:#333;">📄 Essay Questions</div>
@@ -3968,7 +3795,6 @@ function showCreateActivityForm(lessonId, opts){
             </div>
             `;
           } else if (state.questionType === 'upload_based') {
-            console.log('🔍 RENDERING UPLOAD-BASED with state:', state);
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="font-weight:600;margin-bottom:12px;color:#333;">📎 Upload-based Activity</div>
@@ -4064,7 +3890,6 @@ function showCreateActivityForm(lessonId, opts){
             </div>
             `;
           } else if (state.questionType === 'true_false') {
-            console.log('🔍 RENDERING TRUE/FALSE');
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="font-weight:600;margin-bottom:12px;color:#333;">✅ True/False Questions</div>
@@ -4111,7 +3936,6 @@ function showCreateActivityForm(lessonId, opts){
             </div>
             `;
           } else if (state.questionType === 'matching') {
-            console.log('🔍 RENDERING MATCHING');
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="font-weight:600;margin-bottom:12px;color:#333;">🔗 Matching Questions</div>
@@ -4159,7 +3983,6 @@ function showCreateActivityForm(lessonId, opts){
             </div>
             `;
           } else if (state.questionType === 'coding') {
-            console.log('🔍 RENDERING CODING');
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="font-weight:600;margin-bottom:16px;color:#333;">💻 Coding Exercise Configuration</div>
@@ -4274,7 +4097,7 @@ function showCreateActivityForm(lessonId, opts){
             </div>
             `;
           } else {
-            console.log('🔍 RENDERING DEFAULT (NO ACTIVITY TYPE SELECTED)');
+            // Rendering default activity
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="text-align:center;padding:20px;color:#666;">
@@ -4286,57 +4109,42 @@ function showCreateActivityForm(lessonId, opts){
         })()}
       </div>`;
 
-    console.log('🔍 SETTING UP EVENT HANDLERS');
     // Restore scroll position after rebuilding DOM
     try { body.scrollTop = prevScrollTop; } catch(_){}
     
     body.querySelectorAll('input[name="cafType"]').forEach(function(r){ 
-      console.log('🔍 Setting up radio button handler for:', r.value);
       r.onchange=function(){ 
-        console.log('🔍 Radio button changed to:', this.value);
         state.type=this.value;
         
         // Auto-select Coding Exercise for Laboratory
         if (state.type === 'laboratory') {
-          console.log('🔍 LABORATORY SELECTED - Setting default to coding');
           state.questionType = 'coding';
         } else if (state.type === 'lecture') {
-          console.log('🔍 LECTURE SELECTED - Setting default to multiple_choice');
           state.questionType = 'multiple_choice';
         }
         
-        console.log('🔍 Calling render()...');
-        render(); 
-        console.log('🔍 Render() completed');
-        console.log('🔍 State after render:', state.type);
+        render();
         if (window.__cafScheduleSave) window.__cafScheduleSave();
       }; 
     });
     
     const nameInput = body.querySelector('#cafName');
     if (nameInput) {
-      console.log('🔍 Setting up name input handler');
       nameInput.oninput=function(){ 
-        console.log('🔍 Name input changed to:', this.value);
         state.name=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave();
       };
     }
     
     // New activity type dropdown handler
     const activityType = body.querySelector('#cafActivityType'); 
-    console.log('🔍 Activity type dropdown found:', activityType);
-    console.log('🔍 Current dropdown value:', activityType ? activityType.value : 'NO DROPDOWN');
     if (activityType){ 
-      console.log('🔍 Setting up activity type dropdown handler');
       activityType.onchange=function(){ 
-        console.log('🔍 Activity type changed to:', this.value);
         state.questionType=this.value; 
         render();
         if (window.__cafScheduleSave) window.__cafScheduleSave();
       }; 
     } else {
-      console.error('🔍 ERROR: Activity type dropdown not found!');
-    }
+      }
     
     const lang = body.querySelector('#cafLang'); if (lang){ lang.onchange=function(){ state.language=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; try { if (window.enableCodeEditor) window.enableCodeEditor(starter); } catch(_){} }
     const instr = body.querySelector('#cafInstr'); if (instr){ instr.oninput=function(){ state.instructionsText=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; }
@@ -4379,22 +4187,17 @@ function showCreateActivityForm(lessonId, opts){
     // questions rendering
     const list = body.querySelector('#cafQList');
     const addQ = body.querySelector('#cafAddQ');
-    console.log('🔍 Add Question button found:', addQ);
     if (addQ){ 
-      console.log('🔍 Setting up Add Question button handler');
       addQ.onclick=function(){ 
-        console.log('🔍 Add Question button clicked!');
         addQuestion(); 
       }; 
     } else {
-      console.error('🔍 ERROR: Add Question button not found!');
-    }
+      }
   }
 
   render();
   modal.querySelector('#cafCreate').onclick=async function(){
     const btn = this;
-    console.log('🔍 Save/Create clicked. disabled=', btn.disabled);
     if (btn.disabled) return; // Prevent double-clicks
     
     // Required field validation
@@ -4533,17 +4336,13 @@ function showCreateActivityForm(lessonId, opts){
     const timeoutId = setTimeout(function(){ try { controller.abort(); } catch(_){} }, 15000);
     fetch('course_outline_manage.php', { method:'POST', body: fdWithCSRF, credentials:'same-origin', signal: controller.signal })
       .then(function(r){ 
-        console.log('🔍 CREATE RESPONSE:', r.status, r.statusText);
         return r.json().catch(function(e){ 
-          console.error('🔍 JSON PARSE ERROR:', e);
           return { success:false, message:'Invalid JSON' }; 
         }); 
       })
       .then(function(data){
         try { clearTimeout(timeoutId); } catch(_){}
-        console.log('🔍 CREATE DATA:', data);
         if (!data || !data.success){
-          console.error('🔍 CREATE FAILED:', data);
           var msg = (data && (data.message || data.error)) ? (String(data.message||'') + (data.error?(' - '+String(data.error)):'') ) : 'Unknown error';
           if (typeof window.showNotification === 'function') window.showNotification('error', isEdit?'Update failed':'Create failed', msg);
           else alert((isEdit?'Failed to update activity: ':'Failed to create activity: ') + msg);
@@ -4569,7 +4368,6 @@ function showCreateActivityForm(lessonId, opts){
       })
       .catch(function(e){ 
         try { clearTimeout(timeoutId); } catch(_){}
-        console.error('🔍 CREATE CATCH ERROR:', e);
         if (!handledSuccess) {
           if (typeof window.showNotification === 'function') window.showNotification('error', isEdit?'Update failed':'Create failed', 'Network error'); 
           else alert('Network error'); 
@@ -4604,8 +4402,6 @@ try {
 
 // Function to render student test interface
 function renderStudentTestInterface(activity, activityType) {
-  console.log('🔍 DEEP DEBUG - renderStudentTestInterface called with:', { activity, activityType });
-  
   if (activityType === 'coding' || activityType === 'laboratory') {
     return renderStudentCodingTest(activity);
   } else if (activityType === 'multiple_choice' || activityType === 'quiz') {
@@ -4857,11 +4653,7 @@ function renderGenericTestInterface(activity) {
 
 // Function to render professional test questions for coordinator preview
 function renderProfessionalTestQuestions(activity, activityType) {
-  console.log('🔍 renderProfessionalTestQuestions called with:', { activity, activityType });
-  console.log('🔍 Activity questions:', activity.questions);
-  
   if (!activity.questions || !Array.isArray(activity.questions) || activity.questions.length === 0) {
-    console.log('🔍 No questions found, showing empty message');
     return `
       <div style="text-align:center;padding:40px;color:#6c757d;">
         <div style="font-size:48px;margin-bottom:16px;">📝</div>
@@ -4873,10 +4665,6 @@ function renderProfessionalTestQuestions(activity, activityType) {
   
   let html = '';
   activity.questions.forEach((question, index) => {
-    console.log(`🔍 Rendering question ${index + 1}:`, question);
-    console.log(`🔍 Question text: "${question.question_text}"`);
-    console.log(`🔍 Question choices:`, question.choices);
-    
     html += `
       <div id="question-${index}" style="border:1px solid #e9ecef;border-radius:8px;padding:24px;margin-bottom:24px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -4951,7 +4739,7 @@ function renderQuestionInput(question, index, activityType) {
       <div style="space-y:12px;">
         ${question.choices.map((choice, choiceIndex) => `
           <label style="display:flex;align-items:center;gap:12px;padding:16px;border:2px solid #e9ecef;border-radius:8px;cursor:pointer;background:white;transition:all 0.2s;hover:border-color:#28a745;hover:background:#f8fff9;">
-            <input type="radio" name="preview-q${index + 1}" value="${choice.id}" style="margin:0;width:18px;height:18px;accent-color:#28a745;" onchange="console.log('Radio changed:', this.value); window.updateProgress()">
+            <input type="radio" name="preview-q${index + 1}" value="${choice.id}" style="margin:0;width:18px;height:18px;accent-color:#28a745;" onchange="window.updateProgress()">
             <span style="flex:1;font-size:15px;color:#333;">${choice.choice_text || 'Choice not available'}</span>
           </label>
         `).join('')}
@@ -5018,10 +4806,7 @@ function renderQuestionInput(question, index, activityType) {
 
 // Function to scroll to question (for navigation) - Global scope
 window.scrollToQuestion = function(index) {
-  console.log('🔍 scrollToQuestion called with index:', index);
   const questionElement = document.getElementById('question-' + index);
-  console.log('🔍 Question element found:', questionElement);
-  
   if (questionElement) {
     questionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     
@@ -5033,7 +4818,6 @@ window.scrollToQuestion = function(index) {
     });
     
     const currentNav = document.getElementById('nav-' + index);
-    console.log('🔍 Current nav element:', currentNav);
     if (currentNav) {
       currentNav.style.background = '#e3f2fd';
       currentNav.style.borderColor = '#2196f3';
@@ -5044,8 +4828,6 @@ window.scrollToQuestion = function(index) {
 
 // Function to finish preview attempt - Global scope
 window.finishPreviewAttempt = function() {
-  console.log('🔍 finishPreviewAttempt called');
-  
   // Count answered questions accurately
   let answeredQuestions = 0;
   const questionElements = document.querySelectorAll('[id^="question-"]');
@@ -5061,8 +4843,6 @@ window.finishPreviewAttempt = function() {
   });
   
   const totalQuestions = questionElements.length;
-  
-  console.log('🔍 Submit attempt:', { answeredQuestions, totalQuestions });
   
   if (answeredQuestions === 0) {
     alert('Please answer at least one question before submitting.');
@@ -5091,8 +4871,6 @@ window.finishPreviewAttempt = function() {
 
 // Function to update progress counter - Global scope
 window.updateProgress = function() {
-  console.log('🔍 updateProgress called');
-  
   // Count answered questions more accurately
   let answeredQuestions = 0;
   const questionElements = document.querySelectorAll('[id^="question-"]');
@@ -5109,8 +4887,6 @@ window.updateProgress = function() {
   
   const totalQuestions = questionElements.length;
   const progressCounter = document.getElementById('progress-counter');
-  
-  console.log('🔍 Progress update:', { answeredQuestions, totalQuestions, progressCounter });
   
   if (progressCounter) {
     progressCounter.textContent = `${answeredQuestions} / ${totalQuestions} answered`;
@@ -5140,14 +4916,10 @@ window.updateProgress = function() {
 
 // Function to collect student answers
 function collectStudentAnswers() {
-  console.log('🔍 DEEP DEBUG - collectStudentAnswers called');
   const answers = {};
   const form = document.querySelector('#testBody');
   
-  console.log('🔍 DEEP DEBUG - Form element:', form);
-  
   if (!form) {
-    console.log('🔍 DEEP DEBUG - No form found, returning empty answers');
     return answers;
   }
   
@@ -5157,8 +4929,7 @@ function collectStudentAnswers() {
       value: input.value,
       type: 'radio'
     };
-    console.log('🔍 DEEP DEBUG - Radio answer collected:', input.name, input.value);
-  });
+    });
   
   // Collect text inputs
   form.querySelectorAll('input[type="text"]').forEach(input => {
@@ -5167,8 +4938,7 @@ function collectStudentAnswers() {
         value: input.value.trim(),
         type: 'text'
       };
-      console.log('🔍 DEEP DEBUG - Text answer collected:', input.name, input.value);
-    }
+      }
   });
   
   // Collect textareas
@@ -5183,14 +4953,11 @@ function collectStudentAnswers() {
     }
   });
   
-  console.log('🔍 DEEP DEBUG - All collected answers:', answers);
   return answers;
 }
 
 // Function to show test results
 function showTestResults(results, activityTitle) {
-  console.log('🔍 DEEP DEBUG - showTestResults called with:', { results, activityTitle });
-  
   // Create a professional results modal
   const resultsModal = document.createElement('div');
   resultsModal.className = 'modal-overlay';
@@ -5257,14 +5024,8 @@ function generateResultsContent(results) {
 function addQuestion() {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
-  
-  console.log('🔍 addQuestion called with state:', {
-    questionType: state.questionType,
-    questionsCount: state.questions.length
-  });
   
   const newQuestion = {
     text: '',
@@ -5283,10 +5044,7 @@ function addQuestion() {
     maxFileSize: state.questionType === 'upload_based' ? 10 : null
   };
   
-  console.log('🔍 New question object:', newQuestion);
   state.questions.push(newQuestion);
-  console.log('🔍 Questions after adding:', state.questions);
-  
   // Trigger re-render by dispatching a custom event
   window.dispatchEvent(new CustomEvent('createActivityRender'));
   if (window.__cafScheduleSave) window.__cafScheduleSave();
@@ -5308,11 +5066,9 @@ function addQuestion() {
 function deleteQuestion(index) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
   
-  console.log('🔍 deleteQuestion called with index:', index);
   state.questions.splice(index, 1);
   
   // Trigger re-render by dispatching a custom event
@@ -5324,7 +5080,6 @@ function deleteQuestion(index) {
 function moveQuestion(index, direction) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
   
@@ -5343,7 +5098,6 @@ function moveQuestion(index, direction) {
 function updateQuestion(index, property, value) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
   
@@ -5357,41 +5111,28 @@ function updateQuestion(index, property, value) {
 function addChoice(questionIndex) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
-  
-  console.log('🔍 addChoice called with questionIndex:', questionIndex);
-  console.log('🔍 Current state:', {
-    questionType: state.questionType,
-    questionsLength: state.questions.length,
-    targetQuestion: state.questions[questionIndex]
-  });
   
   if (state.questions[questionIndex] && state.questionType === 'multiple_choice') {
     if (!state.questions[questionIndex].choices) {
       state.questions[questionIndex].choices = [];
     }
     state.questions[questionIndex].choices.push({ text: '', correct: false });
-    console.log('🔍 Choice added, new choices:', state.questions[questionIndex].choices);
-    
     // Trigger re-render by dispatching a custom event
     window.dispatchEvent(new CustomEvent('createActivityRender'));
     if (window.__cafScheduleSave) window.__cafScheduleSave();
   } else {
-    console.error('🔍 ERROR: Cannot add choice - invalid question or wrong type');
-  }
+    }
 }
 
 // Function to delete a choice
 function deleteChoice(questionIndex, choiceIndex) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
   
-  console.log('🔍 deleteChoice called:', { questionIndex, choiceIndex });
   if (state.questions[questionIndex] && state.questions[questionIndex].choices) {
     state.questions[questionIndex].choices.splice(choiceIndex, 1);
     
@@ -5405,11 +5146,9 @@ function deleteChoice(questionIndex, choiceIndex) {
 function updateChoice(questionIndex, choiceIndex, property, value) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
   
-  console.log('🔍 updateChoice called:', { questionIndex, choiceIndex, property, value });
   if (state.questions[questionIndex] && state.questions[questionIndex].choices[choiceIndex]) {
     state.questions[questionIndex].choices[choiceIndex][property] = value;
   }
@@ -5496,10 +5235,8 @@ function renderTestCases(){
 function addMatchingPair(questionIndex) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
-  console.log('🔍 addMatchingPair called for question:', questionIndex);
   if (!state.questions[questionIndex].matchingPairs) {
     state.questions[questionIndex].matchingPairs = [];
   }
@@ -5512,10 +5249,8 @@ function addMatchingPair(questionIndex) {
 function deleteMatchingPair(questionIndex, pairIndex) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
-  console.log('🔍 deleteMatchingPair called:', { questionIndex, pairIndex });
   if (state.questions[questionIndex].matchingPairs && state.questions[questionIndex].matchingPairs[pairIndex]) {
     state.questions[questionIndex].matchingPairs.splice(pairIndex, 1);
     window.dispatchEvent(new CustomEvent('createActivityRender'));
@@ -5527,10 +5262,8 @@ function deleteMatchingPair(questionIndex, pairIndex) {
 function updateMatchingPair(questionIndex, pairIndex, field, value) {
   const state = window.createActivityState;
   if (!state) {
-    console.error('🔍 ERROR: createActivityState not found!');
     return;
   }
-  console.log('🔍 updateMatchingPair called:', { questionIndex, pairIndex, field, value });
   if (state.questions[questionIndex].matchingPairs && state.questions[questionIndex].matchingPairs[pairIndex]) {
     state.questions[questionIndex].matchingPairs[pairIndex][field] = value;
     window.dispatchEvent(new CustomEvent('createActivityRender'));
@@ -5541,8 +5274,6 @@ function updateMatchingPair(questionIndex, pairIndex, field, value) {
 // ======================== MATERIAL VIEWERS ========================
 
 function showPDFViewer(url) {
-  console.log('🔍 Opening PDF viewer with URL:', url);
-  
   // Create download URL (remove view=true parameter)
   const downloadUrl = url.replace(/[?&]view=true/, '').replace(/[?&]$/, '');
   
@@ -5732,27 +5463,23 @@ function updateAcceptedFiles(fileType, isChecked) {
     window.cafState.acceptedFiles = window.cafState.acceptedFiles.filter(f => f !== fileType);
   }
   
-  console.log('📎 Accepted files updated:', window.cafState.acceptedFiles);
-}
+  }
 
 function updateMaxFileSize(value) {
   if (!window.cafState) return;
   window.cafState.maxFileSize = parseInt(value) || 10;
-  console.log('📎 Max file size updated:', window.cafState.maxFileSize);
-}
+  }
 
 function updateMaxScore(value) {
   if (!window.cafState) return;
   window.cafState.maxScore = parseInt(value) || 10;
-  console.log('📎 Max score updated:', window.cafState.maxScore);
-}
+  }
 
 
 function updateInstructions(value) {
   if (!window.cafState) return;
   window.cafState.instructions = value;
-  console.log('📎 Instructions updated:', window.cafState.instructions);
-}
+  }
 
 // ===== Upload-based Activity Question Management Functions =====
 function updateQuestionFileTypes(questionIndex, fileType, isChecked) {
@@ -5771,7 +5498,6 @@ function updateQuestionFileTypes(questionIndex, fileType, isChecked) {
     question.acceptedFiles = question.acceptedFiles.filter(type => type !== fileType);
   }
   
-  console.log('📎 Question file types updated:', question.acceptedFiles);
   if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 
@@ -5782,14 +5508,11 @@ function updateQuestionMaxFileSize(questionIndex, value) {
   if (!question) return;
   
   question.maxFileSize = parseInt(value) || 10;
-  console.log('📎 Question max file size updated:', question.maxFileSize);
   if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 
 // ===== Student Upload-based Test Interface =====
 function renderStudentUploadBasedTest(activity) {
-  console.log('📎 Rendering student upload-based test interface for activity:', activity);
-  
   const dueDate = activity.dueDate ? new Date(activity.dueDate).toLocaleString() : 'No due date';
   const acceptedFiles = activity.acceptedFiles || ['pdf', 'docx', 'pptx', 'jpg', 'png', 'txt', 'zip', 'xml', 'gif', 'bmp', 'svg'];
   const maxFileSize = activity.maxFileSize || 10;
@@ -5916,12 +5639,7 @@ function renderStudentUploadBasedTest(activity) {
         
         // Here you would implement the actual file upload
         alert('File uploaded successfully! (This is a demo - actual implementation would upload to server)');
-        console.log('Upload details:', {
-          file: selectedFile,
-          comments: comments,
-          activityId: ${activity.id || 'null'}
-        });
-      }
+        }
     </script>
   `;
 }

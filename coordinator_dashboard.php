@@ -1,9 +1,15 @@
 <?php
+/**
+ * COORDINATOR DASHBOARD
+ * Using original auth system to avoid redirect loops
+ */
 session_start();
 require_once 'config.php';
 require_once 'classes/auth_helpers.php';
 require_once __DIR__ . '/config/Database.php';
 require_once __DIR__ . '/classes/ProfileService.php';
+
+// Use original auth system
 Auth::requireAuth();
 Auth::requireRole('coordinator');
 $lastname = $_SESSION['user_lastname'] ?? '';

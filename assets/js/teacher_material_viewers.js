@@ -4,16 +4,12 @@
   // Material viewer functions following the existing functional pattern
   
   function showLinkViewer(url) {
-  console.log('📺 showLinkViewer called with URL:', url);
-  
   // Detect provider
   const provider = (function(u){
     if (/youtube\.com\/watch\?v=|youtu\.be\//i.test(u)) return 'youtube';
     if (/drive\.google\.com/i.test(u)) return 'drive';
     return 'generic';
   })(url);
-  
-  console.log('📺 Detected provider:', provider);
   
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -24,12 +20,10 @@
   
   if (provider === 'youtube') {
     const videoId = (url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/))?.[1];
-    console.log('📺 YouTube Video ID:', videoId);
     if (videoId) {
       embedUrl = 'https://www.youtube.com/embed/' + videoId;
       title = '📺 YouTube Video';
-      console.log('📺 Embed URL:', embedUrl);
-    }
+      }
   }
   
   modal.innerHTML = '<div class="modal-card" style="max-width:95%;width:95%;height:90%;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;font-family:\'Inter\',sans-serif;">' +
@@ -63,12 +57,10 @@
 }
 
   function showPDFViewer(url) {
-  console.log('📄 Opening PDF viewer with URL:', url);
   alert('PDF Viewer: ' + url);
 };
 
   function showCodeViewer(url) {
-  console.log('💻 Opening Code viewer with URL:', url);
   alert('Code Viewer: ' + url);
 };
 
@@ -78,7 +70,6 @@
       let url = (material && (material.url || material.link || material.href)) || '';
       const title = escapeHtml((material && (material.filename || material.title)) || 'Material');
       if (!url) { 
-        console.log('❌ No URL provided for material viewer');
         return; 
       }
       
@@ -120,13 +111,6 @@
       const materialType = (material && material.type) ? material.type.toLowerCase() : '';
       const materialFilename = (material && material.filename) ? material.filename.toLowerCase() : '';
       
-      console.log('🔍 Processing material URL:', url);
-      console.log('🔍 Material object received:', material);
-      console.log('🔍 Material type:', materialType);
-      console.log('🔍 Material filename:', materialFilename);
-      console.log('🔍 URL after processing:', url);
-      console.log('🔍 URL lowercase:', lower);
-      
       // Check file type by material type and filename, not just URL
       const isPdf = lower.endsWith('.pdf') || materialType === 'pdf' || materialFilename.endsWith('.pdf');
       const isVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || materialType === 'video' || materialFilename.match(/\.(mp4|webm)$/);
@@ -135,10 +119,6 @@
       const isGoogleDrive = /drive\.google\.com/.test(lower);
       const isGoogleDriveFolder = /drive\.google\.com\/drive\/folders\//.test(lower);
       
-      console.log('🔍 File type detection:', {
-        isPdf, isVideo, isImage, isYouTube, isGoogleDrive, isGoogleDriveFolder
-      });
-
       if (isPdf) {
         const iframe = document.createElement('iframe');
         const src = url + (url.indexOf('#') === -1 ? '#toolbar=1&navpanes=0' : '');
@@ -166,7 +146,6 @@
         body.appendChild(img);
       } else if (isGoogleDriveFolder) {
         // Handle Google Drive folder links - cannot be embedded
-        console.log('📁 Google Drive FOLDER URL detected:', url);
         body.style.display = 'flex';
         body.style.alignItems = 'center';
         body.style.justifyContent = 'center';
@@ -182,7 +161,6 @@
         body.appendChild(folderCard);
       } else if (isGoogleDrive) {
         // Handle Google Drive file links by converting to embed format
-        console.log('📁 Google Drive FILE URL detected:', url);
         try {
           let embedUrl = '';
           let fileId = null;
@@ -196,13 +174,10 @@
           
           if (fileId) {
             embedUrl = 'https://drive.google.com/file/d/' + fileId + '/preview';
-            console.log('📁 Google Drive embed URL:', embedUrl);
-            
             const iframe = document.createElement('iframe');
             iframe.src = embedUrl;
             iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
             iframe.onerror = function() {
-              console.log('❌ Google Drive embed failed, showing fallback');
               body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
                 '<div style="text-align:center;padding:20px;">'+
                   '<div style="font-size:48px;color:#dc3545;margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i></div>'+
@@ -217,7 +192,6 @@
             throw new Error('Could not extract file ID from Google Drive URL');
           }
         } catch (error) {
-          console.log('❌ Google Drive processing error:', error);
           body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
             '<div style="text-align:center;padding:20px;">'+
               '<div style="font-size:48px;color:#dc3545;margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i></div>'+
@@ -229,7 +203,6 @@
         }
       } else if (isYouTube) {
         // Handle YouTube links by converting to embed format
-        console.log('📺 YouTube URL detected:', url);
         try {
           let videoId = null;
           let embedUrl = '';
@@ -245,8 +218,6 @@
           
           if (videoId) {
             embedUrl = 'https://www.youtube.com/embed/' + videoId;
-            console.log('📺 YouTube embed URL:', embedUrl);
-            
             const iframe = document.createElement('iframe');
             iframe.src = embedUrl;
             iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
@@ -256,7 +227,6 @@
             throw new Error('Could not extract video ID from YouTube URL');
           }
         } catch (error) {
-          console.log('❌ YouTube processing error:', error);
           body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
             '<div style="text-align:center;padding:20px;">'+
               '<div style="font-size:48px;color:#dc3545;margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i></div>'+
@@ -283,8 +253,7 @@
         body.appendChild(card);
       }
     } catch (error) {
-      console.error('❌ Material viewer error:', error);
-    }
+      }
   }
 
   // Expose functions globally following the existing pattern
@@ -295,57 +264,25 @@
   
   // Test function to verify material viewer functions are working
   window.testMaterialViewer = function() {
-    console.log('🧪 Testing material viewer functions...');
-    console.log('🧪 showLinkViewer type:', typeof showLinkViewer);
-    console.log('🧪 window.showLinkViewer type:', typeof window.showLinkViewer);
-    
     if (typeof showLinkViewer === 'function') {
-      console.log('✅ showLinkViewer function is available');
-    } else {
-      console.log('❌ showLinkViewer function is NOT available');
-    }
+      } else {
+      }
   };
-  
-  console.log('✅ Teacher material viewer functions loaded!');
-  console.log('✅ window.showLinkViewer function available:', typeof window.showLinkViewer);
-  console.log('✅ window.showPDFViewer function available:', typeof window.showPDFViewer);
-  console.log('✅ window.showCodeViewer function available:', typeof window.showCodeViewer);
-  console.log('✅ window.openMaterialViewer function available:', typeof window.openMaterialViewer);
   
   // Test if the function is actually callable
   if (typeof window.openMaterialViewer === 'function') {
-    console.log('✅ openMaterialViewer function is callable!');
-  } else {
-    console.error('❌ openMaterialViewer function is NOT callable!');
-  }
+    } else {
+    }
   
-  // Global test function for debugging
-  window.testMaterialViewerDebug = function() {
-    console.log('🧪 Testing material viewer debug function...');
-    console.log('🧪 window.openMaterialViewer type:', typeof window.openMaterialViewer);
-    console.log('🧪 window.showLinkViewer type:', typeof window.showLinkViewer);
-    
-    // Test with a sample material
-    const testMaterial = {
-      id: 'test123',
-      url: 'material_download.php?id=test123',
-      filename: 'test.pptx',
-      type: 'pptx'
-    };
-    
-    console.log('🧪 Testing with sample material:', testMaterial);
+    ;
     
     if (typeof window.openMaterialViewer === 'function') {
-      console.log('🧪 Calling openMaterialViewer...');
       try {
         window.openMaterialViewer(testMaterial);
-        console.log('🧪✅ openMaterialViewer called successfully!');
-      } catch (error) {
-        console.error('🧪❌ Error calling openMaterialViewer:', error);
-      }
+        } catch (error) {
+        }
     } else {
-      console.error('🧪❌ openMaterialViewer function not available!');
-    }
+      }
   };
   
 })();

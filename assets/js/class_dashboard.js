@@ -1,4 +1,4 @@
-console.log('🔍 DEBUGGING: class_dashboard.js file loaded!');
+// class_dashboard.js - Activity management system
 
 // ======================== ACTIVITY MANAGER CLASS (OOP) ========================
 
@@ -28,7 +28,6 @@ class ActivityManager {
         this.createModal('reschedule');
       }
     } catch (error) {
-      console.error('Error checking activity status:', error);
       // Default to retaker modal if we can't determine status
       this.createModal('retakers');
     }
@@ -166,7 +165,6 @@ class ActivityManager {
         </label>
       `).join('');
     } catch (error) {
-      console.error('Error loading students:', error);
       document.getElementById('studentList').innerHTML = '<p style="color:#ef4444;text-align:center;">Error loading students</p>';
     }
   }
@@ -243,15 +241,6 @@ class ActivityManager {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Here you would make the actual API call
-      console.log('Saving reschedule:', {
-        activityId: this.currentActivity.id,
-        dueDate: dueDate,
-        dueTime: dueTime,
-        mode: isRetakerMode ? 'retakers' : 'reschedule',
-        selectedStudents: selectedStudents,
-        sendNotification: sendNotification
-      });
-
       const successMessage = isRetakerMode 
         ? `Activity rescheduled for ${selectedStudents.length} student(s)!`
         : 'Activity rescheduled for all students!';
@@ -260,7 +249,6 @@ class ActivityManager {
       this.closeModal();
 
     } catch (error) {
-      console.error('Error saving reschedule:', error);
       this.showNotification('error', 'Failed to save changes. Please try again.');
       
       // Reset button
@@ -301,6 +289,128 @@ class ActivityManager {
   }
 }
 
+// ===== CLEAN ACTIVITY SYSTEM =====
+class CleanActivitySystem {
+    constructor() {
+        this.debugMode = true;
+        this.apiBase = 'universal_activity_api.php'; // Use universal API
+        this.currentClassId = window.__CLASS_ID__;
+        
+        console.log('🔍 DEBUG: CleanActivitySystem initialized with:', {
+            apiBase: this.apiBase,
+            currentClassId: this.currentClassId,
+            debugMode: this.debugMode
+        });
+    }
+
+    // Single method to fetch activity data
+    async fetchActivity(activityId) {
+        console.log('🔍 DEBUG: fetchActivity() called with ID:', activityId);
+        console.log('🔍 DEBUG: API Base:', this.apiBase);
+        console.log('🔍 DEBUG: Full API URL:', `${this.apiBase}?action=get_activity&id=${activityId}`);
+        
+        // Validate inputs
+        if (!activityId || activityId <= 0) {
+            throw new Error('Invalid activity ID provided');
+        }
+        
+        if (!this.apiBase) {
+            throw new Error('API base URL not configured');
+        }
+        
+        try {
+            console.log('🔍 DEBUG: Making API request...');
+            const response = await fetch(`${this.apiBase}?action=get_activity&id=${activityId}`, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            console.log('🔍 DEBUG: API Response received');
+            console.log('🔍 DEBUG: Response status:', response.status);
+            console.log('🔍 DEBUG: Response ok:', response.ok);
+            console.log('🔍 DEBUG: Response headers:', Object.fromEntries(response.headers.entries()));
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('🔍 DEBUG: API Error Response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+            }
+
+            const responseText = await response.text();
+            console.log('🔍 DEBUG: Raw API Response:', responseText);
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+                console.log('🔍 DEBUG: Parsed API Response data:', data);
+            } catch (parseError) {
+                console.error('🔍 DEBUG: JSON Parse Error:', parseError);
+                console.error('🔍 DEBUG: Raw response that failed to parse:', responseText);
+                throw new Error('Invalid JSON response from server');
+            }
+            
+            if (data.success && data.activity) {
+                console.log('🔍 DEBUG: Activity data received successfully:', data.activity);
+                return data.activity;
+            } else {
+                console.error('🔍 DEBUG: API returned failure:', data);
+                throw new Error(data.message || 'Activity not found');
+            }
+        } catch (error) {
+            console.error('🔍 DEBUG: Error in fetchActivity:', error);
+            console.error('🔍 DEBUG: Error name:', error.name);
+            console.error('🔍 DEBUG: Error message:', error.message);
+            console.error('🔍 DEBUG: Error stack:', error.stack);
+            throw error;
+        }
+    }
+
+    // Single method to show Try Answering modal
+    async showTryAnswering(activityId, activityTitle = 'Activity') {
+        console.log('🔍 DEBUG: showTryAnswering() called with:', { activityId, activityTitle });
+        
+        try {
+            console.log('🔍 DEBUG: Fetching activity data...');
+            const activityData = await this.fetchActivity(activityId);
+            console.log('🔍 DEBUG: Activity data fetched successfully:', activityData);
+            
+            console.log('🔍 DEBUG: Calling showTryAnsweringModal...');
+            window.activityTester.showTryAnsweringModal(activityId, activityData);
+            console.log('🔍 DEBUG: showTryAnsweringModal called successfully!');
+            
+        } catch (error) {
+            console.error('🔍 DEBUG: Error in showTryAnswering:', error);
+            console.error('🔍 DEBUG: Error stack:', error.stack);
+            
+            // Show error to user and DO NOT create modal
+            if (window.showError) {
+                window.showError('Error', 'Failed to load activity. Please try again.');
+            } else {
+                alert('Error: Failed to load activity. Please try again.');
+            }
+            
+            // DO NOT create modal if API call fails
+            console.log('🔍 DEBUG: API call failed, NOT creating modal');
+            return;
+        }
+    }
+
+    // Single method to show Reschedule modal
+    showReschedule(activityId, activityTitle = 'Activity', dueDate = 'Not set') {
+        if (this.debugMode) window.activityManager.showRescheduleModal(activityId, {
+            title: activityTitle,
+            dueDate: dueDate
+        });
+    }
+}
+
+// Create global clean system
+window.cleanActivitySystem = new CleanActivitySystem();
+
 // Create global instance
 window.activityManager = new ActivityManager();
 
@@ -319,43 +429,52 @@ class ActivityTester {
 
   // Show try answering modal
   showTryAnsweringModal(activityId, activityData) {
-    console.log('🚀 DEBUGGING: showTryAnsweringModal called!');
-    console.log('🚀 Activity ID:', activityId);
-    console.log('🚀 Activity Data:', activityData);
+    console.log('🔍 DEBUG: showTryAnsweringModal() called with:', { activityId, activityData });
     
-    this.currentActivity = { id: activityId, ...activityData };
-    console.log('🚀 Current Activity:', this.currentActivity);
+    // Validate that we have proper activity data
+    if (!activityData || !activityData.id) {
+      console.error('🔍 DEBUG: Invalid activity data provided:', activityData);
+      alert('Error: Invalid activity data. Please try again.');
+      return;
+    }
     
-    this.currentQuestionIndex = 0;
-    this.answers = {};
-    this.startTime = new Date();
-    
-    console.log('🚀 Creating modal...');
-    this.createModal();
-    console.log('🚀 Modal created, binding events...');
-    this.bindEvents();
-    console.log('🚀 Try Answering modal setup complete!');
+    try {
+      // Show Try Answering modal
+      this.currentActivity = { id: activityId, ...activityData };
+      console.log('🔍 DEBUG: Current activity set:', this.currentActivity);
+      
+      this.currentQuestionIndex = 0;
+      this.answers = {};
+      this.startTime = new Date();
+      
+      console.log('🔍 DEBUG: Creating modal...');
+      this.createModal();
+      console.log('🔍 DEBUG: Modal created, binding events...');
+      this.bindEvents();
+      console.log('🔍 DEBUG: Try Answering modal setup complete!');
+      
+    } catch (error) {
+      console.error('🔍 DEBUG: Error in showTryAnsweringModal:', error);
+      console.error('🔍 DEBUG: Error stack:', error.stack);
+      throw error;
+    }
   }
 
   // Create the modal structure - EXACT STUDENT INTERFACE
   createModal() {
-    console.log('🔍 DEBUGGING: createModal called!');
-    
     // Remove existing modal if any
     if (this.modal) {
-      console.log('🔍 Removing existing modal...');
       this.modal.remove();
     }
 
-    console.log('🔍 Creating new modal element...');
     this.modal = document.createElement('div');
     this.modal.className = 'modal';
     this.modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
     
     this.modal.innerHTML = `
-      <div class="modal-card" style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;max-width:1200px;width:95%;max-height:90vh;display:flex;flex-direction:column;font-family:'Inter',sans-serif;">
+      <div class="modal-card" style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;max-width:1400px;width:98%;max-height:95vh;display:flex;flex-direction:column;font-family:'Inter',sans-serif;">
         <!-- STUDENT TEST HEADER -->
-        <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:20px;font-family:'Inter',sans-serif;">
+        <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:25px;font-family:'Inter',sans-serif;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <h2 style="margin:0;font-size:24px;font-weight:600;font-family:'Inter',sans-serif;">${this.currentActivity.title || 'Activity'}</h2>
             <div style="text-align:right;font-family:'Inter',sans-serif;">
@@ -370,6 +489,17 @@ class ActivityTester {
           </div>
         </div>
         
+        <!-- PROGRESS BAR (Hidden for upload-based activities) -->
+        <div id="progress-section" style="padding:15px 20px;background:#f8f9fa;border-bottom:1px solid #e9ecef;font-family:'Inter',sans-serif;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:14px;color:#333;font-weight:600;font-family:'Inter',sans-serif;">⭐ Progress</span>
+            <span id="progress-counter" style="font-size:14px;color:#28a745;font-weight:600;font-family:'Inter',sans-serif;">0 / 1 answered</span>
+          </div>
+          <div style="background:#e9ecef;border-radius:10px;height:8px;overflow:hidden;">
+            <div id="progress-bar" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);height:100%;width:0%;transition:width 0.3s ease;"></div>
+          </div>
+        </div>
+        
         <!-- INSTRUCTIONS SECTION -->
         <div id="instructionsSection" style="padding:20px;border-bottom:1px solid #e9ecef;background:#f8f9fa;font-family:'Inter',sans-serif;">
           <h3 style="margin:0 0 12px 0;color:#333;font-size:16px;font-family:'Inter',sans-serif;">📋 Instructions</h3>
@@ -378,26 +508,14 @@ class ActivityTester {
         
         <!-- MAIN CONTENT AREA -->
         <div style="display:flex;flex:1;overflow:hidden;">
-          <!-- QUESTION NAVIGATION SIDEBAR -->
-          <div style="width:150px;background:#f8f9fa;border-right:1px solid #e9ecef;padding:16px;font-family:'Inter',sans-serif;">
-            <h4 style="margin:0 0 16px 0;color:#333;font-size:14px;font-family:'Inter',sans-serif;">Question Navigation</h4>
-            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;" id="questionNavigation">
-              <!-- Navigation buttons will be loaded here -->
-            </div>
-            <div style="margin-top:20px;padding:12px;background:white;border-radius:6px;border:1px solid #e9ecef;font-family:'Inter',sans-serif;">
-              <div style="font-size:12px;color:#6c757d;margin-bottom:4px;font-family:'Inter',sans-serif;">Progress</div>
-              <div id="progress-counter" style="font-size:14px;font-weight:600;color:#28a745;font-family:'Inter',sans-serif;">0 / 1 answered</div>
-            </div>
-          </div>
-          
-          <!-- QUESTIONS CONTENT -->
-          <div style="flex:1;padding:24px;overflow-y:auto;font-family:'Inter',sans-serif;" id="questionsContent">
-            <!-- Questions will be loaded here -->
-          </div>
+        <!-- QUESTIONS CONTENT - FULL WIDTH -->
+        <div style="flex:1;padding:30px;overflow-y:auto;font-family:'Inter',sans-serif;" id="questionsContent">
+          <!-- Questions will be loaded here -->
+        </div>
         </div>
         
         <!-- SUBMIT SECTION -->
-        <div id="submitSection" style="margin-top:30px;padding:20px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;margin:20px;font-family:'Inter',sans-serif;">
+        <div id="submitSection" style="margin-top:30px;padding:25px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;margin:25px;font-family:'Inter',sans-serif;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
               <div style="font-size:14px;color:#6c757d;margin-bottom:4px;font-family:'Inter',sans-serif;">Ready to submit?</div>
@@ -416,14 +534,9 @@ class ActivityTester {
       </div>
     `;
 
-    console.log('🔍 Appending modal to DOM...');
     document.body.appendChild(this.modal);
-    console.log('🔍 Modal appended to DOM successfully!');
-    
     // Use requestAnimationFrame to ensure DOM is fully rendered
-    console.log('🔍 Scheduling loadQuestions and startTimer...');
     requestAnimationFrame(() => {
-      console.log('🔍 requestAnimationFrame callback executing...');
       this.loadQuestions();
       this.startTimer();
     });
@@ -431,27 +544,31 @@ class ActivityTester {
 
   // Load questions for the activity
   async loadQuestions() {
-    console.log('🔍 DEBUGGING: loadQuestions called!');
-    console.log('🔍 Current Activity:', this.currentActivity);
-    
     try {
+      console.log('🔍 DEBUG: loadQuestions() called');
+      console.log('🔍 DEBUG: Current activity:', this.currentActivity);
+      
       // Ensure modal elements exist before proceeding
       const totalPointsEl = document.getElementById('totalPoints');
       const instructionsEl = document.getElementById('instructionsText');
       const questionsContent = document.getElementById('questionsContent');
       
-      console.log('🔍 Element check:');
-      console.log('🔍 - totalPointsEl:', totalPointsEl);
-      console.log('🔍 - instructionsEl:', instructionsEl);
-      console.log('🔍 - questionsContent:', questionsContent);
+      console.log('🔍 DEBUG: Modal elements found:', {
+        totalPointsEl: !!totalPointsEl,
+        instructionsEl: !!instructionsEl,
+        questionsContent: !!questionsContent
+      });
       
       if (!totalPointsEl || !instructionsEl || !questionsContent) {
-        console.error('❌ Modal elements not found, retrying...');
+        console.log('🔍 DEBUG: Modal elements not ready, retrying in 200ms...');
         setTimeout(() => this.loadQuestions(), 200);
         return;
       }
 
-      console.log('✅ Modal elements found, proceeding with data loading...');
+      // Check if currentActivity exists
+      if (!this.currentActivity) {
+        throw new Error('No activity data available');
+      }
 
       // Use the activity data that was passed from the dropdown click
       const activityData = {
@@ -460,31 +577,37 @@ class ActivityTester {
         settings: this.currentActivity.settings || {}
       };
       
-      console.log('🔍 Activity Data:', activityData);
+      console.log('🔍 DEBUG: Activity data prepared:', {
+        activity: activityData.activity,
+        questionsCount: activityData.questions.length,
+        settings: activityData.settings
+      });
       
       // Store the complete activity data
       this.activityData = activityData;
       this.questions = activityData.questions;
       this.settings = activityData.settings;
       
-      console.log('🔍 About to update activity info...');
+      console.log('🔍 DEBUG: About to update activity info...');
       // Update activity info in modal
       this.updateActivityInfo(activityData.activity);
-      console.log('🔍 Activity info updated successfully!');
+      console.log('🔍 DEBUG: Activity info updated successfully!');
       
       // For upload-based activities, show the upload interface
       if (this.questions.length === 0 && (activityData.activity.type === 'upload_based' || !activityData.activity.type)) {
-        console.log('📤 Showing upload-based activity interface...');
+        console.log('🔍 DEBUG: Showing upload-based activity interface...');
         this.displayActivityWithoutQuestions();
       } else {
-        console.log('📝 Showing questions interface...');
-        this.displayCurrentQuestion();
+        console.log('🔍 DEBUG: Showing all questions at once...');
+        this.displayAllQuestions();
       }
       
-      console.log('✅ loadQuestions completed successfully!');
+      console.log('🔍 DEBUG: loadQuestions completed successfully!');
+      
     } catch (error) {
-      console.error('❌ Error loading questions:', error);
-      console.error('❌ Error stack:', error.stack);
+      console.error('🔍 DEBUG: Error in loadQuestions:', error);
+      console.error('🔍 DEBUG: Error stack:', error.stack);
+      
       const questionsContent = document.getElementById('questionsContent');
       if (questionsContent) {
         questionsContent.innerHTML = `
@@ -492,6 +615,10 @@ class ActivityTester {
             <i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>
             <h3 style="margin:0 0 8px 0;">Error loading activity</h3>
             <p style="margin:0;color:#6b7280;">${error.message}</p>
+            <details style="margin-top:16px;text-align:left;background:#f8f9fa;padding:12px;border-radius:4px;">
+              <summary style="cursor:pointer;font-weight:600;">Debug Details</summary>
+              <pre style="margin:8px 0 0 0;font-size:12px;color:#6c757d;">${error.stack}</pre>
+            </details>
           </div>
         `;
       }
@@ -500,19 +627,12 @@ class ActivityTester {
 
   // Update activity info in modal header - STUDENT INTERFACE
   updateActivityInfo(activity) {
-    console.log('🔍 DEBUGGING: updateActivityInfo called!');
-    console.log('🔍 Activity:', activity);
-    
     // Update total points
     const totalPointsEl = document.getElementById('totalPoints');
-    console.log('🔍 totalPointsEl:', totalPointsEl);
     if (totalPointsEl) {
-      console.log('🔍 Setting total points to:', activity.max_score || 10);
       totalPointsEl.textContent = activity.max_score || 10; // Default to 10 points
-      console.log('🔍 Total points set successfully!');
-    } else {
-      console.error('❌ totalPointsEl is null!');
-    }
+      } else {
+      }
 
     // Update activity type display
     const activityTypeEl = document.getElementById('activityTypeDisplay');
@@ -531,9 +651,8 @@ class ActivityTester {
 
     // Update instructions
     const instructionsEl = document.getElementById('instructionsText');
-    console.log('🔍 instructionsEl:', instructionsEl);
     if (instructionsEl) {
-      let instructions = 'Draw a flowchart to convert the length in feet to centimeter';
+      let instructions = 'No instructions provided';
       if (activity.instructions) {
         try {
           const meta = JSON.parse(activity.instructions);
@@ -544,24 +663,17 @@ class ActivityTester {
       } else if (activity.description) {
         instructions = activity.description;
       }
-      console.log('🔍 Setting instructions to:', instructions);
       instructionsEl.textContent = instructions;
-      console.log('🔍 Instructions set successfully!');
-    } else {
-      console.error('❌ instructionsEl is null!');
-    }
+      } else {
+      }
 
     // Update progress counter
     const progressEl = document.getElementById('progress-counter');
-    console.log('🔍 progressEl:', progressEl);
     if (progressEl) {
       const questionCount = this.questions && this.questions.length > 0 ? this.questions.length : 1;
-      console.log('🔍 Setting progress to: 0 /', questionCount, 'answered');
       progressEl.textContent = `0 / ${questionCount} answered`;
-      console.log('🔍 Progress set successfully!');
-    } else {
-      console.error('❌ progressEl is null!');
-    }
+      } else {
+      }
   }
 
   // Get activity type label
@@ -607,8 +719,6 @@ class ActivityTester {
         throw new Error(data.message || 'Failed to load activity');
       }
     } catch (error) {
-      console.error('Error fetching activity data:', error);
-      
       // Fallback: Try to get activity data from the current activity object
       if (this.currentActivity && this.currentActivity.questions) {
         return {
@@ -620,6 +730,68 @@ class ActivityTester {
       
       // If no real data available, show appropriate message
       throw new Error('Unable to load activity data. Please check if the activity has been properly configured.');
+    }
+  }
+
+  // Handle progress display based on activity type
+  handleProgressDisplay() {
+    const progressSection = document.getElementById('progress-section');
+    
+    if (progressSection) {
+      // Hide progress for upload-based activities
+      if (this.currentActivity.type === 'upload_based' || this.currentActivity.type === 'UPLOAD_BASED') {
+        progressSection.style.display = 'none';
+        console.log('🔍 DEBUG: Progress section hidden for upload-based activity');
+      } else {
+        progressSection.style.display = 'block';
+        console.log('🔍 DEBUG: Progress section shown for question-based activity');
+      }
+    }
+  }
+
+  // Display all questions at once
+  displayAllQuestions() {
+    const questionsContent = document.getElementById('questionsContent');
+    if (!questionsContent) return;
+    
+    // Reset answers for fresh start
+    this.answers = {};
+    console.log('🔍 DEBUG: Answers reset to empty object:', this.answers);
+    
+    let allQuestionsHtml = '';
+    
+    this.questions.forEach((question, index) => {
+      allQuestionsHtml += `
+        <div style="border:1px solid #e9ecef;border-radius:8px;padding:30px;margin-bottom:30px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);font-family:'Inter',sans-serif;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;color:#333;font-size:18px;font-weight:600;font-family:'Inter',sans-serif;">Question ${index + 1}</h3>
+            <div style="background:#e9ecef;color:#495057;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;">
+              ${question.points || 1} point${(question.points || 1) !== 1 ? 's' : ''}
+            </div>
+          </div>
+          
+          <div style="margin-bottom:20px;">
+            <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-family:'Inter',sans-serif;">${question.question_text || question.question || 'Question text not available'}</p>
+          </div>
+          
+          ${this.renderQuestionInput(question, index)}
+        </div>
+      `;
+    });
+    
+    questionsContent.innerHTML = allQuestionsHtml;
+    
+    // Hide progress section for upload-based activities
+    this.handleProgressDisplay();
+    
+    // Add event delegation for choice clicks
+    this.setupChoiceEventListeners();
+    
+    // Update progress counter and bar (only for non-upload activities)
+    if (this.currentActivity.type !== 'upload_based' && this.currentActivity.type !== 'UPLOAD_BASED') {
+      this.updateProgress();
+      // Don't load existing progress automatically - let user start fresh
+      // this.loadExistingProgress();
     }
   }
 
@@ -652,7 +824,7 @@ class ActivityTester {
     
     // Render the question content
     let questionHtml = `
-      <div style="border:1px solid #e9ecef;border-radius:8px;padding:24px;margin-bottom:24px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);font-family:'Inter',sans-serif;">
+      <div style="border:1px solid #e9ecef;border-radius:8px;padding:30px;margin-bottom:30px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);font-family:'Inter',sans-serif;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
           <h3 style="margin:0;color:#333;font-size:18px;font-weight:600;font-family:'Inter',sans-serif;">Question ${this.currentQuestionIndex + 1}</h3>
           <div style="background:#e9ecef;color:#495057;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;">
@@ -675,6 +847,156 @@ class ActivityTester {
     this.updateNavigation();
   }
 
+  // Render question input based on question type
+  renderQuestionInput(question, questionIndex) {
+    // Check for question type from multiple possible sources
+    const questionType = question.type || question.activity_type || this.currentActivity?.type || 'multiple_choice';
+    
+    let result;
+    switch (questionType) {
+      case 'multiple_choice':
+        result = this.renderMultipleChoiceInput(question, questionIndex);
+        break;
+      case 'true_false':
+        result = this.renderTrueFalseInput(question, questionIndex);
+        break;
+      case 'identification':
+        result = this.renderIdentificationInput(question, questionIndex);
+        break;
+      case 'essay':
+        result = this.renderEssayInput(question, questionIndex);
+        break;
+      case 'upload_based':
+      case 'UPLOAD_BASED':
+        result = this.renderUploadInput(question, questionIndex);
+        break;
+      default:
+        result = this.renderMultipleChoiceInput(question, questionIndex);
+    }
+    
+    return result;
+  }
+
+  // Render multiple choice input
+  renderMultipleChoiceInput(question, questionIndex) {
+    const choices = question.choices || [];
+    let choicesHtml = '';
+    
+    choices.forEach((choice, index) => {
+      const choiceLabel = String.fromCharCode(65 + index); // A, B, C, D, E, etc.
+      choicesHtml += `
+        <div class="choice-container" data-question="${questionIndex}" data-choice="${choice.id}" 
+             style="margin-bottom:16px;padding:16px;border:1px solid #e9ecef;border-radius:8px;background:#f8f9fa;cursor:pointer;transition:all 0.2s ease;">
+          <label style="display:flex;align-items:center;cursor:pointer;margin:0;">
+            <input type="radio" name="question_${questionIndex}" value="${choice.id}" 
+                   style="margin-right:16px;transform:scale(1.3);">
+            <span style="flex:1;font-size:15px;line-height:1.6;">
+              <strong>${choiceLabel}.</strong> ${choice.choice_text || choice.text || 'Choice ' + (index + 1)}
+            </span>
+          </label>
+        </div>
+      `;
+    });
+    
+    return `
+      <div style="margin-top:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h4 style="margin:0;color:#333;font-size:16px;">Select your answer:</h4>
+          <button type="button" onclick="window.activityTester.clearAnswer('${questionIndex}')" 
+                  style="background:#f8f9fa;color:#6c757d;border:1px solid #dee2e6;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;transition:all 0.2s;"
+                  onmouseover="this.style.background='#e9ecef';this.style.borderColor='#adb5bd';"
+                  onmouseout="this.style.background='#f8f9fa';this.style.borderColor='#dee2e6';">
+            🗑️ Clear Answer
+          </button>
+        </div>
+        ${choicesHtml}
+      </div>
+    `;
+  }
+
+  // Render true/false input
+  renderTrueFalseInput(question, questionIndex) {
+    return `
+      <div style="margin-top:20px;">
+        <h4 style="margin:0 0 16px 0;color:#333;font-size:16px;">Select your answer:</h4>
+        <div style="display:flex;gap:16px;">
+          <div class="choice-container" data-question="${questionIndex}" data-choice="true" 
+               style="display:flex;align-items:center;padding:12px 24px;border:1px solid #e9ecef;border-radius:6px;background:#f8f9fa;cursor:pointer;flex:1;justify-content:center;transition:all 0.2s ease;">
+            <input type="radio" name="question_${questionIndex}" value="true" style="margin-right:8px;transform:scale(1.2);">
+            <span style="font-size:16px;font-weight:600;color:#28a745;">TRUE</span>
+          </div>
+          <div class="choice-container" data-question="${questionIndex}" data-choice="false" 
+               style="display:flex;align-items:center;padding:12px 24px;border:1px solid #e9ecef;border-radius:6px;background:#f8f9fa;cursor:pointer;flex:1;justify-content:center;transition:all 0.2s ease;">
+            <input type="radio" name="question_${questionIndex}" value="false" style="margin-right:8px;transform:scale(1.2);">
+            <span style="font-size:16px;font-weight:600;color:#dc3545;">FALSE</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Render identification input
+  renderIdentificationInput(question, questionIndex) {
+    return `
+      <div style="margin-top:20px;">
+        <h4 style="margin:0 0 16px 0;color:#333;font-size:16px;">Type your answer:</h4>
+        <input type="text" name="question_${questionIndex}" 
+               style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:16px;font-family:'Inter',sans-serif;"
+               placeholder="Enter your answer here..."
+               oninput="window.activityTester.saveAnswer('${questionIndex}', this.value)">
+      </div>
+    `;
+  }
+
+  // Render essay input
+  renderEssayInput(question, questionIndex) {
+    return `
+      <div style="margin-top:20px;">
+        <h4 style="margin:0 0 16px 0;color:#333;font-size:16px;">Write your answer:</h4>
+        <textarea name="question_${questionIndex}" rows="6" 
+                  style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:16px;font-family:'Inter',sans-serif;resize:vertical;"
+                  placeholder="Write your essay answer here..."
+                  oninput="window.activityTester.saveAnswer('${questionIndex}', this.value)"></textarea>
+      </div>
+    `;
+  }
+
+  // Render upload input
+  renderUploadInput(question, questionIndex) {
+    return `
+      <div style="margin-top:20px;">
+        <h4 style="margin:0 0 16px 0;color:#333;font-size:16px;">Upload your work:</h4>
+        <div style="border:2px dashed #d1d5db;border-radius:8px;padding:30px;text-align:center;background:#f9fafb;">
+          <input type="file" id="fileInput_${questionIndex}" name="question_${questionIndex}" 
+                 accept=".pdf,.docx,.jpg,.png"
+                 style="display:none;" 
+                 onchange="window.activityTester.handleFileUpload('${questionIndex}', this)">
+          
+          <!-- Paperclip Icon -->
+          <div style="font-size:48px;color:#333;margin-bottom:15px;">📎</div>
+          
+          <!-- Main Text -->
+          <h3 style="margin:0 0 8px 0;color:#333;font-size:18px;font-weight:600;">Upload Your File</h3>
+          
+          <!-- File Info -->
+          <div style="margin:16px 0;font-size:14px;color:#6b7280;">
+            <div style="margin-bottom:8px;">Accepted formats: PDF, DOCX, JPG, PNG</div>
+            <div>Maximum file size: 10MB</div>
+          </div>
+          
+          <!-- Choose File Button -->
+          <button type="button" onclick="document.getElementById('fileInput_${questionIndex}').click()" 
+                  style="background:#1d9b3e;color:#fff;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:600;">
+            Choose File
+          </button>
+          
+          <!-- File Status -->
+          <div id="fileStatus_${questionIndex}" style="margin-top:12px;font-size:14px;color:#6b7280;">No file selected</div>
+        </div>
+      </div>
+    `;
+  }
+
   // Go to specific question
   goToQuestion(index) {
     if (index >= 0 && index < this.questions.length) {
@@ -688,6 +1010,9 @@ class ActivityTester {
     const questionsContent = document.getElementById('questionsContent');
     const questionNavigation = document.getElementById('questionNavigation');
     const activity = this.activityData?.activity;
+    
+    // Hide progress section for upload-based activities
+    this.handleProgressDisplay();
     
     let activityHtml = `
       <div class="activity-content" style="text-align:center;padding:40px 20px;">
@@ -708,7 +1033,7 @@ class ActivityTester {
           <div style="font-size:48px;margin-bottom:16px;color:#6b7280;">📎</div>
           <h4 style="margin:0 0 16px 0;color:#374151;font-size:18px;font-family:'Inter',sans-serif;">Upload Your Work</h4>
           <p style="margin:0 0 24px 0;color:#6b7280;font-size:14px;font-family:'Inter',sans-serif;">
-            Draw a flowchart to convert the length in feet to centimeter
+            ${activity?.instructions || 'Complete this activity as instructed.'}
           </p>
           
           <div style="margin-bottom:20px;">
@@ -909,13 +1234,11 @@ class ActivityTester {
     const fileSizeEl = document.getElementById('fileSize');
     if (fileSizeEl) fileSizeEl.textContent = `Size: ${this.formatFileSize(file.size)}`;
     
-    console.log('Activity file uploaded:', { fileName: file.name, fileSize: file.size });
-  }
+    }
 
   // Run activity code
   runActivityCode() {
     const code = document.getElementById('activityCode').value;
-    console.log('Running activity code:', code);
     this.showNotification('info', 'Code execution would happen here');
   }
 
@@ -923,7 +1246,6 @@ class ActivityTester {
   saveActivityCode() {
     const code = document.getElementById('activityCode').value;
     this.answers['code'] = code;
-    console.log('Activity code saved:', code);
     this.showNotification('success', 'Code saved successfully!');
   }
 
@@ -1147,8 +1469,7 @@ class ActivityTester {
     document.getElementById(`fileName_${questionId}`).textContent = `File: ${file.name}`;
     document.getElementById(`fileSize_${questionId}`).textContent = `Size: ${this.formatFileSize(file.size)}`;
     
-    console.log('File uploaded:', { questionId, fileName: file.name, fileSize: file.size });
-  }
+    }
 
   // Format file size
   formatFileSize(bytes) {
@@ -1162,14 +1483,12 @@ class ActivityTester {
   // Open lab environment
   openLabEnvironment(questionId) {
     // This would open the lab environment (e.g., Jupyter, CodePen, etc.)
-    console.log('Opening lab environment for question:', questionId);
     this.showNotification('info', 'Lab environment would open here');
   }
 
   // Run code
   runCode(questionId) {
     const code = document.getElementById(`code_${questionId}`).value;
-    console.log('Running code:', code);
     this.showNotification('info', 'Code execution would happen here');
   }
 
@@ -1177,7 +1496,6 @@ class ActivityTester {
   saveCode(questionId) {
     const code = document.getElementById(`code_${questionId}`).value;
     this.answers[questionId] = code;
-    console.log('Code saved:', { questionId, code });
     this.showNotification('success', 'Code saved successfully!');
   }
 
@@ -1195,33 +1513,364 @@ class ActivityTester {
     return labels[type] || type;
   }
 
+  // Setup event listeners for choice clicks
+  setupChoiceEventListeners() {
+    // Remove any existing listeners
+    const existingListeners = document.querySelectorAll('.choice-container');
+    existingListeners.forEach(container => {
+      container.removeEventListener('click', this.handleChoiceClick);
+    });
+    
+    // Add new event listeners using event delegation
+    document.addEventListener('click', (event) => {
+      const choiceContainer = event.target.closest('.choice-container');
+      if (choiceContainer) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const questionIndex = choiceContainer.dataset.question;
+        const choiceId = choiceContainer.dataset.choice;
+        
+        this.handleChoiceClick(choiceContainer, questionIndex, choiceId);
+      }
+    });
+    
+    console.log('🔍 DEBUG: Choice event listeners setup complete');
+  }
+
+  // Handle choice click (more reliable)
+  handleChoiceClick(container, questionIndex, choiceId) {
+    console.log('🔍 DEBUG: Choice clicked:', questionIndex, choiceId);
+    
+    const radioInput = container.querySelector('input[type="radio"]');
+    const isCurrentlySelected = radioInput.checked;
+    
+    if (isCurrentlySelected) {
+      // If already selected, deselect it
+      radioInput.checked = false;
+      container.style.background = '#f8f9fa';
+      container.style.borderColor = '#e9ecef';
+      
+      // Remove answer from answers object
+      delete this.answers[questionIndex];
+      this.updateProgress();
+      this.saveProgressToDatabase();
+      
+      console.log('🔍 DEBUG: Choice deselected for question', questionIndex);
+    } else {
+      // If not selected, select it and deselect others
+      radioInput.checked = true;
+      container.style.background = '#e3f2fd';
+      container.style.borderColor = '#2196f3';
+      
+      // Deselect other choices in the same question
+      const allChoices = document.querySelectorAll(`input[name="question_${questionIndex}"]`);
+      allChoices.forEach(choice => {
+        if (choice.value !== choiceId) {
+          choice.checked = false;
+          const otherContainer = choice.closest('.choice-container');
+          if (otherContainer) {
+            otherContainer.style.background = '#f8f9fa';
+            otherContainer.style.borderColor = '#e9ecef';
+          }
+        }
+      });
+      
+      // Save the new answer
+      this.saveAnswer(questionIndex, choiceId);
+      
+      console.log('🔍 DEBUG: Choice selected for question', questionIndex, ':', choiceId);
+    }
+  }
+
+  // Clear answer for a specific question
+  clearAnswer(questionIndex) {
+    // Uncheck all radio buttons for this question
+    const allChoices = document.querySelectorAll(`input[name="question_${questionIndex}"]`);
+    allChoices.forEach(choice => {
+      choice.checked = false;
+      const container = choice.closest('div[onclick]');
+      if (container) {
+        container.style.background = '#f8f9fa';
+        container.style.borderColor = '#e9ecef';
+      }
+    });
+    
+    // Remove answer from answers object
+    delete this.answers[questionIndex];
+    this.updateProgress();
+    this.saveProgressToDatabase();
+    
+    console.log('🔍 DEBUG: Answer cleared for question', questionIndex);
+  }
+
+  // Handle file upload
+  handleFileUpload(questionIndex, input) {
+    const file = input.files[0];
+    const fileStatus = document.getElementById(`fileStatus_${questionIndex}`);
+    
+    if (file) {
+      if (fileStatus) {
+        fileStatus.textContent = `Selected: ${file.name}`;
+        fileStatus.style.color = '#1d9b3e';
+      }
+      this.saveAnswer(questionIndex, file.name);
+      console.log('🔍 DEBUG: File uploaded for question', questionIndex, ':', file.name);
+    } else {
+      if (fileStatus) {
+        fileStatus.textContent = 'No file selected';
+        fileStatus.style.color = '#6b7280';
+      }
+      this.saveAnswer(questionIndex, '');
+    }
+  }
+
+  // Handle file drop
+  handleFileDrop(event, questionIndex) {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      const input = document.getElementById(`fileInput_${questionIndex}`);
+      input.files = event.dataTransfer.files;
+      this.handleFileUpload(questionIndex, input);
+    }
+  }
+
+  // Handle drag over
+  handleDragOver(event) {
+    event.preventDefault();
+  }
+
+  // Handle drag enter
+  handleDragEnter(event, questionIndex) {
+    event.preventDefault();
+    const uploadArea = document.getElementById(`uploadArea_${questionIndex}`);
+    uploadArea.style.borderColor = '#20c997';
+    uploadArea.style.background = 'linear-gradient(135deg, #f0fff4 0%, #d4edda 100%)';
+  }
+
+  // Handle drag leave
+  handleDragLeave(event, questionIndex) {
+    event.preventDefault();
+    const uploadArea = document.getElementById(`uploadArea_${questionIndex}`);
+    uploadArea.style.borderColor = '#28a745';
+    uploadArea.style.background = 'linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%)';
+  }
+
+  // Show file status
+  showFileStatus(questionIndex, fileName) {
+    const fileStatus = document.getElementById(`fileStatus_${questionIndex}`);
+    const fileNameSpan = document.getElementById(`fileName_${questionIndex}`);
+    
+    if (fileStatus && fileNameSpan) {
+      fileNameSpan.textContent = fileName;
+      fileStatus.style.display = 'block';
+    }
+  }
+
+  // Remove file
+  removeFile(questionIndex) {
+    const input = document.getElementById(`fileInput_${questionIndex}`);
+    const fileStatus = document.getElementById(`fileStatus_${questionIndex}`);
+    
+    if (input) {
+      input.value = '';
+    }
+    
+    if (fileStatus) {
+      fileStatus.style.display = 'none';
+    }
+    
+    this.saveAnswer(questionIndex, '');
+    console.log('🔍 DEBUG: File removed for question', questionIndex);
+  }
+
   // Save answer
   saveAnswer(questionId, answer) {
-    this.answers[questionId] = answer;
-    console.log('Answer saved:', { questionId, answer });
+    // If answer is empty or just whitespace, remove it from answers
+    if (!answer || answer.trim() === '') {
+      delete this.answers[questionId];
+      console.log('🔍 DEBUG: Empty answer removed for question', questionId);
+    } else {
+      this.answers[questionId] = answer;
+      console.log('🔍 DEBUG: Answer saved for question', questionId, ':', answer);
+    }
+    
+    this.updateProgress();
+    
+    // Auto-save progress to database
+    this.saveProgressToDatabase();
+  }
+
+  // Save progress to database
+  async saveProgressToDatabase() {
+    try {
+      if (!this.currentActivity || !this.currentActivity.id) {
+        console.log('🔍 DEBUG: No activity ID available for saving progress');
+        return;
+      }
+      
+      const progressData = {
+        activity_id: this.currentActivity.id,
+        user_id: window.__USER_ID__ || null,
+        answers: this.answers,
+        progress_percentage: this.calculateProgressPercentage(),
+        last_updated: new Date().toISOString()
+      };
+      
+      console.log('🔍 DEBUG: Saving progress to database:', progressData);
+      
+      const response = await fetch('save_activity_progress.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(progressData)
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Progress saved successfully:', result);
+      } else {
+        console.error('❌ Failed to save progress:', response.statusText);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error saving progress:', error);
+    }
+  }
+  
+  // Load existing progress from database
+  async loadExistingProgress() {
+    try {
+      if (!this.currentActivity || !this.currentActivity.id) {
+        console.log('🔍 DEBUG: No activity ID available for loading progress');
+        return;
+      }
+      
+      const response = await fetch(`get_activity_progress.php?activity_id=${this.currentActivity.id}&user_id=${window.__USER_ID__ || 0}`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          console.log('✅ Loaded existing progress:', result.data);
+          
+          // Restore answers
+          if (result.data.answers) {
+            this.answers = result.data.answers;
+            
+            // Restore form values
+            this.restoreFormValues();
+            
+            // Update progress display
+            this.updateProgress();
+          }
+        }
+      } else {
+        console.log('🔍 DEBUG: No existing progress found');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error loading existing progress:', error);
+    }
+  }
+  
+  // Restore form values from saved answers
+  restoreFormValues() {
+    Object.keys(this.answers).forEach(questionIndex => {
+      const answer = this.answers[questionIndex];
+      
+      // Try to find and restore radio button
+      const radioInput = document.querySelector(`input[name="question_${questionIndex}"][value="${answer}"]`);
+      if (radioInput) {
+        radioInput.checked = true;
+        // Also update the visual state of the container
+        const container = radioInput.closest('div[onclick]');
+        if (container) {
+          container.style.background = '#e3f2fd';
+          container.style.borderColor = '#2196f3';
+        }
+      }
+      
+      // Try to find and restore text input
+      const textInput = document.querySelector(`input[name="question_${questionIndex}"]`);
+      if (textInput && textInput.type === 'text') {
+        textInput.value = answer;
+      }
+      
+      // Try to find and restore textarea
+      const textarea = document.querySelector(`textarea[name="question_${questionIndex}"]`);
+      if (textarea) {
+        textarea.value = answer;
+      }
+    });
+  }
+
+  // Calculate progress percentage
+  calculateProgressPercentage() {
+    const answeredCount = Object.keys(this.answers).length;
+    const totalQuestions = this.questions ? this.questions.length : 1;
+    return totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
+  }
+
+  // Update progress bar and counter
+  updateProgress() {
+    const progressCounter = document.getElementById('progress-counter');
+    const progressBar = document.getElementById('progress-bar');
+    
+    if (progressCounter && progressBar) {
+      const answeredCount = Object.keys(this.answers).length;
+      const totalQuestions = this.questions ? this.questions.length : 1;
+      const percentage = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+      
+      progressCounter.textContent = `${answeredCount} / ${totalQuestions} answered`;
+      progressBar.style.width = `${percentage}%`;
+      
+      console.log('🔍 DEBUG: Progress updated:', `${answeredCount}/${totalQuestions} (${percentage.toFixed(1)}%)`);
+    }
   }
 
   // Update navigation buttons
   updateNavigation() {
-    const prevBtn = document.getElementById('prevQuestion');
-    const nextBtn = document.getElementById('nextQuestion');
-    const submitBtn = document.getElementById('submitActivity');
+    console.log('🔍 DEBUG: updateNavigation() called');
     
-    // Show/hide previous button
-    prevBtn.style.display = this.currentQuestionIndex > 0 ? 'block' : 'none';
+    // The modal uses different element IDs - let's find the correct ones
+    const finishBtn = document.getElementById('finish-attempt-btn');
+    const progressCounter = document.getElementById('progress-counter');
     
-    // Update next/submit button
-    if (this.currentQuestionIndex === this.questions.length - 1) {
-      nextBtn.style.display = 'none';
-      submitBtn.style.display = 'block';
-    } else {
-      nextBtn.style.display = 'block';
-      submitBtn.style.display = 'none';
+    console.log('🔍 DEBUG: Modal elements found:', {
+      finishBtn: !!finishBtn,
+      progressCounter: !!progressCounter
+    });
+    
+    // Update progress counter
+    if (progressCounter) {
+      const answeredCount = Object.keys(this.answers).length;
+      const totalQuestions = this.questions ? this.questions.length : 0;
+      progressCounter.textContent = `${answeredCount} / ${totalQuestions} answered`;
+      console.log('🔍 DEBUG: Progress updated:', `${answeredCount} / ${totalQuestions} answered`);
     }
     
-    // Update current question number
-    const currentQuestionEl = document.getElementById('currentQuestion');
-    if (currentQuestionEl) currentQuestionEl.textContent = this.currentQuestionIndex + 1;
+    // Update question navigation buttons
+    const questionNav = document.getElementById('questionNavigation');
+    if (questionNav && this.questions) {
+      questionNav.innerHTML = '';
+      this.questions.forEach((question, index) => {
+        const btn = document.createElement('button');
+        btn.textContent = index + 1;
+        btn.style.cssText = `
+          width: 32px; height: 32px; border-radius: 6px; border: 1px solid #e9ecef;
+          background: ${index === this.currentQuestionIndex ? '#28a745' : '#f8f9fa'};
+          color: ${index === this.currentQuestionIndex ? 'white' : '#6c757d'};
+          cursor: pointer; font-size: 12px; font-weight: 600;
+        `;
+        btn.onclick = () => this.goToQuestion(index);
+        questionNav.appendChild(btn);
+      });
+      console.log('🔍 DEBUG: Question navigation updated with', this.questions.length, 'questions');
+    }
+    
+    console.log('🔍 DEBUG: Navigation updated successfully');
   }
 
   // Start timer
@@ -1250,18 +1899,23 @@ class ActivityTester {
   // Bind event listeners
   bindEvents() {
     // Close modal
-    document.getElementById('closeTryAnsweringModal').addEventListener('click', () => this.closeModal());
+    const closeBtn = document.getElementById('closeTryAnsweringModal');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.closeModal());
+    }
     
     // Click outside to close
     this.modal.addEventListener('click', (e) => {
       if (e.target === this.modal) this.closeModal();
     });
 
-    // Navigation buttons
-    document.getElementById('prevQuestion').addEventListener('click', () => this.previousQuestion());
-    document.getElementById('nextQuestion').addEventListener('click', () => this.nextQuestion());
-    document.getElementById('saveProgress').addEventListener('click', () => this.saveProgress());
-    document.getElementById('submitActivity').addEventListener('click', () => this.submitActivity());
+    // Finish attempt button
+    const finishBtn = document.getElementById('finish-attempt-btn');
+    if (finishBtn) {
+      finishBtn.addEventListener('click', () => this.submitActivity());
+    }
+    
+    console.log('🔍 DEBUG: Events bound successfully');
   }
 
   // Previous question
@@ -1304,7 +1958,6 @@ class ActivityTester {
       saveBtn.innerHTML = originalText;
       saveBtn.disabled = false;
     } catch (error) {
-      console.error('Error saving progress:', error);
       this.showNotification('error', 'Failed to save progress. Please try again.');
     }
   }
@@ -1331,7 +1984,6 @@ class ActivityTester {
       this.showNotification('success', 'Activity submitted successfully!');
       this.closeModal();
     } catch (error) {
-      console.error('Error submitting activity:', error);
       this.showNotification('error', 'Failed to submit activity. Please try again.');
     }
   }
@@ -1370,22 +2022,13 @@ class ActivityTester {
 }
 
 // Create global instance
-console.log('🔍 DEBUGGING: Initializing ActivityTester...');
 window.activityTester = new ActivityTester();
-console.log('🔍 DEBUGGING: ActivityTester initialized successfully!');
-
 // ======================== END ACTIVITY TESTER CLASS ========================
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('🔍 DEBUGGING: DOMContentLoaded event fired!');
-  
-  // Add global click listener for debugging
-  document.addEventListener('click', (e) => {
+    document.addEventListener('click', (e) => {
     if (e.target.textContent && e.target.textContent.includes('Try answering')) {
-      console.log('🔍 DEBUGGING: Try answering clicked globally!');
-      console.log('🔍 Target element:', e.target);
-      console.log('🔍 Parent element:', e.target.parentElement);
-    }
+      }
   });
   
   // Wire navigation tabs
@@ -1422,14 +2065,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Topic headers (will be re-bound when topics are rendered)
-  console.log('🔍 DEBUGGING: Binding topic headers...');
   const topicHeaders = document.querySelectorAll('.topic-header');
-  console.log('🔍 Found topic headers:', topicHeaders.length);
-  
   topicHeaders.forEach((header, index) => {
-    console.log(`🔍 Binding topic header ${index}:`, header);
     header.addEventListener('click', () => {
-      console.log(`🔍 Topic header ${index} clicked!`);
       toggleTopic(header.closest('.topic-item'));
     });
   });
@@ -1517,23 +2155,75 @@ function loadDetails() {
 // Populate all modules and their lessons from the teacher's selected course
 function loadTopicsFromCourse() {
   const id = window.__CLASS_ID__;
+  if (!id) {
+    return;
+  }
+  
   fetch('class_view_api.php?action=list_topics&id=' + encodeURIComponent(id), { credentials: 'same-origin' })
     .then(r => r.json())
     .then(res => {
-      if (!res || !res.success) return;
+      if (!res || !res.success) {
+        return;
+      }
       const modules = Array.isArray(res.modules) ? res.modules : [];
       const container = document.querySelector('.lesson-topics');
-      if (!container) return;
-      if (!modules.length) { container.innerHTML = ''; return; }
+      if (!container) {
+        return;
+      }
+      if (!modules.length) { 
+        container.innerHTML = ''; 
+        return; 
+      }
       
       // Generate HTML for all modules
-      container.innerHTML = modules.map((module, moduleIdx) => {
+      const generatedHTML = modules.map((module, moduleIdx) => {
         const moduleTitle = escapeHtml(module.title || 'Untitled Module');
         const lessons = Array.isArray(module.lessons) ? module.lessons : [];
         
         const lessonsHtml = lessons.map((lesson, lessonIdx) => {
           const title = escapeHtml(lesson.title || 'Untitled');
           const lessonNum = lessonIdx + 1;
+          const activities = Array.isArray(lesson.activities) ? lesson.activities : [];
+          
+          // Generate activity cards for each real activity
+          
+          const activitiesHtml = activities.map((activity, activityIdx) => {
+            const activityTitle = escapeHtml(activity.title || 'Untitled Activity');
+            const activityType = activity.type || 'upload_based';
+            const maxScore = activity.max_score || 10;
+            
+            return (
+              '<div class="activity-card" data-activity-id="' + activity.id + '">' +
+                '<div class="activity-left-border"></div>' +
+                '<div class="activity-content">' +
+                  '<div class="activity-title">' + activityTitle + '</div>' +
+                  '<div class="activity-dates">' +
+                    '<div class="activity-date start"><i class="fas fa-calendar-check"></i> 03 May 2025 06:24PM</div>' +
+                    '<div class="activity-date end"><i class="fas fa-calendar-times"></i> 04 May 2025 12:00AM</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="activity-stats">' +
+                  '<div class="stat-circle">' +
+                    '<div class="stat-value">0/' + maxScore + '</div>' +
+                    '<div class="stat-label">Avg. overall s</div>' +
+                  '</div>' +
+                  '<div class="stat-circle">' +
+                    '<div class="stat-value">00:00</div>' +
+                    '<div class="stat-label">Activity Actions</div>' +
+                  '</div>' +
+                  '<div class="activity-menu">' +
+                    '<i class="fas fa-ellipsis-v"></i>' +
+                    '<div class="activity-dropdown">' +
+                      '<div class="dropdown-item"><i class="fas fa-calendar"></i> Reschedule/Set retakers</div>' +
+                      '<div class="dropdown-item"><i class="fas fa-play"></i> Try answering</div>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
+              '</div>'
+            );
+          }).join('');
+          
+          // Return lesson wrapper with activities
           return (
             '<div class="topic-item" data-lesson-id="' + (lesson.id||'') + '">' +
               '<div class="topic-header">' +
@@ -1552,33 +2242,7 @@ function loadTopicsFromCourse() {
                   '<div class="topic-doc-icon"><i class="fas fa-file-alt"></i></div>' +
                   '<div class="topic-content-link">Topic Content</div>' +
                 '</div>' +
-                '<div class="activity-card">' +
-                  '<div class="activity-left-border"></div>' +
-                  '<div class="activity-content">' +
-                    '<div class="activity-title">' + title + ' Activity</div>' +
-                    '<div class="activity-dates">' +
-                      '<div class="activity-date start"><i class="fas fa-calendar-check"></i> 03 May 2025 06:24PM</div>' +
-                      '<div class="activity-date end"><i class="fas fa-calendar-times"></i> 04 May 2025 12:00AM</div>' +
-                    '</div>' +
-                  '</div>' +
-                  '<div class="activity-stats">' +
-                    '<div class="stat-circle">' +
-                      '<div class="stat-value">0/10</div>' +
-                      '<div class="stat-label">Avg. overall s</div>' +
-                    '</div>' +
-                    '<div class="stat-circle">' +
-                      '<div class="stat-value">00:00</div>' +
-                      '<div class="stat-label">Activity Actions</div>' +
-                    '</div>' +
-                    '<div class="activity-menu">' +
-                      '<i class="fas fa-ellipsis-v"></i>' +
-                      '<div class="activity-dropdown">' +
-                        '<div class="dropdown-item"><i class="fas fa-calendar"></i> Reschedule/Set retakers</div>' +
-                        '<div class="dropdown-item"><i class="fas fa-play"></i> Try answering</div>' +
-                      '</div>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>' +
+                activitiesHtml +
               '</div>' +
             '</div>'
           );
@@ -1596,27 +2260,20 @@ function loadTopicsFromCourse() {
         );
       }).join('');
       
+      container.innerHTML = generatedHTML;
+      
       // Rebind headers for expand/collapse and lazy load
-      console.log('🔍 DEBUGGING: Re-binding topic headers after content load...');
       const newTopicHeaders = document.querySelectorAll('.topic-header');
-      console.log('🔍 Found new topic headers:', newTopicHeaders.length);
       
       newTopicHeaders.forEach((header, index) => {
-        console.log(`🔍 Re-binding topic header ${index}:`, header);
         header.addEventListener('click', () => {
-          console.log(`🔍 Re-bound topic header ${index} clicked!`);
           toggleTopic(header.closest('.topic-item'));
         });
       });
       
       // Bind event listeners for main dashboard activity menus
-      console.log('🔍 DEBUGGING: Binding main dashboard activity menus...');
       const mainActivityMenus = document.querySelectorAll('.activity-menu');
-      console.log('🔍 Found main activity menus:', mainActivityMenus.length);
-      
       mainActivityMenus.forEach((menu, index) => {
-        console.log(`🔍 Binding main activity menu ${index}:`, menu);
-        
         // Bind dropdown toggle
         menu.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1633,49 +2290,42 @@ function loadTopicsFromCourse() {
           dropdownItem.addEventListener('click', (e) => {
             e.stopPropagation();
             const text = dropdownItem.textContent.trim();
-            console.log('🔍 Main dashboard dropdown item clicked:', text);
-            
             if (text.includes('Reschedule/Set retakers')) {
-              // Get activity data from the item
+              // CLEAN: Use the clean activity system
               const activityCard = menu.closest('.activity-card');
-              const activityId = activityCard?.getAttribute('data-activity-id') || '1';
+              const activityId = activityCard?.getAttribute('data-activity-id');
+              if (!activityId) {
+                console.error('❌ No data-activity-id found on activity card:', activityCard);
+                return;
+              }
               const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
               const dueDate = activityCard?.querySelector('.due-date')?.textContent || 'Not set';
               
-              // Show reschedule modal
-              window.activityManager.showRescheduleModal(activityId, {
-                title: activityTitle,
-                dueDate: dueDate
-              });
+              window.cleanActivitySystem.showReschedule(activityId, activityTitle, dueDate);
             } else if (text.includes('Try answering')) {
-              // Get activity data from the item
+              // CLEAN: Use the clean activity system
               const activityCard = menu.closest('.activity-card');
-              const activityId = activityCard?.getAttribute('data-activity-id') || '1';
+              const activityId = activityCard?.getAttribute('data-activity-id');
+              if (!activityId) {
+                console.error('❌ No data-activity-id found on activity card:', activityCard);
+                return;
+              }
               const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
-              const activityDescription = activityCard?.querySelector('.activity-description')?.textContent || 'No description available';
               
-              console.log('🔍 DEBUGGING: Main dashboard Try Answering clicked!');
-              console.log('🔍 Activity ID:', activityId);
-              console.log('🔍 Activity Title:', activityTitle);
-              console.log('🔍 Activity Description:', activityDescription);
-              console.log('🔍 Activity Card element:', activityCard);
-              
-              // Create COMPLETE activity data with defaults
-              const completeActivityData = {
-                id: activityId,
-                title: activityTitle,
-                description: activityDescription,
-                type: 'upload_based', // Default to upload-based
-                max_score: 10, // Default points
-                instructions: 'Complete this activity as instructed.',
-                questions: [], // Empty for upload-based activities
-                settings: {}
-              };
-              
-              console.log('🔍 Complete Activity Data:', completeActivityData);
-              
-              // Show try answering modal with COMPLETE data
-              window.activityTester.showTryAnsweringModal(activityId, completeActivityData);
+        console.log('🔍 Main dashboard Try Answering clicked for activity:', {
+          activityId: activityId,
+          activityTitle: activityTitle,
+          element: activityCard
+        });
+        
+        // Validate activity ID before making API call
+        if (!activityId || activityId === 'undefined' || activityId === 'null') {
+          console.error('🔍 DEBUG: Invalid activity ID detected:', activityId);
+          alert('Error: Invalid activity ID. Please try again.');
+          return;
+        }
+        
+        window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
             }
             
             // Close dropdown after action
@@ -1696,7 +2346,8 @@ function loadTopicsFromCourse() {
           }
         });
       });
-    }).catch(() => {});
+    }).catch(error => {
+      });
 }
 
 function escapeHtml(str) {
@@ -1704,11 +2355,7 @@ function escapeHtml(str) {
 }
 
 function toggleTopic(item) {
-  console.log('🔍 DEBUGGING: toggleTopic called!');
-  console.log('🔍 Item:', item);
-  
   if (!item) {
-    console.error('❌ No item provided!');
     return;
   }
   
@@ -1716,12 +2363,7 @@ function toggleTopic(item) {
   const isExpanded = item.classList.contains('expanded');
   const body = item.querySelector('.topic-body');
   
-  console.log('🔍 Icon:', icon);
-  console.log('🔍 Is expanded:', isExpanded);
-  console.log('🔍 Body:', body);
-  
   if (isExpanded) {
-    console.log('🔍 Collapsing topic...');
     item.classList.remove('expanded');
     if (icon) icon.style.transform = 'rotate(0deg)';
     if (body) body.style.display = 'none';
@@ -1729,7 +2371,6 @@ function toggleTopic(item) {
   }
   
   // Expand and load lesson details
-  console.log('🔍 Expanding topic...');
   item.classList.add('expanded');
   if (icon) icon.style.transform = 'rotate(180deg)';
   if (body) {
@@ -1737,16 +2378,12 @@ function toggleTopic(item) {
     // Only load content if not already loaded
     if (!body.hasAttribute('data-loaded')) {
       const lessonId = item.getAttribute('data-lesson-id') ? parseInt(item.getAttribute('data-lesson-id'),10) : 0;
-      console.log('🔍 Lesson ID:', lessonId);
-      console.log('🔍 Loading topic content...');
       loadTopicContent(item, lessonId);
       body.setAttribute('data-loaded', 'true');
     } else {
-      console.log('🔍 Topic already loaded');
-    }
+      }
   } else {
-    console.error('❌ No topic-body found!');
-  }
+    }
   if (!lessonId) { body.innerHTML = '<div style="color:#64748b;">No details available.</div>'; return; }
   fetch('class_view_api.php?action=get_lesson_details&lesson_id=' + encodeURIComponent(lessonId), { credentials: 'same-origin' })
     .then(r=>r.json()).then(res => {
@@ -1805,13 +2442,8 @@ function toggleTopic(item) {
 }
 
 function loadTopicContent(item, lessonId) {
-  console.log('🔍 DEBUGGING: loadTopicContent called!');
-  console.log('🔍 Item:', item);
-  console.log('🔍 Lesson ID:', lessonId);
-  
   const body = item.querySelector('.topic-body');
   if (!body) {
-    console.error('❌ No topic-body found!');
     return;
   }
   
@@ -1825,19 +2457,13 @@ function loadTopicContent(item, lessonId) {
   
   fetch('class_view_api.php?action=get_lesson_details&lesson_id=' + encodeURIComponent(lessonId), { credentials: 'same-origin' })
     .then(r=>r.json()).then(res => {
-      console.log('🔍 API Response:', res);
-      
       if (!res || !res.success) { 
-        console.error('❌ API failed:', res);
         body.innerHTML = '<div style="color:#ef4444;">Failed to load lesson details.</div>'; 
         return; 
       }
       
       const materials = Array.isArray(res.materials) ? res.materials : [];
       const activities = Array.isArray(res.activities) ? res.activities : [];
-      
-      console.log('🔍 Materials:', materials);
-      console.log('🔍 Activities:', activities);
       
       // Build content HTML
       let contentHtml = '';
@@ -1851,10 +2477,14 @@ function loadTopicContent(item, lessonId) {
       }
       
       // Activity cards
+      activities.forEach((activity, idx) => {
+        });
+      
       if (activities.length > 0) {
         activities.forEach((activity, i) => {
           const title = escapeHtml(activity.title || 'Activity');
-          contentHtml += '<div class="activity-card">' +
+          console.log(`🔍 loadTopicContent: Generating activity card for: ${title} (ID: ${activity.id}, Type: ${activity.type})`);
+          contentHtml += '<div class="activity-card" data-activity-id="' + activity.id + '">' +
             '<div class="activity-left-border"></div>' +
             '<div class="activity-content">' +
               '<div class="activity-title">' + title + '</div>' +
@@ -1891,22 +2521,14 @@ function loadTopicContent(item, lessonId) {
       
       body.innerHTML = contentHtml;
       
-      console.log('🔍 HTML set, binding events...');
       // Bind event listeners
       bindTopicContentEvents(item, materials, activities);
-      console.log('🔍 Events bound successfully!');
-      
-    }).catch(() => {
+      }).catch(() => {
       body.innerHTML = '<div style="color:#ef4444;">Failed to load lesson details.</div>';
     });
 }
 
 function bindTopicContentEvents(item, materials, activities) {
-  console.log('🔍 DEBUGGING: bindTopicContentEvents called!');
-  console.log('🔍 Item:', item);
-  console.log('🔍 Materials:', materials);
-  console.log('🔍 Activities:', activities);
-  
   // Bind topic content link
   const contentLink = item.querySelector('.topic-content-link');
   if (contentLink && materials.length > 0) {
@@ -1933,22 +2555,27 @@ function bindTopicContentEvents(item, materials, activities) {
   });
   
   // Add click handlers for dropdown items
-  console.log('🔍 DEBUGGING: Binding dropdown items...');
   const dropdownItems = item.querySelectorAll('.dropdown-item');
-  console.log('🔍 Found dropdown items:', dropdownItems.length);
-  
   item.querySelectorAll('.dropdown-item').forEach((dropdownItem, index) => {
     console.log(`🔍 Binding dropdown item ${index}:`, dropdownItem.textContent.trim());
     dropdownItem.addEventListener('click', (e) => {
       e.stopPropagation();
       const text = dropdownItem.textContent.trim();
-      console.log('🔍 Dropdown item clicked:', text);
-      
       if (text.includes('Reschedule/Set retakers')) {
-        // Get activity data from the item
-        const activityId = item.getAttribute('data-activity-id') || '1';
-        const activityTitle = item.querySelector('.activity-title')?.textContent || 'Activity';
-        const dueDate = item.querySelector('.due-date')?.textContent || 'Not set';
+        // Find the activity card that contains this dropdown
+        const activityCard = dropdownItem.closest('.activity-card');
+        if (!activityCard) {
+          console.error('❌ No activity card found for dropdown item:', dropdownItem);
+          return;
+        }
+        
+        const activityId = activityCard.getAttribute('data-activity-id');
+        if (!activityId) {
+          console.error('❌ No data-activity-id found on activity card:', activityCard);
+          return;
+        }
+        const activityTitle = activityCard.querySelector('.activity-title')?.textContent || 'Activity';
+        const dueDate = activityCard.querySelector('.due-date')?.textContent || 'Not set';
         
         // Show reschedule modal
         window.activityManager.showRescheduleModal(activityId, {
@@ -1956,33 +2583,35 @@ function bindTopicContentEvents(item, materials, activities) {
           dueDate: dueDate
         });
       } else if (text.includes('Try answering')) {
-        // Get activity data from the item
-        const activityId = item.getAttribute('data-activity-id') || '1';
-        const activityTitle = item.querySelector('.activity-title')?.textContent || 'Activity';
-        const activityDescription = item.querySelector('.activity-description')?.textContent || 'No description available';
+        // Find the activity card that contains this dropdown
+        const activityCard = dropdownItem.closest('.activity-card');
+        if (!activityCard) {
+          console.error('❌ No activity card found for dropdown item:', dropdownItem);
+          return;
+        }
         
-        console.log('🔍 DEBUGGING: Try Answering clicked!');
-        console.log('🔍 Activity ID:', activityId);
-        console.log('🔍 Activity Title:', activityTitle);
-        console.log('🔍 Activity Description:', activityDescription);
-        console.log('🔍 Item element:', item);
+        const activityId = activityCard.getAttribute('data-activity-id');
+        if (!activityId) {
+          console.error('❌ No data-activity-id found on activity card:', activityCard);
+          return;
+        }
+        const activityTitle = activityCard.querySelector('.activity-title')?.textContent || 'Activity';
         
-        // Create COMPLETE activity data with defaults
-        const completeActivityData = {
-          id: activityId,
-          title: activityTitle,
-          description: activityDescription,
-          type: 'upload_based', // Default to upload-based
-          max_score: 10, // Default points
-          instructions: 'Draw a flowchart to convert the length in feet to centimeter',
-          questions: [], // Empty for upload-based activities
-          settings: {}
-        };
+        console.log('🔍 Try Answering clicked for activity:', {
+          activityId: activityId,
+          activityTitle: activityTitle,
+          element: activityCard
+        });
         
-        console.log('🔍 Complete Activity Data:', completeActivityData);
+        // Validate activity ID before making API call
+        if (!activityId || activityId === 'undefined' || activityId === 'null') {
+          console.error('🔍 DEBUG: Invalid activity ID detected:', activityId);
+          alert('Error: Invalid activity ID. Please try again.');
+          return;
+        }
         
-        // Show try answering modal with COMPLETE data
-        window.activityTester.showTryAnsweringModal(activityId, completeActivityData);
+        // Use the clean activity system to fetch REAL data from database
+        window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
       }
       
       // Close dropdown after action
@@ -2093,10 +2722,6 @@ function openMaterialViewer(material) {
     const materialType = (material && material.type) ? material.type.toLowerCase() : '';
     const materialFilename = (material && material.filename) ? material.filename.toLowerCase() : '';
     
-    console.log('🔍 Processing material URL:', url);
-    console.log('🔍 Material object received:', material);
-    console.log('🔍 Material type:', materialType);
-    console.log('🔍 Material filename:', materialFilename);
     console.log('🔍 URL type detection:', {
       isPdf: lower.endsWith('.pdf'),
       isVideo: lower.endsWith('.mp4') || lower.endsWith('.webm'),
@@ -2146,7 +2771,6 @@ function openMaterialViewer(material) {
       body.appendChild(img);
     } else if (isGoogleDriveFolder) {
       // Handle Google Drive folder links - cannot be embedded
-      console.log('📁 Google Drive FOLDER URL detected:', url);
       body.style.display = 'flex';
       body.style.alignItems = 'center';
       body.style.justifyContent = 'center';
@@ -2162,7 +2786,6 @@ function openMaterialViewer(material) {
       body.appendChild(folderCard);
     } else if (isGoogleDrive) {
       // Handle Google Drive file links by converting to embed format
-      console.log('📁 Google Drive FILE URL detected:', url);
       try {
         let embedUrl = '';
         
@@ -2191,13 +2814,9 @@ function openMaterialViewer(material) {
           }
         }
         
-        console.log('📁 Google Drive file ID extracted:', fileId);
-        
         if (fileId) {
           // Convert to Google Drive embed URL
           embedUrl = 'https://drive.google.com/file/d/' + fileId + '/preview';
-          console.log('📁 Google Drive embed URL created:', embedUrl);
-          
           const iframe = document.createElement('iframe');
           iframe.src = embedUrl;
           iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
@@ -2206,7 +2825,6 @@ function openMaterialViewer(material) {
           throw new Error('Invalid Google Drive URL - no file ID found');
         }
       } catch (e) {
-        console.log('📁 Google Drive URL conversion failed:', e.message);
         // Fallback: show error message with original link
         body.style.display = 'flex';
         body.style.alignItems = 'center';
@@ -2224,7 +2842,6 @@ function openMaterialViewer(material) {
       }
     } else if (isYouTube) {
       // Handle YouTube links by converting to embed URL
-      console.log('🎥 YouTube URL detected:', url);
       let embedUrl = '';
       try {
         // Handle multiple YouTube URL formats
@@ -2252,16 +2869,12 @@ function openMaterialViewer(material) {
           }
         }
         
-        console.log('🎥 Video ID extracted:', videoId);
-        
         if (videoId) {
           embedUrl = 'https://www.youtube.com/embed/' + videoId;
-          console.log('🎥 Embed URL created:', embedUrl);
-        } else {
+          } else {
           throw new Error('Invalid YouTube URL - no video ID found');
         }
       } catch (e) {
-        console.log('🎥 YouTube URL conversion failed:', e.message);
         // Fallback: show error message
         body.style.display = 'flex';
         body.style.alignItems = 'center';
@@ -2288,7 +2901,6 @@ function openMaterialViewer(material) {
     } else {
       // Final fallback: check if URL contains "youtube" anywhere (more aggressive detection)
       if (lower.includes('youtube') || lower.includes('youtu.be')) {
-        console.log('🎥 Fallback YouTube detection triggered for:', url);
         try {
           // Try to extract video ID with more flexible regex
           let videoId = null;
@@ -2308,10 +2920,7 @@ function openMaterialViewer(material) {
           }
           
           if (videoId) {
-            console.log('🎥 Fallback video ID found:', videoId);
             const embedUrl = 'https://www.youtube.com/embed/' + videoId;
-            console.log('🎥 Fallback embed URL:', embedUrl);
-            
             const iframe = document.createElement('iframe');
             iframe.src = embedUrl;
             iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
@@ -2321,8 +2930,7 @@ function openMaterialViewer(material) {
             return;
           }
         } catch (e) {
-          console.log('🎥 Fallback YouTube detection failed:', e.message);
-        }
+          }
       }
       
       // Default iframe for other URLs

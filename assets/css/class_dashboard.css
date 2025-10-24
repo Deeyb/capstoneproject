@@ -38,7 +38,7 @@
   border: 1px solid #e9eef5; 
   border-radius: 12px; 
   margin-bottom: 14px; 
-  overflow: hidden; 
+  overflow: visible; /* Changed from hidden to visible to allow dropdowns */
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 .topic-header { 
@@ -238,6 +238,10 @@
   background-color: #f1f5f9;
 }
 
+.activity-menu:hover i {
+  color: #1d9b3e;
+}
+
 .activity-menu i {
   color: #64748b;
   font-size: 16px;
@@ -253,12 +257,19 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   padding: 8px 0;
   min-width: 200px;
-  z-index: 1000;
+  z-index: 9999;
   display: none;
+  /* Ensure dropdown is not clipped by parent containers */
+  transform: translateY(0);
+  max-height: 200px;
+  overflow-y: auto;
 }
 
-.activity-menu:hover .activity-dropdown {
-  display: block;
+/* Removed hover rule - now using click-based dropdown only */
+
+/* Responsive dropdown positioning */
+.activity-menu {
+  position: relative;
 }
 
 .dropdown-item {
@@ -683,7 +694,7 @@
   background: #ffffff;
   border: 1px solid #e9eef5;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to visible to allow dropdowns */
   transition: box-shadow 0.2s ease, transform 0.2s ease;
   box-shadow: 0 4px 12px rgba(0,0,0,0.04);
   position: relative;

@@ -282,11 +282,9 @@
 	
 	// Function to enter a class
 	function enterClass(classId) {
-		console.log('Entering class:', classId);
 		// Set global class ID for teacher module creation
 		window.currentClassId = classId;
 		document.body.setAttribute('data-class-id', classId);
-		console.log('✅ Class ID set for teacher module creation:', classId);
 		// Try to open inside My Classes via iframe container
 		var container = document.getElementById('classDetailContainer');
 		var frame = document.getElementById('classDetailFrame');
@@ -409,12 +407,9 @@ function bindCreateClassControls(){
 
 // Attach handlers to material action buttons
 function wireMaterialItemEvents(itemDiv){
-    console.log('🔧 wireMaterialItemEvents called for:', itemDiv);
     var downloadBtn = itemDiv.querySelector('.download-material-btn');
     var editBtn = itemDiv.querySelector('.edit-material-btn');
     var deleteBtn = itemDiv.querySelector('.delete-material-btn');
-    console.log('🔧 Buttons found:', {download: !!downloadBtn, edit: !!editBtn, delete: !!deleteBtn});
-
     if (downloadBtn) {
         downloadBtn.addEventListener('click', function(e){
             var materialId = itemDiv.getAttribute('data-material-id');
@@ -616,8 +611,7 @@ function loadCourseOutlineForStep5(courseId){
     // Clear any existing draft to ensure we get the correct order from database
     try { 
         localStorage.removeItem('cr_step5_draft_course_' + courseId); 
-        console.log('Cleared localStorage draft for course', courseId);
-    } catch(_) {}
+        } catch(_) {}
     
     var url = 'course_outline.php?course_id=' + encodeURIComponent(courseId);
     fetch(url, { credentials: 'same-origin' })
@@ -631,11 +625,10 @@ function loadCourseOutlineForStep5(courseId){
                     return;
                 }
             } catch(e) {
-                console.error('Outline JSON parse failed:', e, 'Raw:', t);
-            }
+                }
     populateStep5Outline([]);
           })
-        .catch(function(err){ console.error('Outline fetch error', err); populateStep5Outline([]); });
+        .catch(function(err){ populateStep5Outline([]); });
 }
 
 function populateStep5Outline(outline){
@@ -853,8 +846,6 @@ document.addEventListener('click', function(e){
         showAddLessonModal(moduleEl);
     }
     if (t.getAttribute('data-action') === 'add-material') {
-        console.log('🔧 Add Material button clicked!');
-        console.log('🔧 Button element:', t);
         console.log('🔧 Parent elements:', t.parentElement, t.closest('.topic'), t.closest('.lesson'));
         
         // Try to find the closest topic or lesson
@@ -862,14 +853,11 @@ document.addEventListener('click', function(e){
         var lessonEl = t.closest('.lesson');
         
         if (topicEl) {
-            console.log('🔧 Topic found:', topicEl);
             var topicTitle = topicEl.querySelector('.topic-name')?.textContent || 
                            topicEl.querySelector('div[style*="font-weight:600"]')?.textContent || 
                            'Unknown Topic';
-            console.log('🔧 Topic title:', topicTitle);
             showAddMaterialModal(topicEl, topicTitle);
         } else if (lessonEl) {
-        console.log('🔧 Lesson found:', lessonEl);
         // Best UX: silently persist module and lesson, then open modal
         var moduleEl = lessonEl.closest('.module');
         ensureModuleSaved(moduleEl).then(function(){
@@ -878,13 +866,11 @@ document.addEventListener('click', function(e){
             showAddMaterialModal(lessonEl, 'Lesson');
         }).catch(function(){ /* errors are surfaced via notifications */ });
         } else {
-            console.log('🔧 No topic or lesson found!');
-                showError('Material Error', 'Could not find the topic or lesson to add material to.');
+            showError('Material Error', 'Could not find the topic or lesson to add material to.');
     return; 
   }
     }
     if (t.getAttribute('data-action') === 'add-activity') {
-        console.log('🚫 Add Activity functionality has been completely removed');
         showInfo('Activity Disabled', 'Activity creation has been disabled.');
             return;
     }
@@ -1454,8 +1440,7 @@ function createNewModule(title){
     }
     
     try { updateModuleLessonCount(div); } catch(_) {}
-    console.log('New module added:', title);
-}
+    }
 
 // Dynamic Add Lesson Modal
 function showAddLessonModal(moduleEl){
@@ -2115,11 +2100,8 @@ function showBulkOperations(moduleEl){
 }
 
 function createNewTopic(lessonEl, title){
-    console.log('🔧 Creating new topic:', title, 'for lesson:', lessonEl);
-    
     var topicsContainer = lessonEl.querySelector('.topics');
     if (!topicsContainer) {
-        console.log('🔧 Creating topics container');
         // Create topics container if it doesn't exist
         topicsContainer = document.createElement('div');
         topicsContainer.className = 'topics';
@@ -2164,15 +2146,10 @@ function createNewTopic(lessonEl, title){
     '</div>';
     
     topicsContainer.appendChild(topicItem);
-    console.log('🔧 Topic created and appended:', topicItem);
-    
     // Debug: Check if icons are visible and Font Awesome is loaded
     var materialIcon = topicItem.querySelector('.fa-plus');
     var editIcon = topicItem.querySelector('.fa-pencil-alt');
     var deleteIcon = topicItem.querySelector('.fa-trash');
-    console.log('🔧 Material icon found:', !!materialIcon);
-    console.log('🔧 Edit icon found:', !!editIcon);
-    console.log('🔧 Delete icon found:', !!deleteIcon);
     console.log('🔧 Add Material button visible:', !!topicItem.querySelector('.add-material-btn'));
     
     // Test Font Awesome loading
@@ -2184,8 +2161,7 @@ function createNewTopic(lessonEl, title){
             materialBtn.innerHTML = '📎 Material';
         }
     } else {
-        console.log('🔧 Font Awesome detected and loaded');
-    }
+        }
     
     // Add event listeners for all buttons
     var addMaterialBtn = topicItem.querySelector('.add-material-btn');
@@ -2195,11 +2171,9 @@ function createNewTopic(lessonEl, title){
     
     if (addMaterialBtn) {
         addMaterialBtn.addEventListener('click', function(){
-            console.log('🔧 Material button clicked for topic:', title);
             if (typeof showAddMaterialModal === 'function') {
                 showAddMaterialModal(topicItem, title);
     } else {
-                console.error('🔧 showAddMaterialModal function not found!');
                 showWarning('Feature Not Available', 'Material functionality not available yet');
             }
         });
@@ -2207,11 +2181,9 @@ function createNewTopic(lessonEl, title){
     
     if (addActivityBtn) {
         addActivityBtn.addEventListener('click', function(){
-            console.log('🔧 Activity button clicked for topic:', title);
             if (typeof showCoordinatorActivityModal === 'function') {
                 showCoordinatorActivityModal(topicItem, title);
             } else {
-                console.error('🔧 showCoordinatorActivityModal function not found!');
                 showWarning('Feature Not Available', 'Activity functionality not available yet');
             }
         });
@@ -2250,8 +2222,7 @@ function createNewTopic(lessonEl, title){
         showSuccess('Topic Added', 'Topic "' + title + '" added successfully!');
     }
     
-    console.log('New topic added:', title);
-}
+    }
 
 // Update module lesson count
 function updateModuleLessonCount(moduleEl){
@@ -2436,11 +2407,9 @@ function addTopicToList(topicsContainer, topicName){
     
     if (addMaterialBtn) {
         addMaterialBtn.addEventListener('click', function(){
-            console.log('🔧 Material button clicked for topic:', topicName);
             if (typeof showAddMaterialModal === 'function') {
                 showAddMaterialModal(topicItem, topicName);
   } else {
-                console.error('🔧 showAddMaterialModal function not found!');
                 showWarning('Feature Not Available', 'Material functionality not available yet');
             }
         });
@@ -2448,11 +2417,9 @@ function addTopicToList(topicsContainer, topicName){
     
     if (addActivityBtn) {
         addActivityBtn.addEventListener('click', function(){
-            console.log('🔧 Activity button clicked for topic:', topicName);
             if (typeof showCoordinatorActivityModal === 'function') {
                 showCoordinatorActivityModal(topicItem, topicName);
             } else {
-                console.error('🔧 showCoordinatorActivityModal function not found!');
                 showWarning('Feature Not Available', 'Activity functionality not available yet');
             }
         });
@@ -2651,8 +2618,7 @@ function showAddMaterialModal(topicItem, topicTitle){
 
 // Add Activity Modal for Topics (REMOVED - No longer needed)
 function showAddActivityModal(topicItem, topicTitle){
-    console.log('🚫 Create Activity functionality has been removed');
-		showNotification('info', 'Activity Creation Disabled', 'Create Activity functionality has been removed from the teacher dashboard.');
+    showNotification('info', 'Activity Creation Disabled', 'Create Activity functionality has been removed from the teacher dashboard.');
     return;
     
     // Fallback to original implementation
@@ -2920,7 +2886,6 @@ function addMaterialToTopic(topicItem, type, url, file){
 // Helper function to add activity to topic from reusable activity creator result
 function addActivityToTopicFromResult(topicItem, result) {
     if (!result || !result.data) {
-        console.error('Invalid result from activity creator');
         return;
     }
     
@@ -3010,14 +2975,12 @@ function saveMaterialToCoordinator(topicItem, type, url, file, rowForUpdate){
     // Find the lesson that contains this topic
     var lessonEl = topicItem.closest('.lesson');
     if (!lessonEl) {
-        console.error('No lesson found for topic');
         return;
     }
     
     var lessonId = lessonEl.getAttribute('data-lesson-id');
     if (!lessonId) {
-        console.error('No lesson ID found');
-    return;
+        return;
   }
     
     // Auto-save lesson if temporary, then continue
@@ -3088,7 +3051,6 @@ function uploadMaterialFile(formData, topicItem, type, rowForUpdate){
     })
     .then(function(data){
     if (data && data.success) {
-            console.log('Material uploaded successfully:', data);
             // Update the material display with actual ID
             updateMaterialDisplay(topicItem, data.id, type);
             if (rowForUpdate) {
@@ -3098,13 +3060,11 @@ function uploadMaterialFile(formData, topicItem, type, rowForUpdate){
                 buttons.forEach(function(b){ b.disabled = false; });
             }
                     } else {
-            console.error('Material upload failed:', data);
             showErrorNotification('Failed to upload material: ' + (data.message || 'Unknown error'));
             if (rowForUpdate) rowForUpdate.remove();
         }
     })
     .catch(function(error){
-        console.error('Material upload error:', error);
         showErrorNotification('Network error uploading material');
         if (rowForUpdate) rowForUpdate.remove();
     });
@@ -3142,16 +3102,13 @@ function sendMaterialRequest(materialData, topicItem, type){
     })
     .then(function(data){
         if (data && data.success) {
-            console.log('Material created successfully:', data);
             // Update the material display with actual ID
             updateMaterialDisplay(topicItem, data.id, type);
   } else {
-            console.error('Material creation failed:', data);
             showErrorNotification('Failed to create material: ' + (data.message || 'Unknown error'));
         }
     })
     .catch(function(error){
-        console.error('Material creation error:', error);
         showErrorNotification('Network error creating material');
     });
 }
@@ -3161,8 +3118,7 @@ function updateMaterialDisplay(topicItem, materialId, type){
     var materialDiv = topicItem.querySelector('.topic-material');
     if (materialDiv) {
         materialDiv.setAttribute('data-material-id', materialId);
-        console.log('Material display updated with ID:', materialId);
-    }
+        }
 }
 
 // Save activity to coordinator system
@@ -3170,20 +3126,17 @@ function saveActivityToCoordinator(topicItem, type, title, instructions, maxScor
     // Get the current course ID
     var courseId = getCurrentCourseIdForStep5();
     if (!courseId) {
-        console.error('No course ID found');
-    return;
+        return;
   }
   
     // Find the lesson that contains this topic
     var lessonEl = topicItem.closest('.lesson');
     if (!lessonEl) {
-        console.error('No lesson found for topic');
-    return;
+        return;
   }
     
     var lessonId = lessonEl.getAttribute('data-lesson-id');
     if (!lessonId) {
-        console.error('No lesson ID found');
         return;
     }
     
@@ -3235,16 +3188,13 @@ function sendActivityRequest(activityData, topicItem, type, title){
     })
     .then(function(data){
     if (data && data.success) {
-            console.log('Activity created successfully:', data);
             // Update the activity display with actual ID
             updateActivityDisplay(topicItem, data.id, type, title);
   } else {
-            console.error('Activity creation failed:', data);
             showErrorNotification('Failed to create activity: ' + (data.message || 'Unknown error'));
         }
     })
     .catch(function(error){
-        console.error('Activity creation error:', error);
         showErrorNotification('Network error creating activity');
     });
 }
@@ -3254,7 +3204,6 @@ function saveActivityToCoordinatorWithData(element, category, name, type, instru
     // Get the current course ID
     var courseId = getCurrentCourseIdForStep5();
     if (!courseId) {
-        console.error('No course ID found');
         showErrorNotification('No course selected');
         return;
     }
@@ -3297,15 +3246,12 @@ function sendActivityRequestWithData(activityData, element, type, title){
     })
     .then(function(data){
         if (data && data.success) {
-            console.log('Activity with dynamic data created successfully:', data);
             updateActivityDisplay(element, data.id, type, title);
         } else {
-            console.error('Activity creation with dynamic data failed:', data);
             showErrorNotification('Failed to create activity: ' + (data.message || 'Unknown error'));
         }
     })
     .catch(function(error){
-        console.error('Activity creation with dynamic data error:', error);
         showErrorNotification('Network error creating activity');
     });
 }
@@ -3315,13 +3261,11 @@ function updateActivityDisplay(topicItem, activityId, type, title){
     var activityDiv = topicItem.querySelector('.topic-activity');
     if (activityDiv) {
         activityDiv.setAttribute('data-activity-id', activityId);
-        console.log('Activity display updated with ID:', activityId);
-    }
+        }
 }
 
 // Notification functions following the existing functional pattern
 function showSuccess(title, message){
-    console.log('Success:', title, message);
     if (typeof showNotification === 'function') {
         showNotification('success', title, message);
     } else {
@@ -3330,7 +3274,6 @@ function showSuccess(title, message){
 }
 
 function showError(title, message){
-    console.error('Error:', title, message);
     if (typeof showNotification === 'function') {
         showNotification('error', title, message);
     } else {
@@ -3404,17 +3347,14 @@ function sendDeleteRequest(deleteData, type){
     })
     .then(function(data){
     if (data && data.success) {
-            console.log(type + ' deleted successfully:', data);
             if (typeof showNotification === 'function') {
                 showNotification('success', 'Success', type.charAt(0).toUpperCase() + type.slice(1) + ' deleted successfully!');
             }
           } else {
-            console.error(type + ' deletion failed:', data);
             showErrorNotification('Failed to delete ' + type + ': ' + (data.message || 'Unknown error'));
         }
     })
     .catch(function(error){
-        console.error(type + ' deletion error:', error);
         showErrorNotification('Network error deleting ' + type);
     });
 }
@@ -3964,7 +3904,7 @@ function addCoordinatorStyleMaterial(lessonEl, type, url, file){
             if (firstMaterialDiv) {
                 wireMaterialItemEvents(firstMaterialDiv);
             }
-        } else {
+      } else {
             // Add to existing materials
             var materialsHeader = materialsSection.querySelector('div[style*="font-size:11px;color:#374151;font-weight:600;"]');
             if (materialsHeader) {
@@ -4069,15 +4009,10 @@ function showCoordinatorActivityModal(element, elementTitle){
     '</div>';
     
     document.body.appendChild(modal);
-    console.log('🔧 Activity modal created and appended to body');
-    
     // Add interactivity
     var categoryRadios = modal.querySelectorAll('input[name="activityCategory"]');
     var typeSelect = modal.querySelector('#activityTypeSelect');
     var currentSelection = modal.querySelector('div[style*="Current selection"]');
-    console.log('🔧 Found typeSelect element:', typeSelect);
-    console.log('🔧 Found currentSelection element:', currentSelection);
-    
     // Update category styling
     categoryRadios.forEach(function(radio){
         radio.addEventListener('change', function(){
@@ -4101,14 +4036,9 @@ function showCoordinatorActivityModal(element, elementTitle){
     
     // Update dynamic fields based on activity type
     function updateDynamicFields(){
-        console.log('🔧 updateDynamicFields called');
         var type = typeSelect.value;
         var dynamicContent = modal.querySelector('#dynamicFieldsContent');
-        console.log('🔧 Activity type:', type);
-        console.log('🔧 Dynamic content element:', dynamicContent);
-        
         if (type === 'multiple_choice') {
-            console.log('🔧 Rendering multiple choice fields');
             dynamicContent.innerHTML = `
                 <div style="font-weight:600;margin-bottom:12px;color:#333;">📝 Multiple Choice Questions</div>
                 <div id="questionsList">
@@ -4301,15 +4231,11 @@ function showCoordinatorActivityModal(element, elementTitle){
     }
     
     typeSelect.addEventListener('change', function(){
-        console.log('🔧 Activity type changed to:', typeSelect.value);
         updateCurrentSelection();
         updateDynamicFields();
     });
-    console.log('🔧 Making initial calls...');
     updateCurrentSelection(); // Initial call
     updateDynamicFields(); // Initial call
-    console.log('🔧 Initial calls completed');
-    
     // Event listeners
     var cancelBtn = modal.querySelector('#cancelActivityBtn');
     var createBtn = modal.querySelector('#createActivityBtn');
@@ -4518,15 +4444,10 @@ function showCoordinatorActivityModal(element, elementTitle){
         }
     });
     
-    // Add test function for debugging
-    window.testDynamicFields = function(){
-        console.log('🔧 Testing dynamic fields...');
+        window.testDynamicFields = function(){
         var typeSelect = document.querySelector('#activityTypeSelect');
         var dynamicContent = document.querySelector('#dynamicFieldsContent');
-        console.log('🔧 TypeSelect found:', !!typeSelect);
-        console.log('🔧 DynamicContent found:', !!dynamicContent);
         if (typeSelect && dynamicContent) {
-            console.log('🔧 Current value:', typeSelect.value);
             updateDynamicFields();
         }
     };
@@ -4534,34 +4455,26 @@ function showCoordinatorActivityModal(element, elementTitle){
 
 // ===== COMPLETE ACTIVITY CREATION =====
 function createCompleteActivity(element, category, name, type, instructions, maxScore){
-    console.log('🚀 Creating complete activity:', {category, name, type, instructions, maxScore});
-    
     // Determine if this is a lesson or topic
     var isLesson = element.classList.contains('lesson');
     var isTopic = element.classList.contains('topic-item');
     
     if (isLesson) {
-        console.log('🚀 Adding activity to lesson');
         addActivityToLesson(element, category, name, type, instructions, maxScore);
     } else if (isTopic) {
-        console.log('🚀 Adding activity to topic');
         addActivityToTopic(element, category, name, type, instructions, maxScore);
     }
 }
 
 // ===== COMPLETE ACTIVITY CREATION WITH DYNAMIC DATA =====
 function createCompleteActivityWithData(element, category, name, type, instructions, maxScore, dynamicData){
-    console.log('🚀 Creating complete activity with dynamic data:', {category, name, type, instructions, maxScore, dynamicData});
-    
     // Determine if this is a lesson or topic
     var isLesson = element.classList.contains('lesson');
     var isTopic = element.classList.contains('topic-item');
     
     if (isLesson) {
-        console.log('🚀 Adding activity to lesson');
         addActivityToLessonWithData(element, category, name, type, instructions, maxScore, dynamicData);
     } else if (isTopic) {
-        console.log('🚀 Adding activity to topic');
         addActivityToTopicWithData(element, category, name, type, instructions, maxScore, dynamicData);
     }
 }
@@ -4705,17 +4618,13 @@ function addActivityToTopicWithData(topicEl, category, name, type, instructions,
 
 // ===== COMPLETE MATERIAL CREATION =====
 function createCompleteMaterial(element, type, url, file){
-    console.log('🚀 Creating complete material:', {type, url, file});
-    
     // Determine if this is a lesson or topic
     var isLesson = element.classList.contains('lesson');
     var isTopic = element.classList.contains('topic-item');
     
     if (isLesson) {
-        console.log('🚀 Adding material to lesson');
         addMaterialToLesson(element, type, url, file);
     } else if (isTopic) {
-        console.log('🚀 Adding material to topic');
         addMaterialToTopic(element, type, url, file);
     }
 }
@@ -4780,7 +4689,7 @@ function addMaterialToLesson(lessonEl, type, url, file){
                 openMaterialViewer(materialData);
             } else if (typeof window.openMaterialViewer === 'function') {
                 window.openMaterialViewer(materialData);
-            } else {
+      } else {
                 window.open('material_download.php?id=' + encodeURIComponent(id), '_blank');
             }
         }
@@ -5215,24 +5124,14 @@ setTimeout(ensureLessonButtons, 100);
 setTimeout(ensureLessonButtons, 500);
 setTimeout(ensureLessonButtons, 1000);
 
-// Add debugging and force conversion
-console.log('🔧 Running lesson button conversion...');
 setTimeout(function(){
-    console.log('🔧 Checking lessons...');
     var lessons = document.querySelectorAll('.lesson');
-    console.log('🔧 Found lessons:', lessons.length);
-    
     lessons.forEach(function(lessonEl, index){
-        console.log('🔧 Lesson', index, ':', lessonEl);
         var hasButtons = lessonEl.querySelector('div[style*="display:flex;gap:8px;"]');
-        console.log('🔧 Has buttons:', !!hasButtons);
-        
         if (!hasButtons) {
-            console.log('🔧 Converting lesson', index);
             // Force convert this lesson
             var titleDiv = lessonEl.querySelector('div[style*="font-weight:600"]');
             if (titleDiv) {
-                console.log('🔧 Found title:', titleDiv.textContent);
                 // Create new header with buttons
                 var newHeader = document.createElement('div');
                 newHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
@@ -5252,17 +5151,14 @@ setTimeout(function(){
                 // Replace the old header with new one
                 var oldHeader = lessonEl.querySelector('div[style*="display:flex"]');
                 if (oldHeader) {
-                    console.log('🔧 Replacing old header');
                     oldHeader.replaceWith(newHeader);
                 } else {
-                    console.log('🔧 Adding new header');
                     lessonEl.insertBefore(newHeader, lessonEl.firstChild);
                 }
                 
                 // Remove old buttons if they exist
                 var oldButtons = lessonEl.querySelector('.add-buttons');
                 if (oldButtons) {
-                    console.log('🔧 Removing old buttons');
                     oldButtons.remove();
                 }
             }
@@ -5270,20 +5166,12 @@ setTimeout(function(){
     });
 }, 2000);
 
-// Manual trigger function for debugging
 window.forceLessonButtons = function(){
-    console.log('🔧 Manual trigger: Converting lesson buttons...');
     var lessons = document.querySelectorAll('.lesson');
-    console.log('🔧 Found lessons:', lessons.length);
-    
     lessons.forEach(function(lessonEl, index){
-        console.log('🔧 Processing lesson', index);
-        
         // Check if lesson has buttons
         var hasButtons = lessonEl.querySelector('div[style*="display:flex;gap:8px;"]');
         if (!hasButtons) {
-            console.log('🔧 Converting lesson', index);
-            
             // Find title
             var titleDiv = lessonEl.querySelector('div[style*="font-weight:600"]');
             if (!titleDiv) {
@@ -5292,8 +5180,6 @@ window.forceLessonButtons = function(){
             }
             
             if (titleDiv) {
-                console.log('🔧 Found title:', titleDiv.textContent);
-                
                 // Create new header with buttons
                 var newHeader = document.createElement('div');
                 newHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
@@ -5313,65 +5199,43 @@ window.forceLessonButtons = function(){
                 // Replace the old header
                 var oldHeader = lessonEl.querySelector('div[style*="display:flex"]');
                 if (oldHeader) {
-                    console.log('🔧 Replacing old header');
                     oldHeader.replaceWith(newHeader);
   } else {
-                    console.log('🔧 Adding new header');
                     lessonEl.insertBefore(newHeader, lessonEl.firstChild);
                 }
                 
                 // Remove old buttons
                 var oldButtons = lessonEl.querySelector('.add-buttons');
                 if (oldButtons) {
-                    console.log('🔧 Removing old buttons');
                     oldButtons.remove();
                 }
                 
-                console.log('🔧 Lesson', index, 'converted successfully');
-            } else {
-                console.log('🔧 No title found for lesson', index);
-            }
+                } else {
+                }
         } else {
-            console.log('🔧 Lesson', index, 'already has buttons');
-        }
+            }
     });
     
-        console.log('🔧 Manual conversion complete');
-    };
+        };
 
-// ===== DEBUGGING FUNCTIONS =====
 window.testTopicCreation = function(){
-    console.log('🔧 Testing topic creation...');
-    
     // Find first lesson
     var lesson = document.querySelector('.lesson');
     if (!lesson) {
-        console.log('🔧 No lesson found! Create a lesson first.');
         return;
     }
     
-    console.log('🔧 Found lesson:', lesson);
-    
     // Test creating a topic
     createNewTopic(lesson, 'TEST TOPIC');
-    console.log('🔧 Topic creation test complete');
-};
+    };
 
 // ===== FIX EXISTING TOPICS =====
 window.fixExistingTopics = function(){
-    console.log('🔧 Fixing existing topics...');
-    
     var topics = document.querySelectorAll('.topic-item');
-    console.log('🔧 Found topics:', topics.length);
-    
     topics.forEach(function(topic, index){
-        console.log('🔧 Processing topic', index, ':', topic);
-        
         // Check if topic has Material button
         var materialBtn = topic.querySelector('.add-material-btn');
         if (!materialBtn) {
-            console.log('🔧 Topic', index, 'missing Material button, adding it...');
-            
             // Find the button container
             var buttonContainer = topic.querySelector('div[style*="display:flex;gap:8px;"]');
             if (buttonContainer) {
@@ -5387,7 +5251,6 @@ window.fixExistingTopics = function(){
                 var newMaterialBtn = topic.querySelector('.add-material-btn');
                 if (newMaterialBtn) {
                     newMaterialBtn.addEventListener('click', function(){
-                        console.log('🔧 Material button clicked for existing topic');
                         var topicTitle = topic.querySelector('div[style*="font-weight:600"]').textContent.trim();
                         if (typeof showAddMaterialModal === 'function') {
                             showAddMaterialModal(topic, topicTitle);
@@ -5397,30 +5260,20 @@ window.fixExistingTopics = function(){
                     });
                 }
                 
-                console.log('🔧 Added Material button to topic', index);
-            } else {
-                console.log('🔧 No button container found for topic', index);
-            }
-        } else {
-            console.log('🔧 Topic', index, 'already has Material button');
+                } else {
+                }
         }
     });
     
-    console.log('🔧 Fix complete');
+    console.log('🚨 !IMPORTANT: FORCE FIX COMPLETE!');
 };
 
 // ===== CHECK FONTAWESOME =====
 window.checkFontAwesome = function(){
-    console.log('🔧 Checking FontAwesome...');
-    
     // Check if FontAwesome CSS is loaded
     var faCSS = document.querySelector('link[href*="fontawesome"]') || document.querySelector('link[href*="font-awesome"]');
-    console.log('🔧 FontAwesome CSS loaded:', !!faCSS);
-    
     // Check if FontAwesome JS is loaded
     var faJS = document.querySelector('script[src*="fontawesome"]') || document.querySelector('script[src*="font-awesome"]');
-    console.log('🔧 FontAwesome JS loaded:', !!faJS);
-    
     // Test if icons work
     var testDiv = document.createElement('div');
     testDiv.innerHTML = '<i class="fas fa-paperclip"></i>';
@@ -5428,7 +5281,6 @@ window.checkFontAwesome = function(){
     
     var computedStyle = window.getComputedStyle(testDiv.querySelector('i'));
     var fontFamily = computedStyle.fontFamily;
-    console.log('🔧 Icon font family:', fontFamily);
     console.log('🔧 FontAwesome working:', fontFamily.includes('Font Awesome') || fontFamily.includes('FontAwesome'));
     
     testDiv.remove();
@@ -5436,14 +5288,10 @@ window.checkFontAwesome = function(){
     // Check if specific icons exist
     var materialIcon = document.querySelector('.fa-paperclip');
     var activityIcon = document.querySelector('.fa-tasks');
-    console.log('🔧 Material icon in DOM:', !!materialIcon);
-    console.log('🔧 Activity icon in DOM:', !!activityIcon);
-};
+    };
 
 // ===== INSPECT EXISTING TOPIC =====
 window.inspectTopic = function(topicName){
-    console.log('🔧 Inspecting topic:', topicName);
-    
     var topics = document.querySelectorAll('.topic-item');
     var targetTopic = null;
     
@@ -5451,50 +5299,34 @@ window.inspectTopic = function(topicName){
         var titleDiv = topic.querySelector('div[style*="font-weight:600"]');
         if (titleDiv && titleDiv.textContent.trim() === topicName) {
             targetTopic = topic;
-            console.log('🔧 Found topic at index:', index);
-        }
+            }
     });
     
     if (!targetTopic) {
-        console.log('🔧 Topic not found!');
         return;
     }
     
-    console.log('🔧 Topic HTML:', targetTopic.innerHTML);
-    
     // Check buttons
     var buttons = targetTopic.querySelectorAll('button');
-    console.log('🔧 Number of buttons:', buttons.length);
-    
     buttons.forEach(function(btn, index){
-        console.log('🔧 Button', index, ':', btn.className, btn.title);
         var icon = btn.querySelector('i');
         if (icon) {
-            console.log('🔧 Icon classes:', icon.className);
-        }
+            }
     });
     
     // Check specifically for Material button
     var materialBtn = targetTopic.querySelector('.add-material-btn');
-    console.log('🔧 Material button found:', !!materialBtn);
-    
     if (materialBtn) {
-        console.log('🔧 Material button HTML:', materialBtn.outerHTML);
         var materialIcon = materialBtn.querySelector('.fa-paperclip');
-        console.log('🔧 Material icon found:', !!materialIcon);
-    }
+        }
 };
 
 window.testFullFlow = function(){
-    console.log('🔧 Testing full flow...');
-    
     // Step 1: Create module
-    console.log('🔧 Step 1: Creating module...');
     createNewModule('TEST MODULE');
     
     // Step 2: Create lesson
     setTimeout(function(){
-        console.log('🔧 Step 2: Creating lesson...');
         var module = document.querySelector('.module');
         if (module) {
             createNewLesson(module, 'TEST LESSON');
@@ -5503,7 +5335,6 @@ window.testFullFlow = function(){
     
     // Step 3: Create topic
     setTimeout(function(){
-        console.log('🔧 Step 3: Creating topic...');
         var lesson = document.querySelector('.lesson');
         if (lesson) {
             createNewTopic(lesson, 'TEST TOPIC');
@@ -5513,22 +5344,16 @@ window.testFullFlow = function(){
 
 // ===== TEST MATERIAL ICON =====
 window.testMaterialIcon = function(){
-    console.log('🔧 Testing Material icon...');
-    
     // Find any existing topic
     var topic = document.querySelector('.topic-item');
     if (topic) {
-        console.log('🔧 Found existing topic:', topic);
         var materialBtn = topic.querySelector('.add-material-btn');
         var materialIcon = topic.querySelector('.fa-paperclip');
-        console.log('🔧 Material button found:', !!materialBtn);
-        console.log('🔧 Material icon found:', !!materialIcon);
-        
         if (materialBtn) {
-            console.log('🔧 Material button HTML:', materialBtn.outerHTML);
+            console.log('Material button found');
         }
     } else {
-        console.log('🔧 No existing topics found');
+        console.log('No topic found');
     }
 };
 
@@ -5562,45 +5387,28 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
             newHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
             newHeader.innerHTML = '<div style="font-weight:600;color:#374151;">' + title + '</div>' +
                 '<div style="display:flex;gap:8px;">' +
-                    '<button class="add-topic-btn" data-action="add-topic" style="background:#10b981;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add topic">' +
-                        '<i class="fas fa-plus" style="font-size:12px;"></i>Topic' +
-                    '</button>' +
-                    '<button class="add-material-btn" data-action="add-material" style="background:#1d9b3e;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Add material">' +
-                        '<i class="fas fa-paperclip" style="font-size:12px;"></i>Material' +
-                    '</button>' +
-                    '<button class="edit-lesson-btn" data-action="edit-lesson" style="background:#6b7280;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Edit lesson">' +
-                        '<i class="fas fa-pencil-alt" style="font-size:12px;"></i>Edit' +
-                    '</button>' +
-                    '<button class="delete-lesson-btn" data-action="delete-lesson" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Delete lesson">' +
-                        '<i class="fas fa-trash" style="font-size:12px;"></i>Delete' +
-                    '</button>' +
+                '<button class="add-topic-btn" data-action="add-topic" style="background:#28a745;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="Add topic">' +
+                '<i class="fas fa-plus" style="margin-right:4px;"></i>Add Topic</button>' +
+                '<button class="add-material-btn" data-action="add-material" style="background:#17a2b8;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="Add material">' +
+                '<i class="fas fa-paperclip" style="margin-right:4px;"></i>Add Material</button>' +
+                '<button class="add-activity-btn" data-action="add-activity" style="background:#ffc107;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="Add activity">' +
+                '<i class="fas fa-tasks" style="margin-right:4px;"></i>Add Activity</button>' +
                 '</div>';
             
             // Replace the old header
-            hasOldFormat.replaceWith(newHeader);
-            
-            // Remove old buttons if they exist
-            var oldButtons = lesson.querySelector('.add-buttons');
-            if (oldButtons) {
-                oldButtons.remove();
+            var oldHeader = lesson.querySelector('div[style*="display:flex;align-items:center;justify-content:space-between"]');
+            if (oldHeader) {
+                oldHeader.parentNode.replaceChild(newHeader, oldHeader);
             }
-            
-            console.log('🚨 Lesson', index, 'converted successfully');
         }
     });
     
     // Step 2: Fix ALL topics to have Material button
     var topics = document.querySelectorAll('.topic-item');
-    console.log('🚨 Found topics:', topics.length);
-    
     topics.forEach(function(topic, index){
-        console.log('🚨 Processing topic', index);
-        
         // Check if topic has Material button
         var materialBtn = topic.querySelector('.add-material-btn');
         if (!materialBtn) {
-            console.log('🚨 Topic', index, 'missing Material button, FORCE ADDING...');
-            
             // Find button container
             var buttonContainer = topic.querySelector('div[style*="display:flex;gap:8px;"]');
             if (buttonContainer) {
@@ -5615,7 +5423,6 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
                 var newMaterialBtn = topic.querySelector('.add-material-btn');
                 if (newMaterialBtn) {
                     newMaterialBtn.addEventListener('click', function(){
-                        console.log('🚨 Material button clicked!');
                         var topicTitle = topic.querySelector('div[style*="font-weight:600"]').textContent.trim();
                         if (typeof showAddMaterialModal === 'function') {
                             showAddMaterialModal(topic, topicTitle);
@@ -5625,21 +5432,16 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
                     });
                 }
                 
-                console.log('🚨 Material button FORCE ADDED to topic', index);
-            }
+                }
         } else {
-            console.log('🚨 Topic', index, 'already has Material button');
-        }
+            }
     });
     
     // Step 3: Force refresh all event listeners
-    console.log('🚨 Refreshing all event listeners...');
-    
     // Re-attach all click handlers
     document.addEventListener('click', function(e){
         var t = e.target;
         if (t.getAttribute('data-action') === 'add-material') {
-            console.log('🚨 Material button clicked via event delegation!');
             var lessonEl = t.closest('.lesson');
             var topicEl = t.closest('.topic-item');
             if (lessonEl) {
@@ -5651,44 +5453,29 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
         }
     });
     
-    console.log('🚨 !IMPORTANT FIX COMPLETE!');
-    console.log('🚨 All lessons and topics should now have Material buttons!');
-};
+    };
 
 // Test function to check button functionality
 window.testLessonButtons = function(){
-    console.log('🔧 Testing lesson buttons...');
     var lessons = document.querySelectorAll('.lesson');
-    console.log('🔧 Found lessons:', lessons.length);
-    
     lessons.forEach(function(lessonEl, index){
-        console.log('🔧 Testing lesson', index);
-        
         // Check for buttons
         var materialBtn = lessonEl.querySelector('.add-material-btn');
         var activityBtn = lessonEl.querySelector('.add-activity-btn');
         var editBtn = lessonEl.querySelector('.edit-lesson-btn');
         var deleteBtn = lessonEl.querySelector('.delete-lesson-btn');
         
-        console.log('🔧 Material button:', !!materialBtn, materialBtn);
-        console.log('🔧 Activity button:', !!activityBtn, activityBtn);
-        console.log('🔧 Edit button:', !!editBtn, editBtn);
-        console.log('🔧 Delete button:', !!deleteBtn, deleteBtn);
-        
         // Test click events
         if (materialBtn) {
-            console.log('🔧 Testing material button click...');
             materialBtn.click();
         }
         
         if (activityBtn) {
-            console.log('🔧 Testing activity button click...');
             activityBtn.click();
         }
     });
     
-    console.log('🔧 Button test complete');
-};
+    };
 
 // ===== COMPREHENSIVE MODULE MANAGEMENT SYSTEM =====
 
@@ -5773,7 +5560,6 @@ function updateModuleOnServer(moduleEl, newTitle){
         }
     })
     .catch(function(error){
-        console.error('Module update error:', error);
         showErrorNotification('Network error updating module.');
     });
 }
@@ -5796,7 +5582,6 @@ function deleteModuleFromServer(moduleId){
         return data.success;
     })
     .catch(function(error){
-        console.error('Module delete error:', error);
         return false;
     });
 }
@@ -5880,7 +5665,6 @@ function updateTopicOnServer(topicEl, newTitle){
         }
     })
     .catch(function(error){
-        console.error('Topic update error:', error);
         showErrorNotification('Network error updating topic.');
     });
 }
@@ -5903,7 +5687,6 @@ function deleteTopicFromServer(topicId){
         return data.success;
     })
     .catch(function(error){
-        console.error('Topic delete error:', error);
         return false;
     });
 }
@@ -6059,11 +5842,9 @@ function saveLesson(lessonEl){
             }
         })
         .catch(function(error){
-            console.error('Lesson save error:', error);
             showError('Network Error', 'Network error saving lesson.');
         });
     }).catch(function(error){
-        console.error('CSRF token fetch error:', error);
         showError('Security Error', 'Security error: Failed to get CSRF token.');
     });
 }
@@ -6085,7 +5866,7 @@ function ensureModuleSaved(moduleEl){
         getCSRFToken().then(function(tok){ if (tok) formData.append('csrf_token', tok); return fetch('teacher_class_api.php',{ method:'POST', body: formData, credentials:'same-origin' }); })
         .then(function(r){ return r.json(); })
         .then(function(d){ if (d && d.success && d.id){ moduleEl.setAttribute('data-module-id', d.id); showNotification('success','Module Saved','Module saved automatically.'); resolve(d.id);} else { showError('Module Save Failed', (d && d.message) ? d.message : 'Failed to save module.'); reject(); } })
-        .catch(function(err){ console.error('ensureModuleSaved error:', err); showError('Network Error', 'Could not save module.'); reject(); });
+        .catch(function(err){ showError('Network Error', 'Could not save module.'); reject(); });
     });
 }
 
@@ -6125,7 +5906,6 @@ function ensureLessonSaved(lessonEl){
                 reject();
             }
         }).catch(function(err){
-            console.error('ensureLessonSaved error:', err);
             showError('Network Error', 'Could not save lesson.');
             reject();
         });
@@ -6175,7 +5955,6 @@ function updateLessonOnServer(lessonEl, newTitle){
         }
     })
     .catch(function(error){
-        console.error('Lesson update error:', error);
         showErrorNotification('Network error updating lesson.');
     });
 }
@@ -6198,7 +5977,6 @@ function deleteLessonFromServer(lessonId){
         return data.success;
     })
     .catch(function(error){
-        console.error('Lesson delete error:', error);
         return false;
     });
 }
