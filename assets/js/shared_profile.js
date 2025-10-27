@@ -437,6 +437,13 @@ function hideConfirmation() {
 function initSharedProfile() {
   console.log('🔧 Initializing shared profile functionality...');
   
+  // Guard against multiple initializations
+  if (window.__profileInitialized) {
+    console.log('⚠️ Profile already initialized, skipping...');
+    return;
+  }
+  window.__profileInitialized = true;
+  
   // Profile photo upload functionality
   const profilePhotoInput = document.getElementById('profilePhotoInput');
   if (profilePhotoInput) {

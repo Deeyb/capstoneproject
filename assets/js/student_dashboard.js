@@ -67,6 +67,22 @@ function showSection(sectionName, clickedElement = null) {
   url.searchParams.set('section', sectionName);
   window.history.pushState({}, '', url);
   console.log('🔗 URL updated to:', url.toString());
+  
+  // Initialize section-specific functionality
+  if (sectionName === 'profile') {
+    console.log('👤 Loading Profile section...');
+    // Initialize shared profile functionality
+    if (typeof initSharedProfile === 'function') {
+      try { 
+        initSharedProfile(); 
+        console.log('✅ Profile section initialized');
+      } catch (e) { 
+        console.error('❌ Error initializing profile:', e);
+      }
+    } else {
+      console.log('⚠️ initSharedProfile function not available');
+    }
+  }
 }
 
 // ===== JOIN CLASS FUNCTIONALITY =====

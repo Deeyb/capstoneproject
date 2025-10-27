@@ -45,11 +45,14 @@ foreach ($enrolledClasses as $class) {
         $teacherName = trim($class['teacher_firstname'] . ' ' . $middleInitial . ' ' . $class['teacher_lastname']);
     }
     
+    // Add "Prof." prefix to teacher name
+    $teacherName = $teacherName ? 'Prof. ' . $teacherName : 'Unknown Teacher';
+    
     $formattedClasses[] = [
         'id' => $class['id'],
         'name' => $class['class_name'],
         'code' => $class['class_code'],
-        'teacher_name' => $teacherName ?: 'Unknown Teacher',
+        'teacher_name' => $teacherName,
         'student_count' => (int)$class['student_count'],
         'created_at' => $class['created_at']
     ];
@@ -271,6 +274,28 @@ $current_section = $_GET['section'] ?? 'myclasses';
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="closeJoinClassModal()">Cancel</button>
         <button type="button" class="btn btn-primary" onclick="handleJoinClass()">Join Class</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmationModal" class="confirmation-modal" style="display: none;">
+    <div class="confirmation-overlay"></div>
+    <div class="confirmation-dialog">
+      <div class="confirmation-header">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3 id="confirmationTitle">Confirm Action</h3>
+      </div>
+      <div class="confirmation-body">
+        <p id="confirmationMessage">Are you sure you want to proceed?</p>
+      </div>
+      <div class="confirmation-actions">
+        <button type="button" class="confirmation-btn confirmation-cancel" id="confirmationCancelBtn">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+        <button type="button" class="confirmation-btn confirmation-confirm" id="confirmationConfirmBtn">
+          <i class="fas fa-check"></i> Confirm
+        </button>
       </div>
     </div>
   </div>

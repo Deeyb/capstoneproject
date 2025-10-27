@@ -313,13 +313,13 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <script src="assets/js/app_ui.js"></script>
   <!-- Reusable Activity Creator System -->
         <link rel="stylesheet" href="assets/css/reusable_activity_creator.css">
-        <script src="assets/js/notification_system.js?v=<?php echo time(); ?>"></script>
+        <!-- notification_system.js removed - using admin_panel.css notifications instead -->
         <script src="assets/js/reusable_activity_creator.js"></script>
         <script src="assets/js/teacher_activity_integration.js"></script>
         <!-- Load scripts in correct order -->
         <!-- REMOVED: admin_panel.js - causes 403 errors for teachers -->
-        <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
         <script src="assets/js/teacher_dashboard.js?v=<?php echo time(); ?>"></script>
+        <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
         <script src="assets/js/teacher_material_viewers.js?v=<?php echo time(); ?>"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function(){

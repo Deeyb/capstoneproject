@@ -13,6 +13,22 @@
 		// Sidebar active state
 		qsa('.sidebar .nav-item').forEach(li => li.classList.remove('active'));
 		if (clickedEl) { clickedEl.classList.add('active'); }
+		
+		// Initialize section-specific functionality
+		if (sectionId === 'profile') {
+			console.log('👤 Loading Profile section...');
+			// Initialize shared profile functionality
+			if (typeof initSharedProfile === 'function') {
+				try { 
+					initSharedProfile(); 
+					console.log('✅ Profile section initialized');
+				} catch (e) { 
+					console.error('❌ Error initializing profile:', e);
+				}
+			} else {
+				console.log('⚠️ initSharedProfile function not available');
+			}
+		}
 	};
 
 	// Sidebar toggle (mobile)
@@ -6233,31 +6249,52 @@ function showBulkOperations(moduleEl){
     });
 }
 
-// Notification System
+// Notification System - Matching admin_panel.js implementation
 function showNotification(type, title, message){
-    var notification = document.createElement('div');
-    notification.style.cssText = 'position:fixed;top:20px;right:20px;background:white;border-left:4px solid ' + 
-        (type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6') + 
-        ';padding:15px 20px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:10000;max-width:400px;';
+    console.log('🔔 Creating notification:', type, title, message);
     
-    notification.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
-        '<div>' +
-            '<div style="font-weight:600;color:#374151;margin-bottom:4px;">' + title + '</div>' +
-            '<div style="color:#6b7280;font-size:14px;">' + message + '</div>' +
-        '</div>' +
-        '<button onclick="this.parentElement.parentElement.parentElement.remove()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:18px;">&times;</button>' +
-    '</div>';
-    
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+
+    let iconClass = 'fa-info-circle';
+    if (type === 'success') iconClass = 'fa-check-circle';
+    else if (type === 'error') iconClass = 'fa-exclamation-circle';
+    else if (type === 'warning') iconClass = 'fa-exclamation-triangle';
+
+    notification.innerHTML = `
+        <i class="fas ${iconClass}"></i>
+        <div class="notification-content">
+            <div class="notification-title">${title}</div>
+            <div class="notification-message">${message}</div>
+        </div>
+    `;
+
     document.body.appendChild(notification);
+    console.log('✅ Notification added to DOM');
     
-    // Auto remove after 5 seconds
-    setTimeout(function(){
-        if (notification.parentElement) {
-            notification.remove();
-        }
+    // Use requestAnimationFrame for smooth animation (like admin_panel.js)
+    requestAnimationFrame(() => {
+        notification.classList.add('show');
+        console.log('🎬 Animation started');
+    });
+    
+    // Auto remove after 5 seconds with fade-out animation
+    setTimeout(() => {
+        console.log('⏰ Auto-removing notification after 5 seconds');
+        notification.classList.remove('show');
+        setTimeout(() => { 
+            if (notification.parentElement) {
+                notification.remove();
+                console.log('✅ Notification removed');
+            } else {
+                console.log('⚠️ Notification already removed');
+            }
+        }, 300); // Wait for fade-out animation
     }, 5000);
 }
 
+// Make showNotification globally available for shared_profile.js
+window.showNotification = showNotification;
 
 // Add Lesson Modal
 function showAddLessonModal(moduleEl){
