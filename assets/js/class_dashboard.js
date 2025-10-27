@@ -2296,8 +2296,14 @@ function loadTopicsFromCourse() {
                   '<div class="topic-title">' + title + '</div>' +
                 '</div>' +
                 '<div class="topic-meta">' +
-                  '<div class="topic-status">Students currently here</div>' +
-                  '<div class="topic-count">N/A</div>' +
+                  (function() {
+                    console.log('🔍 JS Debug - User Role:', window.__USER_ROLE__);
+                    console.log('🔍 JS Debug - Is Student:', window.__USER_ROLE__.toLowerCase() === 'student');
+                    return window.__USER_ROLE__.toLowerCase() !== 'student' ? 
+                      '<div class="topic-status">Students currently here</div>' +
+                      '<div class="topic-count">N/A</div>' : 
+                      '';
+                  })() +
                 '</div>' +
               '</div>' +
               '<div class="topic-body" style="display: none;">' +

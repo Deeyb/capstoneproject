@@ -157,16 +157,20 @@ if ($userRole === 'student') {
       <div class="nav-center">
         <div class="nav-tabs">
           <button class="nav-tab active" data-tab="activities">Activities</button>
+          <?php if (strtolower($userRole) !== 'student'): ?>
           <button class="nav-tab" data-tab="classrecord">Class Record</button>
+          <?php endif; ?>
           <button class="nav-tab" data-tab="newsfeed">Newsfeed</button>
           <button class="nav-tab" data-tab="leaderboards">Leaderboards</button>
         </div>
       </div>
       
       <div class="nav-right">
+        <?php if (strtolower($userRole) !== 'student'): ?>
         <button class="btn-create-activity" id="createActivityBtn">
           <i class="fas fa-plus"></i> Create activity
         </button>
+        <?php endif; ?>
         <div style="position: relative; display:inline-block;">
           <button class="nav-menu-btn" id="menuBtn" title="Menu">
             <i class="fas fa-ellipsis-v"></i>
@@ -310,7 +314,10 @@ if ($userRole === 'student') {
   <script>window.__CLASS_ID__ = <?php echo json_encode($classId); ?>;</script>
   <script>window.__USER_ROLE__ = <?php echo json_encode($userRole); ?>;</script>
   <script>window.__USER_ID__ = <?php echo json_encode($userId); ?>;</script>
-  <script src="assets/js/class_dashboard.js?v=<?php echo time(); ?>"></script>
+  <script>console.log('🔍 Class Dashboard Debug - User Role:', <?php echo json_encode($userRole); ?>);</script>
+  <script>console.log('🔍 Class Dashboard Debug - Embedded:', <?php echo json_encode($embedded); ?>);</script>
+  <script>console.log('🔍 Class Dashboard Debug - Is Student Check:', <?php echo json_encode(strtolower($userRole) !== 'student'); ?>);</script>
+  <script src="assets/js/class_dashboard.js?v=<?php echo time(); ?>&cache=<?php echo uniqid(); ?>"></script>
   <script>
     // Role-aware functionality
     function goBack() {
