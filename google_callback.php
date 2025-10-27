@@ -57,6 +57,8 @@ try {
         $_SESSION['user_middlename'] = $existing_user['middlename'] ?? '';
         $middle_initial = $_SESSION['user_middlename'] ? strtoupper(mb_substr(trim($_SESSION['user_middlename']), 0, 1)) . '.' : '';
         $_SESSION['user_name'] = trim($_SESSION['user_lastname'] . ', ' . $_SESSION['user_firstname'] . ' ' . $middle_initial);
+        $_SESSION['login_time'] = time();
+        $_SESSION['last_activity'] = time();
 
         // Log the login
         $stmt = $db->prepare("INSERT INTO login_logs (user_id, login_method, ip_address, user_agent) VALUES (?, ?, ?, ?)");
@@ -78,14 +80,14 @@ try {
             header('Location: admin_panel.php');
             break;
         case 'teacher':
-            header('Location: Teacher_dashboard.php');
+            header('Location: Teacher_dashboard.php?section=my-classes');
             break;
         case 'coordinator':
             header('Location: coordinator_dashboard.php');
             break;
         case 'student':
         default:
-            header('Location: student_dashboard.php');
+            header('Location: student_dashboard.php?section=myclasses');
             break;
     }
     exit();

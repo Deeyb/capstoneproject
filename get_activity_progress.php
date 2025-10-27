@@ -1,9 +1,10 @@
 <?php
 /**
- * GET ACTIVITY PROGRESS API
+ * GET ACTIVITY PROGRESS API - OOP Version
  * Retrieves saved progress for a specific activity and user
  */
 require_once __DIR__ . '/config/Database.php';
+require_once __DIR__ . '/classes/ActivityProgressService.php';
 
 header('Content-Type: application/json');
 
@@ -16,52 +17,32 @@ try {
     $activityId = (int)($_GET['activity_id'] ?? 0);
     $userId = (int)($_GET['user_id'] ?? 0);
     
-    if ($activityId <= 0) {
-        throw new Exception('Invalid activity ID');
-    }
+    // Initialize service
+    $progressService = new ActivityProgressService($db);
     
-    // Get progress for this activity and user
-    $stmt = $db->prepare("
-        SELECT 
-            id,
-            activity_id,
-            user_id,
-            answers,
-            progress_percentage,
-            last_updated,
-            created_at,
-            updated_at
-        FROM activity_progress 
-        WHERE activity_id = ? AND user_id = ?
-        ORDER BY updated_at DESC
-        LIMIT 1
-    ");
+    // Get progress using OOP service
+    $result = $progressService->getActivityProgress($activityId, $userId);
     
-    $stmt->execute([$activityId, $userId]);
-    $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+    echo json_encode($result);
     
-    if ($progress) {
-        // Decode JSON answers
-        $progress['answers'] = json_decode($progress['answers'], true) ?: [];
-        
-        echo json_encode([
-            'success' => true,
-            'message' => 'Progress found',
-            'data' => $progress
-        ]);
-    } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'No progress found',
-            'data' => null
-        ]);
-    }
-    
+} catch (InvalidArgumentException $e) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
 } catch (Exception $e) {
     http_response_code(400);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()
+    ]);
+} catch (Error $e) {
+    error_log("Get activity progress error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Internal server error'
     ]);
 }
 ?>

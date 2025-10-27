@@ -39,7 +39,7 @@ class Verification {
         $to = $this->email;
         $subject = "Code Regal - Email Verification";
         $message = "Your verification code is: " . $this->verification_code . "\n\n";
-        $message .= "This code will expire in 15 minutes.\n";
+        $message .= "This code will expire in 1 minute.\n";
         $message .= "If you didn't request this code, please ignore this email.";
 
         // For testing purposes, store the code in session
@@ -82,8 +82,8 @@ class Verification {
             return false;
         }
 
-        // Check if code has expired (15 minutes)
-        if (time() - $_SESSION['verification_time'] > 900) {
+        // Check if code has expired (1 minute)
+        if (time() - $_SESSION['verification_time'] > 60) {
             return false;
         }
 

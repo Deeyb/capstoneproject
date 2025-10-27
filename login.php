@@ -6,32 +6,6 @@ Auth::redirectIfLoggedIn();
 require_once 'classes/CSRFProtection.php';
 require_once 'config/google_oauth.php';
 
-if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
-    // Role-based redirect
-    require_once 'config/Database.php';
-    $db = (new Database())->getConnection();
-    $stmt = $db->prepare("SELECT role FROM users WHERE id = ?");
-    $stmt->execute([$_SESSION['user_id']]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    $role = isset($row['role']) ? strtolower($row['role']) : '';
-    switch ($role) {
-        case 'admin':
-            header('Location: admin_panel.php');
-            break;
-        case 'teacher':
-            header('Location: Teacher_dashboard.php');
-            break;
-        case 'coordinator':
-            header('Location: coordinator_dashboard.php');
-            break;
-        case 'student':
-        default:
-            header('Location: student_dashboard.php');
-            break;
-    }
-    exit();
-}
-
 $errorMsg = isset($_SESSION['error']) ? $_SESSION['error'] : '';
 unset($_SESSION['error']);
 ?>

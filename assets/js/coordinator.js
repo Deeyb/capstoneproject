@@ -24,9 +24,9 @@ async function getCSRFToken() {
       csrfTokenTs = Date.now();
       return csrfToken;
     } else {
-      }
-  } catch (e) {
     }
+  } catch (e) {
+  }
   return null;
 }
 
@@ -34,8 +34,8 @@ async function addCSRFToken(formData) {
   const token = await getCSRFToken();
   if (token) {
     formData.append('csrf_token', token);
-    } else {
-    }
+  } else {
+  }
   return formData;
 }
 
@@ -170,7 +170,7 @@ function showSection(sectionId) {
       }
     }
   } else {
-    }
+  }
 }
 
 // Load coordinator dashboard statistics
@@ -193,17 +193,17 @@ function loadCoordinatorDashboardStats() {
           if (element) {
             element.textContent = elements[id];
           } else {
-            }
+          }
         });
         
         // Load recent registrations
         loadRecentRegistrations();
         loadRecentLogins();
       } else {
-        }
+      }
     })
     .catch(err => {
-      });
+    });
 }
 
 // Load recent registrations
@@ -214,10 +214,10 @@ function loadRecentRegistrations() {
       if (data.success) {
         updateRecentRegistrations(data.data);
       } else {
-        }
+      }
     })
     .catch(err => {
-      });
+    });
 }
 
 // Update recent registrations display
@@ -253,10 +253,10 @@ function loadRecentLogins() {
       if (data.success) {
         updateRecentLogins(data.data);
       } else {
-        }
+      }
     })
     .catch(err => {
-      });
+    });
 }
 
 // Update recent logins display
@@ -293,7 +293,7 @@ function initCoordinatorCourses() {
       ensureCreateCourseModal();
     };
   } else {
-    }
+  }
 
   // Optional search/filter wiring if elements exist
   const searchInput = document.getElementById('courseSearch');
@@ -327,10 +327,10 @@ function loadCoordinatorCourses() {
       if (data.success) {
         renderCoordinatorCourses(data.data);
       } else {
-        }
+      }
     })
     .catch(err => {
-      });
+    });
 }
 
 // Status normalization utility
@@ -1435,7 +1435,7 @@ function viewOutline(courseId) {
                       acceptedFiles: defaultAcceptedFiles, 
                       maxFileSize: defaultMaxFileSize 
                     }];
-                    }
+                  }
                 } else {
                   st.type = 'lecture';
                   // Determine subtype using instructions.meta.kind if present (applies to legacy saved activities too)
@@ -1986,7 +1986,7 @@ function publishCourse(courseId, nextStatus, btnEl, ev) {
       btnEl.setAttribute('onclick', `publishCourse(${courseId}, '${nextToggle}', this, event); return false;`);
     }
   } catch (e) {
-    }
+  }
 
   const fd = new FormData();
   fd.append('action','status');
@@ -1999,7 +1999,7 @@ function publishCourse(courseId, nextStatus, btnEl, ev) {
       if (data.success) {
         if (typeof window.showNotification === 'function') window.showNotification('success','Success','Course status updated');
         // Don't reload the table - keep the optimistic UI since it's already correct
-        } else {
+      } else {
         if (typeof window.showNotification === 'function') window.showNotification('error','Error', data.message || 'Failed to update status');
         // Revert UI on failure
         revertStatusChange(btnEl, courseId);
@@ -2032,7 +2032,7 @@ function revertStatusChange(btnEl, courseId) {
     const nextToggle = prevStatus === 'published' ? 'draft' : 'published';
     btnEl.setAttribute('onclick', `publishCourse(${courseId}, '${nextToggle}', this, event); return false;`);
   } catch (e) {
-    }
+  }
 }
 // Archive course function
 function archiveCourse(courseId, btnEl, ev) {
@@ -4123,7 +4123,7 @@ function showCreateActivityForm(lessonId, opts){
           state.questionType = 'multiple_choice';
         }
         
-        render();
+        render(); 
         if (window.__cafScheduleSave) window.__cafScheduleSave();
       }; 
     });
@@ -4144,7 +4144,7 @@ function showCreateActivityForm(lessonId, opts){
         if (window.__cafScheduleSave) window.__cafScheduleSave();
       }; 
     } else {
-      }
+    }
     
     const lang = body.querySelector('#cafLang'); if (lang){ lang.onchange=function(){ state.language=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; try { if (window.enableCodeEditor) window.enableCodeEditor(starter); } catch(_){} }
     const instr = body.querySelector('#cafInstr'); if (instr){ instr.oninput=function(){ state.instructionsText=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; }
@@ -4192,7 +4192,7 @@ function showCreateActivityForm(lessonId, opts){
         addQuestion(); 
       }; 
     } else {
-      }
+    }
   }
 
   render();
@@ -4929,7 +4929,7 @@ function collectStudentAnswers() {
       value: input.value,
       type: 'radio'
     };
-    });
+  });
   
   // Collect text inputs
   form.querySelectorAll('input[type="text"]').forEach(input => {
@@ -4938,7 +4938,7 @@ function collectStudentAnswers() {
         value: input.value.trim(),
         type: 'text'
       };
-      }
+    }
   });
   
   // Collect textareas
@@ -5123,7 +5123,7 @@ function addChoice(questionIndex) {
     window.dispatchEvent(new CustomEvent('createActivityRender'));
     if (window.__cafScheduleSave) window.__cafScheduleSave();
   } else {
-    }
+  }
 }
 
 // Function to delete a choice
@@ -5463,23 +5463,23 @@ function updateAcceptedFiles(fileType, isChecked) {
     window.cafState.acceptedFiles = window.cafState.acceptedFiles.filter(f => f !== fileType);
   }
   
-  }
+}
 
 function updateMaxFileSize(value) {
   if (!window.cafState) return;
   window.cafState.maxFileSize = parseInt(value) || 10;
-  }
+}
 
 function updateMaxScore(value) {
   if (!window.cafState) return;
   window.cafState.maxScore = parseInt(value) || 10;
-  }
+}
 
 
 function updateInstructions(value) {
   if (!window.cafState) return;
   window.cafState.instructions = value;
-  }
+}
 
 // ===== Upload-based Activity Question Management Functions =====
 function updateQuestionFileTypes(questionIndex, fileType, isChecked) {
@@ -5639,7 +5639,7 @@ function renderStudentUploadBasedTest(activity) {
         
         // Here you would implement the actual file upload
         alert('File uploaded successfully! (This is a demo - actual implementation would upload to server)');
-        }
+      }
     </script>
   `;
 }

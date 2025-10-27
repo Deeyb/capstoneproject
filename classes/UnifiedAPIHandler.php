@@ -239,9 +239,9 @@ class UnifiedAPIHandler {
             case 'coordinator':
                 return 'coordinator_dashboard.php';
             case 'teacher':
-                return 'teacher_dashboard.php';
+                return 'teacher_dashboard.php?section=my-classes';
             case 'student':
-                return 'student_dashboard.php';
+                return 'student_dashboard.php?section=myclasses';
             default:
                 return 'index.php';
         }

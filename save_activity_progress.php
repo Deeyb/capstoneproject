@@ -1,9 +1,10 @@
 <?php
 /**
- * SAVE ACTIVITY PROGRESS API
+ * SAVE ACTIVITY PROGRESS API - OOP Version
  * Saves student progress for activities to the database
  */
 require_once __DIR__ . '/config/Database.php';
+require_once __DIR__ . '/classes/ActivityProgressService.php';
 
 header('Content-Type: application/json');
 
@@ -23,60 +24,41 @@ try {
     $activityId = (int)($input['activity_id'] ?? 0);
     $userId = (int)($input['user_id'] ?? 0);
     $answers = $input['answers'] ?? [];
-    $progressPercentage = (int)($input['progress_percentage'] ?? 0);
-    $lastUpdated = $input['last_updated'] ?? date('Y-m-d H:i:s');
+    $score = $input['score'] ?? null;
+    $completed = (bool)($input['completed'] ?? false);
     
-    if ($activityId <= 0) {
-        throw new Exception('Invalid activity ID');
-    }
+    // Initialize service
+    $progressService = new ActivityProgressService($db);
     
-    // Create or update progress record
-    $stmt = $db->prepare("
-        INSERT INTO activity_progress (
-            activity_id, 
-            user_id, 
-            answers, 
-            progress_percentage, 
-            last_updated, 
-            created_at
-        ) VALUES (?, ?, ?, ?, ?, NOW())
-        ON DUPLICATE KEY UPDATE
-            answers = VALUES(answers),
-            progress_percentage = VALUES(progress_percentage),
-            last_updated = VALUES(last_updated),
-            updated_at = NOW()
-    ");
+    // Save progress using OOP service
+    $result = $progressService->saveActivityProgress($activityId, $userId, $answers, $score, $completed);
     
-    $answersJson = json_encode($answers);
+    echo json_encode($result);
     
-    $result = $stmt->execute([
-        $activityId,
-        $userId,
-        $answersJson,
-        $progressPercentage,
-        $lastUpdated
+} catch (InvalidArgumentException $e) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
     ]);
-    
-    if ($result) {
-        echo json_encode([
-            'success' => true,
-            'message' => 'Progress saved successfully',
-            'data' => [
-                'activity_id' => $activityId,
-                'user_id' => $userId,
-                'progress_percentage' => $progressPercentage,
-                'answers_count' => count($answers)
-            ]
-        ]);
-    } else {
-        throw new Exception('Failed to save progress');
-    }
-    
+} catch (RuntimeException $e) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
 } catch (Exception $e) {
     http_response_code(400);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()
+    ]);
+} catch (Error $e) {
+    error_log("Save activity progress error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Internal server error'
     ]);
 }
 ?>

@@ -5,8 +5,46 @@ require_once __DIR__ . '/classes/auth_helpers.php';
 Auth::requireAuth();
 
 $classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
-if ($classId <= 0) { header('Location: teacher_dashboard.php'); exit; }
+if ($classId <= 0) { 
+    // Redirect based on user role
+    $userRole = $_SESSION['user_role'] ?? 'student';
+    if ($userRole === 'teacher') {
+        header('Location: teacher_dashboard.php'); 
+    } else {
+        header('Location: student_dashboard.php?section=myclasses'); 
+    }
+    exit; 
+}
+
 $embedded = isset($_GET['embedded']) ? (int)$_GET['embedded'] : 0;
+$userRole = $_SESSION['user_role'] ?? 'student';
+$userId = $_SESSION['user_id'];
+
+// If embedded, set proper headers to allow iframe loading
+if ($embedded) {
+  header('X-Frame-Options: SAMEORIGIN');
+  header('Content-Security-Policy: frame-ancestors \'self\'');
+}
+
+// Check if user has access to this class
+$db = (new Database())->getConnection();
+if ($userRole === 'student') {
+    // Check if student is enrolled in this class
+    $stmt = $db->prepare("SELECT id FROM class_students WHERE class_id = ? AND student_user_id = ?");
+    $stmt->execute([$classId, $userId]);
+    if (!$stmt->fetch()) {
+        header('Location: student_dashboard.php?section=myclasses&error=not_enrolled');
+        exit;
+    }
+} else if ($userRole === 'teacher') {
+    // Check if teacher owns this class
+    $stmt = $db->prepare("SELECT id FROM classes WHERE id = ? AND owner_user_id = ? AND status = 'active'");
+    $stmt->execute([$classId, $userId]);
+    if (!$stmt->fetch()) {
+        header('Location: teacher_dashboard.php?error=not_authorized');
+        exit;
+    }
+}
 
 // Basic page scaffold; data for header can be fetched later
 ?>
@@ -16,7 +54,37 @@ $embedded = isset($_GET['embedded']) ? (int)$_GET['embedded'] : 0;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Class Dashboard</title>
+  <style>
+    /* Prevent layout jumps by setting initial dimensions */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .class-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .top-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .main-content {
+      margin-top: 80px;
+      min-height: calc(100vh - 80px);
+    }
+  </style>
+  <?php if ($userRole === 'student'): ?>
+  <link rel="stylesheet" href="assets/css/student_dashboard.css?v=<?php echo time(); ?>">
+  <?php else: ?>
   <link rel="stylesheet" href="assets/css/teacher_dashboard.css?v=<?php echo time(); ?>">
+  <?php endif; ?>
   <link rel="stylesheet" href="assets/css/class_dashboard.css?v=<?php echo time(); ?>">
   <script src="assets/js/notification_system.js?v=<?php echo time(); ?>"></script>
   <style>
@@ -30,16 +98,53 @@ $embedded = isset($_GET['embedded']) ? (int)$_GET['embedded'] : 0;
     .class-page .lesson-main-title {
       text-align: center !important;
     }
-    .nav-back-btn { background: none; border: none; padding: 8px 10px; color: #64748b; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    .nav-back-btn:hover { background: #f1f5f9; }
+    .nav-back-btn { 
+      background: linear-gradient(135deg, #1d9b3e 0%, #28a745 100%); 
+      border: none; 
+      padding: 12px; 
+      color: white; 
+      border-radius: 12px; 
+      cursor: pointer; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      font-weight: 600;
+      font-size: 16px;
+      box-shadow: 0 4px 12px rgba(29, 155, 62, 0.3);
+      transition: all 0.3s ease;
+    }
+    .nav-back-btn:hover { 
+      background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); 
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(29, 155, 62, 0.4);
+    }
+    
+    /* Loading animation */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
 <body>
+  <!-- Loading overlay to prevent layout jumps -->
+  <div id="loadingOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.3s ease;">
+    <div style="text-align: center;">
+      <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #1d9b3e; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+      <p style="margin-top: 20px; color: #666;">Loading Class Dashboard...</p>
+    </div>
+  </div>
+  
   <div class="class-page">
     <!-- Top Navigation Bar -->
     <div class="top-nav">
       <div class="nav-left">
+        <button class="nav-back-btn" onclick="goBack()" title="Go Back to Active Classes">
+          <i class="fas fa-arrow-left"></i>
+        </button>
         <div class="course-logo">
           <div class="logo-icon">
             <i class="fas fa-graduation-cap"></i>
@@ -85,10 +190,25 @@ $embedded = isset($_GET['embedded']) ? (int)$_GET['embedded'] : 0;
               <i class="fas fa-star"></i>
               <span>Course</span>
             </div>
-            <div class="sidebar-option">
-              <i class="fas fa-star"></i>
-              <span>Created by me</span>
+            <?php if ($userRole === 'teacher'): ?>
+            <div class="sidebar-option" data-teacher-only>
+              <i class="fas fa-plus"></i>
+              <span>Create Activity</span>
             </div>
+            <div class="sidebar-option" data-teacher-only>
+              <i class="fas fa-cog"></i>
+              <span>Manage</span>
+            </div>
+            <?php else: ?>
+            <div class="sidebar-option" data-student-only>
+              <i class="fas fa-trophy"></i>
+              <span>My Progress</span>
+            </div>
+            <div class="sidebar-option" data-student-only>
+              <i class="fas fa-chart-line"></i>
+              <span>Leaderboard</span>
+            </div>
+            <?php endif; ?>
           </div>
         </div>
         
@@ -100,9 +220,27 @@ $embedded = isset($_GET['embedded']) ? (int)$_GET['embedded'] : 0;
         <section id="tab-classrecord" class="tab-section">
           <div class="card">
             <div class="card-header-row">
-              <h3>Class Record</h3>
+              <h3><?php echo $userRole === 'student' ? 'My Progress' : 'Class Record'; ?></h3>
             </div>
-            <div style="padding: 12px; color:#6b7280;">Coming soon.</div>
+            <div style="padding: 12px; color:#6b7280;">
+              <?php if ($userRole === 'student'): ?>
+                <p>Track your progress and see your achievements in this class.</p>
+                <div style="margin-top: 20px;">
+                  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #1d9b3e;">
+                    <h4 style="margin: 0 0 10px 0; color: #1d9b3e;">Your Progress</h4>
+                    <p style="margin: 0; color: #666;">Complete activities to track your learning journey!</p>
+                  </div>
+                </div>
+              <?php else: ?>
+                <p>View and manage student records and grades.</p>
+                <div style="margin-top: 20px;">
+                  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #1d9b3e;">
+                    <h4 style="margin: 0 0 10px 0; color: #1d9b3e;">Class Management</h4>
+                    <p style="margin: 0; color: #666;">Monitor student performance and manage class records.</p>
+                  </div>
+                </div>
+              <?php endif; ?>
+            </div>
           </div>
         </section>
 
@@ -170,8 +308,89 @@ $embedded = isset($_GET['embedded']) ? (int)$_GET['embedded'] : 0;
   </div>
 
   <script>window.__CLASS_ID__ = <?php echo json_encode($classId); ?>;</script>
+  <script>window.__USER_ROLE__ = <?php echo json_encode($userRole); ?>;</script>
+  <script>window.__USER_ID__ = <?php echo json_encode($userId); ?>;</script>
   <script src="assets/js/class_dashboard.js?v=<?php echo time(); ?>"></script>
-  <script></script>
+  <script>
+    // Role-aware functionality
+    function goBack() {
+      console.log('🔙 Back button clicked');
+      const userRole = window.__USER_ROLE__;
+      console.log('👤 User role:', userRole);
+      
+      // Check if we're in an iframe
+      if (window.parent !== window) {
+        console.log('🖼️ In iframe, calling parent exit function');
+        // We're in an iframe, call the parent's exit function
+        try {
+          if (window.parent.exitEmbeddedClass) {
+            window.parent.exitEmbeddedClass();
+            console.log('✅ Called parent exitEmbeddedClass function');
+          } else {
+            console.log('❌ Parent exitEmbeddedClass function not available');
+            window.location.href = 'student_dashboard.php?section=myclasses';
+          }
+        } catch (e) {
+          console.log('❌ Error calling parent function:', e);
+          window.location.href = 'student_dashboard.php?section=myclasses';
+        }
+      } else {
+        console.log('📄 Not in iframe, redirecting directly');
+        // We're not in an iframe, redirect directly
+        if (userRole === 'student') {
+          console.log('🎓 Redirecting student to Active Classes');
+          // Force redirect to My Classes section
+          window.location.href = 'student_dashboard.php?section=myclasses';
+        } else {
+          console.log('👨‍🏫 Redirecting teacher to My Classes');
+          window.location.href = 'teacher_dashboard.php?section=my-classes';
+        }
+      }
+    }
+    
+    // Hide loading overlay when page is ready
+    function hideLoadingOverlay() {
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          overlay.style.display = 'none';
+        }, 300);
+      }
+    }
+    
+    // Initialize role-specific features
+    document.addEventListener('DOMContentLoaded', function() {
+      // Hide loading overlay after a short delay to ensure everything is loaded
+      setTimeout(hideLoadingOverlay, 500);
+      
+      const userRole = window.__USER_ROLE__;
+      
+      if (userRole === 'student') {
+        // Hide teacher-only features
+        const teacherOnlyElements = document.querySelectorAll('[data-teacher-only]');
+        teacherOnlyElements.forEach(el => el.style.display = 'none');
+        
+        // Show student-specific features
+        const studentElements = document.querySelectorAll('[data-student-only]');
+        studentElements.forEach(el => el.style.display = 'block');
+        
+        // Update page title for students
+        document.title = 'Class - Student View';
+      } else {
+        // Hide student-only features
+        const studentOnlyElements = document.querySelectorAll('[data-student-only]');
+        studentOnlyElements.forEach(el => el.style.display = 'none');
+        
+        // Show teacher-specific features
+        const teacherElements = document.querySelectorAll('[data-teacher-only]');
+        teacherElements.forEach(el => el.style.display = 'block');
+        
+        // Update page title for teachers
+        document.title = 'Class Dashboard - Teacher View';
+      }
+    });
+  </script>
 </body>
 </html>
 

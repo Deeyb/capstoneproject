@@ -17,14 +17,14 @@ class Auth {
                         header('Location: admin_panel.php');
                         break;
                     case 'teacher':
-                        header('Location: Teacher_dashboard.php');
+                        header('Location: Teacher_dashboard.php?section=my-classes');
                         break;
                     case 'coordinator':
                         header('Location: coordinator_dashboard.php');
                         break;
                     case 'student':
                     default:
-                        header('Location: student_dashboard.php');
+                        header('Location: student_dashboard.php?section=myclasses');
                         break;
                 }
                 exit();

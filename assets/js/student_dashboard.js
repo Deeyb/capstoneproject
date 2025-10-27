@@ -1,8 +1,7 @@
-// ===== STUDENT DASHBOARD JAVASCRIPT =====
+// ===== STUDENT DASHBOARD JAVASCRIPT - MIRROR DESIGN =====
 
 // Global variables
 let currentSection = 'myclasses';
-let currentLeaderboardTab = 'overall';
 
 // ===== SIDEBAR FUNCTIONALITY =====
 
@@ -24,615 +23,469 @@ function toggleSidebar() {
 // Section navigation
 function showSection(sectionName, clickedElement = null) {
   console.log('🔄 Switching to section:', sectionName);
+  console.log('🎯 Clicked element:', clickedElement);
   
-  // Hide all sections using direct style manipulation
+  // Hide all sections (using BOTH CSS classes AND inline styles like coordinator)
   const sections = document.querySelectorAll('.section-content');
+  console.log('📋 Found sections:', sections.length);
   sections.forEach(section => {
     section.classList.remove('active');
-    section.style.display = 'none'; // Force hide
-    console.log(`  - Hidden: ${section.id}`);
+    section.style.display = 'none';  // ADD THIS LINE - FORCE HIDE
+    console.log('❌ Removed active from:', section.id);
   });
   
   // Remove active class from all nav items
   const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => item.classList.remove('active'));
+  console.log('📋 Found nav items:', navItems.length);
+  navItems.forEach(item => {
+    item.classList.remove('active');
+  });
   
-  // Show selected section using direct style manipulation
+  // Show selected section (using BOTH CSS classes AND inline styles)
   const targetSection = document.getElementById(sectionName);
+  console.log('🎯 Target section:', targetSection);
   if (targetSection) {
     targetSection.classList.add('active');
-    targetSection.style.display = 'block'; // Force show
-    console.log(`✅ Section activated: ${sectionName}`);
+    targetSection.style.display = 'block';  // ADD THIS LINE - FORCE SHOW
+    console.log('✅ Added active to:', sectionName);
+    console.log('📊 Section display style:', window.getComputedStyle(targetSection).display);
   } else {
-    console.error(`❌ Section not found: ${sectionName}`);
+    console.error('❌ Section not found:', sectionName);
   }
   
   // Add active class to clicked nav item
   if (clickedElement) {
     clickedElement.classList.add('active');
+    console.log('✅ Added active to nav item');
   }
   
   // Update current section
   currentSection = sectionName;
   
-  // Load section-specific content
-  loadSectionContent(sectionName);
+  // Update URL without page reload
+  const url = new URL(window.location);
+  url.searchParams.set('section', sectionName);
+  window.history.pushState({}, '', url);
+  console.log('🔗 URL updated to:', url.toString());
 }
 
-// ===== SECTION CONTENT LOADING =====
+// ===== JOIN CLASS FUNCTIONALITY =====
 
-function loadSectionContent(sectionName) {
-  switch(sectionName) {
-    case 'myclasses':
-      loadMyClasses();
-      break;
-    case 'newsfeed':
-      loadNewsfeed();
-      break;
-    case 'leaderboards':
-      loadLeaderboards();
-      break;
-    case 'certification':
-      loadCertification();
-      break;
-    case 'profile':
-      // Profile section is handled by shared_profile.js
-      console.log('Profile section loaded');
-      
-      // Debug profile section visibility
-      const profileSection = document.getElementById('profile');
-      if (profileSection) {
-        console.log('Profile section found:', profileSection);
-        console.log('Profile section classes:', profileSection.className);
-        console.log('Profile section display:', window.getComputedStyle(profileSection).display);
-        console.log('Profile section visibility:', window.getComputedStyle(profileSection).visibility);
-        console.log('Profile section height:', window.getComputedStyle(profileSection).height);
-        console.log('Profile section content:', profileSection.innerHTML.substring(0, 200));
-      } else {
-        console.error('Profile section not found!');
-      }
-      break;
+function openJoinClassModal() {
+  const modal = document.getElementById('joinClassModal');
+  if (modal) {
+    modal.style.display = 'block';
+    // Focus on input
+    setTimeout(() => {
+      const input = document.getElementById('classCode');
+      if (input) input.focus();
+    }, 100);
   }
 }
 
-// ===== MY CLASSES FUNCTIONALITY =====
-
-function loadMyClasses() {
-  console.log('Loading My Classes...');
-  // Placeholder fetch in the future; render empty panel for now
-  renderMyClasses([]);
-}
-
-function renderMyClasses(classes) {
-  const container = document.getElementById('myclasses');
-  if (!container) return;
-
-  const panelHTML = `
-    <h2 class="section-title">My Classes</h2>
-    <div class="student-panel">
-      <div class="panel-section-header">Active Classes</div>
-      <div class="classes-area">
-        <div class="create-class-tile" id="studentJoinClassTile">
-          <span>+ Join Class</span>
-        </div>
-      </div>
-    </div>
-  `;
-
-  container.innerHTML = panelHTML;
-  const joinTile = document.getElementById('studentJoinClassTile');
-  if (joinTile) {
-    joinTile.addEventListener('click', function() {
-      if (typeof showNotification === 'function') {
-        showNotification('info', 'Coming Soon', 'Join Class with code will be available here.');
-      }
-    });
+function closeJoinClassModal() {
+  const modal = document.getElementById('joinClassModal');
+  if (modal) {
+    modal.style.display = 'none';
+    // Clear form
+    const form = document.getElementById('joinClassForm');
+    if (form) form.reset();
+    // Hide error
+    const error = document.getElementById('joinClassError');
+    if (error) error.style.display = 'none';
   }
 }
 
-function enterClass(classId) {
-  console.log(`Entering class ${classId}`);
-  showNotification('info', 'Entering Class', 'Redirecting to class content...');
-  // Add actual navigation logic here
-}
-
-function viewClassDetails(classId) {
-  console.log(`Viewing details for class ${classId}`);
-  showNotification('info', 'Class Details', 'Opening class details...');
-  // Add modal or navigation logic here
-}
-
-// ===== NEWSFEED FUNCTIONALITY =====
-
-function loadNewsfeed() {
-  console.log('Loading Newsfeed...');
+function handleJoinClass() {
+  const classCode = document.getElementById('classCode').value.trim();
+  const errorDiv = document.getElementById('joinClassError');
   
-  // Sample data - replace with actual API calls
-  const newsItems = [
-    {
-      id: 1,
-      author: 'Prof. Martin Hangad',
-      time: '2 hours ago',
-      content: 'Welcome to the new semester! Please check your class schedules and assignments.',
-      likes: 12,
-      comments: 5
-    },
-    {
-      id: 2,
-      author: 'System Admin',
-      time: '1 day ago',
-      content: 'The LMS will be undergoing maintenance this weekend. Please save your work.',
-      likes: 8,
-      comments: 2
-    },
-    {
-      id: 3,
-      author: 'Dr. Sarah Johnson',
-      time: '3 days ago',
-      content: 'New coding exercises are now available in the Data Structures course.',
-      likes: 15,
-      comments: 7
-    }
-  ];
-  
-  renderNewsfeed(newsItems);
-}
-
-function renderNewsfeed(newsItems) {
-  const container = document.getElementById('newsfeed');
-  if (!container) return;
-  
-  const newsfeedHTML = `
-    <h2 class="section-title">Newsfeed</h2>
-    <div class="newsfeed-container">
-      ${newsItems.map(item => `
-        <div class="news-item">
-          <div class="news-header">
-            <div class="news-avatar">${item.author.charAt(0)}</div>
-            <div class="news-meta">
-              <h4 class="news-author">${item.author}</h4>
-              <p class="news-time">${item.time}</p>
-            </div>
-          </div>
-          <div class="news-content">
-            <p>${item.content}</p>
-          </div>
-          <div class="news-actions">
-            <button class="news-action" onclick="likeNews(${item.id})">
-              <i class="fas fa-heart"></i> ${item.likes}
-            </button>
-            <button class="news-action" onclick="commentNews(${item.id})">
-              <i class="fas fa-comment"></i> ${item.comments}
-            </button>
-            <button class="news-action" onclick="shareNews(${item.id})">
-              <i class="fas fa-share"></i> Share
-            </button>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-  
-  container.innerHTML = newsfeedHTML;
-}
-
-function likeNews(newsId) {
-  console.log(`Liking news ${newsId}`);
-  showNotification('success', 'Liked', 'You liked this post!');
-}
-
-function commentNews(newsId) {
-  console.log(`Commenting on news ${newsId}`);
-  showNotification('info', 'Comment', 'Opening comment section...');
-}
-
-function shareNews(newsId) {
-  console.log(`Sharing news ${newsId}`);
-  showNotification('info', 'Share', 'Opening share options...');
-}
-
-// ===== LEADERBOARDS FUNCTIONALITY =====
-
-function loadLeaderboards() {
-  console.log('Loading Leaderboards...');
-  
-  // Sample data - replace with actual API calls
-  const leaderboardData = {
-    overall: [
-      { rank: 1, name: 'Alice Johnson', score: 2850, course: 'C++ Programming' },
-      { rank: 2, name: 'Bob Smith', score: 2720, course: 'Data Structures' },
-      { rank: 3, name: 'Charlie Brown', score: 2650, course: 'Web Development' },
-      { rank: 4, name: 'Diana Prince', score: 2580, course: 'C++ Programming' },
-      { rank: 5, name: 'Eve Wilson', score: 2450, course: 'Data Structures' }
-    ],
-    weekly: [
-      { rank: 1, name: 'Eve Wilson', score: 450, course: 'Data Structures' },
-      { rank: 2, name: 'Alice Johnson', score: 420, course: 'C++ Programming' },
-      { rank: 3, name: 'Bob Smith', score: 380, course: 'Data Structures' },
-      { rank: 4, name: 'Charlie Brown', score: 350, course: 'Web Development' },
-      { rank: 5, name: 'Diana Prince', score: 320, course: 'C++ Programming' }
-    ],
-    monthly: [
-      { rank: 1, name: 'Alice Johnson', score: 1850, course: 'C++ Programming' },
-      { rank: 2, name: 'Bob Smith', score: 1720, course: 'Data Structures' },
-      { rank: 3, name: 'Charlie Brown', score: 1650, course: 'Web Development' },
-      { rank: 4, name: 'Diana Prince', score: 1580, course: 'C++ Programming' },
-      { rank: 5, name: 'Eve Wilson', score: 1450, course: 'Data Structures' }
-    ]
-  };
-  
-  renderLeaderboards(leaderboardData);
-}
-
-function renderLeaderboards(data) {
-  const container = document.getElementById('leaderboards');
-  if (!container) return;
-  
-  const leaderboardHTML = `
-    <h2 class="section-title">Leaderboards</h2>
-    <div class="leaderboard-container">
-      <div class="leaderboard-tabs">
-        <button class="leaderboard-tab active" onclick="switchLeaderboardTab('overall')">
-          Overall
-        </button>
-        <button class="leaderboard-tab" onclick="switchLeaderboardTab('weekly')">
-          This Week
-        </button>
-        <button class="leaderboard-tab" onclick="switchLeaderboardTab('monthly')">
-          This Month
-        </button>
-      </div>
-      <div class="leaderboard-list" id="leaderboardList">
-        ${renderLeaderboardList(data.overall)}
-      </div>
-    </div>
-  `;
-  
-  container.innerHTML = leaderboardHTML;
-}
-
-function renderLeaderboardList(players) {
-  return players.map(player => `
-    <div class="leaderboard-item">
-      <div class="rank ${getRankClass(player.rank)}">${player.rank}</div>
-      <div class="user-info">
-        <div class="user-avatar">${player.name.charAt(0)}</div>
-        <div class="user-details">
-          <h4>${player.name}</h4>
-          <p>${player.course}</p>
-        </div>
-      </div>
-      <div class="score">${player.score.toLocaleString()}</div>
-    </div>
-  `).join('');
-}
-
-function getRankClass(rank) {
-  if (rank === 1) return 'first';
-  if (rank === 2) return 'second';
-  if (rank === 3) return 'third';
-  return '';
-}
-
-function switchLeaderboardTab(tab) {
-  currentLeaderboardTab = tab;
-  
-  // Update tab buttons
-  document.querySelectorAll('.leaderboard-tab').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  event.target.classList.add('active');
-  
-  // Update leaderboard content
-  const leaderboardData = {
-    overall: [
-      { rank: 1, name: 'Alice Johnson', score: 2850, course: 'C++ Programming' },
-      { rank: 2, name: 'Bob Smith', score: 2720, course: 'Data Structures' },
-      { rank: 3, name: 'Charlie Brown', score: 2650, course: 'Web Development' },
-      { rank: 4, name: 'Diana Prince', score: 2580, course: 'C++ Programming' },
-      { rank: 5, name: 'Eve Wilson', score: 2450, course: 'Data Structures' }
-    ],
-    weekly: [
-      { rank: 1, name: 'Eve Wilson', score: 450, course: 'Data Structures' },
-      { rank: 2, name: 'Alice Johnson', score: 420, course: 'C++ Programming' },
-      { rank: 3, name: 'Bob Smith', score: 380, course: 'Data Structures' },
-      { rank: 4, name: 'Charlie Brown', score: 350, course: 'Web Development' },
-      { rank: 5, name: 'Diana Prince', score: 320, course: 'C++ Programming' }
-    ],
-    monthly: [
-      { rank: 1, name: 'Alice Johnson', score: 1850, course: 'C++ Programming' },
-      { rank: 2, name: 'Bob Smith', score: 1720, course: 'Data Structures' },
-      { rank: 3, name: 'Charlie Brown', score: 1650, course: 'Web Development' },
-      { rank: 4, name: 'Diana Prince', score: 1580, course: 'C++ Programming' },
-      { rank: 5, name: 'Eve Wilson', score: 1450, course: 'Data Structures' }
-    ]
-  };
-  
-  const leaderboardList = document.getElementById('leaderboardList');
-  if (leaderboardList) {
-    leaderboardList.innerHTML = renderLeaderboardList(leaderboardData[tab]);
-  }
-}
-
-// ===== CERTIFICATION FUNCTIONALITY =====
-
-function loadCertification() {
-  console.log('Loading Certification...');
-  
-  // Sample data - replace with actual API calls
-  const certificates = [
-    {
-      id: 1,
-      title: 'C++ Programming Fundamentals',
-      course: 'Complete C++ Programming Course',
-      date: '2024-01-15',
-      status: 'completed',
-      score: 95
-    },
-    {
-      id: 2,
-      title: 'Data Structures Mastery',
-      course: 'Advanced Data Structures and Algorithms',
-      date: '2023-12-20',
-      status: 'completed',
-      score: 88
-    },
-    {
-      id: 3,
-      title: 'Web Development Bootcamp',
-      course: 'Full-Stack Web Development',
-      date: '2024-02-01',
-      status: 'in-progress',
-      score: 0
-    }
-  ];
-  
-  renderCertification(certificates);
-}
-
-function renderCertification(certificates) {
-  const container = document.getElementById('certification');
-  if (!container) return;
-  
-  const certificationHTML = `
-    <h2 class="section-title">My Certificates</h2>
-    <div class="certification-container">
-      <div class="certificate-grid">
-        ${certificates.map(cert => `
-          <div class="certificate-card">
-            <div class="certificate-icon">
-              <i class="fas fa-certificate"></i>
-            </div>
-            <h3 class="certificate-title">${cert.title}</h3>
-            <p class="certificate-course">${cert.course}</p>
-            <p class="certificate-date">Completed: ${cert.date}</p>
-            <div class="certificate-actions">
-              ${cert.status === 'completed' ? `
-                <button class="btn-download" onclick="downloadCertificate(${cert.id})">
-                  <i class="fas fa-download"></i> Download
-                </button>
-                <button class="btn-view" onclick="viewCertificate(${cert.id})">
-                  <i class="fas fa-eye"></i> View
-                </button>
-              ` : `
-                <button class="btn-secondary" disabled>
-                  <i class="fas fa-clock"></i> In Progress
-                </button>
-              `}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-  
-  container.innerHTML = certificationHTML;
-}
-
-function downloadCertificate(certId) {
-  console.log(`Downloading certificate ${certId}`);
-  showNotification('success', 'Download Started', 'Your certificate is being downloaded...');
-}
-
-function viewCertificate(certId) {
-  console.log(`Viewing certificate ${certId}`);
-  showNotification('info', 'Certificate View', 'Opening certificate viewer...');
-}
-
-// ===== NOTIFICATION SYSTEM =====
-
-function showNotification(type, title, message) {
-  // Use the global notification system if available
-  if (typeof window.showNotification === 'function') {
-    window.showNotification(type, title, message);
+  if (!classCode) {
+    errorDiv.textContent = 'Please enter a class code';
+    errorDiv.style.display = 'block';
     return;
   }
   
-  // Fallback notification
-  console.log(`${type.toUpperCase()}: ${title} - ${message}`);
+  // Show loading state
+  errorDiv.style.display = 'none';
+  const joinBtn = document.querySelector('#joinClassModal .btn-primary');
+  const originalText = joinBtn.textContent;
+  joinBtn.textContent = 'Joining...';
+  joinBtn.disabled = true;
   
-  // Create a simple toast notification
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <div class="toast-content">
-      <strong>${title}</strong>
-      <p>${message}</p>
-    </div>
-  `;
-  
-  // Add toast styles if not already present
-  if (!document.getElementById('toast-styles')) {
-    const style = document.createElement('style');
-    style.id = 'toast-styles';
-    style.textContent = `
-      .toast {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: white;
-        border-radius: 8px;
-        padding: 16px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 10000;
-        max-width: 300px;
-        animation: slideIn 0.3s ease;
-      }
-      .toast-success { border-left: 4px solid #28a745; }
-      .toast-error { border-left: 4px solid #dc3545; }
-      .toast-info { border-left: 4px solid #17a2b8; }
-      .toast-warning { border-left: 4px solid #ffc107; }
-      @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  
-  document.body.appendChild(toast);
-  
-  // Remove toast after 3 seconds
-  setTimeout(() => {
-    toast.remove();
-  }, 3000);
-}
-
-// Make showNotification globally available for shared_profile.js
-if (typeof window !== 'undefined') {
-  window.showNotification = showNotification;
-}
-
-// ===== HEADER FUNCTIONALITY =====
-
-function initializeHeader() {
-  console.log('🔧 Initializing header functionality...');
-  
-  // Settings dropdown functionality
-  const settingsIcon = document.getElementById('settingsIcon');
-  const settingsDropdown = document.getElementById('settingsDropdown');
-  console.log('Settings elements found:', { settingsIcon: !!settingsIcon, settingsDropdown: !!settingsDropdown });
-  if (settingsIcon && settingsDropdown) {
-    // Remove any pre-existing listeners by cloning the node
-    const newIcon = settingsIcon.cloneNode(true);
-    settingsIcon.parentNode.replaceChild(newIcon, settingsIcon);
-    // Ensure dropdown is initially hidden
-    settingsDropdown.style.display = 'none';
-    newIcon.addEventListener('click', function(e) {
-      e.stopPropagation();
-      settingsDropdown.style.display = settingsDropdown.style.display === 'block' ? 'none' : 'block';
-    });
-    // Close when clicking outside or pressing ESC
-    document.addEventListener('click', function(e) {
-      if (!settingsDropdown.contains(e.target) && e.target !== newIcon) {
-        settingsDropdown.style.display = 'none';
-      }
-    });
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') settingsDropdown.style.display = 'none';
-    });
-  }
-  
-  // Theme toggle functionality (Student Dashboard specific)
-  const themeToggle = document.getElementById('themeToggle');
-  console.log('Theme toggle element found:', !!themeToggle);
-  if (themeToggle) {
-    const newToggle = themeToggle.cloneNode(true);
-    themeToggle.parentNode.replaceChild(newToggle, themeToggle);
-    const applyTheme = (mode) => {
-      document.body.classList.toggle('dark-mode', mode === 'dark');
-      newToggle.className = mode === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-      try { localStorage.setItem('adminTheme', mode); } catch(_) {}
-    };
-    const savedTheme = (localStorage.getItem('adminTheme') || 'light');
-    applyTheme(savedTheme);
-    console.log('Initial theme loaded:', savedTheme);
-    newToggle.addEventListener('click', function() {
-      const isDark = !document.body.classList.contains('dark-mode');
-      applyTheme(isDark ? 'dark' : 'light');
-      console.log('Theme toggled to:', isDark ? 'dark' : 'light');
-    });
-  }
-}
-
-// ===== INITIALIZATION =====
-
-function initializeStudentDashboard() {
-  console.log('Student Dashboard initializing...');
-  
-  // Use shared header (admin_panel.js) if available to avoid duplicate listeners
-  if (typeof window.applyThemePreference === 'function') {
-    try { window.applyThemePreference(); } catch (_) {}
-  }
-  console.log('✅ Using shared header handlers (student)');
-  
-  // Read desired section from URL if provided (e.g., ?section=profile)
-  try {
-    const urlSection = new URLSearchParams(window.location.search).get('section');
-    if (urlSection) {
-      console.log('🔎 URL section detected:', urlSection);
-      currentSection = urlSection;
+  // Make API call
+  fetch('join_class.php', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      class_code: classCode
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showNotification('success', 'Success', `Successfully joined ${data.class ? data.class.name : 'the class'}!`);
+      closeJoinClassModal();
+      // Reload page to show new class
+      setTimeout(() => {
+        location.reload();
+      }, 1000);
+    } else {
+      errorDiv.textContent = data.message || 'Failed to join class';
+      errorDiv.style.display = 'block';
     }
-  } catch (e) { /* ignore */ }
-
-  // Force hide all sections first
-  const sections = document.querySelectorAll('.section-content');
-  sections.forEach(section => {
-    section.style.display = 'none';
-    section.classList.remove('active');
-    console.log(`  - Force hidden: ${section.id}`);
+  })
+  .catch(error => {
+    console.error('Join class error:', error);
+    errorDiv.textContent = 'Network error. Please try again.';
+    errorDiv.style.display = 'block';
+  })
+  .finally(() => {
+    // Reset button
+    joinBtn.textContent = originalText;
+    joinBtn.disabled = false;
   });
+}
+
+// ===== ENTER CLASS FUNCTIONALITY =====
+
+function enterClass(classId) {
+  console.log('🎯 Entering class:', classId);
   
-  // Show the target section determined by URL or fallback
-  if (!currentSection) currentSection = 'myclasses';
-  console.log('🚦 Initial section to show:', currentSection);
-  showSection(currentSection);
+  // Set global class ID for student module access
+  window.currentClassId = classId;
+  document.body.setAttribute('data-class-id', classId);
   
-  // Set up mobile menu toggle
-  const menuToggle = document.querySelector('.menu-toggle');
-  if (menuToggle) {
-    menuToggle.addEventListener('click', toggleSidebar);
-  }
+  // Try to open inside My Classes via iframe container
+  var container = document.getElementById('classDetailContainer');
+  var frame = document.getElementById('classDetailFrame');
+  var grid = document.querySelector('.classes-grid');
+  var sectionTitle = document.querySelector('#myclasses .section-title');
+  var activeHeader = document.querySelector('.active-classes-header');
   
-  // Set up sidebar navigation (native structure)
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) {
-    sidebar.addEventListener('click', function(e) {
-      let li = e.target;
-      if (li.tagName === 'I') li = li.parentElement;
-      if (li.dataset.section) {
-        showSection(li.dataset.section, li);
-        // Close sidebar on mobile after navigation
-        if (window.innerWidth <= 900) {
-          sidebar.classList.remove('open');
-        }
+  if (container && frame) {
+    console.log('✅ Found iframe container, showing embedded class dashboard');
+    
+    // Hide classes grid and show iframe
+    if (grid) grid.style.display = 'none';
+    if (sectionTitle) sectionTitle.style.display = 'none';
+    if (activeHeader) activeHeader.style.display = 'none';
+    
+    // Show iframe container
+    container.style.display = 'block';
+    
+    // Set iframe source to class dashboard with embedded parameter
+    frame.src = `class_dashboard.php?class_id=${classId}&embedded=1`;
+    
+    // Add error handling for iframe
+    frame.onload = function() {
+      console.log('✅ Iframe loaded successfully');
+    };
+    
+    frame.onerror = function() {
+      console.log('❌ Iframe failed to load, trying direct redirect');
+      // If iframe fails, redirect directly
+      window.location.href = `class_dashboard.php?class_id=${classId}`;
+    };
+    
+    // Timeout fallback
+    setTimeout(function() {
+      if (frame.src && !frame.contentDocument) {
+        console.log('❌ Iframe timeout, trying direct redirect');
+        window.location.href = `class_dashboard.php?class_id=${classId}`;
       }
-    });
+    }, 5000);
+    
+  } else {
+    console.log('❌ No iframe container found, redirecting to class dashboard');
+    // Fallback: redirect to class dashboard
+    window.location.href = `class_dashboard.php?class_id=${classId}`;
+  }
+}
+
+
+function exitEmbeddedClass() {
+  console.log('🚪 Exiting embedded class view');
+  
+  // Hide iframe container
+  const container = document.getElementById('classDetailContainer');
+  if (container) {
+    container.style.display = 'none';
+    console.log('✅ Hidden iframe container');
   }
   
-  // Load initial section content (showSection already flips visibility). Avoid duplicate header init.
-  loadSectionContent(currentSection);
-  
-  // Initialize shared profile functionality
-  if (typeof initSharedProfile === 'function') {
-    initSharedProfile();
+  // Show the entire My Classes section
+  const myClassesSection = document.getElementById('myclasses');
+  if (myClassesSection) {
+    myClassesSection.style.display = 'block';
+    myClassesSection.classList.add('active');
+    console.log('✅ Showed My Classes section');
   }
   
-  console.log('Student Dashboard initialized successfully');
+  // Show classes grid and section elements
+  const grid = document.querySelector('.classes-grid');
+  const sectionTitle = document.querySelector('#myclasses .section-title');
+  const activeHeader = document.querySelector('.active-classes-header');
+  const activeClasses = document.querySelector('.active-classes');
+  
+  if (grid) {
+    grid.style.display = 'grid'; // Use grid instead of block
+    console.log('✅ Showed classes grid');
+  }
+  if (sectionTitle) {
+    sectionTitle.style.display = 'block';
+    console.log('✅ Showed section title');
+  }
+  if (activeHeader) {
+    activeHeader.style.display = 'block';
+    console.log('✅ Showed active classes header');
+  }
+  if (activeClasses) {
+    activeClasses.style.display = 'block';
+    console.log('✅ Showed active classes container');
+  }
+  
+  // Update URL to reflect current section
+  const url = new URL(window.location);
+  url.searchParams.set('section', 'myclasses');
+  window.history.pushState({}, '', url);
+  console.log('🔗 URL updated to:', url.toString());
+  
+  // Clear global class ID
+  window.currentClassId = null;
+  document.body.removeAttribute('data-class-id');
+  
+  console.log('✅ Successfully exited embedded class view');
 }
 
 // ===== EVENT LISTENERS =====
 
-// Note: Initialization is now handled by the HTML file to ensure proper script loading order
+// Add click event listeners to class items
+function addClassItemEventListeners() {
+  console.log('🔧 Adding event listeners to class items...');
+  
+  const classItems = document.querySelectorAll('.class-item[data-class-id]');
+  console.log('🔍 Found class items:', classItems.length);
+  
+  if (classItems.length === 0) {
+    console.log('❌ No class items found with data-class-id attribute');
+    // Try to find all class items
+    const allClassItems = document.querySelectorAll('.class-item');
+    console.log('🔍 Total class items found:', allClassItems.length);
+    
+    // If still no elements, retry after a longer delay
+    if (allClassItems.length === 0) {
+      console.log('🔄 Retrying event listener attachment in 500ms...');
+      setTimeout(function() {
+        addClassItemEventListeners();
+      }, 500);
+      return;
+    }
+    
+    // Log each class item
+    allClassItems.forEach(function(item, index) {
+      console.log('🔍 Class item ' + index + ':', item);
+      console.log('🔍 Class item ' + index + ' attributes:', item.attributes);
+    });
+    return;
+  }
+  
+  classItems.forEach(function(item, index) {
+    console.log('🔧 Adding event listener to class item ' + index + ':', item);
+    console.log('🔧 Class item ' + index + ' data-class-id:', item.getAttribute('data-class-id'));
+    
+    item.addEventListener('click', function(e) {
+      e.preventDefault();
+      const classId = this.getAttribute('data-class-id');
+      console.log('🎯 Class item clicked:', classId);
+      if (classId) {
+        enterClass(classId);
+      } else {
+        console.log('❌ No class ID found for clicked item');
+      }
+    });
+    
+    // Add hover effects
+    item.addEventListener('mouseenter', function() {
+      this.style.transform = 'translateY(-2px)';
+      this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+    });
+    
+    item.addEventListener('mouseleave', function() {
+      this.style.transform = 'translateY(0)';
+      this.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+    });
+  });
+  
+  console.log('✅ Event listeners added to', classItems.length, 'class items');
+}
 
-// Make functions globally available
-window.toggleSidebar = toggleSidebar;
-window.showSection = showSection;
+// ===== EXPOSE FUNCTIONS TO GLOBAL SCOPE =====
+
+// Expose enterClass function for HTML onclick attributes
 window.enterClass = enterClass;
-window.viewClassDetails = viewClassDetails;
-window.likeNews = likeNews;
-window.commentNews = commentNews;
-window.shareNews = shareNews;
-window.switchLeaderboardTab = switchLeaderboardTab;
-window.downloadCertificate = downloadCertificate;
-window.viewCertificate = viewCertificate;
+
+// Expose other functions if needed
+window.openJoinClassModal = openJoinClassModal;
+window.closeJoinClassModal = closeJoinClassModal;
+window.handleJoinClass = handleJoinClass;
+window.exitEmbeddedClass = exitEmbeddedClass;
+
+// ===== NOTIFICATION SYSTEM =====
+
+function showNotification(type, title, message) {
+  // Simple notification using alert for now
+  // Can be enhanced with a proper notification system later
+  alert(`${title}: ${message}`);
+}
+
+// ===== GLOBAL FUNCTIONS =====
+
+// Make showSection globally accessible for onclick attributes
+window.showSection = showSection;
+
+// Test function to verify navigation works
+window.testNavigation = function() {
+  console.log('🧪 Testing navigation...');
+  console.log('📋 Available sections:', document.querySelectorAll('.section-content').length);
+  console.log('📋 Available nav items:', document.querySelectorAll('.nav-item').length);
+  
+  // Test profile section
+  const profileSection = document.getElementById('profile');
+  const myClassesSection = document.getElementById('myclasses');
+  
+  console.log('🎯 Profile section:', profileSection);
+  console.log('🎯 My Classes section:', myClassesSection);
+  
+  if (profileSection && myClassesSection) {
+    console.log('✅ Both sections exist, testing switch...');
+    showSection('profile', document.querySelector('[onclick*="profile"]'));
+  } else {
+    console.error('❌ Sections not found!');
+  }
+};
+
+// ===== INITIALIZATION =====
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🎓 Student Dashboard initialized');
+  
+  // Add event listeners to class items with a small delay to ensure elements are loaded
+  console.log('🔧 Calling addClassItemEventListeners...');
+  setTimeout(function() {
+    addClassItemEventListeners();
+  }, 100);
+  
+  // Get section from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const section = urlParams.get('section') || 'myclasses';
+  
+  // Show appropriate section
+  if (section === 'myclasses') {
+    console.log('📚 Loading My Classes section...');
+    // Classes are already rendered in PHP, no need to load
+  } else if (section === 'newsfeed') {
+    console.log('📰 Loading Newsfeed section...');
+    // Newsfeed content will be loaded here
+  } else if (section === 'leaderboards') {
+    console.log('🏆 Loading Leaderboards section...');
+    // Leaderboards content will be loaded here
+  } else if (section === 'certification') {
+    console.log('🏅 Loading Certification section...');
+    // Certification content will be loaded here
+  } else if (section === 'profile') {
+    console.log('👤 Loading Profile section...');
+    // Initialize shared profile functionality
+    if (typeof initSharedProfile === 'function') {
+      try { 
+        initSharedProfile(); 
+        console.log('✅ Profile section initialized');
+      } catch (e) { 
+        console.error('❌ Error initializing profile:', e);
+      }
+    } else {
+      console.log('⚠️ initSharedProfile function not available');
+    }
+  }
+  
+  // Close modal when clicking outside
+  window.addEventListener('click', function(event) {
+    const modal = document.getElementById('joinClassModal');
+    if (event.target === modal) {
+      closeJoinClassModal();
+    }
+  });
+  
+  // Handle Enter key in class code input
+  document.addEventListener('keypress', function(event) {
+    if (event.key === 'Enter' && event.target.id === 'classCode') {
+      handleJoinClass();
+    }
+  });
+  
+  // Handle Escape key to close modal
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      closeJoinClassModal();
+    }
+  });
+});
+
+// ===== RESPONSIVE HANDLING =====
+
+window.addEventListener('resize', function() {
+  const sidebar = document.getElementById('sidebar');
+  const mainContent = document.getElementById('mainContent');
+  
+  if (window.innerWidth <= 900) {
+    // Mobile view
+    sidebar.classList.remove('closed');
+    mainContent.classList.remove('full');
+  } else {
+    // Desktop view
+    sidebar.classList.remove('open');
+  }
+});
+
+// ===== THEME TOGGLE =====
+
+document.addEventListener('DOMContentLoaded', function() {
+  const themeToggle = document.getElementById('themeToggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', function() {
+      // Toggle theme functionality
+      document.body.classList.toggle('dark-theme');
+      // Save preference
+      const isDark = document.body.classList.contains('dark-theme');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+    
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-theme');
+    }
+  }
+});
+
+// ===== SETTINGS DROPDOWN =====
+
+document.addEventListener('DOMContentLoaded', function() {
+  const settingsIcon = document.getElementById('settingsIcon');
+  const settingsDropdown = document.getElementById('settingsDropdown');
+  
+  if (settingsIcon && settingsDropdown) {
+    settingsIcon.addEventListener('click', function(event) {
+      event.stopPropagation();
+      settingsDropdown.classList.toggle('show');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function() {
+      settingsDropdown.classList.remove('show');
+    });
+  }
+});

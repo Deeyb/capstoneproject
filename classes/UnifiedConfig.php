@@ -30,7 +30,7 @@ class UnifiedConfig {
     
     // Rate Limiting Configuration
     const RATE_LIMIT_LOGIN_ATTEMPTS = 5;
-    const RATE_LIMIT_LOGIN_LOCKOUT = 900; // 15 minutes
+    const RATE_LIMIT_LOGIN_LOCKOUT = 60; // 1 minute
     const RATE_LIMIT_API_REQUESTS = 100;
     const RATE_LIMIT_API_WINDOW = 3600; // 1 hour
     

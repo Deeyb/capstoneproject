@@ -5,8 +5,8 @@ require_once __DIR__ . '/EnvironmentLoader.php';
 
 class PasswordResetController {
     public function handle($post) {
-        // Set PHP timezone to UTC
-        date_default_timezone_set('UTC');
+        // Set PHP timezone to match database timezone
+        date_default_timezone_set('Asia/Manila'); // +08:00 timezone
         $token = $post['token'] ?? '';
         $password = $post['password'] ?? '';
         $confirmPassword = $post['confirmPassword'] ?? '';
@@ -58,15 +58,15 @@ class PasswordResetController {
                 $user = new User($db);
                 $user->setEmail($email);
 
-                // Set PHP timezone to UTC
-                date_default_timezone_set('UTC');
-                // Set MySQL session timezone to UTC
-                $db->query("SET time_zone = '+00:00'");
+                // Set PHP timezone to match database timezone
+                date_default_timezone_set('Asia/Manila'); // +08:00 timezone
+                // Set MySQL session timezone to match
+                $db->query("SET time_zone = '+08:00'");
 
                 if ($user->emailExists()) {
                     // Generate secure token
                     $token = bin2hex(random_bytes(32));
-                    $expires = date('Y-m-d H:i:s', time() + 60 * 5); // 5 minutes
+                    $expires = date('Y-m-d H:i:s', time() + 60 * 60); // 1 hour instead of 5 minutes
 
                     // Store token and expiry in DB
                     $user->setResetToken($token, $expires);

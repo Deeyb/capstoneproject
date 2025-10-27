@@ -32,21 +32,21 @@ class VerificationController {
         $response['debug']['client_ip'] = $clientIP;
         $response['debug']['email'] = $email;
 
-        // Rate limiting: 3 verification requests per 15 minutes per IP
-        $response['debug']['ip_allowed'] = $this->rateLimiter->isAllowed($clientIP, 'verification_code', 3, 900);
+        // Rate limiting: 3 verification requests per 1 minute per IP
+        $response['debug']['ip_allowed'] = $this->rateLimiter->isAllowed($clientIP, 'verification_code', 3, 60);
         if (!$response['debug']['ip_allowed']) {
-            $timeUntilReset = $this->rateLimiter->getTimeUntilReset($clientIP, 'verification_code', 900);
-            $response['errors'][] = "Too many verification requests. Please try again in " . ceil($timeUntilReset / 60) . " minutes.";
+            $timeUntilReset = $this->rateLimiter->getTimeUntilReset($clientIP, 'verification_code', 60);
+            $response['errors'][] = "Too many verification requests. Please try again in " . ceil($timeUntilReset / 60) . " minute(s).";
             $response['debug']['stage'] = 'ip_rate_limit';
             $response['debug']['ip_time_until_reset'] = $timeUntilReset;
             return $response;
         }
 
-        // Rate limiting: 2 verification requests per 15 minutes per email
-        $response['debug']['email_allowed'] = $this->rateLimiter->isAllowed($email, 'verification_email', 2, 900);
+        // Rate limiting: 2 verification requests per 1 minute per email
+        $response['debug']['email_allowed'] = $this->rateLimiter->isAllowed($email, 'verification_email', 2, 60);
         if (!$response['debug']['email_allowed']) {
-            $timeUntilReset = $this->rateLimiter->getTimeUntilReset($email, 'verification_email', 900);
-            $response['errors'][] = "Too many verification requests for this email. Please try again in " . ceil($timeUntilReset / 60) . " minutes.";
+            $timeUntilReset = $this->rateLimiter->getTimeUntilReset($email, 'verification_email', 60);
+            $response['errors'][] = "Too many verification requests for this email. Please try again in " . ceil($timeUntilReset / 60) . " minute(s).";
             $response['debug']['stage'] = 'email_rate_limit';
             $response['debug']['email_time_until_reset'] = $timeUntilReset;
             return $response;

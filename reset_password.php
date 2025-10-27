@@ -1,8 +1,8 @@
 <?php
 // reset_password.php
 session_start();
-// Set PHP timezone to UTC
-date_default_timezone_set('UTC');
+// Set PHP timezone to match database timezone
+date_default_timezone_set('Asia/Manila'); // +08:00 timezone
 $token = $_GET['token'] ?? '';
 $feedback = isset($_SESSION['reset_feedback']) ? $_SESSION['reset_feedback'] : '';
 unset($_SESSION['reset_feedback']);

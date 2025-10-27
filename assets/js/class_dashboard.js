@@ -1,5 +1,68 @@
 // class_dashboard.js - Activity management system
 
+// ======================== ROLE-AWARE INITIALIZATION ========================
+
+// Initialize role-aware features
+document.addEventListener('DOMContentLoaded', function() {
+  const userRole = window.__USER_ROLE__ || 'student';
+  const classId = window.__CLASS_ID__;
+  
+  console.log('Class Dashboard initialized for role:', userRole);
+  
+  if (userRole && userRole.toLowerCase() === 'student') {
+    initializeStudentView();
+  } else {
+    initializeTeacherView();
+  }
+});
+
+function initializeStudentView() {
+  console.log('Initializing student view for class:', window.__CLASS_ID__);
+  
+  // Hide teacher-only elements
+  const teacherOnlyElements = document.querySelectorAll('[data-teacher-only]');
+  teacherOnlyElements.forEach(el => {
+    el.style.display = 'none';
+  });
+  
+  // Show student-specific elements
+  const studentElements = document.querySelectorAll('[data-student-only]');
+  studentElements.forEach(el => {
+    el.style.display = 'block';
+  });
+  
+  // Update page title
+  document.title = 'Class - Student View';
+  
+  // Load student-specific data
+  loadStudentProgress();
+}
+
+function initializeTeacherView() {
+  console.log('Initializing teacher view for class:', window.__CLASS_ID__);
+  
+  // Hide student-only elements
+  const studentOnlyElements = document.querySelectorAll('[data-student-only]');
+  studentOnlyElements.forEach(el => {
+    el.style.display = 'none';
+  });
+  
+  // Show teacher-specific elements
+  const teacherElements = document.querySelectorAll('[data-teacher-only]');
+  teacherElements.forEach(el => {
+    el.style.display = 'block';
+  });
+  
+  // Update page title
+  document.title = 'Class Dashboard - Teacher View';
+}
+
+function loadStudentProgress() {
+  // Load student's progress in this class
+  console.log('Loading student progress for class:', window.__CLASS_ID__);
+  // TODO: Implement student progress loading
+}
+
 // ======================== ACTIVITY MANAGER CLASS (OOP) ========================
 
 class ActivityManager {

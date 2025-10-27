@@ -55,7 +55,7 @@ class RegistrationService {
             $response['errors'][] = 'The email does not match the verified email.';
         } elseif ($verification !== $_SESSION['verification_code']) {
             $response['errors'][] = 'Invalid verification code.';
-        } elseif (time() - $_SESSION['verification_time'] > 900) {
+        } elseif (time() - $_SESSION['verification_time'] > 60) {
             $response['errors'][] = 'Verification code expired. Please request a new code.';
         }
         if (!empty($response['errors'])) {

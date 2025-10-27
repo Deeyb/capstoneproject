@@ -744,4 +744,18 @@ class UserManager {
         $stmt->execute([$idnumber]);
         return $stmt->fetchColumn() > 0;
     }
+    
+    // Get user status statistics
+    public function getUserStatusStats() {
+        $stmt = $this->db->prepare("SELECT COALESCE(status, 'Active') as status, COUNT(*) as count FROM users GROUP BY status");
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $stats = [];
+        foreach ($result as $row) {
+            $stats[$row['status']] = (int)$row['count'];
+        }
+        
+        return $stats;
+    }
 }

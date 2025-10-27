@@ -28,6 +28,11 @@ class AdminService {
     public function getRecentLogins($limit = 10) {
         return $this->userManager->getRecentLogins($limit);
     }
+    
+    // Get user status statistics
+    public function getUserStatusStats() {
+        return $this->userManager->getUserStatusStats();
+    }
 
     // User CRUD (delegated)
     public function addUserByAdmin($data) {

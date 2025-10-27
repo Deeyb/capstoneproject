@@ -1,4 +1,4 @@
-(function initTeacherDashboardMain(){
+    (function initTeacherDashboardMain(){
     
 	function qs(sel, root){ return (root||document).querySelector(sel); }
 	function qsa(sel, root){ return Array.from((root||document).querySelectorAll(sel)); }
@@ -60,7 +60,14 @@
 		if (!hasCreate && !hasAnyCard) {
 			var div = document.createElement('div');
 			div.className = 'create-tile';
-			div.innerHTML = '<span>+ Create Class</span>';
+			div.innerHTML = `
+				<div class="create-tile-content">
+					<i class="fas fa-plus create-tile-icon"></i>
+					<h3 class="create-tile-title">Create New Class</h3>
+					<p class="create-tile-subtitle">Start a new learning journey</p>
+					<button class="create-tile-button">Click to begin</button>
+				</div>
+			`;
 			div.addEventListener('click', function(){ if (typeof openForm === 'function') openForm(); });
 			grid.appendChild(div);
 		}
@@ -118,35 +125,16 @@
 	function renderCreateTile(grid){
 		var tile = document.createElement('div');
 		tile.className = 'create-tile';
-		tile.style.cssText = 'background:white;border:2px dashed #1d9b3e;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;transition:all 0.3s ease;border-radius:16px;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.1);padding:24px;margin-bottom:20px;height:200px;';
-		tile.innerHTML = [
-			'<div style="text-align:center;color:#1d9b3e;position:relative;z-index:2;height:100%;display:flex;flex-direction:column;justify-content:center;">',
-				'<div style="background:#1d9b3e;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 4px 12px rgba(29,155,62,0.3);">',
-					'<i class="fas fa-plus" style="font-size:24px;color:white;font-weight:300;"></i>',
-				'</div>',
-				'<h3 style="margin:0 0 8px 0;font-size:20px;font-weight:700;color:#374151;">Create New Class</h3>',
-				'<p style="margin:0 0 16px 0;font-size:14px;color:#6b7280;font-weight:500;">Start a new learning journey</p>',
-				'<div style="background:#1d9b3e;color:white;padding:6px 12px;border-radius:16px;font-size:11px;font-weight:600;display:inline-block;">',
-					'Click to begin',
-				'</div>',
-			'</div>'
-		].join('');
+		tile.innerHTML = `
+			<div class="create-tile-content">
+				<i class="fas fa-plus create-tile-icon"></i>
+				<h3 class="create-tile-title">Create New Class</h3>
+				<p class="create-tile-subtitle">Start a new learning journey</p>
+				<button class="create-tile-button">Click to begin</button>
+			</div>
+		`;
 		
 		tile.addEventListener('click', function(){ if (typeof openForm === 'function') openForm(); });
-		
-		// Add hover effects
-		tile.addEventListener('mouseenter', function(){
-			this.style.transform = 'translateY(-8px) scale(1.02)';
-			this.style.boxShadow = '0 20px 40px rgba(0,0,0,0.15)';
-			this.style.borderColor = '#28a745';
-		});
-		
-		tile.addEventListener('mouseleave', function(){
-			this.style.transform = 'translateY(0) scale(1)';
-			this.style.boxShadow = '0 8px 32px rgba(0,0,0,0.1)';
-			this.style.borderColor = '#1d9b3e';
-		});
-		
 		grid.appendChild(tile);
 	}
 
@@ -625,7 +613,7 @@ function loadCourseOutlineForStep5(courseId){
                     return;
                 }
             } catch(e) {
-                }
+            }
     populateStep5Outline([]);
           })
         .catch(function(err){ populateStep5Outline([]); });
@@ -1440,7 +1428,7 @@ function createNewModule(title){
     }
     
     try { updateModuleLessonCount(div); } catch(_) {}
-    }
+}
 
 // Dynamic Add Lesson Modal
 function showAddLessonModal(moduleEl){
@@ -2222,7 +2210,7 @@ function createNewTopic(lessonEl, title){
         showSuccess('Topic Added', 'Topic "' + title + '" added successfully!');
     }
     
-    }
+}
 
 // Update module lesson count
 function updateModuleLessonCount(moduleEl){
@@ -2980,7 +2968,7 @@ function saveMaterialToCoordinator(topicItem, type, url, file, rowForUpdate){
     
     var lessonId = lessonEl.getAttribute('data-lesson-id');
     if (!lessonId) {
-        return;
+    return;
   }
     
     // Auto-save lesson if temporary, then continue
@@ -3118,7 +3106,7 @@ function updateMaterialDisplay(topicItem, materialId, type){
     var materialDiv = topicItem.querySelector('.topic-material');
     if (materialDiv) {
         materialDiv.setAttribute('data-material-id', materialId);
-        }
+    }
 }
 
 // Save activity to coordinator system
@@ -3126,13 +3114,13 @@ function saveActivityToCoordinator(topicItem, type, title, instructions, maxScor
     // Get the current course ID
     var courseId = getCurrentCourseIdForStep5();
     if (!courseId) {
-        return;
+    return;
   }
   
     // Find the lesson that contains this topic
     var lessonEl = topicItem.closest('.lesson');
     if (!lessonEl) {
-        return;
+    return;
   }
     
     var lessonId = lessonEl.getAttribute('data-lesson-id');
@@ -3261,7 +3249,7 @@ function updateActivityDisplay(topicItem, activityId, type, title){
     var activityDiv = topicItem.querySelector('.topic-activity');
     if (activityDiv) {
         activityDiv.setAttribute('data-activity-id', activityId);
-        }
+    }
 }
 
 // Notification functions following the existing functional pattern
@@ -4444,7 +4432,7 @@ function showCoordinatorActivityModal(element, elementTitle){
         }
     });
     
-        window.testDynamicFields = function(){
+    window.testDynamicFields = function(){
         var typeSelect = document.querySelector('#activityTypeSelect');
         var dynamicContent = document.querySelector('#dynamicFieldsContent');
         if (typeSelect && dynamicContent) {
@@ -5210,13 +5198,13 @@ window.forceLessonButtons = function(){
                     oldButtons.remove();
                 }
                 
-                } else {
-                }
-        } else {
+            } else {
             }
+        } else {
+        }
     });
     
-        };
+    };
 
 window.testTopicCreation = function(){
     // Find first lesson
@@ -5227,7 +5215,7 @@ window.testTopicCreation = function(){
     
     // Test creating a topic
     createNewTopic(lesson, 'TEST TOPIC');
-    };
+};
 
 // ===== FIX EXISTING TOPICS =====
 window.fixExistingTopics = function(){
@@ -5260,8 +5248,8 @@ window.fixExistingTopics = function(){
                     });
                 }
                 
-                } else {
-                }
+            } else {
+            }
         }
     });
     
@@ -5288,7 +5276,7 @@ window.checkFontAwesome = function(){
     // Check if specific icons exist
     var materialIcon = document.querySelector('.fa-paperclip');
     var activityIcon = document.querySelector('.fa-tasks');
-    };
+};
 
 // ===== INSPECT EXISTING TOPIC =====
 window.inspectTopic = function(topicName){
@@ -5299,7 +5287,7 @@ window.inspectTopic = function(topicName){
         var titleDiv = topic.querySelector('div[style*="font-weight:600"]');
         if (titleDiv && titleDiv.textContent.trim() === topicName) {
             targetTopic = topic;
-            }
+        }
     });
     
     if (!targetTopic) {
@@ -5311,14 +5299,14 @@ window.inspectTopic = function(topicName){
     buttons.forEach(function(btn, index){
         var icon = btn.querySelector('i');
         if (icon) {
-            }
+        }
     });
     
     // Check specifically for Material button
     var materialBtn = targetTopic.querySelector('.add-material-btn');
     if (materialBtn) {
         var materialIcon = materialBtn.querySelector('.fa-paperclip');
-        }
+    }
 };
 
 window.testFullFlow = function(){
@@ -5432,9 +5420,9 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
                     });
                 }
                 
-                }
-        } else {
             }
+        } else {
+        }
     });
     
     // Step 3: Force refresh all event listeners
@@ -5453,7 +5441,7 @@ window.FORCE_FIX_ALL_BUTTONS = function(){
         }
     });
     
-    };
+};
 
 // Test function to check button functionality
 window.testLessonButtons = function(){

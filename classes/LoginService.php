@@ -28,9 +28,9 @@ class LoginService {
         
         // Rate limiting for login attempts
         $clientIP = $this->getClientIP();
-        if (!$this->rateLimiter->isAllowed($clientIP, 'login_attempt', 5, 900)) { // 5 attempts per 15 minutes
-            $timeUntilReset = $this->rateLimiter->getTimeUntilReset($clientIP, 'login_attempt', 900);
-            $response['errors'][] = "Too many login attempts. Please try again in " . ceil($timeUntilReset / 15) . " minutes.";
+        if (!$this->rateLimiter->isAllowed($clientIP, 'login_attempt', 5, 60)) { // 5 attempts per 1 minute
+            $timeUntilReset = $this->rateLimiter->getTimeUntilReset($clientIP, 'login_attempt', 60);
+            $response['errors'][] = "Too many login attempts. Please try again in " . ceil($timeUntilReset / 60) . " minute(s).";
             return $response;
         }
         
@@ -89,6 +89,7 @@ class LoginService {
                 
                 // Set session variables
                 $_SESSION['user_id'] = $user->getId();
+                $_SESSION['user_email'] = $user->getEmail();
                 $_SESSION['user_firstname'] = $user->getFirstname();
                 $_SESSION['user_lastname'] = $user->getLastname();
                 $_SESSION['user_middlename'] = $user->getMiddlename();
@@ -185,9 +186,9 @@ class LoginService {
             case 'ADMIN':
                 return 'admin_panel.php';
             case 'STUDENT':
-                return 'student_dashboard.php';
+                return 'student_dashboard.php?section=myclasses';
             case 'TEACHER':
-                return 'teacher_dashboard.php';
+                return 'teacher_dashboard.php?section=my-classes';
             case 'COORDINATOR':
                 return 'coordinator_dashboard.php';
             default:

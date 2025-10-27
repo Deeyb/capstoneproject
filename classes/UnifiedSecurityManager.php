@@ -8,7 +8,7 @@ class UnifiedSecurityManager {
     private $db;
     private $rateLimiter;
     private $maxLoginAttempts = 5;
-    private $lockoutTime = 900; // 15 minutes
+    private $lockoutTime = 60; // 1 minute
     
     private function __construct() {
         // Load dependencies first
