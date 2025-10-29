@@ -1,0 +1,617 @@
+CCIS1102/L
+COMPUTER
+PROGRAMMING 1
+WEEK 2 – FUNDAMENTALS OF COMPUTING
+AND PROGRAMMING
+
+LEARNING OUTCOMES:
+At the end of the lesson, students are expected to:
+• Define what a computer is and identify its main components.
+• Explain the basic operations that a computer can perform.
+• Examine the importance of programming in diverse contexts
+such as software development, problem-solving, automation,
+and innovation.
+• Recognize real-world scenarios where programming is
+employed to automate tasks, process data, and create software
+solutions.
+• Differentiate between high-level, low-level, and machine
+languages.
+• Define syntax, semantics, and grammar in the context of
+programming languages.
+
+WHAT IS A COMPUTER?
+A computer is an electronic data
+processing device, which accepts
+and stores data input, processes the
+data input, and generates the
+output in a required format.
+
+FUNCTIONALITIES OF A COMPUTER
+If we look at it in a very broad sense, any digital
+computer carries out the following five functions −
+Step 1 − Takes data as input.
+Step 2 − Stores the data/instructions in its memory and
+uses them as required.
+Step 3 − Processes the data and converts it into useful
+information.
+Step 4 − Generates the output.
+Step 5 − Controls all the above four steps.
+
+APPLICATIONS OF
+COMPUTERS
+Business - A computer has high speed of calculation,
+diligence, accuracy, reliability, or versatility which has
+made it an integrated part in all business organizations.
+Computer is used in business organizations for −
+• Payroll calculations
+• Budgeting
+• Sales analysis
+• Financial forecasting
+• Managing employee database
+• Maintenance of stocks, etc.
+
+APPLICATIONS OF
+COMPUTERS
+Banking - Today, banking is almost totally dependent on
+computers.
+Banks provide the following facilities −
+• Online accounting facility, which includes checking
+current balance, making deposits and overdrafts,
+checking interest charges, shares, and trustee records.
+• ATM machines which are completely automated are
+making it even easier for customers to deal with
+banks.
+
+APPLICATIONS OF
+COMPUTERS
+
+Insurance -Insurance companies are keeping all records up-to-date
+with the help of computers. Insurance companies, finance houses, and
+stock broking firms are widely using computers for their concerns.
+Insurance companies are maintaining a database of all clients with
+information showing −
+Procedure to continue with policies
+•
+Starting date of the policies
+•
+Next due installment of a policy
+•
+Maturity date
+•
+Interests due
+•
+Survival benefits
+•
+Bonus
+•
+
+APPLICATIONS OF
+COMPUTERS
+Education -The computer helps in providing a lot of
+facilities in the education system.
+• The computer provides a tool in the education system
+known as CBE (Computer Based Education).
+• CBE involves control, delivery, and evaluation of
+learning.
+• Computer education is rapidly increasing the graph of
+number of computer students.
+• There are a number of methods in which educational
+institutions can use a computer to educate the students.
+• It is used to prepare a database about performance of a
+student and analysis is carried out on this basis.
+
+APPLICATIONS OF
+COMPUTERS
+Marketing - In marketing, uses of the computer are
+following −
+• Advertising − With computers, advertising
+professionals create art and graphics, write and
+revise copy, and print and disseminate ads with the
+goal of selling more products.
+• Home Shopping − Home shopping has been made
+possible through the use of computerized catalogues
+that provide access to product information and
+permit direct entry of orders to be filled by the
+customers.
+
+APPLICATIONS OF
+COMPUTERS
+Healthcare
+- Computers have become an important part in hospitals,
+
+labs, and dispensaries. They are being used in hospitals to keep the
+record of patients and medicines. It is also used in scanning and
+diagnosing different diseases. ECG, EEG, ultrasounds and CT scans, etc.
+are also done by computerized machines.
+Following are some major fields of health care in which computers are
+used.
+• Diagnostic System − Computers are used to collect data and identify
+the cause of illness.
+• Lab-diagnostic System − All tests can be done and the reports are
+prepared by computer.
+• Patient Monitoring System − These are used to check the patient's
+signs for abnormality such as in Cardiac Arrest, ECG, etc.
+• Pharma Information System − Computer is used to check drug
+labels, expiry dates, harmful side effects, etc.
+• Surgery − Nowadays, computers are also used in performing surgery.
+
+APPLICATIONS OF
+COMPUTERS
+Engineering Design -Computers are widely used for Engineering
+purpose.
+One of the major areas is CAD (Computer Aided Design) that
+provides creation and modification of images. Some of the fields
+are −
+Structural Engineering − Requires stress and strain analysis for
+design of ships, buildings, budgets, airplanes, etc.
+Industrial Engineering − Computers deal with design,
+implementation, and improvement of integrated systems of
+people, materials, and equipment.
+Architectural Engineering − Computers help in planning towns,
+designing buildings, determining a range of buildings on a site
+using both 2D and 3D drawings.
+
+APPLICATIONS OF
+COMPUTERS
+Military -Computers are largely used in defense. Modern
+tanks, missiles, weapons, etc. Military also employs
+computerized control systems. Some military areas where
+a computer has been used are −
+• Missile Control
+• Military Communication
+• Military Operation and Planning
+• Smart Weapons
+
+APPLICATIONS OF
+COMPUTERS
+Communication -Communication is a way to convey a
+message, an idea, a picture, or speech that is received and
+understood clearly and correctly by the person for whom
+it is meant. Some main areas in this category are −
+E-mail
+
+Chatting
+
+Usenet
+
+FTP
+
+Telnet
+
+Video-conferencing
+
+APPLICATIONS OF
+COMPUTERS
+Government -Computers play an important role in
+government services. Some major fields in this category
+are −
+• Budgets
+• Sales tax department
+• Income tax department
+• Computation of male/female ratio
+• Computerization of voters lists
+• Weather forecasting
+
+TYPES OF COMPUTERS
+1
+
+PC (Personal
+Computer)
+
+It is a single user computer system having moderately
+powerful microprocessor
+It is also a single user computer system, similar to
+personal computer however has a more powerful
+microprocessor.
+
+2
+
+Workstation
+
+3
+
+Minicomputer
+
+It is a multi-user computer system, capable of supporting
+hundreds of users simultaneously.
+
+4
+
+Main Frame
+
+It is a multi-user computer system, capable of supporting
+hundreds of users simultaneously. Software technology is
+different from minicomputer.
+
+5
+
+Supercomputer
+
+It is an extremely fast computer, which can execute
+hundreds of millions of instructions per second.
+
+TYPES OF COMPUTERS
+
+PC (Personal Computer)
+
+Main Frame
+
+Workstation
+
+Minicomputer
+
+Supercomputer
+
+HARDWARE
+
+Hardware represents the physical and
+tangible components of a computer, i.e. the
+components that can be seen and touched.
+Examples of Hardware are the following −
+Input devices − keyboard, mouse, etc.
+Output devices − printer, monitor, etc.
+Secondary storage devices − Hard disk, CD,
+DVD, etc.
+Internal components − CPU, motherboard,
+RAM, etc.
+
+CENTRAL PROCESSING UNIT
+Central Processing Unit (CPU) consists of the following features
+−
+• CPU is considered as the brain of the computer.
+• CPU performs all types of data processing operations.
+• It stores data, intermediate results, and instructions
+(program).
+• It controls the operation of all parts of the computer.
+CPU itself has following
+components.
+•Memory or Storage Unit
+•Control Unit
+•ALU(Arithmetic Logic Unit)
+
+three
+
+INPUT DEVICES
+Following are some of the important input devices which are used
+in a computer −
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+
+Keyboard
+Mouse
+Joy Stick
+Light pen
+Track Ball
+Scanner
+Graphic Tablet
+Microphone
+Magnetic Ink Card Reader(MICR)
+Optical Character Reader(OCR)
+Bar Code Reader
+Optical Mark Reader(OMR)
+
+OUTPUT DEVICES
+Following are some of the important output devices used in a
+computer.
+Monitors
+Graphic Plotter
+Printer
+Projector
+Speaker
+
+MEMORY
+It is used to store data and instructions. Computer memory is the storage
+space in the computer, where data is to be processed and instructions
+required for processing are stored. The memory is divided into large
+number of small parts called cells. Each location or cell has a unique
+address, which varies from zero to memory size minus one.
+Memory is primarily of three types −
+Cache Memory - It acts as a buffer between the CPU and the main
+memory. It is used to hold those parts of data and program which are
+most frequently used by the CPU.
+Primary Memory/Main Memory - Primary memory holds only those data
+and instructions on which the computer is currently working. It has a
+limited capacity and data is lost when power is switched off. It is divided
+into two subcategories RAM and ROM.
+Secondary Memory - This type of memory is also known as external
+memory or non-volatile. It is slower than the main memory. These are
+used for storing data/information permanently.
+
+MOTHERBOARD
+The motherboard serves as a single platform to connect all of the parts of
+a computer together. It connects the CPU, memory, hard drives, optical
+drives, video card, sound card, and other ports and expansion cards
+directly or via cables. It can be considered as the backbone of a computer.
+A motherboard comes with following features −
+• Motherboard varies greatly in supporting various types of components.
+• Motherboard supports a single type of CPU and few types of memories.
+• Video cards, hard disks, sound cards have to be compatible with the motherboard
+to function properly.
+• Motherboards, cases, and power supplies must be compatible to work properly
+together.
+Popular manufacturers of the motherboard.
+Intel
+ABIT
+MSI
+
+ASUS
+Biostar
+
+AOpen
+Gigabyte
+
+MEMORY UNITS
+Memory unit is the amount of data that can be stored in the storage unit.
+This storage capacity is expressed in terms of Bytes.
+S.N
+o.
+1
+2
+3
+
+4
+
+Unit & Description
+Bit (Binary Digit)
+A binary digit is logical 0 and 1 representing a passive or an active state of a
+component in an electric circuit.
+Nibble
+A group of 4 bits is called nibble.
+Byte
+A group of 8 bits is called byte. A byte is the smalle st unit, which can
+represent a data item or a character.
+Word
+A computer word, like a byte, is a group of fixed number of bits processed
+as a unit, which varies from computer to computer but is fixed for each
+computer.
+The length of a computer word is called word-size or word length. It may be
+as small as 8 bits or may be as long as 96 bits. A computer stores the
+information in the form of computer words.
+
+PORTS
+A port is a physical docking point using which an
+external device can be connected to the
+computer. It can also be programmatic docking
+point through which information flows from a
+program to the computer or over the Internet.
+Characteristics of Ports
+A port has the following characteristics −
+External devices are connected to a computer
+using cables and ports.
+Ports are slots on the motherboard into which a
+cable of external device is plugged in.
+Examples of external devices attached via ports
+are the mouse, keyboard, monitor, microphone,
+speakers, etc.
+
+SOFTWARE
+Software is a set of programs, which is designed to perform a well-defined
+function. A program is a sequence of instructions written to solve a
+particular problem.
+There are two types of software −
+System Software - comprises the programs that you use to manage your
+computer, including operating systems such as Windows, Linux, or UNIX for
+larger computers and Google Android and Apple iOS for smartphones
+Application Software - comprises all the programs you apply to a task —
+word-processing programs, spreadsheets, payroll and inventory programs,
+and even games.
+
+OPERATING SYSTEMS
+The Operating System is a program
+with the following features −
+• An operating system is a program
+that acts as an interface between the
+software and the computer
+hardware.
+• It is an integrated set of specialized
+programs used to manage overall
+resources and operations of the
+computer.
+• It is a specialized software that
+controls and monitors the execution
+of all other programs that reside in
+the computer, including application
+programs and other system
+software.
+
+A LAYERED VIEW OF THE
+COMPUTER
+
+PROGRAM AND PROGRAMMING
+LANGUAGES
+Program – is a set of instruction that the computer
+follows.
+Programming Language (PL) - is a standardized
+communication technique for expressing instructions to
+a computer. Example: Visual Basic, C++, C#, Java,
+Assembly Language
+
+SYNTAX, SEMANTICS AND
+GRAMMAR
+
+Syntax- refers to the set of rules that define the correct structure of
+statements or expressions in a programming language. It governs
+how symbols, keywords, and other elements should be arranged to
+form valid and meaningful code.
+Semantics - Semantics deals with the meaning or interpretation of
+code. It focuses on whether the code, once executed, behaves as
+intended and produces the desired results.
+Grammar - refers to the rules that define the structure and
+composition of valid statements or expressions in a programming
+language. It encompasses both syntax and semantics, providing a
+comprehensive set of rules for how code should be written and
+how it should behave.
+
+USES OF PROGRAMMING
+LANGUAGES
+Programming languages are used for a wide range of
+
+applications across many industries, including:
+• Software Development: Programming languages
+are primarily used for software development.
+Developers use programming languages to write
+code for applications, systems software, and other
+computer programs.
+• Web Development: Programming languages like
+HTML, CSS, and JavaScript are used for web
+development to create dynamic and interactive
+websites.
+• Data
+Science
+and
+Analytics:
+Programming
+languages like Python and R are popular in data
+science and analytics to analyze and interpret data,
+
+USES OF PROGRAMMING
+LANGUAGES
+Programming languages are used for a wide range of
+
+applications across many industries, including:
+• Scientific Computing: Programming languages like
+Fortran and MATLAB are used for scientific computing
+to solve complex mathematical and scientific
+problems.
+• Game Development: Programming languages like
+C++ and C# are used for game development to create
+video games and other interactive media.
+• Mobile App Development: Programming languages
+like Java and Swift are used for mobile app
+development to create apps for iOS and Android
+platforms.
+
+USES OF PROGRAMMING LANGUAGES
+Programming languages are used for a wide range of
+applications across many industries, including:
+• Artificial Intelligence and Robotics: Programming
+languages like Python and C++ are used in artificial
+intelligence and robotics to build intelligent systems
+that can learn, reason, and interact with the physical
+world.
+• Embedded Systems: Programming languages like C
+and Assembly are used for embedded systems
+development to create software for small, low-power
+devices like microcontrollers and IoT devices.
+
+CATEGORIES OF PL
+Machine Language
+• The representation of a computer program which is
+actually read and understood by the computer.
+• A program in machine code consists of a sequence of
+machine instructions.
+• Machine instructions are in binary code
+• Instructions specify operations and memory cells
+involved in the operation
+
+CATEGORIES OF PL
+Assembly Language
+• A symbolic representation of the machine language of a
+specific processor.
+• Is converted to machine code by an assembler.
+• Usually, each line of assembly code produces one machine
+instruction (One-to-one correspondence).
+• Programming in assembly language is slow and error-prone
+but is more efficient in terms of hardware performance.
+• Mnemonic representation of the instructions and data
+
+CATEGORIES OF PL
+High Level Programming Language
+• It is designed to be easier for humans to
+read, write, and understand compared to
+low-level languages like assembly or
+machine language. High-level languages are
+closer to human languages and use more
+natural constructs, making them more
+intuitive and user-friendly for programmers.
+However, every single program written in a
+high-level language must be interpreted
+into machine language before being
+executed by the computer. High-level
+languages require the use of a compiler or
+an interpreter for their translation into the
+machine code. Ex: Python, JavaScript,
+Visual
+Basic,
+Delphi,
+Perl,
+PHP,
+ECMAScript, Ruby, C++,C#, Java
+
+SOURCE PROGRAM
+• The form in which a computer program, written in
+some formal programming language, is written by
+the programmer.​
+• Can be compiled automatically into object code or
+machine code or executed by an interpreter. ​
+• Pascal source programs have extension ‘.pas’​
+• C++ source programs can have n extension of ‘.c’, ‘.h’,
+or ‘.cpp’​
+• Java source programs have an extension of ‘.java’​
+
+COMPILER
+• A program that converts another program from some
+source language (or high-level programming
+language) to machine language (object code).​
+• Some compilers output assembly language which is
+then converted to machine language by a separate
+assembler. ​
+• Is distinguished from an assembler by the fact that
+each input statement, in general, correspond to more
+than one machine instruction. ​
+
+INTERPRETER
+• An interpreter is a program that reads and executes
+code line by line, translating the code into machinereadable instructions as it goes. Interpreters are
+commonly used for scripting languages like Python
+and Ruby, where the code is executed directly without
+being compiled first. Interpreted code can be slower
+to run than compiled code, but it can be more flexible
+and easier to debug.
+
+LINKER
+• A linker is a program that combines object code
+generated by a compiler into a single executable
+program. When a program is compiled, it is usually
+split into separate object files, each containing a
+portion of the code. The linker is responsible for
+linking these object files together, resolving external
+references between them, and generating a final
+executable file that can be run by the operating
+system.
+
+LOADER
+• A loader is a program that loads an executable
+program into memory and prepares it for execution.
+When a program is loaded, the loader is responsible
+for allocating memory for the program, linking any
+dynamic libraries that the program depends on, and
+initializing the program's execution environment.
+Once the loader has completed its work, the program
+is ready to be executed by the operating system.
+
+OBJECT PROGRAM AND EXECUTABLE PROGRAM
+• Object program
+• Output from the compiler​
+• Equivalent machine language translation of the
+source program​
+• Files usually have extension ‘.obj’
+• Executable program​
+• Output from linker/loader​
+• Machine language program linked with necessary
+libraries & other files​
+• Files usually have extension ‘.exe’
+
+THANK YOU!
+
+

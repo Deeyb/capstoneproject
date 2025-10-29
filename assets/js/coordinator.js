@@ -999,15 +999,15 @@ function viewOutline(courseId) {
                       <input id="peTitle" type="text" placeholder="e.g., Introduction to Programming" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:15px;outline:none;" />
                     </div>
                     <div id="editorToolbar" style="padding:10px 12px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap;">
-                      <button class="tb" data-action="bold">Bold</button>
-                      <button class="tb" data-action="italic">Italic</button>
-                      <button class="tb" data-action="h1">Heading 1</button>
-                      <button class="tb" data-action="h2">Heading 2</button>
-                      <button class="tb" data-action="ul">List</button>
-                      <button class="tb" data-action="ol">Numbered</button>
-                      <button class="tb" data-action="code">Code</button>
-                      <button class="tb" data-action="link">Link</button>
-                      <button class="tb" data-action="template">Templates</button>
+                      <button type="button" class="tb" data-action="bold">Bold</button>
+                      <button type="button" class="tb" data-action="italic">Italic</button>
+                      <button type="button" class="tb" data-action="h1">Heading 1</button>
+                      <button type="button" class="tb" data-action="h2">Heading 2</button>
+                      <button type="button" class="tb" data-action="ul">List</button>
+                      <button type="button" class="tb" data-action="ol">Numbered</button>
+                      <button type="button" class="tb" data-action="code">Code</button>
+                      <button type="button" class="tb" data-action="link">Link</button>
+                      <button type="button" class="tb" data-action="template">Templates</button>
                     </div>
                     <textarea id="peContent" style="flex:1;width:100%;height:100%;border:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;font-size:14px;line-height:1.6;outline:none;resize:none;" placeholder="# Welcome to your Page\n\nWrite content in Markdown.\n\n## Tips\n- Use headings and lists\n- Insert code blocks\n- Add links and images"></textarea>
                   </div>
@@ -1066,12 +1066,26 @@ function viewOutline(courseId) {
             }
             textarea.addEventListener('input', updatePreview);
 
-            // toolbar handlers
-            modal.querySelectorAll('#editorToolbar .tb').forEach(function(b){
-              b.addEventListener('click', function(){
-                const act = this.getAttribute('data-action');
-                const start = textarea.selectionStart; const end = textarea.selectionEnd; const text = textarea.value; const sel = text.substring(start, end);
+            // toolbar handlers - using event delegation for reliability
+            const toolbar = modal.querySelector('#editorToolbar');
+            if (toolbar) {
+              toolbar.addEventListener('click', function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                const btn = e.target.closest('.tb');
+                if (!btn) return;
+                const act = btn.getAttribute('data-action');
+                if (!act) return;
+                
+                // Ensure textarea is focused
+                textarea.focus();
+                
+                const start = textarea.selectionStart; 
+                const end = textarea.selectionEnd; 
+                const text = textarea.value; 
+                const sel = text.substring(start, end);
                 let insert = '';
+                
                 if (act==='bold') insert = `**${sel||'bold text'}**`;
                 else if (act==='italic') insert = `*${sel||'italic'}*`;
                 else if (act==='h1') insert = `# ${sel||'Heading 1'}`;
@@ -1081,9 +1095,17 @@ function viewOutline(courseId) {
                 else if (act==='code') insert = `\n\n\`\`\`cpp\n${sel||'// code'}\n\`\`\`\n`;
                 else if (act==='link') insert = `[${sel||'link'}](https://)`;
                 else if (act==='template') insert = `# Lesson Introduction\n\n## Objectives\n- Objective 1\n- Objective 2\n\n## Content\nWrite here...`;
-                if (insert){ textarea.value = text.substring(0,start) + insert + text.substring(end); textarea.focus(); textarea.setSelectionRange(start+insert.length, start+insert.length); updatePreview(); }
+                
+                if (insert) {
+                  textarea.value = text.substring(0, start) + insert + text.substring(end);
+                  textarea.focus();
+                  // Set cursor position after inserted text
+                  const newPos = start + insert.length;
+                  textarea.setSelectionRange(newPos, newPos);
+                  updatePreview();
+                }
               });
-            });
+            }
 
             // preview toggles
             modal.querySelector('#pagePreview').onclick = function(){ previewPanel.style.display='flex'; updatePreview(); };
@@ -1172,8 +1194,11 @@ function viewOutline(courseId) {
                   const m = j && j.data ? j.data : null;
                   if (!m) { btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
                   const t = String(m.type||'').toLowerCase();
-                  if (t !== 'page') { btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
                   const url = m.url || '';
+                  // Treat materials that use material_page_view.php as editable pages,
+                  // even if the DB type isn't strictly 'page' (legacy rows may be 'link').
+                  const isPageLike = /material_page_view\.php\?f=/.test(url);
+                  if (t !== 'page' && !isPageLike) { btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
                   const match = url.match(/f=([^&]+)/);
                   const fileId = match ? decodeURIComponent(match[1]) : null;
                   if (!fileId) { btn.setAttribute('data-act','mat-edit'); btn.click(); return; }
@@ -1195,8 +1220,8 @@ function viewOutline(courseId) {
                               <button class="action-btn" id="pgSave" style="padding:6px 12px;background:#28a745;color:#fff;">Save</button>\n\
                             </div>\n\
                           </div>\n\
-                          <div style="flex:1;display:flex;">\n\
-                            <textarea id="pgContent" style="flex:1;width:100%;height:100%;border:0;padding:12px;font-family:monospace;font-size:14px;outline:none;"></textarea>\n\
+                          <div style="flex:1;display:flex;min-height:0;">\n\
+                            <textarea id="pgContent" style="flex:1;width:100%;height:100%;border:0;padding:12px;font-family:monospace;font-size:14px;outline:none;overflow:auto;resize:none;"></textarea>\n\
                           </div>\n\
                         </div>`;
                       document.body.appendChild(modal);
@@ -1208,23 +1233,89 @@ function viewOutline(courseId) {
                         loadCSS('https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css');
                         loadScript('https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js').then(function(){
                           try {
-                            const em = new window.EasyMDE({ element: ta, spellChecker:false, autofocus:true });
-                            const style = document.createElement('style'); style.textContent='.EasyMDEContainer{height:100%;display:flex;flex-direction:column;} .EasyMDEContainer .CodeMirror{flex:1 1 auto;height:100%;}'; document.head.appendChild(style);
+                            const em = new window.EasyMDE({
+                              element: ta,
+                              spellChecker: false,
+                              autofocus: true,
+                              forceSync: true,
+                              minHeight: '100%',
+                              autosave: { enabled: false },
+                              toolbar: [
+                                'bold','italic','heading','|',
+                                'quote','unordered-list','ordered-list','|',
+                                'link','image','table','code','|',
+                                'preview','side-by-side','fullscreen'
+                              ],
+                              status: ['lines','words']
+                            });
+                            // Expose instance to the modal so Save can read the live value
+                            try { modal.__mde = em; } catch(_) {}
+                            const style = document.createElement('style'); style.textContent='\
+.EasyMDEContainer{height:100%;display:flex;flex-direction:column;min-height:0;}\
+.EasyMDEContainer .editor-toolbar{flex:0 0 auto;}\
+.EasyMDEContainer .CodeMirror{flex:1 1 auto;height:100%;min-height:0;font-family: monospace;}\
+.EasyMDEContainer .CodeMirror-scroll{height:100%;}'; document.head.appendChild(style);
+                            // Normalize markdown token styles inside editor to avoid perceived auto-resize
+                            const style2 = document.createElement('style');
+                            style2.textContent = '\
+.EasyMDEContainer .CodeMirror .cm-header{ font-size: 1em; font-weight: bold; }\
+.EasyMDEContainer .CodeMirror .cm-strong{ font-weight: bold; }\
+.EasyMDEContainer .CodeMirror .cm-em{ font-style: italic; }\
+';
+                            document.head.appendChild(style2);
                           } catch(_) {}
                         }).catch(function(){});
                       })();
+                      // Keep session alive while editing (ping every 4 minutes)
+                      try {
+                        const ping = () => { fetch('check_login_status.php?ping=1', { credentials:'same-origin', cache:'no-store' }).catch(()=>{}); };
+                        ping();
+                        modal.__keepAlive = setInterval(ping, 240000);
+                        const cleanup = () => { if (modal.__keepAlive) { clearInterval(modal.__keepAlive); modal.__keepAlive = null; } };
+                        modal.querySelector('#pgCancel').addEventListener('click', cleanup);
+                        modal.querySelector('#pgSave').addEventListener('click', cleanup);
+                      } catch(_) {}
                       modal.querySelector('#pgCancel').onclick = function(){ modal.remove(); };
                       modal.querySelector('#pgSave').onclick = function(){
                         let content = ta.value;
-                        try { if (window.easyMDE && typeof window.easyMDE.value === 'function') content = window.easyMDE.value(); } catch(_) {}
-                        const saveFd = new FormData();
-                        saveFd.append('action','material_page_update');
-                        saveFd.append('id', id);
-                        saveFd.append('content', content || '');
-                        fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: saveFd })
-                          .then(r=>r.json())
-                          .then(function(){ modal.remove(); viewOutline(courseId); })
-                          .catch(function(){ if (typeof window.showNotification === 'function') window.showNotification('error','Save failed','Network error'); });
+                        // Prefer live EasyMDE content; fallback to textarea
+                        try {
+                          if (modal.__mde && typeof modal.__mde.value === 'function') {
+                            content = modal.__mde.value();
+                          } else if (window.easyMDE && typeof window.easyMDE.value === 'function') {
+                            content = window.easyMDE.value();
+                          }
+                        } catch(_) {}
+                        const btn = modal.querySelector('#pgSave');
+                        const showToast = (type, title, msg) => {
+                          if (typeof window.showNotification === 'function') return window.showNotification(type, title, msg);
+                          try { console[type === 'error' ? 'error' : 'log']('[PageEdit]', title, msg); } catch(_) {}
+                        };
+                        const getToken = () => fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: (()=>{ const fd=new FormData(); fd.append('action','get_csrf_token'); return fd; })() }).then(r=>r.json()).then(j=>j && j.token ? j.token : null).catch(()=>null);
+                        const doSave = (token, attempt) => {
+                          const saveFd = new FormData();
+                          saveFd.append('action','material_page_update');
+                          saveFd.append('id', id);
+                          saveFd.append('content', content || '');
+                          if (token) { saveFd.append('csrf_token', token); }
+                          return fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: saveFd })
+                            .then(r => r.json().catch(()=>({ success:false, message:'Invalid JSON response'})))
+                            .then(resp => {
+                              if (resp && resp.success === true) return resp;
+                              // Auto-retry once on CSRF failure
+                              const msg = (resp && String(resp.message||'')).toLowerCase();
+                              if (!attempt && msg.includes('csrf')) {
+                                return getToken().then(t => doSave(t, true));
+                              }
+                              throw new Error((resp && resp.message) || 'Save failed');
+                            });
+                        };
+                        btn.disabled = true; btn.textContent = 'Saving…';
+                        getToken()
+                          .then(t => doSave(t, false))
+                          .then(() => { showToast('success','Saved','Page updated'); modal.remove(); viewOutline(courseId); })
+                          .catch(err => { showToast('error','Save failed', String(err && err.message || 'Network error')); })
+                          .finally(() => { btn.disabled = false; btn.textContent = 'Save'; });
                       };
                     });
                 })
@@ -1561,13 +1652,31 @@ function viewOutline(courseId) {
                       window.createActivityState.name = activityData.title || 'Untitled Activity';
                       window.createActivityState.type = activityData.type === 'coding' ? 'laboratory' : 'lecture';
                       window.createActivityState.questionType = activityData.type;
-                      window.createActivityState.instructionsText = activityData.instructions ? 
-                        (typeof activityData.instructions === 'string' ? 
-                          (activityData.instructions.startsWith('{') ? JSON.parse(activityData.instructions).instructions || '' : activityData.instructions) : 
-                          '') : '';
-                      window.createActivityState.questions = activityData.questions || [];
-                      if (window.createActivityState.questions[0]) {
+                      // Store the full instructions JSON for activity type detection
+                      window.createActivityState.instructionsText = activityData.instructions || '';
+                      console.log('🔍 DEBUG: Stored instructionsText:', window.createActivityState.instructionsText);
+                      
+                      // Extract just the instructions text for display
+                      let displayInstructions = '';
+                      if (activityData.instructions && typeof activityData.instructions === 'string') {
+                        if (activityData.instructions.startsWith('{')) {
+                          try {
+                            const parsed = JSON.parse(activityData.instructions);
+                            displayInstructions = parsed.instructions || '';
+                          } catch (e) {
+                            displayInstructions = activityData.instructions;
+                          }
+                        } else {
+                          displayInstructions = activityData.instructions;
                         }
+                      }
+                      window.createActivityState.displayInstructions = displayInstructions;
+                      window.createActivityState.questions = activityData.questions || [];
+                      console.log('🔍 DEBUG: Test button loaded questions:', window.createActivityState.questions);
+                      console.log('🔍 DEBUG: Activity data:', activityData);
+                      if (window.createActivityState.questions[0]) {
+                        console.log('🔍 DEBUG: First question:', window.createActivityState.questions[0]);
+                      }
                       window.createActivityState.max_score = activityData.max_score || 0;
                       
                       // Update modal title to show activity name
@@ -1586,6 +1695,7 @@ function viewOutline(courseId) {
                       }
                       
                       window.createActivityState.viewMode = 'preview';
+                      try { (document.getElementById('createActivityForm')||document.querySelector('#createActivityModal')).classList.add('is-preview'); } catch(_){ }
                       window.dispatchEvent(new CustomEvent('createActivityRender'));
                       }
                   } catch (e) {
@@ -3070,13 +3180,13 @@ function showBulkLessonModal(moduleId) {
         const titles = Array.from(inputs).map(i => (i.value||'').trim()).filter(Boolean);
         if (!titles.length) { alert('Please enter at least one topic.'); return; }
         if (titles.length > 20) { alert('Maximum 20 topics can be created at once.'); return; }
-        const fd = new FormData();
+        let fd = new FormData();
         fd.append('action','bulk_lesson_create');
         fd.append('module_id', String(moduleId));
         fd.append('titles', JSON.stringify(titles));
         const btn = document.getElementById('bulkLessonSubmit');
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...'; }
-        fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+        ;(async function(){ try { fd = await addCSRFToken(fd); } catch(_){ } return fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' }); })()
           .then(r=>r.json())
           .then(data=>{
             if (data && data.success) {
@@ -3132,6 +3242,120 @@ function addNewLessonField(){ const c = document.getElementById('lessonFieldsCon
     </div>
   </div>`; c.appendChild(el); setupAddLessonButtons(); const rem = el.querySelector('.remove-lesson-btn'); if (rem) rem.onclick = function(){ removeLessonField(el); }; const inp = el.querySelector('.lesson-title-input'); if (inp) inp.focus(); }
 function removeLessonField(el){ const c = document.getElementById('lessonFieldsContainer'); if (!c) return; const groups = c.querySelectorAll('.lesson-field-group'); if (groups.length<=1) { alert('At least one topic is required.'); return; } el.remove(); Array.from(c.querySelectorAll('.lesson-field-group')).forEach(function(g,i){ const lbl = g.querySelector('.modal-label'); if (lbl) lbl.textContent = 'Topic ' + (i+1) + ' *'; }); }
+// ===== Monaco Editor Integration for Coding Activities =====
+let monacoEditor = null;
+let monacoLoaded = false;
+
+// Load Monaco Editor (lazy load)
+function loadMonacoEditor() {
+  if (monacoLoaded) return Promise.resolve();
+  
+  return new Promise((resolve, reject) => {
+    // Set up Monaco environment for workers
+    window.MonacoEnvironment = {
+      getWorkerUrl: function (moduleId, label) {
+        const path = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs';
+        const workers = {
+          json: 'language/json/json.worker.js',
+          css: 'language/css/css.worker.js', 
+          html: 'language/html/html.worker.js',
+          ts: 'language/typescript/ts.worker.js',
+          default: 'editor/editor.worker.js'
+        };
+        const file = workers[label] || workers.default;
+        return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
+          self.MonacoEnvironment = { baseUrl: '${path}' };
+          importScripts('${path}/${file}');
+        `)}`;
+      }
+    };
+
+    // Load Monaco CSS
+    if (!document.querySelector('link[href*="monaco-editor"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/editor/editor.main.min.css';
+      document.head.appendChild(link);
+    }
+
+    // Load Monaco JS
+    if (!window.require) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/loader.min.js';
+      script.onload = () => {
+        window.require.config({ 
+          paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs' } 
+        });
+        window.require(['vs/editor/editor.main'], () => {
+          monacoLoaded = true;
+          resolve();
+        });
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    } else {
+      window.require(['vs/editor/editor.main'], () => {
+        monacoLoaded = true;
+        resolve();
+      });
+    }
+  });
+}
+
+// Initialize Monaco editor in coding form
+function initMonacoEditor(container, language = 'javascript', initialValue = '') {
+  if (!container) return;
+  
+  loadMonacoEditor().then(() => {
+    if (monacoEditor) {
+      monacoEditor.dispose();
+    }
+    
+    monacoEditor = window.monaco.editor.create(container, {
+      value: initialValue,
+      language: language,
+      theme: 'vs',
+      fontSize: 14,
+      automaticLayout: true,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      wordWrap: 'on',
+      lineNumbers: 'on',
+      folding: true,
+      renderWhitespace: 'selection'
+    });
+    
+    // Update form state when editor content changes
+    monacoEditor.onDidChangeModelContent(() => {
+      const value = monacoEditor.getValue();
+      const starterCodeInput = document.getElementById('cafStarterCode');
+      if (starterCodeInput) {
+        starterCodeInput.value = value;
+      }
+    });
+  }).catch(err => {
+    console.error('Failed to load Monaco editor:', err);
+    // Fallback to textarea
+    const textarea = container.querySelector('textarea');
+    if (textarea) textarea.style.display = 'block';
+  });
+}
+
+// Update Monaco language when language selection changes
+function updateMonacoLanguage(language) {
+  if (monacoEditor && window.monaco) {
+    const langMap = {
+      'java': 'java',
+      'python': 'python', 
+      'cpp': 'cpp',
+      'c': 'c',
+      'javascript': 'javascript'
+    };
+    const monacoLang = langMap[language] || 'javascript';
+    window.monaco.editor.setModelLanguage(monacoEditor.getModel(), monacoLang);
+  }
+}
+
 // ===== Create Activity Wizard (non-disruptive) =====
 function showCreateActivityWizard(lessonId){
   let modal = document.getElementById('createActivityWizard');
@@ -3357,6 +3581,15 @@ function showCreateActivityForm(lessonId, opts){
     modal = document.createElement('div');
     modal.id = 'createActivityForm';
     modal.className = 'modal-overlay';
+    // Ensure preview CSS is present once
+    try {
+      if (!document.getElementById('cafPreviewCSS')) {
+        const style = document.createElement('style');
+        style.id = 'cafPreviewCSS';
+        style.textContent = '#createActivityForm.is-preview #cafFooter{display:none !important;}\n#createActivityForm.is-preview #cafCreate{display:none !important;}';
+        document.head.appendChild(style);
+      }
+    } catch(_){}
     modal.innerHTML = `
       <div class="modal-card" style="max-width:1200px;width:95%;max-height:90vh;display:flex;flex-direction:column;">
         <div style="padding:12px 14px;border-bottom:1px solid #e9ecef;display:flex;align-items:center;gap:8px;">
@@ -3368,7 +3601,7 @@ function showCreateActivityForm(lessonId, opts){
           <button class="action-btn btn-gray" id="cafClose">Close</button>
         </div>
         <div id="cafBody" style="padding:12px 14px;overflow:auto;flex:1"></div>
-        <div style="padding:10px 14px;border-top:1px solid #e9ecef;display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+        <div id="cafFooter" style="padding:10px 14px;border-top:1px solid #e9ecef;display:flex;gap:8px;justify-content:flex-end;align-items:center;">
           <button class="action-btn btn-green" id="cafCreate">Create item</button>
         </div>
       </div>`;
@@ -3379,8 +3612,28 @@ function showCreateActivityForm(lessonId, opts){
     try {
       const editBtn = modal.querySelector('#cafEditMode');
       const previewBtn = modal.querySelector('#cafPreviewMode');
-      if (editBtn) editBtn.onclick = function(){ try { window.createActivityState.viewMode = 'edit'; updateModalTitle('edit'); window.dispatchEvent(new CustomEvent('createActivityRender')); } catch(_){ } };
-      if (previewBtn) previewBtn.onclick = function(){ try { window.createActivityState.viewMode = 'preview'; updateModalTitle('preview'); window.dispatchEvent(new CustomEvent('createActivityRender')); } catch(_){ } };
+      if (editBtn) editBtn.onclick = function(){ 
+        try { 
+          window.createActivityState.viewMode = 'edit'; 
+          updateModalTitle('edit'); 
+          // Show footer in edit mode
+          const footer = modal.querySelector('#cafFooter');
+          if (footer) footer.style.display = 'flex';
+          try { modal.classList.remove('is-preview'); } catch(_){ }
+          window.dispatchEvent(new CustomEvent('createActivityRender')); 
+        } catch(_){ } 
+      };
+      if (previewBtn) previewBtn.onclick = function(){ 
+        try { 
+          window.createActivityState.viewMode = 'preview'; 
+          updateModalTitle('preview'); 
+          // Hide footer in preview mode
+          const footer = modal.querySelector('#cafFooter');
+          if (footer) footer.style.display = 'none';
+          try { modal.classList.add('is-preview'); } catch(_){ }
+          window.dispatchEvent(new CustomEvent('createActivityRender')); 
+        } catch(_){ } 
+      };
     } catch(_){ }
   }
   modal.style.display='flex';
@@ -3477,7 +3730,44 @@ function showCreateActivityForm(lessonId, opts){
 
     // Render PREVIEW mode using professional test interface
     if (state.viewMode === 'preview') {
-      const activityType = state.questionType || 'multiple_choice';
+      console.log('🔍 DEBUG: Rendering preview mode, state:', state);
+      console.log('🔍 DEBUG: instructionsText:', state.instructionsText);
+      
+      // Determine activity type - handle true_false stored as 'quiz' in database
+      let activityType = state.questionType || 'multiple_choice';
+      console.log('🔍 DEBUG: Initial activityType:', activityType);
+      
+      // Check instructions for true_false kind
+      if (state.instructionsText && typeof state.instructionsText === 'string') {
+        try {
+          const instructionsObj = JSON.parse(state.instructionsText);
+          if (instructionsObj.kind === 'true_false') {
+            activityType = 'true_false';
+            console.log('🔍 DEBUG: Detected as true_false from instructions kind');
+          }
+        } catch (e) {
+          console.log('🔍 DEBUG: Could not parse instructions:', e);
+        }
+      }
+      
+      // If stored as 'quiz', check if it's actually true_false based on questions
+      if (activityType === 'quiz' && state.questions && state.questions.length > 0) {
+        const firstQuestion = state.questions[0];
+        console.log('🔍 DEBUG: Checking quiz type, first question:', firstQuestion);
+        if (firstQuestion.choices && firstQuestion.choices.length === 2) {
+          const choiceTexts = firstQuestion.choices.map(c => c.text.toLowerCase());
+          console.log('🔍 DEBUG: Choice texts:', choiceTexts);
+          if (choiceTexts.includes('true') && choiceTexts.includes('false')) {
+            activityType = 'true_false';
+            console.log('🔍 DEBUG: Detected as true_false based on choices');
+          } else {
+            activityType = 'multiple_choice';
+            console.log('🔍 DEBUG: Detected as multiple_choice based on choices');
+          }
+        }
+      }
+      
+      console.log('🔍 DEBUG: Final activityType:', activityType);
         const activity = { 
           id: state.editActivityId ? parseInt(state.editActivityId,10) : 0, 
           title: state.name || 'Untitled Activity', 
@@ -3537,9 +3827,31 @@ function showCreateActivityForm(lessonId, opts){
       }
       
 
+      // Use the same Try Answering modal as teacher/student
+      console.log('🔍 DEBUG: Checking cleanActivitySystem availability:', {
+        cleanActivitySystem: !!window.cleanActivitySystem,
+        showTryAnswering: !!(window.cleanActivitySystem && window.cleanActivitySystem.showTryAnswering),
+        editActivityId: state.editActivityId,
+        activityId: state.editActivityId || 0
+      });
+      
+      if (window.cleanActivitySystem && window.cleanActivitySystem.showTryAnswering) {
+        const activityId = state.editActivityId || 0;
+        console.log('🔍 DEBUG: Attempting to use shared modal with activityId:', activityId);
+        if (activityId > 0) {
+          window.cleanActivitySystem.showTryAnswering(activityId, activity.title, { preview: true });
+          return;
+        } else {
+          console.log('🔍 DEBUG: ActivityId is 0, falling back to custom preview');
+        }
+      } else {
+        console.log('🔍 DEBUG: cleanActivitySystem not available, falling back to custom preview');
+      }
+      
+      // Fallback to custom preview if cleanActivitySystem not available
       body.innerHTML = `
-        <div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;">
-          <!-- Test Header -->
+        <div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;display:flex;flex-direction:column;min-height:60vh;">
+          <!-- Test Header (match student modal) -->
           <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:20px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <h2 style="margin:0;font-size:24px;font-weight:600;">${activity.title}</h2>
@@ -3549,88 +3861,78 @@ function showCreateActivityForm(lessonId, opts){
               </div>
             </div>
             <div style="display:flex;gap:20px;font-size:14px;opacity:0.9;">
-              <span>📝 ${activityType.toUpperCase().replace('_', ' ')}</span>
+              <span>📝 ${getActivityTypeDisplay(activityType)}</span>
               <span>⏱️ No time limit</span>
               <span>📊 ${activity.questions ? activity.questions.length : 0} question${(activity.questions ? activity.questions.length : 0) !== 1 ? 's' : ''}</span>
             </div>
           </div>
           
-          <!-- Instructions -->
-          ${state.instructionsText ? `
+          <!-- Instructions (match student modal) -->
+          ${state.displayInstructions || state.instructionsText ? `
             <div style="padding:20px;border-bottom:1px solid #e9ecef;background:#f8f9fa;">
               <h3 style="margin:0 0 12px 0;color:#333;font-size:16px;">📋 Instructions</h3>
-              <p style="margin:0;color:#555;line-height:1.6;">${state.instructionsText}</p>
+              <p style="margin:0;color:#555;line-height:1.6;">${state.displayInstructions || state.instructionsText}</p>
             </div>
           ` : ''}
-          
-          <!-- Question Navigation Sidebar -->
-          <div style="display:flex;">
-            <div style="width:150px;background:#f8f9fa;border-right:1px solid #e9ecef;padding:16px;">
-              <h4 style="margin:0 0 16px 0;color:#333;font-size:14px;">Question Navigation</h4>
-              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
-                ${activity.questions && activity.questions.length > 0 ? activity.questions.map((q, idx) => `
-                  <div id="nav-${idx}" style="width:32px;height:32px;border:2px solid #dee2e6;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:white;font-size:12px;font-weight:600;color:#495057;transition:all 0.2s;" onclick="window.scrollToQuestion(${idx})">
-                    ${idx + 1}
-                  </div>
-                `).join('') : '<div style="grid-column:1/-1;text-align:center;color:#6c757d;font-size:12px;padding:8px;">No questions</div>'}
-              </div>
-              <div style="margin-top:20px;padding:12px;background:white;border-radius:6px;border:1px solid #e9ecef;">
-                <div style="font-size:12px;color:#6c757d;margin-bottom:4px;">Progress</div>
-                <div id="progress-counter" style="font-size:14px;font-weight:600;color:#28a745;">0 / ${activity.questions ? activity.questions.length : 0} answered</div>
+
+          <!-- Progress Bar (hidden for upload-based activities like teacher side) -->
+          ${activityType !== 'upload_based' ? `
+          <div id="progress-section" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #e9ecef;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-size:14px;color:#333;font-weight:600;">⭐ Progress</span>
+              <div style="display:flex;gap:20px;align-items:center;">
+                <span id="progress-counter" style="font-size:14px;color:#28a745;font-weight:600;">0 / ${activity.questions ? activity.questions.length : 0} answered</span>
+                <span id="timer" style="font-size:14px;color:#6c757d;font-weight:600;">⏱️ 00:00</span>
               </div>
             </div>
-            
-            <!-- Questions Content -->
-            <div style="flex:1;padding:24px;">
-              ${activity.questions && activity.questions.length > 0 ? 
-                renderProfessionalTestQuestions(activity, activityType) : 
-                `
-                <div style="text-align:center;padding:40px;color:#6c757d;">
-                  <div style="font-size:48px;margin-bottom:16px;">📝</div>
-                  <h3 style="margin:0 0 8px 0;color:#333;">No Questions Added</h3>
-                  <p style="margin:0 0 16px 0;">Add questions in Edit mode to see the preview</p>
-                  <button onclick="window.createActivityState.viewMode = 'edit'; window.dispatchEvent(new CustomEvent('createActivityRender'));" style="background:#28a745;color:white;border:none;padding:10px 20px;border-radius:6px;font-size:14px;cursor:pointer;">
-                    Switch to Edit Mode
-                  </button>
-                </div>
-                `}
-              
-              <!-- Submit Section -->
-              ${activity.questions && activity.questions.length > 0 ? `
-              <div style="margin-top:30px;padding:20px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <div>
-                    <div style="font-size:14px;color:#6c757d;margin-bottom:4px;">Ready to submit?</div>
-                    <div style="font-size:12px;color:#6c757d;">Make sure you've answered all questions</div>
-                  </div>
-                  <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);" onclick="window.finishPreviewAttempt()">
-                    Finish Attempt
-                  </button>
-                </div>
-              </div>
-              ` : ''}
+            <div style="background:#e9ecef;border-radius:10px;height:6px;overflow:hidden;">
+              <div id="progress-bar" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);height:100%;width:0%;transition:width 0.3s ease;"></div>
             </div>
           </div>
+          ` : ''}
+
+          <!-- Main content -->
+          <div style="flex:1;overflow:auto;padding:24px;">
+            ${activity.questions && activity.questions.length > 0 ? 
+              renderProfessionalTestQuestions(activity, activityType) : 
+              `
+              <div style=\"text-align:center;padding:40px;color:#6c757d;\">No Questions Added</div>
+              `}
+          </div>
+
+          <!-- No pagination - show all questions at once like teacher side -->
+
+          <!-- Sticky submit (match student modal) -->
+          ${activity.questions && activity.questions.length > 0 ? `
+          <div id="submitSection" style="position:sticky;bottom:0;padding:15px 25px;background:#f8f9fa;border-top:1px solid #e9ecef;z-index:5;">
+            <div style="display:flex;justify-content:space-between;align-items:center;max-width:1100px;margin:0 auto;">
+              <div>
+                <div style="font-size:13px;color:#6c757d;margin-bottom:2px;">Ready to submit?</div>
+                <div style="font-size:11px;color:#6c757d;">Make sure you've answered all questions</div>
+              </div>
+              <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);" onclick="window.finishPreviewAttempt()">Finish Attempt</button>
+            </div>
+          </div>
+          ` : ''}
         </div>
       `;
       if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
       
-      // Initialize interactive features
-      setTimeout(() => {
-        try {
-          if (typeof window.updateProgress === 'function') {
-            window.updateProgress();
-          } else {
-            }
-          // Set first question as active
-          if (activity.questions && activity.questions.length > 0 && typeof window.scrollToQuestion === 'function') {
-            window.scrollToQuestion(0);
-          } else if (!activity.questions || activity.questions.length === 0) {
-            } else {
+        // Initialize interactive features
+        setTimeout(() => {
+          try {
+            // Initialize progress tracking for fallback preview (only for non-upload activities)
+            if (activityType !== 'upload_based') {
+              initializePreviewProgressTracking();
+              
+              if (typeof window.updateProgress === 'function') {
+                window.updateProgress();
+              }
             }
           } catch (e) {
+            console.error('Error initializing preview features:', e);
           }
-      }, 100);
+        }, 100);
       
       return;
     }
@@ -3916,11 +4218,11 @@ function showCreateActivityForm(lessonId, opts){
                       <div style="display:flex;gap:16px;">
                         <label style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:white;flex:1;">
                           <input type="radio" name="correct-${index}" value="true" ${q.answer === 'true' ? 'checked' : ''} onchange="updateQuestion(${index}, 'answer', 'true')" style="margin:0;" />
-                          <span style="font-weight:500;color:#28a745;">✅ True</span>
+                          <span style="font-weight:500;color:#333;">True</span>
                         </label>
                         <label style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:white;flex:1;">
                           <input type="radio" name="correct-${index}" value="false" ${q.answer === 'false' ? 'checked' : ''} onchange="updateQuestion(${index}, 'answer', 'false')" style="margin:0;" />
-                          <span style="font-weight:500;color:#dc3545;">❌ False</span>
+                          <span style="font-weight:500;color:#333;">False</span>
                         </label>
                       </div>
                     </div>
@@ -4027,7 +4329,10 @@ function showCreateActivityForm(lessonId, opts){
               <!-- Starter Code -->
               <div style="margin-bottom:20px;">
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Starter Code (Optional)</label>
-                <textarea id="cafStarterCode" class="modal-input" rows="8" placeholder="Provide starter code, function signatures, or class templates for students..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;resize:vertical;">${state.starterCode || ''}</textarea>
+                <div id="monacoContainer" style="height:300px;border:1px solid #ddd;border-radius:6px;margin-top:8px;">
+                  <textarea id="cafStarterCode" class="modal-input" rows="8" placeholder="Provide starter code, function signatures, or class templates for students..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;resize:vertical;display:none;">${state.starterCode || ''}</textarea>
+                </div>
+                <div style="margin-top:4px;font-size:12px;color:#666;">💡 Monaco editor will load automatically. Fallback to textarea if needed.</div>
                 <div style="margin-top:4px;font-size:12px;color:#666;">Include function signatures, class templates, or partial code to help students get started</div>
               </div>
               
@@ -4146,12 +4451,29 @@ function showCreateActivityForm(lessonId, opts){
     } else {
     }
     
-    const lang = body.querySelector('#cafLang'); if (lang){ lang.onchange=function(){ state.language=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; try { if (window.enableCodeEditor) window.enableCodeEditor(starter); } catch(_){} }
+    const lang = body.querySelector('#cafLang'); if (lang){ 
+      lang.onchange=function(){ 
+        state.language=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+        // Update Monaco language
+        updateMonacoLanguage(this.value);
+      }; 
+      try { if (window.enableCodeEditor) window.enableCodeEditor(starter); } catch(_){} 
+    }
     const instr = body.querySelector('#cafInstr'); if (instr){ instr.oninput=function(){ state.instructionsText=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; }
     // Coding-specific field bindings to preserve user input across re-renders
     const prob = body.querySelector('#cafProblem'); if (prob){ prob.oninput=function(){ state.problemStatement=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; }
     const starter = body.querySelector('#cafStarterCode'); if (starter){
       starter.oninput=function(){ state.starterCode=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); };
+      
+      // Initialize Monaco editor for coding activities
+      const monacoContainer = body.querySelector('#monacoContainer');
+      if (monacoContainer && state.questionType === 'coding') {
+        const language = state.language || 'javascript';
+        const initialCode = state.starterCode || '';
+        initMonacoEditor(monacoContainer, language, initialCode);
+      }
+      
       try {
         if (window.enableCodeEditor) {
           window.enableCodeEditor(starter);
@@ -4377,8 +4699,47 @@ function showCreateActivityForm(lessonId, opts){
       });
   };
   try { window.__cafHandleCreate = modal.querySelector('#cafCreate').onclick; } catch(_){ }
-  modal.querySelector('#cafCreate').textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item';
+  // Hide footer in preview mode - Force update on every render and set class flag
+  setTimeout(() => {
+    const footer = modal.querySelector('#cafFooter');
+    const createBtn = modal.querySelector('#cafCreate');
+    if (footer || createBtn) {
+      const isPreview = (window.createActivityState && window.createActivityState.viewMode === 'preview');
+      if (isPreview) {
+        if (footer) footer.style.display = 'none';
+        if (createBtn) { createBtn.style.display = 'none'; createBtn.style.visibility = 'hidden'; }
+        try { (document.getElementById('createActivityForm')||modal).classList.add('is-preview'); } catch(_){ }
+      } else {
+        if (footer) footer.style.display = 'flex';
+        if (createBtn) { createBtn.style.display = 'inline-block'; createBtn.style.visibility = 'visible'; createBtn.textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item'; }
+        try { (document.getElementById('createActivityForm')||modal).classList.remove('is-preview'); } catch(_){ }
+      }
+    }
+  }, 50);
 }
+// Global listener to hide Save Changes button in preview mode
+try {
+  if (!window.__cafPreviewButtonBound) {
+    window.__cafPreviewButtonBound = true;
+    document.addEventListener('click', function(e) {
+      if (e.target && (e.target.id === 'cafPreviewMode' || e.target.id === 'cafEditMode')) {
+        setTimeout(() => {
+          const modal = document.getElementById('createActivityForm') || document.querySelector('#createActivityModal');
+          if (modal) {
+            const footer = modal.querySelector('#cafFooter');
+            const createBtn = modal.querySelector('#cafCreate');
+            if (footer || createBtn) {
+              const isPreview = (window.createActivityState && window.createActivityState.viewMode === 'preview');
+              if (isPreview) { if (footer) footer.style.display = 'none'; if (createBtn) { createBtn.style.display='none'; createBtn.style.visibility='hidden'; } }
+              else { if (footer) footer.style.display = 'flex'; if (createBtn) { createBtn.style.display='inline-block'; createBtn.style.visibility='visible'; } }
+            }
+          }
+        }, 100);
+      }
+    });
+  }
+} catch(_){}
+
 // Fallback: ensure Save/Create handler always fires even if onclick got detached by re-render
 try {
   if (!window.__cafGlobalClickBound) {
@@ -4651,9 +5012,26 @@ function renderGenericTestInterface(activity) {
   `;
 }
 
+// Function to get proper activity type display name
+function getActivityTypeDisplay(activityType) {
+  const typeMap = {
+    'multiple_choice': 'MULTIPLE CHOICE',
+    'true_false': 'TRUE/FALSE',
+    'identification': 'IDENTIFICATION', 
+    'essay': 'ESSAY',
+    'upload_based': 'UPLOAD BASED',
+    'coding': 'CODING EXERCISE',
+    'quiz': 'QUIZ' // Fallback for database stored as 'quiz'
+  };
+  return typeMap[activityType] || activityType.toUpperCase().replace('_', ' ');
+}
+
 // Function to render professional test questions for coordinator preview
 function renderProfessionalTestQuestions(activity, activityType) {
+  console.log('🔍 DEBUG: renderProfessionalTestQuestions called with:', { activity, activityType });
+  
   if (!activity.questions || !Array.isArray(activity.questions) || activity.questions.length === 0) {
+    console.log('🔍 DEBUG: No questions found');
     return `
       <div style="text-align:center;padding:40px;color:#6c757d;">
         <div style="font-size:48px;margin-bottom:16px;">📝</div>
@@ -4663,8 +5041,11 @@ function renderProfessionalTestQuestions(activity, activityType) {
     `;
   }
   
+  console.log('🔍 DEBUG: Questions found:', activity.questions);
+  
   let html = '';
   activity.questions.forEach((question, index) => {
+    console.log('🔍 DEBUG: Processing question', index, ':', question);
     html += `
       <div id="question-${index}" style="border:1px solid #e9ecef;border-radius:8px;padding:24px;margin-bottom:24px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -4675,14 +5056,15 @@ function renderProfessionalTestQuestions(activity, activityType) {
         </div>
         
         <div style="margin-bottom:20px;">
-          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;">${question.question_text || 'Question text not available'}</p>
+          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;">${question.text || question.question_text || 'Question text not available'}</p>
         </div>
-        
+        ${activityType === 'multiple_choice' ? '<div style="font-size:14px;color:#495057;margin:0 0 8px 0;">Select your answer:</div>' : ''}
         ${renderQuestionInput(question, index, activityType)}
       </div>
     `;
   });
   
+  console.log('🔍 DEBUG: Generated HTML:', html);
   return html;
 }
 
@@ -4712,10 +5094,13 @@ function renderCodingPreview(activity){
         <div style="flex:1;padding:18px;">
           <div style="margin-bottom:10px;font-weight:600;color:#374151;">Starter Code</div>
           <textarea rows="14" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:8px;font-family:monospace;font-size:14px;resize:vertical;">${starter.replace(/</g,'&lt;')}</textarea>
-          <div style="margin-top:12px;display:flex;gap:8px;">
-            <button style="background:#28a745;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Run</button>
-            <button style="background:#6b7280;color:#fff;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;">Reset</button>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="previewRunBtn" style="background:#28a745;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Run</button>
+            <button id="previewTestBtn" style="background:#0ea5e9;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Test (All Cases)</button>
+            <button id="previewResetBtn" style="background:#6b7280;color:#fff;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;">Reset</button>
           </div>
+          <div id="previewRunOutput" style="margin-top:12px;padding:12px;background:#f8f9fa;border-radius:6px;font-family:monospace;font-size:13px;min-height:40px;display:none;"></div>
+          <div id="previewTestResults" style="margin-top:12px;display:none;"></div>
         </div>
         <div style="width:280px;border-left:1px solid #e9ecef;background:#f8f9fa;padding:18px;">
           <div style="font-weight:600;color:#374151;margin-bottom:8px;">Progress</div>
@@ -4725,13 +5110,223 @@ function renderCodingPreview(activity){
       </div>
     </div>
   `;
+  // expose preview context for delegated handlers
+  try { window.__codingPreviewCtx = { meta: meta || {}, starter: starter || '', expected: expected || '', activity: activity || {} }; } catch(_){ }
+  
+  // Bind Run/Reset handlers for coding preview
+  setTimeout(() => {
+    const runBtn = document.getElementById('previewRunBtn');
+    const testBtn = document.getElementById('previewTestBtn');
+    const resetBtn = document.getElementById('previewResetBtn');
+    const outputDiv = document.getElementById('previewRunOutput');
+    const testDiv = document.getElementById('previewTestResults');
+    const textarea = document.querySelector('textarea');
+    
+    if (runBtn && textarea) {
+      runBtn.onclick = function() {
+        const code = textarea.value.trim();
+        if (!code) {
+          if (outputDiv) {
+            outputDiv.style.display = 'block';
+            outputDiv.innerHTML = '<div style="color:#dc3545;">❌ Please write some code first</div>';
+          }
+          return;
+        }
+        
+        runBtn.disabled = true;
+        runBtn.textContent = 'Running...';
+        if (outputDiv) {
+          outputDiv.style.display = 'block';
+          outputDiv.innerHTML = '<div style="color:#007bff;">🔄 Running code...</div>';
+        }
+        
+        // Test the code based on language
+        const language = (meta && meta.language) ? String(meta.language).toLowerCase() : 'javascript';
+        // For JavaScript, run locally. For C++/Java/Python, use server runner (JDoodle)
+        if (language === 'javascript') {
+          testCodingActivity(code, language, expected, outputDiv, runBtn);
+        } else {
+          try {
+            const fd = new FormData();
+            fd.append('action','run_activity');
+            fd.append('activity_id', String(activity.id || activity.activity_id || ''));
+            fd.append('source', code);
+            fd.append('quick','1');
+            fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+              .then(r => r.json())
+              .then(res => {
+                const ok = !!(res && res.success);
+                if (!ok) throw new Error(res && res.message ? res.message : 'Run failed');
+                const results = Array.isArray(res.results) ? res.results : [];
+                // Consolidate outputs
+                const outs = results.map(r => String(r.output || r.outputText || '').trim());
+                const combined = outs.join('\n').trim();
+                const passed = expected ? (combined === String(expected).trim()) : true;
+                const statusIcon = passed ? '✅' : '⚠️';
+                const statusColor = passed ? '#28a745' : '#ffc107';
+                outputDiv.innerHTML = `
+                  <div style="color:${statusColor};margin-bottom:8px;">${statusIcon} <strong>${passed ? 'PASSED' : 'COMPLETED'}</strong></div>
+                  <div style="margin-bottom:6px;"><strong>Output:</strong></div>
+                  <pre style="background:#f1f3f4;padding:8px;border-radius:4px;white-space:pre-wrap;">${combined || '(no output)'}</pre>
+                  ${expected ? `
+                    <div style=\"margin-top:6px;\"><strong>Expected:</strong></div>
+                    <pre style=\"background:#e8f5e8;padding:8px;border-radius:4px;white-space:pre-wrap;\">${String(expected)}</pre>
+                  ` : ''}
+                `;
+              })
+              .catch(err => {
+                outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run failed: ${err && err.message ? err.message : err}</div>`;
+              })
+              .finally(() => { runBtn.disabled=false; runBtn.textContent='Run'; });
+          } catch (err) {
+            outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run error: ${err && err.message ? err.message : err}</div>`;
+            runBtn.disabled = false; runBtn.textContent = 'Run';
+          }
+        }
+      };
+    }
+    
+    if (testBtn && textarea) {
+      testBtn.onclick = function() {
+        const code = textarea.value.trim();
+        if (!code) {
+          if (testDiv) {
+            testDiv.style.display = 'block';
+            testDiv.innerHTML = '<div style="color:#dc3545;">❌ Please write some code first</div>';
+          }
+          return;
+        }
+
+        testBtn.disabled = true;
+        testBtn.textContent = 'Testing...';
+        if (testDiv) {
+          testDiv.style.display = 'block';
+          testDiv.innerHTML = '<div style="color:#0ea5e9;">🔄 Running all test cases...</div>';
+        }
+
+        const fd = new FormData();
+        fd.append('action','test_activity');
+        fd.append('activity_id', String(activity.id || activity.activity_id || ''));
+        fd.append('source', code);
+        fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+          .then(r => r.json())
+          .then(res => {
+            if (!res || !res.success) throw new Error(res && res.message ? res.message : 'Test failed');
+            const sum = res.summary || { passed:0,total:0,score:0,timeMs:0 };
+            const cases = Array.isArray(res.cases) ? res.cases : [];
+            const header = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+              <span style="background:#10b981;color:white;padding:4px 8px;border-radius:999px;font-weight:700;">${sum.passed}/${sum.total} passed</span>
+              <span style="background:#6366f1;color:white;padding:4px 8px;border-radius:999px;font-weight:700;">Score ${sum.score}%</span>
+              <span style="color:#6b7280;">${sum.timeMs} ms</span>
+            </div>`;
+            const rows = cases.map(c => {
+              const color = c.status === 'AC' ? '#10b981' : '#ef4444';
+              return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-top:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div style="font-weight:600;color:#374151;">${c.name || 'Case'}</div>
+                  <div style="color:${color};font-weight:700;">${c.status}</div>
+                </div>
+                <div style="margin-top:6px;display:${c.status==='AC'?'none':'block'};">
+                  <div style="font-size:12px;color:#374151;margin-bottom:4px;">Expected vs Actual</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <pre style="background:#f3f4f6;padding:8px;border-radius:6px;white-space:pre-wrap;">${(c.expected||'').replace(/</g,'&lt;')}</pre>
+                    <pre style="background:#111827;color:#e5e7eb;padding:8px;border-radius:6px;white-space:pre-wrap;">${(c.stdout||'').replace(/</g,'&lt;')}</pre>
+                  </div>
+                  ${c.stderr ? `<div style=\"margin-top:6px;color:#ef4444;\">stderr: ${String(c.stderr).replace(/</g,'&lt;')}</div>` : ''}
+                </div>
+              </div>`;
+            }).join('');
+            testDiv.innerHTML = header + rows;
+          })
+          .catch(err => {
+            testDiv.innerHTML = `<div style="color:#dc3545;">❌ Test failed: ${err && err.message ? err.message : err}</div>`;
+          })
+          .finally(() => { testBtn.disabled=false; testBtn.textContent='Test (All Cases)'; });
+      };
+    }
+
+    if (resetBtn && textarea) {
+      resetBtn.onclick = function() {
+        textarea.value = starter;
+        if (outputDiv) {
+          outputDiv.style.display = 'none';
+        }
+      };
+    }
+  }, 100);
+}
+
+// Test coding activity for coordinator preview
+function testCodingActivity(code, language, expectedOutput, outputDiv, runBtn) {
+  try {
+    let result = '';
+    let passed = false;
+    
+    if (language.toLowerCase() === 'javascript') {
+      // Capture console.log output
+      const originalLog = console.log;
+      const logs = [];
+      console.log = function(...args) {
+        logs.push(args.join(' '));
+      };
+      
+      try {
+        // Execute the code
+        eval(code);
+        result = logs.join('\n').trim();
+        
+        // Check if it matches expected output
+        if (expectedOutput && result === expectedOutput.trim()) {
+          passed = true;
+        }
+      } catch (error) {
+        result = `Error: ${error.message}`;
+      } finally {
+        console.log = originalLog;
+      }
+    } else {
+      // For other languages, show a message that they need a code runner
+      result = `Language "${language}" requires a code runner (Judge0/JDoodle). JavaScript testing only available in preview.`;
+    }
+    
+    // Display results
+    if (outputDiv) {
+      const statusIcon = passed ? '✅' : (result.includes('Error') ? '❌' : '⚠️');
+      const statusColor = passed ? '#28a745' : (result.includes('Error') ? '#dc3545' : '#ffc107');
+      
+      outputDiv.innerHTML = `
+        <div style="color:${statusColor};margin-bottom:8px;">
+          ${statusIcon} <strong>${passed ? 'PASSED' : 'FAILED'}</strong>
+        </div>
+        <div style="margin-bottom:6px;"><strong>Output:</strong></div>
+        <pre style="background:#f1f3f4;padding:8px;border-radius:4px;white-space:pre-wrap;">${result || '(no output)'}</pre>
+        ${expectedOutput ? `
+          <div style="margin-top:6px;"><strong>Expected:</strong></div>
+          <pre style="background:#e8f5e8;padding:8px;border-radius:4px;white-space:pre-wrap;">${expectedOutput}</pre>
+        ` : ''}
+      `;
+    }
+    
+  } catch (error) {
+    if (outputDiv) {
+      outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Test failed: ${error.message}</div>`;
+    }
+  } finally {
+    if (runBtn) {
+      runBtn.disabled = false;
+      runBtn.textContent = 'Run';
+    }
+  }
 }
 
 
 // Function to render question input based on activity type
 function renderQuestionInput(question, index, activityType) {
+  console.log('🔍 DEBUG: renderQuestionInput called with:', { question, index, activityType });
+  
   if (activityType === 'multiple_choice') {
     if (!question.choices || !Array.isArray(question.choices)) {
+      console.log('🔍 DEBUG: No choices available for multiple choice');
       return '<div style="color:#dc3545;font-size:14px;">No choices available</div>';
     }
     
@@ -4739,7 +5334,7 @@ function renderQuestionInput(question, index, activityType) {
       <div style="space-y:12px;">
         ${question.choices.map((choice, choiceIndex) => `
           <label style="display:flex;align-items:center;gap:12px;padding:16px;border:2px solid #e9ecef;border-radius:8px;cursor:pointer;background:white;transition:all 0.2s;hover:border-color:#28a745;hover:background:#f8fff9;">
-            <input type="radio" name="preview-q${index + 1}" value="${choice.id}" style="margin:0;width:18px;height:18px;accent-color:#28a745;" onchange="window.updateProgress()">
+            <input type="radio" name="preview-q${index + 1}" value="${choice.id}" style="margin:0;width:18px;height:18px;accent-color:#28a745;">
             <span style="flex:1;font-size:15px;color:#333;">${choice.choice_text || 'Choice not available'}</span>
           </label>
         `).join('')}
@@ -4753,18 +5348,21 @@ function renderQuestionInput(question, index, activityType) {
       </div>
     `;
   } else if (activityType === 'true_false') {
-    return `
+    console.log('🔍 DEBUG: Rendering true_false question');
+    const trueFalseHtml = `
       <div style="display:flex;gap:12px;">
         <label style="flex:1;display:flex;align-items:center;gap:12px;padding:16px;border:2px solid #e9ecef;border-radius:8px;cursor:pointer;background:white;transition:all 0.2s;hover:border-color:#28a745;hover:background:#f8fff9;">
-          <input type="radio" name="preview-q${index + 1}" value="true" style="margin:0;width:18px;height:18px;accent-color:#28a745;" onchange="window.updateProgress()">
+          <input type="radio" name="preview-q${index + 1}" value="true" style="margin:0;width:18px;height:18px;accent-color:#28a745;">
           <span style="font-size:15px;color:#333;font-weight:500;">True</span>
         </label>
         <label style="flex:1;display:flex;align-items:center;gap:12px;padding:16px;border:2px solid #e9ecef;border-radius:8px;cursor:pointer;background:white;transition:all 0.2s;hover:border-color:#28a745;hover:background:#f8fff9;">
-          <input type="radio" name="preview-q${index + 1}" value="false" style="margin:0;width:18px;height:18px;accent-color:#28a745;" onchange="window.updateProgress()">
+          <input type="radio" name="preview-q${index + 1}" value="false" style="margin:0;width:18px;height:18px;accent-color:#28a745;">
           <span style="font-size:15px;color:#333;font-weight:500;">False</span>
         </label>
       </div>
     `;
+    console.log('🔍 DEBUG: True/False HTML generated:', trueFalseHtml);
+    return trueFalseHtml;
   } else if (activityType === 'essay') {
     return `
       <div style="margin-bottom:16px;">
@@ -4800,7 +5398,8 @@ function renderQuestionInput(question, index, activityType) {
       </div>
     `;
   }
-  
+
+  console.log('🔍 DEBUG: No matching activity type, returning default');
   return '<div style="color:#6c757d;font-size:14px;">Question type not supported</div>';
 }
 
@@ -4828,26 +5427,29 @@ window.scrollToQuestion = function(index) {
 
 // Function to finish preview attempt - Global scope
 window.finishPreviewAttempt = function() {
-  // Count answered questions accurately
-  let answeredQuestions = 0;
-  const questionElements = document.querySelectorAll('[id^="question-"]');
+  // Use the answers from previewState for accurate counting
+  const answeredCount = Object.keys(window.previewState.answers).length;
+  const totalQuestions = window.previewState.totalQuestions;
   
-  questionElements.forEach(questionEl => {
-    const hasRadioAnswer = questionEl.querySelector('input[type="radio"]:checked');
-    const hasTextAnswer = questionEl.querySelector('input[type="text"]:not([value=""])');
-    const hasTextareaAnswer = questionEl.querySelector('textarea:not([value=""])');
-    
-    if (hasRadioAnswer || hasTextAnswer || hasTextareaAnswer) {
-      answeredQuestions++;
-    }
-  });
+  console.log('🔍 DEBUG: Finishing preview attempt:', { answeredCount, totalQuestions, answers: window.previewState.answers });
   
-  const totalQuestions = questionElements.length;
-  
-  if (answeredQuestions === 0) {
+  if (answeredCount === 0) {
     alert('Please answer at least one question before submitting.');
     return;
   }
+  
+  if (answeredCount < totalQuestions) {
+    const confirmSubmit = confirm(`You have answered ${answeredCount} out of ${totalQuestions} questions. Are you sure you want to submit?`);
+    if (!confirmSubmit) return;
+  }
+  
+  // Stop timer
+  stopPreviewTimer();
+  
+  // Calculate time spent
+  const timeSpent = Math.floor((new Date() - window.previewState.startTime) / 1000);
+  const minutes = Math.floor(timeSpent / 60);
+  const seconds = timeSpent % 60;
   
   // Show results
   const body = document.querySelector('#cafBody');
@@ -4858,7 +5460,8 @@ window.finishPreviewAttempt = function() {
         <h2 style="margin:0 0 16px 0;color:#28a745;font-size:28px;">Preview Submitted!</h2>
         <div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
           <div style="font-size:18px;color:#333;margin-bottom:8px;">Preview Results</div>
-          <div style="font-size:14px;color:#6c757d;">Answered: ${answeredQuestions} / ${totalQuestions} questions</div>
+          <div style="font-size:14px;color:#6c757d;">Answered: ${answeredCount} / ${totalQuestions} questions</div>
+          <div style="font-size:14px;color:#6c757d;margin-top:4px;">Time spent: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}</div>
           <div style="font-size:14px;color:#6c757d;margin-top:4px;">This is a preview - no actual submission was made</div>
         </div>
         <button onclick="window.createActivityState.viewMode = 'edit'; window.dispatchEvent(new CustomEvent('createActivityRender'));" style="background:#28a745;color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-top:16px;">
@@ -4868,6 +5471,232 @@ window.finishPreviewAttempt = function() {
     `;
   }
 }
+
+// Global variables for coordinator preview
+window.previewState = {
+  startTime: null,
+  timerInterval: null,
+  answers: {},
+  totalQuestions: 0
+};
+
+// Initialize progress tracking for coordinator preview
+function initializePreviewProgressTracking() {
+  console.log('🔍 DEBUG: Initializing preview progress tracking');
+  
+  // Initialize timer
+  window.previewState.startTime = new Date();
+  startPreviewTimer();
+  
+  // Count total questions
+  const questionElements = document.querySelectorAll('[id^="question-"]');
+  window.previewState.totalQuestions = questionElements.length;
+  console.log('🔍 DEBUG: Found question elements:', questionElements.length);
+  console.log('🔍 DEBUG: Question elements:', questionElements);
+  
+  // Setup choice click handlers for deselection (like teacher side)
+  setupPreviewChoiceClickHandlers();
+  
+  // Track text input changes
+  document.addEventListener('input', (e) => {
+    if (e.target.type === 'text' && e.target.name && e.target.name.startsWith('preview-q')) {
+      const questionIndex = parseInt(e.target.name.replace('preview-q', '')) - 1;
+      console.log('🔍 DEBUG: Parsed text question index (FIXED):', questionIndex, 'from name:', e.target.name);
+      if (e.target.value.trim()) {
+        window.previewState.answers[questionIndex] = e.target.value;
+      } else {
+        delete window.previewState.answers[questionIndex];
+      }
+      updatePreviewProgress();
+      debouncedAutosave();
+      console.log('🔍 DEBUG: Preview text answer recorded:', e.target.value);
+    }
+  });
+  
+  // Track textarea changes
+  document.addEventListener('input', (e) => {
+    if (e.target.tagName === 'TEXTAREA' && e.target.name && e.target.name.startsWith('preview-q')) {
+      const questionIndex = parseInt(e.target.name.replace('preview-q', '')) - 1;
+      console.log('🔍 DEBUG: Parsed textarea question index (FIXED):', questionIndex, 'from name:', e.target.name);
+      if (e.target.value.trim()) {
+        window.previewState.answers[questionIndex] = e.target.value;
+      } else {
+        delete window.previewState.answers[questionIndex];
+      }
+      updatePreviewProgress();
+      debouncedAutosave();
+      console.log('🔍 DEBUG: Preview textarea answer recorded:', e.target.value);
+    }
+  });
+  
+  // Bind keyboard shortcuts (no navigation needed for continuous scroll)
+  bindPreviewKeyboardShortcuts();
+}
+
+// Start timer for coordinator preview
+function startPreviewTimer() {
+  window.previewState.timerInterval = setInterval(() => {
+    const now = new Date();
+    const elapsed = Math.floor((now - window.previewState.startTime) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    
+    const timerEl = document.getElementById('timer');
+    if (timerEl) {
+      timerEl.textContent = `⏱️ ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+  }, 1000);
+}
+
+// Stop timer for coordinator preview
+function stopPreviewTimer() {
+  if (window.previewState.timerInterval) {
+    clearInterval(window.previewState.timerInterval);
+    window.previewState.timerInterval = null;
+  }
+}
+
+// Debounced autosave function
+let autosaveTimeout;
+function debouncedAutosave() {
+  clearTimeout(autosaveTimeout);
+  autosaveTimeout = setTimeout(() => {
+    savePreviewProgress();
+  }, 2000); // Save after 2 seconds of inactivity
+}
+
+// Save preview progress (simulated)
+function savePreviewProgress() {
+  console.log('🔍 DEBUG: Autosaving preview progress:', window.previewState.answers);
+  // No notification for preview mode - just silent tracking
+}
+
+// Bind keyboard shortcuts for coordinator preview (simplified for continuous scroll)
+function bindPreviewKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Only handle shortcuts when preview modal is open
+    if (!document.getElementById('progress-section')) return;
+    
+    // Only keep Ctrl+Enter for submission
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      window.finishPreviewAttempt();
+    }
+  });
+}
+
+// Show notification for coordinator preview
+function showPreviewNotification(type, message) {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed; top: 20px; right: 20px; z-index: 10000;
+    padding: 12px 20px; border-radius: 6px; font-size: 14px; font-weight: 600;
+    background: ${type === 'success' ? '#28a745' : '#dc3545'}; color: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease;
+  `;
+  notification.textContent = message;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateX(100%)';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+// Setup choice click handlers for coordinator preview (like teacher side)
+function setupPreviewChoiceClickHandlers() {
+  console.log('🔍 DEBUG: Setting up preview choice click handlers');
+  
+  // Use event delegation to handle choice clicks - target the label elements
+  document.addEventListener('click', (event) => {
+    // Look for label elements that contain radio inputs with preview-q names
+    const label = event.target.closest('label');
+    if (label && label.querySelector('input[type="radio"][name^="preview-q"]')) {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      const radioInput = label.querySelector('input[type="radio"]');
+        const questionIndex = parseInt(radioInput.name.replace('preview-q', '')) - 1; // Convert to 0-based index
+        console.log('🔍 DEBUG: Parsed question index (FIXED):', questionIndex, 'from name:', radioInput.name);
+      const isCurrentlySelected = radioInput.checked;
+      
+      console.log('🔍 DEBUG: Label clicked, question:', questionIndex, 'currently selected:', isCurrentlySelected);
+      
+      if (isCurrentlySelected) {
+        // If already selected, deselect it
+        radioInput.checked = false;
+        label.style.background = 'white';
+        label.style.borderColor = '#e9ecef';
+        
+        // Remove answer from answers object
+        delete window.previewState.answers[questionIndex];
+        console.log('🔍 DEBUG: Removed answer from previewState:', questionIndex);
+        console.log('🔍 DEBUG: Current answers after removal:', window.previewState.answers);
+        updatePreviewProgress();
+        debouncedAutosave();
+        
+        console.log('🔍 DEBUG: Preview choice deselected for question', questionIndex);
+      } else {
+        // If not selected, select it and deselect others
+        radioInput.checked = true;
+        label.style.background = '#e3f2fd';
+        label.style.borderColor = '#2196f3';
+        
+        // Deselect other choices in the same question
+        const allChoices = document.querySelectorAll(`input[name="${radioInput.name}"]`);
+        allChoices.forEach(choice => {
+          if (choice !== radioInput) {
+            const otherLabel = choice.closest('label');
+            if (otherLabel) {
+              otherLabel.style.background = 'white';
+              otherLabel.style.borderColor = '#e9ecef';
+            }
+          }
+        });
+        
+        // Add answer to answers object
+        window.previewState.answers[questionIndex] = radioInput.value;
+        console.log('🔍 DEBUG: Added answer to previewState:', questionIndex, radioInput.value);
+        console.log('🔍 DEBUG: Current answers:', window.previewState.answers);
+        console.log('🔍 DEBUG: Radio input name:', radioInput.name);
+        updatePreviewProgress();
+        debouncedAutosave();
+        
+        console.log('🔍 DEBUG: Preview choice selected for question', questionIndex, radioInput.value);
+      }
+    }
+  });
+}
+
+// Update progress for coordinator preview
+function updatePreviewProgress() {
+  const progressCounter = document.getElementById('progress-counter');
+  const progressBar = document.getElementById('progress-bar');
+  
+  if (!progressCounter || !progressBar) {
+    console.log('🔍 DEBUG: Progress elements not found:', { progressCounter: !!progressCounter, progressBar: !!progressBar });
+    return;
+  }
+  
+  // Use the answers from previewState instead of DOM queries
+  const answeredCount = Object.keys(window.previewState.answers).length;
+  const totalQuestions = window.previewState.totalQuestions;
+  
+  console.log('🔍 DEBUG: updatePreviewProgress called:', { answeredCount, totalQuestions, answers: window.previewState.answers });
+  
+  // Update progress counter
+  progressCounter.textContent = `${answeredCount} / ${totalQuestions} answered`;
+  
+  // Update progress bar
+  const percentage = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+  progressBar.style.width = `${percentage}%`;
+  
+  console.log('🔍 DEBUG: Preview progress updated:', `${answeredCount}/${totalQuestions} (${percentage.toFixed(1)}%)`);
+}
+
+// Question navigation removed - using continuous scroll like teacher side
 
 // Function to update progress counter - Global scope
 window.updateProgress = function() {

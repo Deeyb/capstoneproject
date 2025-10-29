@@ -1177,3 +1177,111 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* HIDE TEACHER ELEMENTS FROM STUDENTS */
+body.student-view .stat-circle,
+body.student-view .activity-menu,
+body.student-view .nav-tab[data-tab="classrecord"],
+body.student-view .btn-create-activity,
+body.student-view .topic-status,
+body.student-view .topic-count {
+  display: none !important;
+}
+
+/* STUDENT-SPECIFIC STYLING */
+body.student-view .activity-card {
+  background: #fff !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  margin-bottom: 16px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+  border-left: 4px solid #1d9b3e !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border: none !important;
+}
+
+body.student-view .activity-content {
+  flex: 1 !important;
+  margin-left: 8px !important;
+}
+
+body.student-view .activity-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #1f2937 !important;
+  margin-bottom: 12px !important;
+}
+
+body.student-view .activity-dates {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+body.student-view .activity-date {
+  font-size: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+body.student-view .activity-date.start {
+  color: #1d9b3e !important;
+}
+
+body.student-view .activity-date.end {
+  color: #dc2626 !important;
+}
+
+body.student-view .activity-stats {
+  display: flex !important;
+  align-items: center !important;
+  gap: 24px !important;
+}
+
+body.student-view .student-score {
+  text-align: center !important;
+  background: #f3f4f6 !important;
+  border-radius: 8px !important;
+  padding: 16px 20px !important;
+  min-width: 90px !important;
+}
+
+body.student-view .score-value {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #dc2626 !important;
+  margin-bottom: 4px !important;
+}
+
+body.student-view .score-label {
+  font-size: 12px !important;
+  color: #6b7280 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  font-weight: 500 !important;
+}
+
+body.student-view .start-activity-btn {
+  background: #1d9b3e !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 14px 24px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2) !important;
+}
+
+body.student-view .start-activity-btn:hover {
+  background: #16a34a !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(29, 155, 62, 0.3) !important;
+}

@@ -193,8 +193,10 @@ function enterClass(classId) {
     // Show iframe container
     container.style.display = 'block';
     
-    // Set iframe source to class dashboard with embedded parameter and cache-busting
-    frame.src = `class_dashboard.php?class_id=${classId}&embedded=1&v=${Date.now()}`;
+        // Set iframe source to class dashboard with embedded parameter and cache-busting
+        const iframeUrl = `class_dashboard.php?class_id=${classId}&embedded=1&v=${Date.now()}&super_debug=1`;
+        console.log('🔍 Loading iframe with URL:', iframeUrl);
+        frame.src = iframeUrl;
     
     // Add error handling for iframe
     frame.onload = function() {

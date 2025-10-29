@@ -218,25 +218,7 @@ $content = @file_get_contents($path) ?: '';
     .terminal-close:hover {
       background: #dc2626;
     }
-    .content-header {
-      text-align: center;
-      margin-bottom: 3rem;
-      padding-bottom: 2rem;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .content-meta {
-      display: flex;
-      justify-content: center;
-      gap: 2rem;
-      margin-top: 1rem;
-      color: #6b7280;
-      font-size: 0.9rem;
-    }
-    .meta-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
+    /* header/meta intentionally removed for clean content view */
     @media (max-width: 768px) {
       .container { padding: 20px 16px; }
       .card { padding: 24px; }
@@ -250,20 +232,6 @@ $content = @file_get_contents($path) ?: '';
 <body>
   <div class="container">
     <div class="card">
-      <div class="content-header">
-        <h1 id="pageTitle">Content Page</h1>
-        <div class="content-meta">
-          <div class="meta-item">
-            <span>Interactive Content</span>
-          </div>
-          <div class="meta-item">
-            <span id="readTime">Reading time: ~2 min</span>
-          </div>
-          <div class="meta-item">
-            <span id="lastUpdated">Last updated: <?php echo date('M j, Y'); ?></span>
-          </div>
-        </div>
-      </div>
       <div id="content"></div>
     </div>
   </div>
@@ -327,8 +295,8 @@ $content = @file_get_contents($path) ?: '';
         const j = await res.json();
         if (!j || !j.success) { if (outEl) showOutput(outEl, 'Run failed: ' + (j && j.message || '')); return; }
         const r = (j.results && j.results[0]) || {};
-        const data = r.data || r.raw || r.error || '';
-        const stdout = (data && data.output) ? data.output : (typeof data === 'string' ? data : JSON.stringify(data));
+        const payload = r && (r.output || r.raw || r.error || r.data) ? (r.data || r) : r; // support both shapes
+        const stdout = (typeof payload === 'string') ? payload : (payload.output || payload.raw || payload.error || '');
         if (outEl) showOutput(outEl, stdout || '(no output)');
       } catch(e){ if (outEl) showOutput(outEl, 'Run failed'); }
     }
@@ -359,13 +327,9 @@ $content = @file_get_contents($path) ?: '';
       return minutes;
     }
     
-    // Update page title and reading time
+    // Update document title from markdown (no visible header)
     const title = extractTitle(md);
-    document.getElementById('pageTitle').textContent = title;
     document.title = title + ' - CodeRegal LMS';
-    
-    const readingTime = calculateReadingTime(md);
-    document.getElementById('readTime').textContent = `Reading time: ~${readingTime} min`;
     
     // Add smooth scrolling for internal links
     document.querySelectorAll('a[href^="#"]').forEach(link => {
@@ -378,38 +342,7 @@ $content = @file_get_contents($path) ?: '';
       });
     });
     
-    // Add table of contents if there are multiple headings
-    function generateTableOfContents() {
-      const headings = document.querySelectorAll('h2, h3');
-      if (headings.length < 2) return;
-      
-      const toc = document.createElement('div');
-      toc.style.cssText = `
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin: 2rem 0;
-        position: sticky;
-        top: 2rem;
-      `;
-      
-      toc.innerHTML = `
-        <h3 style="margin: 0 0 1rem 0; color: #374151; font-size: 1.1rem;">Table of Contents</h3>
-        <ul style="margin: 0; padding-left: 1.5rem; list-style: none;">
-          ${Array.from(headings).map((heading, index) => {
-            const id = `heading-${index}`;
-            heading.id = id;
-            const level = heading.tagName === 'H2' ? '' : '&nbsp;&nbsp;&nbsp;';
-            return `<li style="margin-bottom: 0.5rem;"><a href="#${id}" style="color: #3b82f6; text-decoration: none; font-size: 0.9rem;">${level}${heading.textContent}</a></li>`;
-          }).join('')}
-        </ul>
-      `;
-      
-      document.getElementById('content').insertBefore(toc, document.getElementById('content').firstChild);
-    }
-    
-    generateTableOfContents();
+    // Table of contents disabled for cleaner view
   </script>
 </body>
 </html>

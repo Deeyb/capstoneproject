@@ -1,0 +1,1308 @@
+CCIS1102
+PROGRAMMING
+1
+Week 9
+
+REPETITION CONTROL
+STRUCTURES
+Topics
+1. The while Statement
+2. The Nested while Statements
+3. The do...while Loop
+4. The for Loop
+5. Compound Conditions in for
+(Expression)
+6. Nested for Loops
+7. The goto Statement
+8. The continue Statement
+
+REPETITION CONTROL STRUCTURES
+
+Repetition structures, or loops, are control
+structure that causes a statement or group of
+statements to be executed repeatedly. Many
+programming tasks are repetitive, having little
+variation from one item to the next. The
+process of performing the same task over and
+over again is called iteration, and C++
+provides built-in iteration functionality. A loop
+executes the same section of program code
+over and over again, as long as a loop
+condition of some sort is met with each
+iteration.
+
+REPETITION CONTROL STRUCTURES
+
+For example:
+• To find the sum of a list of numbers you use a loop to repeatedly get the next
+value in the list and add it to a running total.
+• If your program is monitoring a temperature reading you may repeatedly input
+a reading until you reach a certain temperature.
+• If you are playing a guess a number game, you want the user to repeatedly
+enter a guess until they guess the correct number.
+• If you are playing an adventure game, you want the user to repeatedly enter
+a command until they reach a goal or choose to quit playing.
+
+REPETITION CONTROL STRUCTURES
+
+• There are basically two kinds of loops:
+• controlled loops (those that terminate)
+• uncontrolled loops (those that do not terminate)
+• A controlled loop contains some repetition condition which will eventually
+force the looping construct to terminate. We call this the logical expression.
+• An uncontrolled loop may never stop so we call this type of loop an infinite
+loop. In other words, an infinite loop either contains no logical expression to
+allow the loop to terminate or the logical expression for the loop is never met.
+• A controlled loop contains a test for logical expressions. This "test" for exit
+must be placed appropriately within the looping construct. Controlled loops
+may be classified as count-controlled or event-controlled.
+
+REPETITION CONTROL STRUCTURES
+
+• Count-controlled loops use a counter or iterator (also referred to as
+loop index) which counts specific items or values and causes the
+execution of the loop to terminate when the counter has incremented
+or decremented a set number of times.
+• Event-Controlled loops use an event to control the iteration of the
+loop. These events, in general, may be described using a logical
+expression. Below, we will classify certain types of events as sentinelcontrolled, end-of-file-controlled, and flag-controlled. In each
+case, the loop logical expression depends upon some event occurring
+while the body of the loop is executed.
+
+REPETITION CONTROL STRUCTURES
+
+• sentinel-controlled -it will be necessary to write loops that repeat
+until a certain value is entered. These are known as sentinel loops.
+The sentinel can be a single value, or it can be an entire range of
+values.
+There are two common places for using a sentinel loop
+• Reading an unknown amount of input from the user.
+• while(Value >= 0 && Value <= 10)
+• Validating input.
+• while(Upper < 'A' || Upper > ‘Z’)
+• while ( letter != 'q’)
+
+REPETITION CONTROL STRUCTURES
+
+•
+
+end-of-file-controlled - This type of while loop is usually used when reading from a file.
+The loop terminates when the end of the file is detected. This can easily be determined
+by checking the EOF() function after each read from the file. This function will return
+true when the end-of-file is reached. Ex. while (!fin.eof( ))
+
+•
+
+flag-controlled - A bool variable is defined and initialized to serve as a flag. The loop
+continues until the flag variable value flips (true becomes false or false becomes true).
+bool nonNegative = true;
+while(nonNegative){
+cin >> value;
+if(value < 0)
+nonNegative = false;
+}
+
+// Init flag
+// Test if nonNegative is true
+
+REPETITION CONTROL STRUCTURES
+
+All loops have a basic structure. There will be a variable (at least one) that will control how
+many times the loop runs. It is necessary to do the following to this variable in each loop that
+you write.
+• Initialize the loop control variable. Initialization should occur before the loop starts.
+• Test the loop control variable. Testing is done within the parenthesis of the while statement.
+• Update the loop control variable. Updating is done somewhere inside the loop, usually as
+the last statement in the loop.
+There are 3 type of loops in C++ language
+• while loop
+• for loop
+• do-while loop
+
+WHILE LOOP
+
+While loop
+• tests a logical expression for exit of the loop at the
+beginning of the loop. If the logical expression in the
+while loop evaluates to true, then the statements
+associated with the loop are executed. If the logical
+expression evaluates to false, then the statements
+associated with the loop are not executed. Since the
+test for exit of the loop is performed before the first
+instruction in the loop, the while looping construct is
+called a pre-test loop.
+• gives no guarantee that the loop will even execute
+once since the logical expression used for the loop
+logical expression is evaluated at the beginning of
+the loop.
+
+The syntax of the while loop is:
+while (condition) {
+// body of the loop
+}
+
+WHILE LOOP
+
+Count-Controlled while loop
+The count-controlled while loop
+uses a loop control variable in the
+logical expression. The loop
+control
+variable
+should
+be
+initialized before entering the
+while loop, and a statement in the
+body of the while loop should
+increment/decrement the control
+variable.
+
+Example:
+
+Output:
+The sum is 4950
+
+int counter, sum;
+// declare loop counter and sum
+counter = 1;
+// initialize the loop counter
+sum = 0;
+// initialize the sum
+while ( counter < 100) // iterate the loop 99 times
+{
+// add the value of counter to the existing sum
+sum = sum + counter;
+++counter;
+// increment the counter
+}
+// Display the sum
+cout << "The sum is " << sum << endl;
+
+WHILE LOOP
+
+Example:
+// C++ Program to print numbers from 1 to 5
+#include <iostream>
+using namespace std;
+int main() {
+int i = 1;
+while (i <= 5) {// while loop from 1 to 5
+cout << i << " ";
+++i;
+}
+Output
+return 0;
+1
+2
+3
+4
+5
+}
+
+WHILE LOOP
+Example:
+int num=10;
+while(num>=1)
+{
+cout<<num<<endl;
+num--;
+}
+
+//initializing the variable
+//while loop with condition
+//decrementing operation
+
+int loopCount;
+// loop control variable
+loopCount = 1;
+while(loopCount <= 10){
+cout << "Hello! Loop count = " << loopCount << endl;
+loopCount++; // Increment control variable
+}
+
+10
+9
+8
+7
+6
+5
+4
+3
+2
+1
+Hello! Loop count = 1
+Hello! Loop count = 2
+Hello! Loop count = 3
+Hello! Loop count = 4
+Hello! Loop count = 5
+Hello! Loop count = 6
+Hello! Loop count = 7
+Hello! Loop count = 8
+Hello! Loop count = 9
+Hello! Loop count = 10
+
+WHILE LOOP
+
+Sentinel-Controlled WHILE Loop
+Example:
+char letter;
+// storage for letters read
+int counter;
+// counts the number of letters
+cin >> letter;
+// read the first letter
+counter = 0;
+// initialize the counter
+while ( letter != 'q')
+// loop until 'q' is read
+{
+++counter;
+// increment letter counter
+cin >> letter;
+// read next letter
+}
+cout << "The number of letters read is " << counter << endl;
+
+WHILE LOOP
+Output:
+
+Sentinel-Controlled WHILE Loop
+
+Enter a number: 5
+Try again[y/n]? y
+Enter a number: 3
+Try again[y/n]? t y
+Enter a number: 2
+Try again[y/n]? y
+Enter a number: 3
+Try again[y/n]? n
+
+Example:
+
+Example:
+
+char inChar;
+// Input variable
+cin.get(inChar);
+// Init sentinel variable
+while(inChar != '\n')
+{
+cout << inChar; // Print the character
+cin.get(inChar); // Get the next character
+}
+cout << endl;
+
+int sum=0;
+int num;
+char ans='Y’;
+while (ans=='Y'|| ans=='y'){
+cout<<"Enter a number: ";
+cin>>num;
+sum +=num;
+cout<<"Try again[y/n]? ";
+cin>>ans;
+}
+
+WHILE LOOP
+Example:
+
+Sentinel-Controlled WHILE Loop
+Example:
+
+Output:
+
+Enter a number: 2
+int sum=0;
+Enter a number: 3
+int num;
+cout<<"Enter a number: "; Enter a number: 5
+Enter a number: -1
+cin>>num;
+Sum: 10
+while (num!=-1){
+sum +=num;
+cout<<"Enter a number: ";
+cin>>num;
+}
+cout<<"Sum: "<<sum<<endl;
+
+Output:
+Enter two integers:
+9 12
+The greatest common divisor of 9 and 12 is 3.
+
+int first;
+int second;
+int remainder;
+cout << "Enter two integers: ";
+cin >> first >> second;
+cout << "The greatest common divisor of " << first
+<< " and " << second << " is ";
+remainder = first % second;
+//Initialize
+while (remainder != 0) {
+//Test
+first = second;
+//Loop Process
+second = remainder;
+remainder = first % second;
+//Update
+}
+cout << second << "." << endl;
+
+WHILE LOOP
+The syntax of the nested while loop is:
+
+The Nested while Statements
+While loop inside the body of another while loop is
+known as Nested while loop in C++ programming
+language.
+one iteration of the outer loop initially executed before
+the inner loop begins to execute. but the execution of
+the inner loop continues until the condition of the inner
+loop is satisfied(until the test expression is false).
+The condition of the inner loop is satisfied flow of
+control come out to again outer loop for next iteration
+
+while(test_expression_1)
+{
+statement(s)
+while(test_expression_2)
+{
+statement(s)
+}
+}
+
+WHILE LOOP
+Example:
+#include <iostream>
+using namespace std;
+int main()
+{
+int i=0;
+while(i<=3){
+cout<<"outer loop executes"<< endl;
+int j=0;
+while(j<=4){
+cout<<"inner loop executes";
+cout << "i = "<<i<<" and j="<<j << endl;
+j++;
+}
+i++;
+}
+return 0;
+}
+
+outer loop executes
+inner loop executes i = 0 and j=0
+inner loop executes i = 0 and j=1
+inner loop executes i = 0 and j=2
+inner loop executes i = 0 and j=3
+inner loop executes i = 0 and j=4
+outer loop executes
+inner loop executes i = 1 and j=0
+inner loop executes i = 1 and j=1
+inner loop executes i = 1 and j=2
+inner loop executes i = 1 and j=3
+inner loop executes i = 1 and j=4
+outer loop executes
+inner loop executes i = 2 and j=0
+inner loop executes i = 2 and j=1
+inner loop executes i = 2 and j=2
+inner loop executes i = 2 and j=3
+inner loop executes i = 2 and j=4
+outer loop executes
+inner loop executes i = 3 and j=0
+inner loop executes i = 3 and j=1
+inner loop executes i = 3 and j=2
+inner loop executes i = 3 and j=3
+inner loop executes i = 3 and j=4
+
+WHILE LOOP
+Example:
+#include <iostream>
+using namespace std;
+int main()
+{
+int i=1;
+while(i<=5){
+int j=1;
+while(j<=i){
+cout<<"*";
+j++;
+}
+cout<<endl;
+i++;
+}
+*
+return 0;
+**
+}
+***
+
+****
+*****
+
+#include <iostream>
+using namespace std;
+int main()
+{
+int i=1;
+while(i<=5){
+int j=1;
+while(j<=5){
+cout<<"*";
+j++;
+}
+cout<<endl;
+i++;
+}
+return 0;
+}
+*****
+*****
+*****
+*****
+*****
+
+#include <iostream>
+using namespace std;
+int main()
+{
+int i=1;
+while(i<=5){
+int j=1;
+while(j<=5){
+cout<<i*j<<"\t";
+j++;
+}
+cout<<endl;
+i++;
+}
+return 0;
+}
+1
+2
+3
+4
+5
+
+2
+4
+6
+8
+10
+
+3
+6
+9
+12
+15
+
+4
+8
+12
+16
+20
+
+5
+10
+15
+20
+25
+
+WHILE LOOP
+#include <iostream>
+using namespace std;
+int main()
+{
+int weeks = 3, days_in_week = 7;
+int i=1;
+while(i<=weeks){
+cout << "Week: " << i << endl;
+int j=1;
+while(j <= days_in_week) {
+cout << " Day:" << j << endl;
+j++;
+}
+i++;
+}
+return 0;
+}
+
+Week: 1
+Day:1
+Day:2
+Day:3
+Day:4
+Day:5
+Day:6
+Day:7
+Week: 2
+Day:1
+Day:2
+Day:3
+Day:4
+Day:5
+Day:6
+Day:7
+Week: 3
+Day:1
+Day:2
+Day:3
+Day:4
+Day:5
+Day:6
+Day:7
+
+WHILE LOOP
+Activity:
+1. It produces the following results:
+
+3. It produces the following results:
+
+123456
+123456
+123456
+123456
+123456
+123456
+
+*****
+****
+***
+**
+*
+
+2. It produces the following results:
+
+4. It produces the following results:
+
+111111
+222222
+333333
+444444
+555555
+666666
+
+1
+12
+123
+1234
+12345
+
+DO…WHILE LOOP
+
+DO…WHILE LOOP
+• The do...while loop is a variant of the while loop with
+one important difference: the body of do...while loop is
+executed once before the condition is checked.
+• Here,
+• The body of the loop is executed at first. Then the
+condition is evaluated.
+• If the condition evaluates to true, the body of the
+loop inside the do statement is executed again.
+• The condition is evaluated once again.
+• If the condition evaluates to true, the body of the
+loop inside the do statement is executed again.
+• This process continues until the condition evaluates
+to false. Then the loop stops.
+
+The syntax of the do while loop is:
+do {
+// body of loop;
+}
+while (condition);
+
+DO…WHILE LOOP
+
+Example:
+// C++ Program to print numbers from 1 to 5
+#include <iostream>
+using namespace std;
+int main() {
+int i = 1;
+// do...while loop from 1 to 5
+do {
+cout << i << " ";
+++i;
+}
+Output
+while (i <= 5);
+}
+
+return 0;
+
+12345
+
+DO WHILE LOOP
+Example:
+// program to find the sum of positive numbers
+// If the user enters a negative number, the loop ends
+// the negative number entered is not added to the sum
+
+do {
+sum += number;
+// take input from the user
+cout << "Enter a number: ";
+cin >> number;
+
+#include <iostream>
+using namespace std;
+
+}
+while (number >= 0);
+
+int main() {
+int number = 0;
+int sum = 0;
+
+// display the sum
+cout << "\nThe sum is " << sum << endl;
+}
+
+return 0;
+
+DO WHILE LOOP
+int main()
+Enter a letter: g
+{
+Enter a letter: k
+char letter;
+Enter a letter: t
+Enter a letter: i
+int counter;
+Enter a letter: q
+cout<<"Enter a letter: ";
+The number of letters read is 4
+cin >> letter;
+counter = 0;
+do {
+++counter;
+cout<<"Enter a letter: ";
+cin >> letter;
+}while ( letter != 'q');
+cout << "The number of letters read is " << counter << endl;
+return 0;
+}
+
+DO WHILE LOOP
+int main()
+Enter a letter: g
+{
+Enter a letter: k
+char letter;
+Enter a letter: t
+Enter a letter: i
+int counter;
+Enter a letter: q
+cout<<"Enter a letter: ";
+The number of letters read is 4
+cin >> letter;
+counter = 0;
+do {
+++counter;
+cout<<"Enter a letter: ";
+cin >> letter;
+}while ( letter != 'q');
+cout << "The number of letters read is " << counter << endl;
+return 0;
+}
+
+DO WHILE LOOP
+#include <iostream>
+using namespace std;
+int main()
+{
+int factorial = 1;
+int counter;
+cout<<"Enter a number: ";
+cin>>counter;
+do {
+factorial *= counter--;
+} while (counter > 0);
+
+}
+
+cout << "factorial of 5 is "<< factorial << endl;
+return 0;
+
+Enter a number: 6
+factorial of 5 is 720
+
+FOR LOOP
+
+FOR LOOP
+•
+•
+
+A for loop is a repetition control structure that allows you to efficiently
+write a loop that needs to execute a specific number of times.
+Here is the flow of control in a for loop −
+• The init step is executed first, and only once. This step allows you to
+declare and initialize any loop control variables. You are not required
+to put a statement here, as long as a semicolon appears.
+• Next, the condition is evaluated. If it is true, the body of the loop is
+executed. If it is false, the body of the loop does not execute and flow
+of control jumps to the next statement just after the for loop.
+• After the body of the for loop executes, the flow of control jumps back
+up to the increment statement. This statement can be left blank, as
+long as a semicolon appears after the condition.
+• The condition is now evaluated again. If it is true, the loop executes
+and the process repeats itself (body of loop, then increment step, and
+then again condition). After the condition becomes false, the for loop
+terminates.
+
+The syntax of the for loop is:
+for ( init; condition; increment ) {
+statement(s);
+}
+
+FOR LOOP
+
+Example:
+// C++ Program to print numbers from 1 to 5
+#include <iostream>
+using namespace std;
+int main() {
+for (int i = 1; i <= 5; ++i) {
+cout << i << " ";
+}
+return 0;
+Output
+}
+
+12345
+
+FOR LOOP
+Example:
+
+cout << "Enter a positive integer: ";
+cin >> num;
+
+// C++ program to find the sum of first n
+natural numbers
+// positive integers such as 1,2,3,...n are
+known as natural numbers
+
+for (int i = 1; i <= num; ++i) {
+sum += i;
+}
+
+#include <iostream>
+
+cout << "Sum = " << sum << endl;
+
+using namespace std;
+
+return 0;
+
+int main() {
+int num, sum;
+sum = 0;
+
+}
+
+FOR LOOP
+Example:
+#include <iostream>
+using namespace std;
+int main () {
+// for loop execution
+for( int a = 10; a < 20; a = a + 1 ) {
+cout << "value of a: " << a << endl;
+}
+}
+
+return 0;
+
+value of a: 10
+value of a: 11
+value of a: 12
+value of a: 13
+value of a: 14
+value of a: 15
+value of a: 16
+value of a: 17
+value of a: 18
+value of a: 19
+
+FOR LOOP
+
+FOR LOOP
+Write a C++ program to find the factorial of n (using for statement):
+n! = n * n-1 * n-2 * n-3 * … * 2 * 1
+#include<iostream>
+using namespace std;
+int main( ){
+int n, f = 1;
+cout <<"Enter positive number: ";
+cin >> n;
+for ( int i = n; i >= 2; i-- )
+f = f * i;
+cout <<"factorial is: "<< f;
+return 0;
+}
+
+Enter positive number: 5
+factorial is: 120
+Enter positive number: 7
+factorial is: 5040
+
+FOR LOOP
+Write a C++ program to read 10 integer numbers, and find the sum
+of positive number only
+#include<iostream>
+using namespace std;
+int main( ){
+int num, sum = 0;
+for ( int i = 1; i <= 10; i ++ )
+{
+cout <<"Enter your number: ";
+cin >> num;
+if ( num > 0 )
+sum = sum + num;
+}
+cout << "The sum is: " << sum;
+return 0;
+}
+
+Enter your number: 5
+Enter your number: 3
+Enter your number: 4
+Enter your number: 2
+Enter your number: 8
+Enter your number: -7
+Enter your number: 5
+Enter your number: -2
+Enter your number: 7
+Enter your number: -3
+The sum is: 34
+
+FOR LOOP
+Write a C++ program to print the following series: 1, 2, 4, 8, 16, 32, 64
+
+#include<iostream>
+using namespace std;
+int main( ){
+int x;
+for ( x = 1; x < 65; x *= 2 )
+cout << x <<" ";
+return 0;
+}
+
+1 2 4 8 16 32 64
+
+FOR LOOP
+Write C++ program to print the following:
+
+#include<iostream>
+using namespace std;
+int main( ){
+int x;
+for ( x = 1; x < 7; ++ x )
+cout << x <<"\t" << 11 - x << endl;
+return 0;
+}
+
+1
+2
+3
+4
+5
+6
+
+10
+9
+8
+7
+6
+5
+
+FOR LOOP
+#include <iostream>
+#include <iomanip>
+//for setw
+using namespace std;
+int main()
+{
+int numb;
+//define loop variable
+for(numb=1; numb<=10; numb++) //loop from 1 to 10
+{
+cout << setw(4) << numb;
+//display 1st column
+int cube = numb*numb*numb; //calculate cube
+cout << setw(6) << cube << endl; //display 2nd column
+}
+return 0;
+}
+
+11
+28
+3 27
+4 64
+5 125
+6 216
+7 343
+8 512
+9 729
+10 1000
+
+FOR LOOP
+
+More about For Statement
+
+• We can use more than one control with for statement, as follow:
+for ( int m = 1, int n = 8 ; m < n ; m ++ , n -- )
+• We can create infinite loop, as follow:
+for ( ; ; )
+
+NESTED FOR LOOP
+
+NESTED FOR LOOP
+• A loop inside another loop is called a nested loop. The number of loops depend on the complexity
+of a problem. Suppose, a loop, outer loop, running n number of times consists of another loop
+inside it, inner loop, running m number of times. Then, for each execution of the outer loop from
+1...n, the inner loop runs maximum of m times. We can put loops one inside another to solve a
+certain programming problems. The syntax is:
+for (initialization ; continuation condition ; update){
+for (initialization ; continuation condition ; update ){
+}
+}
+
+statement(s);
+
+statement(s); // you can put more statements.
+
+NESTED FOR LOOP
+Write a C++ program to print the following pattern.
+00 01 02 03 04 05
+10 11 12 13 14 15
+20 21 22 23 24 25
+30 31 32 33 34 35
+40 41 42 43 44 45
+50 51 52 53 54 55
+
+#include<iostream>
+using namespace std;
+int main(){
+int i, j;
+for(i=0; i<=5; i++){
+for( j=0; j <= 5; j++){
+cout << i << j <<" \t";
+}
+cout <<"\n";
+}
+return 0;
+}
+
+NESTED FOR LOOP
+Write a C++ program to print the following pattern.
+1
+12
+123
+1234
+12345
+
+#include<iostream>
+using namespace std;
+int main(){
+int i, j;
+for(i=1; i<=5; i++){
+for( j=1; j <= i; j++){
+cout <<j;
+}
+cout <<"\n";
+}
+return 0;
+}
+
+NESTED FOR LOOP
+Write a C++ program to print the following pattern.
++
+++
++++
+++++
++++++
+++++++
++++++++
+++++++++
++++++++++
+++++++++++
+
+#include<iostream>
+using namespace std;
+int main(){
+int i, j;
+for(i=1; i<=10; i++){
+for( j=1; j <= i; j++){
+cout <<" + ";
+}
+cout <<"\n";
+}
+return 0;
+}
+
+NESTED FOR LOOP
+Write a C++ program to print the following pattern.
++ + + +
++ + + +
++ + + +
++ + + +
++ + + +
++ + + +
+
+#include<iostream>
+using namespace std;
+int main(){
+int i, j, k;
+for ( i = 1; i <= 2; i ++ ){
+for ( j = 1; j <= 3; j ++ ){
+for ( k = 1; k <= 4; k ++ )
+cout << " + ";
+cout << "\n";
+}
+cout << "\n";
+}
+return 0;
+}
+
+Other Control Statements
+
+The break Statement
+The break statement causes an exit from a loop,
+just as it does from a switch statement. The
+next statement after the break is executed is the
+statement following the loop.
+If you are using nested loops (i.e., one loop inside
+another loop), the break statement will stop the
+execution of the innermost loop and start executing the
+next line of code after the block.
+
+Other Control Statements
+Example:
+#include <iostream>
+using namespace std;
+int main () {
+int a = 10;
+// Local variable declaration:
+// do loop execution
+do {
+cout << "value of a: " << a << endl;
+a = a + 1;
+if( a > 15) {
+// terminate the loop
+break;
+}
+} while( a < 20 );
+return 0;
+}
+
+value of a: 10
+value of a: 11
+value of a: 12
+value of a: 13
+value of a: 14
+value of a: 15
+
+Other Control Statements
+The following program uses a nested for loop to find the prime numbers from 2 to 100
+−
+2 is prime
+3 is prime
+#include <iostream>
+5 is prime
+7 is prime
+using namespace std;
+11 is prime
+13 is prime
+int main () {
+17 is prime
+19 is prime
+int i, j;
+23 is prime
+for(i = 2; i<100; i++) {
+29 is prime
+31 is prime
+for(j = 2; j <= (i/j); j++)
+37 is prime
+41 is prime
+if(!(i%j))
+43 is prime
+47 is prime
+break; // if factor found, not prime
+53 is prime
+if(j > (i/j))
+59 is prime
+61 is prime
+cout << i << " is prime\n";
+67 is prime
+71 is prime
+}
+73 is prime
+79 is prime
+return 0;
+83 is prime
+89 is prime
+}
+97 is prime
+
+Other Control Statements
+
+The continue Statement
+The continue statement works somewhat like the break
+statement. Instead of forcing termination, however, continue
+forces the next iteration of the loop to take place, skipping any
+code in between.
+For the for loop, continue causes the conditional test and
+increment portions of the loop to execute. For the while and
+do...while loops, program control passes to the conditional
+tests.
+
+Other Control Statements
+Example:
+#include <iostream>
+using namespace std;
+int main () {
+// Local variable declaration:
+int a = 10;
+// do loop execution
+do {
+if( a == 15) {
+// skip the iteration.
+a = a + 1;
+continue;
+}
+cout << "value of a: " << a << endl;
+a = a + 1;
+}
+while( a < 20 );
+return 0;
+}
+
+value of a: 10
+value of a: 11
+value of a: 12
+value of a: 13
+value of a: 14
+value of a: 16
+value of a: 17
+value of a: 18
+value of a: 19
+
+Other Control Statements
+
+The Goto Statement
+A goto statement provides an unconditional jump from the goto to a labeled
+statement in the same function.
+NOTE − Use of goto statement is highly discouraged because it makes difficult to
+trace the control flow of a program, making the program hard to understand and hard
+to modify. Any program that uses a goto can be rewritten so that it doesn't need the
+goto.
+The syntax of a goto statement in C++ is −
+goto label;
+..
+.
+label: statement;
+
+Other Control Statements
+Example:
+#include <iostream>
+using namespace std;
+int main()
+{
+ineligible:
+cout<<"You are not eligible to vote!\n";
+cout<<"Enter your age:\n";
+int age;
+cin>>age;
+if (age < 18){
+goto ineligible;
+}
+else
+{
+cout<<"You are eligible to vote!";
+}
+}
+
+You are not eligible to vote!
+Enter your age:
+16
+You are not eligible to vote!
+Enter your age:
+7
+You are not eligible to vote!
+Enter your age:
+22
+You are eligible to vote!
+
+Other Control Statements
+Example:
+#include <iostream>
+using namespace std;
+int main () {
+// Local variable declaration:
+int a = 10;
+// do loop execution
+LOOP: do {
+if( a == 15) {
+// skip the iteration.
+a = a + 1;
+goto LOOP;
+}
+cout << "value of a: " << a << endl;
+a = a + 1;
+}
+while( a < 20 );
+return 0;
+}
+
+value of a: 10
+value of a: 11
+value of a: 12
+value of a: 13
+value of a: 14
+value of a: 16
+value of a: 17
+value of a: 18
+value of a: 19
+
+Other Control Statements
+Example:
+# include <iostream>
+using namespace std;
+int main()
+{
+float num, average, sum = 0.0;
+int i, n;
+cout << "Maximum number of inputs: ";
+cin >> n;
+for(i = 1; i <= n; ++i)
+{
+cout << "Enter n" << i << ": ";
+cin >> num;
+if(num < 0.0)
+{
+// Control of the program move to jump:
+
+goto jump;
+}
+sum += num;
+}
+jump:
+average = sum / (i - 1);
+cout << "\nAverage = " << average;
+return 0;
+}
+
+Maximum number
+of inputs: 10
+Enter n1: 2.3
+Enter n2: 5.6
+Enter n3: -5.6
+Average = 3.95
+
+THANK YOU
+
+

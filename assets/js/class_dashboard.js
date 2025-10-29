@@ -1,4 +1,4 @@
-// class_dashboard.js - Activity management system
+ // class_dashboard.js - Activity management system
 
 // ======================== ROLE-AWARE INITIALIZATION ========================
 
@@ -433,8 +433,8 @@ class CleanActivitySystem {
     }
 
     // Single method to show Try Answering modal
-    async showTryAnswering(activityId, activityTitle = 'Activity') {
-        console.log('🔍 DEBUG: showTryAnswering() called with:', { activityId, activityTitle });
+    async showTryAnswering(activityId, activityTitle = 'Activity', options = {}) {
+        console.log('🔍 DEBUG: showTryAnswering() called with:', { activityId, activityTitle, options });
         
         try {
             console.log('🔍 DEBUG: Fetching activity data...');
@@ -442,7 +442,7 @@ class CleanActivitySystem {
             console.log('🔍 DEBUG: Activity data fetched successfully:', activityData);
             
             console.log('🔍 DEBUG: Calling showTryAnsweringModal...');
-            window.activityTester.showTryAnsweringModal(activityId, activityData);
+            window.activityTester.showTryAnsweringModal(activityId, activityData, options);
             console.log('🔍 DEBUG: showTryAnsweringModal called successfully!');
             
         } catch (error) {
@@ -488,11 +488,12 @@ class ActivityTester {
     this.currentQuestionIndex = 0;
     this.answers = {};
     this.startTime = null;
+    this.options = {}; // Store preview options
   }
 
   // Show try answering modal
-  showTryAnsweringModal(activityId, activityData) {
-    console.log('🔍 DEBUG: showTryAnsweringModal() called with:', { activityId, activityData });
+  showTryAnsweringModal(activityId, activityData, options = {}) {
+    console.log('🔍 DEBUG: showTryAnsweringModal() called with:', { activityId, activityData, options });
     
     // Validate that we have proper activity data
     if (!activityData || !activityData.id) {
@@ -504,6 +505,7 @@ class ActivityTester {
     try {
       // Show Try Answering modal
       this.currentActivity = { id: activityId, ...activityData };
+      this.options = options; // Store options for preview mode
       console.log('🔍 DEBUG: Current activity set:', this.currentActivity);
       
       this.currentQuestionIndex = 0;
@@ -537,15 +539,15 @@ class ActivityTester {
     this.modal.innerHTML = `
       <div class="modal-card" style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;max-width:1400px;width:98%;max-height:95vh;display:flex;flex-direction:column;font-family:'Inter',sans-serif;">
         <!-- STUDENT TEST HEADER -->
-        <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:25px;font-family:'Inter',sans-serif;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <h2 style="margin:0;font-size:24px;font-weight:600;font-family:'Inter',sans-serif;">${this.currentActivity.title || 'Activity'}</h2>
+        <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:16px;font-family:'Inter',sans-serif;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <h2 style="margin:0;font-size:20px;font-weight:600;line-height:1.2;font-family:'Inter',sans-serif;">${this.currentActivity.title || 'Activity'}</h2>
             <div style="text-align:right;font-family:'Inter',sans-serif;">
-              <div style="font-size:14px;opacity:0.9;font-family:'Inter',sans-serif;">Total Points</div>
-              <div style="font-size:20px;font-weight:700;font-family:'Inter',sans-serif;" id="totalPoints">0</div>
+              <div style="font-size:12px;opacity:0.9;font-family:'Inter',sans-serif;">Total Points</div>
+              <div style="font-size:18px;font-weight:700;font-family:'Inter',sans-serif;" id="totalPoints">0</div>
             </div>
           </div>
-          <div style="display:flex;gap:20px;font-size:14px;opacity:0.9;font-family:'Inter',sans-serif;">
+          <div style="display:flex;gap:12px;font-size:13px;opacity:0.95;font-family:'Inter',sans-serif;align-items:center;flex-wrap:wrap;">
             <span id="activityTypeDisplay" style="font-family:'Inter',sans-serif;">📝 UPLOAD BASED</span>
             <span style="font-family:'Inter',sans-serif;">⏱️ <span id="timer">No time limit</span></span>
             <span id="questionCountDisplay" style="font-family:'Inter',sans-serif;">📊 1 question</span>
@@ -553,12 +555,12 @@ class ActivityTester {
         </div>
         
         <!-- PROGRESS BAR (Hidden for upload-based activities) -->
-        <div id="progress-section" style="padding:15px 20px;background:#f8f9fa;border-bottom:1px solid #e9ecef;font-family:'Inter',sans-serif;">
+        <div id="progress-section" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #e9ecef;font-family:'Inter',sans-serif;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <span style="font-size:14px;color:#333;font-weight:600;font-family:'Inter',sans-serif;">⭐ Progress</span>
             <span id="progress-counter" style="font-size:14px;color:#28a745;font-weight:600;font-family:'Inter',sans-serif;">0 / 1 answered</span>
           </div>
-          <div style="background:#e9ecef;border-radius:10px;height:8px;overflow:hidden;">
+          <div style="background:#e9ecef;border-radius:10px;height:6px;overflow:hidden;">
             <div id="progress-bar" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);height:100%;width:0%;transition:width 0.3s ease;"></div>
           </div>
         </div>
@@ -577,15 +579,20 @@ class ActivityTester {
         </div>
         </div>
         
-        <!-- SUBMIT SECTION -->
-        <div id="submitSection" style="margin-top:30px;padding:25px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;margin:25px;font-family:'Inter',sans-serif;">
+        <!-- QUESTION NAVIGATION -->
+        <div id="questionNavigation" style="padding:15px 20px;background:#f8f9fa;border-top:1px solid #e9ecef;display:grid;grid-template-columns:repeat(auto-fit,40px);gap:8px;justify-content:center;font-family:'Inter',sans-serif;">
+          <!-- Question navigation buttons will be loaded here -->
+        </div>
+        
+        <!-- SUBMIT SECTION (sticks to bottom) -->
+        <div id="submitSection" style="position:sticky;bottom:0;margin:0;padding:16px 25px;background:#f8f9fa;border-top:1px solid #e9ecef;font-family:'Inter',sans-serif;z-index:5;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
               <div style="font-size:14px;color:#6c757d;margin-bottom:4px;font-family:'Inter',sans-serif;">Ready to submit?</div>
               <div style="font-size:12px;color:#6c757d;font-family:'Inter',sans-serif;">Make sure you've answered all questions</div>
             </div>
             <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);font-family:'Inter',sans-serif;">
-              Finish Attempt
+              ${this.options && this.options.preview ? 'Close Preview' : 'Finish Attempt'}
             </button>
           </div>
         </div>
@@ -602,6 +609,11 @@ class ActivityTester {
     requestAnimationFrame(() => {
       this.loadQuestions();
       this.startTimer();
+      
+      // In preview mode, add answer tracking for progress
+      if (this.options && this.options.preview) {
+        this.bindPreviewAnswerTracking();
+      }
     });
   }
 
@@ -1975,7 +1987,13 @@ class ActivityTester {
     // Finish attempt button
     const finishBtn = document.getElementById('finish-attempt-btn');
     if (finishBtn) {
-      finishBtn.addEventListener('click', () => this.submitActivity());
+      finishBtn.addEventListener('click', () => {
+        if (this.options && this.options.preview) {
+          this.closeModal(); // Just close in preview mode
+        } else {
+          this.submitActivity(); // Normal submission
+        }
+      });
     }
     
     console.log('🔍 DEBUG: Events bound successfully');
@@ -2049,6 +2067,49 @@ class ActivityTester {
     } catch (error) {
       this.showNotification('error', 'Failed to submit activity. Please try again.');
     }
+  }
+
+  // Bind answer tracking for preview mode
+  bindPreviewAnswerTracking() {
+    console.log('🔍 DEBUG: Binding preview answer tracking');
+    
+    // Track radio button changes
+    document.addEventListener('change', (e) => {
+      if (e.target.type === 'radio' && e.target.name && e.target.name.startsWith('question-')) {
+        const questionIndex = parseInt(e.target.name.split('-')[1]);
+        this.answers[questionIndex] = e.target.value;
+        this.updateProgress();
+        console.log('🔍 DEBUG: Preview answer recorded:', { questionIndex, answer: e.target.value });
+      }
+    });
+    
+    // Track text input changes
+    document.addEventListener('input', (e) => {
+      if (e.target.type === 'text' && e.target.name && e.target.name.startsWith('question-')) {
+        const questionIndex = parseInt(e.target.name.split('-')[1]);
+        if (e.target.value.trim()) {
+          this.answers[questionIndex] = e.target.value;
+        } else {
+          delete this.answers[questionIndex];
+        }
+        this.updateProgress();
+        console.log('🔍 DEBUG: Preview text answer recorded:', { questionIndex, answer: e.target.value });
+      }
+    });
+    
+    // Track textarea changes
+    document.addEventListener('input', (e) => {
+      if (e.target.tagName === 'TEXTAREA' && e.target.name && e.target.name.startsWith('question-')) {
+        const questionIndex = parseInt(e.target.name.split('-')[1]);
+        if (e.target.value.trim()) {
+          this.answers[questionIndex] = e.target.value;
+        } else {
+          delete this.answers[questionIndex];
+        }
+        this.updateProgress();
+        console.log('🔍 DEBUG: Preview textarea answer recorded:', { questionIndex, answer: e.target.value });
+      }
+    });
   }
 
   // Close modal
@@ -2255,35 +2316,86 @@ function loadTopicsFromCourse() {
             const activityType = activity.type || 'upload_based';
             const maxScore = activity.max_score || 10;
             
-            return (
-              '<div class="activity-card" data-activity-id="' + activity.id + '">' +
-                '<div class="activity-left-border"></div>' +
-                '<div class="activity-content">' +
-                  '<div class="activity-title">' + activityTitle + '</div>' +
-                  '<div class="activity-dates">' +
-                    '<div class="activity-date start"><i class="fas fa-calendar-check"></i> 03 May 2025 06:24PM</div>' +
-                    '<div class="activity-date end"><i class="fas fa-calendar-times"></i> 04 May 2025 12:00AM</div>' +
-                  '</div>' +
-                '</div>' +
-                '<div class="activity-stats">' +
-                  '<div class="stat-circle">' +
-                    '<div class="stat-value">0/' + maxScore + '</div>' +
-                    '<div class="stat-label">Avg. overall s</div>' +
-                  '</div>' +
-                  '<div class="stat-circle">' +
-                    '<div class="stat-value">00:00</div>' +
-                    '<div class="stat-label">Activity Actions</div>' +
-                  '</div>' +
-                  '<div class="activity-menu">' +
-                    '<i class="fas fa-ellipsis-v"></i>' +
-                    '<div class="activity-dropdown">' +
-                      '<div class="dropdown-item"><i class="fas fa-calendar"></i> Reschedule/Set retakers</div>' +
-                      '<div class="dropdown-item"><i class="fas fa-play"></i> Try answering</div>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>' +
-              '</div>'
-            );
+            // SUPER DEEP DEBUGGING
+            console.log('🔍 SUPER DEBUG - Activity:', activityTitle);
+            console.log('🔍 SUPER DEBUG - User Role:', window.__USER_ROLE__);
+            console.log('🔍 SUPER DEBUG - Role Type:', typeof window.__USER_ROLE__);
+            console.log('🔍 SUPER DEBUG - Role Lowercase:', window.__USER_ROLE__?.toLowerCase());
+            console.log('🔍 SUPER DEBUG - Is Student Check:', window.__USER_ROLE__?.toLowerCase() === 'student');
+            
+            // ROLE-BASED RENDERING - Single file approach
+            const isStudent = window.__USER_ROLE__?.toLowerCase() === 'student';
+            console.log('🔍 SUPER DEBUG - isStudent variable:', isStudent);
+            
+            if (isStudent) {
+              console.log('🎓 SUPER DEBUG - GENERATING STUDENT FORMAT for:', activityTitle);
+              // STUDENT FORMAT - Clean interface
+              return `
+                <div class="activity-card student-format" data-activity-id="${activity.id}">
+                  <div class="activity-left-border"></div>
+                  <div class="activity-content">
+                    <div class="activity-title">${activityTitle}</div>
+                    <div class="activity-dates">
+                      <div class="activity-date start">
+                        <i class="fas fa-calendar-check"></i>
+                        Open Date: 05/03/2025, 06:24PM
+                      </div>
+                      <div class="activity-date end">
+                        <i class="fas fa-calendar-times"></i>
+                        Due Date: 05/04/2025, 12:00AM
+                      </div>
+                    </div>
+                  </div>
+                  <div class="activity-stats">
+                    <div class="student-score">
+                      <div class="score-value">0/${maxScore}</div>
+                      <div class="score-label">Score</div>
+                    </div>
+                    <button class="start-activity-btn" onclick="startActivity(${activity.id})">
+                      <i class="fas fa-play"></i> Start
+                    </button>
+                  </div>
+                </div>
+              `;
+            } else {
+              console.log('👨‍🏫 SUPER DEBUG - GENERATING TEACHER FORMAT for:', activityTitle);
+              // TEACHER FORMAT - Management interface
+              return `
+                <div class="activity-card teacher-format" data-activity-id="${activity.id}">
+                  <div class="activity-left-border"></div>
+                  <div class="activity-content">
+                    <div class="activity-title">${activityTitle}</div>
+                    <div class="activity-dates">
+                      <div class="activity-date start">
+                        <i class="fas fa-calendar-check"></i>
+                        03 May 2025 06:24PM
+                      </div>
+                      <div class="activity-date end">
+                        <i class="fas fa-calendar-times"></i>
+                        04 May 2025 12:00AM
+                      </div>
+                    </div>
+                  </div>
+                  <div class="activity-stats">
+                    <div class="stat-circle">
+                      <div class="stat-value">0/${maxScore}</div>
+                      <div class="stat-label">Avg. overall s</div>
+                    </div>
+                    <div class="stat-circle">
+                      <div class="stat-value">00:00</div>
+                      <div class="stat-label">Activity Actions</div>
+                    </div>
+                    <div class="activity-menu">
+                      <i class="fas fa-ellipsis-v"></i>
+                      <div class="activity-dropdown">
+                        <div class="dropdown-item"><i class="fas fa-calendar"></i> Reschedule/Set retakers</div>
+                        <div class="dropdown-item"><i class="fas fa-play"></i> Try answering</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
           }).join('');
           
           // Return lesson wrapper with activities
@@ -2371,7 +2483,7 @@ function loadTopicsFromCourse() {
               const dueDate = activityCard?.querySelector('.due-date')?.textContent || 'Not set';
               
               window.cleanActivitySystem.showReschedule(activityId, activityTitle, dueDate);
-            } else if (text.includes('Try answering')) {
+            } else if (text.includes('Try answering') || text.includes('Start Activity')) {
               // CLEAN: Use the clean activity system
               const activityCard = menu.closest('.activity-card');
               const activityId = activityCard?.getAttribute('data-activity-id');
@@ -2574,8 +2686,11 @@ function loadTopicContent(item, lessonId) {
               '<div class="activity-menu">' +
                 '<i class="fas fa-ellipsis-v"></i>' +
                 '<div class="activity-dropdown">' +
-                  '<div class="dropdown-item"><i class="fas fa-calendar"></i> Reschedule/Set retakers</div>' +
-                  '<div class="dropdown-item"><i class="fas fa-play"></i> Try answering</div>' +
+                  (window.__USER_ROLE__.toLowerCase() !== 'student' ? 
+                    '<div class="dropdown-item"><i class="fas fa-calendar"></i> Reschedule/Set retakers</div>' +
+                    '<div class="dropdown-item"><i class="fas fa-play"></i> Try answering</div>' :
+                    '<div class="dropdown-item"><i class="fas fa-play"></i> Start Activity</div>'
+                  ) +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -2651,7 +2766,7 @@ function bindTopicContentEvents(item, materials, activities) {
           title: activityTitle,
           dueDate: dueDate
         });
-      } else if (text.includes('Try answering')) {
+      } else if (text.includes('Try answering') || text.includes('Start Activity')) {
         // Find the activity card that contains this dropdown
         const activityCard = dropdownItem.closest('.activity-card');
         if (!activityCard) {
@@ -3232,5 +3347,225 @@ window.startBoardRecitation = startBoardRecitation;
 window.startHardwareID = startHardwareID;
 window.startNumberConverter = startNumberConverter;
 window.startHardwareWorksheet = startHardwareWorksheet;
+
+// STUDENT-SPECIFIC FUNCTIONS
+function initializeStudentView() {
+  console.log('🎓 Initializing Student View');
+  
+  // Wait for content to be fully loaded
+  setTimeout(() => {
+    console.log('🎓 Starting student view transformation');
+    
+    // Transform existing cards
+    const activityCards = document.querySelectorAll('.activity-card');
+    console.log('🎓 Found activity cards:', activityCards.length);
+    activityCards.forEach(card => transformActivityCard(card));
+
+    // Observe future cards (e.g., when expanding lessons)
+    const observer = new MutationObserver(function(mutations){
+      mutations.forEach(function(m){
+        m.addedNodes && m.addedNodes.forEach(function(node){
+          if (!(node instanceof HTMLElement)) return;
+          if (node.classList && node.classList.contains('activity-card')) {
+            transformActivityCard(node);
+          }
+          // also scan descendants
+          node.querySelectorAll && node.querySelectorAll('.activity-card').forEach(function(child){
+            transformActivityCard(child);
+          });
+        });
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    console.log('🎓 Student view initialization complete');
+  }, 2000); // Increased timeout to ensure content is loaded
+}
+
+// Transform a single activity card for student view, idempotent
+function transformActivityCard(card) {
+  try {
+    if (!card || card.getAttribute('data-student-enhanced') === '1') return;
+    const activityId = card.getAttribute('data-activity-id');
+    if (!activityId) return;
+
+    // Remove teacher stats/menu if present
+    const statCircles = card.querySelectorAll('.stat-circle');
+    const activityMenu = card.querySelector('.activity-menu');
+    statCircles.forEach(function(c){ c.remove(); });
+    if (activityMenu) activityMenu.remove();
+
+    // Ensure stats container exists
+    let activityStats = card.querySelector('.activity-stats');
+    if (!activityStats) {
+      activityStats = document.createElement('div');
+      activityStats.className = 'activity-stats';
+      card.appendChild(activityStats);
+    }
+
+    // Populate score + Start
+    Promise.all([
+      getActivityMaxPoints(activityId),
+      getStudentScore(activityId)
+    ]).then(function([maxPoints, studentScore]){
+      const safeMax = Number(maxPoints) > 0 ? Number(maxPoints) : 0;
+      const safeScore = Math.max(0, Math.min(Number(studentScore) || 0, safeMax || Infinity));
+      activityStats.innerHTML = `
+        <div class="student-score">
+          <div class="score-value">${safeScore}/${safeMax || 0}</div>
+          <div class="score-label">Score</div>
+        </div>
+        <button class="start-activity-btn" onclick="startStudentActivity(${activityId})">
+          <i class="fas fa-play"></i> Start
+        </button>`;
+      card.setAttribute('data-student-enhanced','1');
+    }).catch(function(err){
+      console.error('Error enhancing activity card', err);
+      activityStats.innerHTML = `
+        <div class="student-score">
+          <div class="score-value">0/0</div>
+          <div class="score-label">Score</div>
+        </div>
+        <button class="start-activity-btn" onclick="startStudentActivity(${activityId})">
+          <i class="fas fa-play"></i> Start
+        </button>`;
+      card.setAttribute('data-student-enhanced','1');
+    });
+  } catch(e) { console.error('transformActivityCard error', e); }
+}
+
+function startStudentActivity(activityId) {
+  console.log('🎯 Student starting activity:', activityId);
+  
+  // Check if activity exists and is available
+  if (!activityId) {
+    alert('Error: Activity not found');
+    return;
+  }
+  
+  // Use the same function that teachers use for "Try answering"
+  const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
+  const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
+  
+  console.log('🎯 Using cleanActivitySystem.showTryAnswering for:', { activityId, activityTitle });
+  
+  // Call the same function teachers use
+  if (window.cleanActivitySystem && window.cleanActivitySystem.showTryAnswering) {
+    window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
+  } else {
+    console.error('❌ cleanActivitySystem not available');
+    alert('Activity system not available. Please try again.');
+  }
+}
+
+// Function to get real student score from database (single progress object)
+async function getStudentScore(activityId) {
+  try {
+    console.log('🔍 Getting student score for activity:', activityId);
+    
+    // Use the existing get_activity_progress.php API
+    const response = await fetch(`get_activity_progress.php?activity_id=${activityId}&user_id=${window.__USER_ID__ || 0}`);
+    const data = await response.json();
+    
+    console.log('🔍 Student progress data:', data);
+    
+    if (data && data.success && data.progress) {
+      const score = Number(data.progress.score || 0);
+      console.log('🔍 Student score:', score);
+      return isFinite(score) ? score : 0;
+    } else {
+      console.log('🔍 No progress data found, returning 0');
+      return 0;
+    }
+  } catch (error) {
+    console.error('❌ Error getting student score:', error);
+    return 0;
+  }
+}
+
+// Function to compute accurate max points for an activity
+async function getActivityMaxPoints(activityId) {
+  try {
+    // Fast path: dedicated endpoint
+    const fast = await fetch('get_activity_points.php?activity_id=' + encodeURIComponent(activityId), { credentials: 'same-origin' });
+    if (fast.ok) {
+      const fj = await fast.json();
+      if (fj && fj.success && isFinite(Number(fj.points))) {
+        const v = Number(fj.points);
+        if (v > 0) return v;
+      }
+    }
+    // Fallback to full activity API
+    const r = await fetch('class_view_api.php?action=get_activity&id=' + encodeURIComponent(activityId), { credentials: 'same-origin' });
+    const j = await r.json();
+    if (!j || !j.success || !j.activity) return 0;
+    const a = j.activity;
+    const type = String(a.type || '').toLowerCase();
+    if (type === 'coding' || type === 'upload_based') {
+      return Number(a.max_score || 0) || 0;
+    }
+    const questions = Array.isArray(a.questions) ? a.questions : [];
+    if (questions.length) {
+      return questions.reduce(function(sum, q){
+        const pts = Number(q.points || 1);
+        return sum + (isFinite(pts) ? pts : 0);
+      }, 0);
+    }
+    return Number(a.max_score || 0) || 0;
+  } catch (e) {
+    console.error('❌ Failed to get activity max points:', e);
+    // Fallback 1: look up from list_topics (has max_score)
+    try {
+      if (window.__CLASS_ID__) {
+        const rr = await fetch('class_view_api.php?action=list_topics&id=' + encodeURIComponent(window.__CLASS_ID__), { credentials: 'same-origin' });
+        const jj = await rr.json();
+        if (jj && jj.success && Array.isArray(jj.modules)) {
+          for (var i = 0; i < jj.modules.length; i++) {
+            const lessons = Array.isArray(jj.modules[i].lessons) ? jj.modules[i].lessons : [];
+            for (var k = 0; k < lessons.length; k++) {
+              const acts = Array.isArray(lessons[k].activities) ? lessons[k].activities : [];
+              for (var m = 0; m < acts.length; m++) {
+                if (String(acts[m].id) === String(activityId)) {
+                  const ms = Number(acts[m].max_score || 0);
+                  if (isFinite(ms) && ms > 0) return ms;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch(_){ }
+    // Fallback 1.5: direct question points endpoint
+    try {
+      const qr = await fetch('scripts/show_activity_questions.php?aid=' + encodeURIComponent(activityId), { credentials: 'same-origin' });
+      const rows = await qr.json();
+      if (Array.isArray(rows) && rows.length) {
+        const total = rows.reduce(function(sum, q){
+          const pts = Number(q.points || 1);
+          return sum + (isFinite(pts) ? pts : 0);
+        }, 0);
+        if (isFinite(total) && total > 0) return total;
+      }
+    } catch(_){ }
+    // Fallback 2: parse from DOM (teacher stat-value like 0/10)
+    try {
+      const card = document.querySelector('[data-activity-id="' + activityId + '"]');
+      const statVal = card && card.querySelector('.stat-value') ? card.querySelector('.stat-value').textContent : null;
+      if (statVal && statVal.includes('/')) {
+        const parts = statVal.split('/');
+        const parsed = Number(parts[1]);
+        if (isFinite(parsed) && parsed > 0) return parsed;
+      }
+    } catch(_){ }
+    // Final fallback: 10
+    return 10;
+  }
+}
+
+// Make functions globally available
+window.initializeStudentView = initializeStudentView;
+window.startStudentActivity = startStudentActivity;
+window.getStudentScore = getStudentScore;
+window.getActivityMaxPoints = getActivityMaxPoints;
 
 

@@ -496,7 +496,7 @@ li.nav-item.active {
 
 .class-detail-frame {
   width: 100%;
-  height: calc(100vh - 240px);
+  height: calc(100vh - 120px);
   border-radius: 0 0 12px 12px;
   display: block;
   border: none;

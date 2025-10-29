@@ -7,7 +7,8 @@ class CourseService {
     private static $jdoodleConfig = [
         'cpp' => [
             'compilerId' => 1,
-            'versionIndex' => 0,
+            // Use a newer JDoodle C++ version index to enable C++11/14 features (range-for, init lists)
+            'versionIndex' => 4,
             'timeLimit' => 5000,
             'memoryLimit' => 256
         ],

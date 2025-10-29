@@ -1,0 +1,500 @@
+CCIS1102
+PROGRAMMING
+1
+Week 1
+
+Program Design
+and Development
+Topics
+a. Program Development
+Life Cycle
+b. Algorithm and
+Pseudocode
+c. Flowchart
+
+Program Design and Development
+Programming Development Cycle
+• It is a model which is used to represent the
+stages and tasks that are included orderly in each
+step to write and put software.
+• It is a set of steps or phases that are used to
+develop a program in any programming
+language.
+1.
+2.
+3.
+4.
+5.
+6.
+
+Problem Definition
+Problem Analysis
+Algorithm Development
+Coding & Documentation
+Testing & Debugging
+Maintenance
+
+Program Design and Development
+1. Problem Definition
+•
+
+In this phase, we define the problem statement and we decide the
+boundaries of the problem. We need to understand the problem
+statement, what is our requirement, what should be the output of the
+problem solution. These are defined in this first phase of the program
+development life cycle.
+
+•
+
+Note:
+• Clearly state the problem in English.
+• Gain a clear understanding of what is required for its solution.
+• Try to eliminate unimportant aspects to the main problem.
+• If the problem is not totally defined, request more information.
+
+Program Design and Development
+2. Problem Analysis
+•
+
+In phase 2, we determine the requirements like variables, functions, etc. to solve the
+problem. That means we gather the required resources to solve the problem defined in the
+problem definition phase. We also determine the bounds of the solution.
+
+•
+
+Note:
+•
+Develop a list of problem variables & their relationships
+•
+Identify the problem input variables
+•
+Identify the desired output variables
+•
+Identify local or temporary variables
+•
+Determine type & units for the variables
+•
+Determine how should the output be displayed
+•
+Determine relevant formulas needed to transform input into output
+•
+Identify any additional requirements or constraints
+
+Program Design and Development
+3. Algorithm Development
+•
+
+Also known as Design Phase. During this phase, we develop a step by step
+procedure to solve the problem using the specification given in the previous
+phase. This phase is very important for program development. That means we
+write the solution in step by step statements.
+
+•
+
+Develop a list of steps (Algorithm) to solve the problem, using pseudocode,
+flowcharts, or IPO (Input/Process/Output chart) charts
+Test if the algorithm will solve the problem as intended by using sample input and
+checking the output.
+Top-Down design should be used.
+
+•
+•
+
+Program Design and Development
+Algorithm
+•
+
+Qualities of a good algorithm
+• Inputs and outputs should be defined precisely.
+• Each steps in algorithm should be clear and unambiguous.
+• Algorithm should be most effective among many different ways
+to solve a problem.
+• An algorithm shouldn't have computer code. Instead, the
+algorithm should be written in such a way that, it can be used
+in similar programming languages.
+
+Program Design and Development
+Algorithm
+Problem Statement:
+Write a solution on how to find the average grades of a class of 10
+students
+1.
+2.
+3.
+4.
+5.
+
+Identify the grades of the 10 students.
+Add all the grades.
+Divide the total of the grades by 10.
+Round off the answer by two decimal places.
+Show the result.
+
+Program Design and Development
+Pseudocode
+•
+•
+•
+
+English-like statements
+Describes steps of an algorithm in the “Design” phase
+Not a programming language
+
+Example
+Initialize sum to 0
+Repeat for N = 1 to 10
+Read grade
+Calculate sum = sum + grade
+End Loop
+Calculate average = sum/10
+Print average
+
+Program Design and Development
+Pseudocode
+Problem: Counting characters in a string
+• Input from terminal a word (character
+string)
+• Output to terminal how many characters
+it contains
+Process (high-level):
+•
+•
+•
+
+Read one character at a time
+Add one to the count for each character read
+Repeat the above 2 steps until there are no
+more characters
+
+Process (refinement):
+Initialize Count to 0
+REPEAT:
+Read one character at a time
+If a character is found, add 1 to
+Count
+UNTIL there are no more characters
+
+Program Design and Development
+4. Coding and Documentation
+•
+
+This phase uses a programming language to write or implement the actual
+programming instructions for the steps defined in the previous phase. In this
+phase, we construct the actual program. That means we write the program to
+solve the given problem using programming languages like C, C++, Java, etc.,
+
+5. Testing & Debugging
+•
+
+During this phase, we check whether the code written in the previous step is
+solving the specified problem or not. That means we test the program whether it
+is solving the problem for various input data values or not. We also test whether it
+is providing the desired output or not.
+
+Program Design and Development
+6. Maintenance
+•
+
+During this phase, the program is actively used by the users. If any
+enhancements found in this phase, all the phases are to be repeated to make the
+enhancements. That means in this phase, the solution (program) is used by the
+end-user. If the user encounters any problem or wants any enhancement, then
+we need to repeat all the phases from the starting, so that the encountered
+problem is solved or enhancement is added.
+
+Program Design and Development
+Flowchart
+•
+•
+
+•
+
+A schematic representation of a sequence of operations, as in manufacturing
+process or computer program
+A graphical representation of the sequence of operations in an information
+system or program. Information system flowcharts show how data flows from
+source documents through the computer to final distribution to users. Program
+flowcharts show the sequence of instructions in a single program or subroutine.
+Different symbols are used to draw each type of flowchart.
+In the workplace, flowcharts are often used by programmers to organize and
+share their ideas. In fact, they are so useful that most professions use them to
+communicate how a process works including engineers, scientists,
+manufacturers, business managers, and health care workers.
+
+Program Design and Development
+Guidelines for Developing Flowcharts
+•
+
+Flowchart can have only one start and one stop symbol
+
+•
+
+On-page connectors are referenced using numbers
+
+•
+
+Off-page connectors are referenced using alphabets
+
+•
+
+General flow of processes is top to bottom or left to right
+
+•
+
+Arrows should not cross each other
+
+Program Design and Development
+
+Flowcharting
+Symbols
+
+Program Design and Development
+Supply Request
+
+Firmware Update
+
+Crossing Traffic
+
+Found Food in Fridge
+
+Program Design and Development
+
+Flowcharting
+
+Program Design and Development
+
+Flowcharting
+
+Program Design and Development
+
+Flowcharting
+
+Program Design and Development
+Activity
+•
+
+Draw a flowchart to convert the length in feet to centimeter.
+
+Algorithm:
+-Input the length in feet (LFT)
+-Calculate the length in cm (LCM) by multiplying LFT with 30
+-Print length in cm (LCM)
+
+Program Design and Development
+Activity
+•
+
+Draw a flowchart that
+•
+will read the two sides of a rectangle and
+•
+calculate its area.
+
+Algorithm
+1.
+Input the width (W) and Length (L) of a rectangle
+2.
+Calculate the area (A) by multiplying L with W
+3.
+Print A
+Pseudocode:
+Step 1 Input W,L
+Step 2 A = L x W
+Step 3 Print A
+
+Program Design and Development
+•
+
+Flowcharts for decision making
+
+Computers are used extensively for performing
+various types of analysis. The decision symbol
+is used in flowcharts to indicate it.
+•
+The general format of steps for flowcharting is
+as follows:
+•
+Perform the test of the condition.
+•
+If condition evaluates true branch to Yes
+steps.
+•
+If condition evaluates false branch to No
+steps.
+
+Program Design and Development
+
+Flowcharting
+
+Program Design and Development
+
+Flowcharting
+
+Program Design and Development
+
+Flowcharting
+
+Program Design and Development
+Example
+•
+
+Write an algorithm and draw a flowchart that determine the student’s
+final grade and indicate whether it is passing or failing. The passing
+grade is 75.
+
+Algorithm
+1.
+Input the prelim, midterm and final scores of the student
+2. Calculate the average by summing all the scores and divide by 3
+3.
+Check if the average is greater than 75
+4.
+If the average is greater than or equal to 75, print “Passed”, otherwise
+print “Failed”.
+Pseudocode:
+Step 1 Input prelim, midterm and final grade
+Step 2 Compute average = (prelim+midterm+final)/3
+Step 2 Is average >= 75
+Print “Passed”
+else
+Print “Failed”
+
+Program Design and Development
+Example
+•
+
+Write an algorithm and draw a flowchart that check whether the
+triangle is equilateral, isosceles or scalene.
+•
+Equilateral triangle: All three sides are equal.
+•
+Isosceles triangle: All two sides are equal.
+•
+Scalene triangle: No sides are equal.
+
+Algorithm
+1. Get the three sides of the triangle
+2. If side1 is equal to side2 and side2 is equal to side3, the triangle is
+equilateral.
+3. If side1 is equal to side2 or side2 is equal to side3 or side3 is equal
+side1, the triangle is isosceles.
+4. Otherwise, the triangle is scalene.
+
+Program Design and Development
+Activity
+•
+
+Write an algorithm and draw a flowchart that
+•
+Determine if the number is odd or even
+
+Algorithm
+1.
+Input a number
+2.
+Check if a number is odd or even
+3.
+Print the result
+Pseudocode:
+Step 1 Input num
+Step 2 Get the remainder by dividing num to 2
+Step 3 If remainder = 0 print “The number is EVEN”, otherwise print “The number is ODD”
+
+Program Design and Development
+•
+
+Flowcharts for loops
+
+Looping refers to the repeated use of one or more steps. i.e. the statement or block of
+statements within the loop are executed repeatedly.
+•
+There are two types of loops.
+•
+One is known as the fixed loop where the operations are repeated a fixed number of
+times. In this case, the values of the variables within the loop have no effect on the
+number of times the loop is to be executed.
+•
+In the other type which is known as the variable loop, the operations are repeated until
+a specific condition is met. Here, the number of times the loop is repeated can vary.
+•
+The loop process in general includes :
+•
+Setting and initializing a counter
+•
+Execution of operations
+•
+Testing the completion of operations
+•
+Incrementing the counter
+•
+The test could either be to determine whether the loop has executed the specified number
+of times, or whether a specified condition has been met.
+
+Program Design and Development
+
+Program Design and Development
+Example
+•
+
+Draw a flowchart that find the sum of first N numbers.
+
+The steps are :
+1. Start
+2. Declare S , N, I
+3. Read N
+4. Set S (sum) to 0
+5. Set counter (I) to 1.
+6. S = S + I
+7. Increment I by 1.
+8. Check if I is less than or equal to N. If no, go to step 6.
+9. Print S
+10. Stop
+
+Program Design and Development
+Example
+•
+
+Draw a flowchart that check whether character read from
+keyboard is Z. If it is Z then print END, else read another
+character
+
+The steps are :
+1. Start
+2. Declare C
+3. Read C,
+4. Check if C = ‘Z’. If no goto step 3.
+5. Print END
+6. Stop
+
+Program Design and Development
+Example
+•
+
+Draw a flowchart that find Even number between 1 to 50
+
+The steps are :
+1. Start
+2. Initialize number (I) to 1
+3. Check if I is > 50, if true goto Step 8
+4. Get the remainder by using modulo of I % 2
+5. If remainder is equal to 0, Print I.
+6. Increment the value of I by 1.
+7. Goto Step 3
+8. Stop
+
+1
+1
+
+True
+False
+
+Program Design and Development
+Activity
+•
+
+Write an algorithm and draw a flowchart to find the average of all
+odd numbers from 1 to 100
+
+THANK YOU
+
+

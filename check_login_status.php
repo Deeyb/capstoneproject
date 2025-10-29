@@ -1,4 +1,15 @@
 <?php
+// Lightweight ping to keep the session alive (used by editors)
+if (isset($_GET['ping'])) {
+    if (session_status() === PHP_SESSION_NONE) { session_start(); }
+    // Extend server-side session GC lifetime a bit to avoid premature cleanup
+    @ini_set('session.gc_maxlifetime', 7200); // 2 hours
+    $_SESSION['last_activity'] = time();
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true, 'ts' => time()]);
+    exit;
+}
+
 // COMPREHENSIVE USER LOGIN CHECKER
 echo "<h1>🔍 USER LOGIN STATUS CHECKER</h1>";
 

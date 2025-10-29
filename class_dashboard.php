@@ -85,7 +85,7 @@ if ($userRole === 'student') {
   <?php else: ?>
   <link rel="stylesheet" href="assets/css/teacher_dashboard.css?v=<?php echo time(); ?>">
   <?php endif; ?>
-  <link rel="stylesheet" href="assets/css/class_dashboard.css?v=<?php echo time(); ?>">
+  <link rel="stylesheet" href="assets/css/class_dashboard.css?v=<?php echo time(); ?>&cache=<?php echo uniqid(); ?>&student_fix=4">
   <script src="assets/js/notification_system.js?v=<?php echo time(); ?>"></script>
   <style>
     /* Force centering for class dashboard */
@@ -129,7 +129,7 @@ if ($userRole === 'student') {
   </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
-<body>
+<body class="<?php echo strtolower($userRole) === 'student' ? 'student-view' : 'teacher-view'; ?>">
   <!-- Loading overlay to prevent layout jumps -->
   <div id="loadingOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.3s ease;">
     <div style="text-align: center;">
@@ -314,11 +314,25 @@ if ($userRole === 'student') {
   <script>window.__CLASS_ID__ = <?php echo json_encode($classId); ?>;</script>
   <script>window.__USER_ROLE__ = <?php echo json_encode($userRole); ?>;</script>
   <script>window.__USER_ID__ = <?php echo json_encode($userId); ?>;</script>
-  <script>console.log('🔍 Class Dashboard Debug - User Role:', <?php echo json_encode($userRole); ?>);</script>
-  <script>console.log('🔍 Class Dashboard Debug - Embedded:', <?php echo json_encode($embedded); ?>);</script>
-  <script>console.log('🔍 Class Dashboard Debug - Is Student Check:', <?php echo json_encode(strtolower($userRole) !== 'student'); ?>);</script>
-  <script src="assets/js/class_dashboard.js?v=<?php echo time(); ?>&cache=<?php echo uniqid(); ?>"></script>
+  <script>console.log('🔍 PHP DEBUG - User Role:', <?php echo json_encode($userRole); ?>);</script>
+  <script>console.log('🔍 PHP DEBUG - User Role Type:', <?php echo json_encode(gettype($userRole)); ?>);</script>
+  <script>console.log('🔍 PHP DEBUG - Is Student Check:', <?php echo json_encode(strtolower($userRole) === 'student'); ?>);</script>
+  <script>console.log('🔍 PHP DEBUG - Embedded:', <?php echo json_encode($embedded); ?>);</script>
+          <script src="assets/js/class_dashboard.js?v=<?php echo time(); ?>&cache=<?php echo uniqid(); ?>&super_debug=1"></script>
   <script>
+    // Auto-initialize student view if needed
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('🔍 DOM Loaded - User Role:', window.__USER_ROLE__);
+      if (window.__USER_ROLE__ && window.__USER_ROLE__.toLowerCase() === 'student') {
+        console.log('🎓 Auto-initializing student view');
+        setTimeout(() => {
+          if (window.initializeStudentView) {
+            window.initializeStudentView();
+          }
+        }, 1000); // Wait for content to load
+      }
+    });
+    
     // Role-aware functionality
     function goBack() {
       console.log('🔙 Back button clicked');

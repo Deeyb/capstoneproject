@@ -1,0 +1,874 @@
+CCIS1102/L
+COMPUTER
+PROGRAMMING 1
+WEEK 10 – SELECTION STRUCTURES
+
+CONTROL STRUCTURES
+Control Structures can be considered as the building blocks of computer
+programs. They are commands that enable a program to “take
+decisions”, following one path or another. A program is usually not
+limited to a linear sequence of instructions since during its process it
+may bifurcate, repeat code or bypass sections. Control Structures are
+the blocks that analyze variables and choose directions in which to go
+based on given parameters. The three control structures in processing
+programs are Sequential, Selection, and Repetition structure.
+
+CONTROL STRUCTURES
+•
+•
+•
+
+Sequence Structure is defined as the straightforward execution of one
+processing step after another
+Selection Structure can be defined as the presentation of a condition,
+and the choice between two actions depending on whether the
+condition is true or false.
+Repetition Control Structure can be defined as the presentation of a
+set of instructions to be performed repeatedly, as long as the condition
+is true
+
+SELECTION CONTROL STRUCTURES
+• Selection (conditional) structure in which it is used to
+execute one or more statements if a condition is met
+• “Conditionals” are at the very core of programming. The
+idea behind them is that they allow you to control the flow
+of the code that is executed based on different conditions
+in the program
+• Conditionals Control Structures in C++:
+• If statements
+• If-Else statements
+• If-Else If statements
+• Nested If statements
+• Switch statements
+
+IF Statements
+• IF statement execute one or more statements when a
+condition is met. If the testing of that condition is TRUE,
+the statement gets executed. But if it’s FALSE (the
+condition is not met), then nothing happens.
+The syntax of “If statements” is:
+if (<boolean expression>)
+<statement>
+OR
+if (<boolean expression>) {
+<statement1>
+<statement2>
+}
+
+IF Statements
+
+IF Statements
+• Example: Let’s say you want to verify if the value of a
+variable (x) is positive:
+int x =10;
+if(x >= 0){
+cout<< “variable x is a positive number”;
+}
+Output:
+variable x is a positive number
+In this example, first we assign the value of 4 to the
+variable (x) and use the “If statement” to verify if that
+value is equal or greater than 0. If the test results
+TRUE (as in this case), the function will print the
+sentence: “variable x is a positive number”.
+
+IF Statements
+• Example:
+Suppose that you want to compute the
+absolute value of an int value x.
+if (x < 0)
+x = -x;
+• Example: Suppose that you want to swap numbers in
+ascending order
+if (x > y)
+{
+int t = x;
+x = y;
+y = t;
+}
+
+IF Statements
+
+IF-ELSE Statements
+•
+
+IF-ELSE Statement - This control
+Structure allows a program to
+follow
+alternative
+paths
+of
+execution, whether a condition is
+met or not.
+
+•
+
+You can add an ELSE clause to an
+if statement, to express the
+concept of executing either one
+statement
+(or
+sequence
+of
+statements) or another, depending
+on
+whether
+the
+boolean
+expression is true or false, as in
+the following template:
+
+The syntax of “If-Else statement” is:
+if (<boolean expression>)
+<statement>
+else
+<statement>
+OR
+
+if (<boolean expression>) {
+<statementT1>
+<statementT2>
+}
+else{
+<statementF1>
+<statementF2>
+}
+
+IF–ELSE Statements
+
+IF-ELSE Statements
+• Example: A statement which assigns the maximum of two int
+values to the variable max:
+if (x > y)
+else
+
+max = x;
+
+max = y;
+
+• Example: A statement which display “Good day” if hours is less
+than 18 which is equivalent to 6:00 PM otherwise display “Good
+evening”.
+int time = 20;
+if (time < 18) {
+cout<<Good day.";
+} else {
+cout<<"Good evening.";
+}
+// Outputs "Good evening."
+
+IF-ELSE Statements
+• Example: A statement which compute a discount of 20%
+for the total amount spent of more than 100, otherwise
+10% will only be deducted if is less than 100.
+int totalSpent = 150;
+float discountedPrice;
+if (totalSpent > 100){
+discountedPrice=totalSpent*0.8;
+cout<<You’ll get a 20% discount";
+}
+else{
+discountedPrice=totalSpent*0.9;
+cout<<"You’ll get a 10% discount";
+}
+cout<<"Your discounted price is " + discountedPrice;
+
+IF-ELSE Statements
+
+IF-ELSE IF Statements
+•
+
+IF-ELSE IF Statement - Here,
+a user can decide among
+multiple options. The C++ if
+statements are executed from
+the top down. As soon as one
+of the conditions controlling the
+if is true, the statement
+associated with that if is
+executed, and the rest of the
+C++ else-if ladder is bypassed.
+If none of the conditions is true,
+then the final else statement
+will be executed.
+
+The syntax of “If-else if
+statement” is:
+if (<boolean expression>) {
+<statement>
+}
+else if(<boolean expression>){
+<statement>
+}
+else if (<boolean expression>){
+<statement>
+}
+…
+else{
+<statement>
+}
+
+IF–ELSE IF Statements
+
+IF-ELSE IF Statements
+Example 1:
+int x = 30;
+if( x == 10 ) {
+cout<<"Value of X is 10";
+}
+else if( x == 20 ) {
+cout<<"Value of X is 20";
+}
+else if( x == 30 ) {
+cout<<"Value of X is 30";
+}
+else {
+cout<<"This is else statement";
+}
+
+Example 2:
+char grade;
+if (testResult >= 90){
+grade = 'A’;
+}
+else if (testResult >= 80 && testResult < 90){
+grade = 'B';
+}
+else if (testResult >= 70 && testResult < 80){
+grade = 'C’;
+}
+else {
+grade = 'D';
+}
+
+IF-ELSE IF Statements
+Example 3: A program to determine whether a
+character is in lower-case or upper case
+char ch;
+cout<<"Enter an alphabet:";
+cin>>ch;
+if( (ch>='A') && (ch<='Z’))
+cout<<"The alphabet is in upper case";
+else if ( (ch>=' a') && (ch<=' z' ) )
+cout<<"The alphabet is in lower case";
+else
+cout<<"It is not an alphabet";
+
+Enter an alphabet: $
+It is not an alphabet
+Enter an alphabet: x
+The alphabet is in lower case
+
+Enter an alphabet: D
+The alphabet is in upper case
+
+IF-ELSE IF Statements
+
+IF-ELSE IF Statements
+Examples:
+
+Write C++ program to compute
+the value of Z according to the
+following equations:
+
+IF-ELSE IF Statements
+Examples:
+Write C++ program that reads a character and evaluates if it is a digit, a
+letter or special character.
+
+NESTED IF Statements
+•
+
+NESTED IF Statement - A nested if-else statement contains one
+or more if-else statements. The if else can be nested in three
+different ways, which are discussed here.
+
+Nested within the if part. The syntax is:
+if(<boolean_expression>){
+if(<boolean_expression>){
+<statement>
+}
+else{
+<statement>
+}
+}
+else{
+<statement>
+}
+
+Nested within the else part. The
+syntax is:
+
+Nested within both the if and the else
+parts. The syntax is:
+
+if(<boolean_expression>){
+<statement>
+}
+else{
+if(<boolean_expression>){
+<statement>
+}
+else{
+<statement>
+}
+}
+
+if(condition1) {
+statement1;
+if (condition2)
+statement2;
+else
+statement3;
+}
+else {
+statement4;
+if (condition3)
+statement5;
+else
+statement6;
+}
+statement7;
+
+NESTED IF Statements
+
+NESTED IF Statements
+Examples:
+int age=18;
+if(age>14){
+if(age>=18){
+cout<<"Adult";
+}
+else{
+cout<<"Teenager";
+}
+}
+else{
+if (age > 0){
+cout<<"Child";
+}
+else{
+cout << "Something's
+wrong";
+Output:
+}
+}
+Adult
+
+int mark = 100;
+if (mark >= 50) {
+cout << "You passed." << endl;
+if (mark == 100) {
+cout <<"Perfect!" << endl;
+}
+}
+else {
+cout << "You failed." << endl;
+}
+
+Output:
+You passed.
+Perfect!
+
+NESTED IF Statements
+Examples:
+
+Write C++ program to enter a
+number represents a
+centigrade degree. Find degree
+in Fahrenheit that generated
+from the first degree according
+to the relation:
+F= (9/5) * C +32.
+Then display the below
+phrases according to their
+equivalent Fahrenheit degree:
+1. “Cold” when F ≤ 41.
+2. “Nice” when 41< F ≤ 77.
+3. “Hot” when F >77.
+
+NESTED IF Statements
+/*
+
+This will convert length (cm to inches, inches to cm) and mass (pounds to Kg, Kg to pounds)
+*/
+#include<iostream>
+else if(option1=='B'|| option1=='b'){
+using namespace std;
+cout<<"[1] Pounds to Kilogram"<<endl;
+int main()
+cout<<"[2] Kilogram to Pounds"<<endl;
+{
+char option1;
+cout<<"Select your choice: ";
+int option2;
+cin>>option2;
+float length, weight, cm, inch, kg, pound;
+if(option2==1){
+cout<<"Conversion"<<endl;
+cout<<"Enter weight(in pounds): ";
+cout<<"[A] Length"<<endl;
+cin>>weight;
+cout<<"[B] Mass"<<endl;
+kg = weight/2.20462262185 ;
+cout<<"Select your choice: ";
+cout<<weight<<" pounds is equivalent to "<<kg
+cin>>option1;
+<<" kilogram"<<endl;
+if(option1=='A' || option1=='a'){
+cout<<"[1] Centimeter to Inches"<<endl;
+}else if(option2==2){
+cout<<"[2] Inches to Centimeter"<<endl;
+cout<<"Enter weight(in kilogram): ";
+cout<<"Select your choice: ";
+cin>>weight;
+cin>>option2;
+pound = weight*2.20462262185;
+if(option2==1){
+cout<<weight<<" kilogram is equivalent to “
+cout<<"Enter length(in Centimeter): ";
+<<pound<<" pounds"<<endl;
+cin>>length;
+}
+inch = length/2.54 ;
+else{
+cout<<length<<" centimeter is equivalent to "<<inch<<" inches"<<endl;
+}else if(option2==2){
+cout<<"Invalid Input. Please try again."<<endl;
+cout<<"Enter length(in Inches): ";
+}
+cin>>length;
+}
+cm = length*2.54;
+else{
+cout<<length<<" inches is equivalent to "<<cm<<" centimeter"<<endl;
+cout<<"Invalid Input. Please try again."<<endl;
+}
+}
+else{
+return 0;
+cout<<"Invalid Input. Please try again."<<endl;
+}
+}
+}
+
+NESTED IF Statements
+/*
+
+This will convert length (cm to inches, inches to cm) and mass (pounds to Kg, Kg to pounds)
+*/
+#include<iostream>
+using namespace std;
+int main()
+{
+char option1;
+int option2;
+float length, weight, cm, inch, kg, pound;
+cout<<"Conversion"<<endl;
+cout<<"[A] Length"<<endl;
+cout<<"[B] Mass"<<endl;
+cout<<"Select your choice: ";
+cin>>option1;
+if(option1=='A' || option1=='a'){
+cout<<"[1] Centimeter to Inches"<<endl;
+cout<<"[2] Inches to Centimeter"<<endl;
+cout<<"Select your choice: ";
+cin>>option2;
+if(option2==1){
+cout<<"Enter length(in Centimeter): ";
+cin>>length;
+inch = length/2.54 ;
+cout<<length<<" centimeter is equivalent to "<<inch<<" inches"<<endl;
+}else if(option2==2){
+cout<<"Enter length(in Inches): ";
+cin>>length;
+cm = length*2.54;
+cout<<length<<" inches is equivalent to "<<cm<<" centimeter"<<endl;
+}
+else{
+cout<<"Invalid Input. Please try again."<<endl;
+}
+}
+
+NESTED IF Statements
+Examples:
+else if(option1=='B'|| option1=='b'){
+cout<<"[1] Pounds to Kilogram"<<endl;
+cout<<"[2] Kilogram to Pounds"<<endl;
+cout<<"Select your choice: ";
+cin>>option2;
+if(option2==1){
+cout<<"Enter weight(in pounds): ";
+cin>>weight;
+kg = weight/2.20462262185 ;
+cout<<weight<<" pounds is equivalent to "<<kg<<" kilogram"<<endl;
+}else if(option2==2){
+cout<<"Enter weight(in kilogram): ";
+cin>>weight;
+pound = weight*2.20462262185;
+cout<<weight<<" kilogram is equivalent to "<<pound<<" pounds"<<endl;
+}
+else{
+cout<<"Invalid Input. Please try again."<<endl;
+}
+}
+else{
+cout<<"Invalid Input. Please try again."<<endl;
+}
+return 0;
+}
+
+SWITCH Statements
+C++ provides a multiplebranch selection statement
+known as switch. This
+selection statement
+successively tests the value of
+an expression against a list of
+integer or character
+constants. When a match is
+found, the statements
+associated with that constant
+are executed.
+
+SWITCH Statements
+The following rules apply to a switch
+statement −
+•
+
+•
+
+•
+
+•
+
+The syntax of switch statement is as follows:
+
+switch(expression)
+The expression used in a switch statement {
+must have an integral or enumerated type case constant1 : statement sequence 1;
+or be of a class type in which the class has
+break;
+a single conversion function to an integral case constant2 : statement sequence 2;
+or enumerated type.
+break;
+You can have any number of case
+case constant3 : statement sequence 3;
+statements within a switch. Each case is
+break;
+followed by the value to be compared to
+.
+and a colon.
+.
+The constant-expression for a case must
+.
+be the same data type as the variable in
+case constant n-1 : statement sequence n-1;
+the switch, and it must be a constant or a
+break;
+literal.
+default : statement sequence n;
+When the variable being switched on is
+}
+equal to a case, the statements following
+that case will execute until a break
+statement is reached.
+
+SWITCH Statements
+• When a break statement is
+reached, the switch terminates, and
+the flow of control jumps to the
+next line following the switch
+statement.
+• Not every case needs to contain a
+break. If no break appears, the flow
+of control will fall through to
+subsequent cases until a break is
+reached.
+• A switch statement can have an
+optional default case, which must
+appear at the end of the switch.
+The default case can be used for
+performing a task when none of the
+cases is true. No break is needed in
+the default case.
+
+The syntax of switch statement is as follows:
+switch(expression)
+{
+case constant1 : statement sequence 1;
+break;
+case constant2 : statement sequence 2;
+break;
+case constant3 : statement sequence 3;
+break;
+.
+.
+.
+case constant n-1 : statement sequence n-1;
+break;
+default : statement sequence n;
+}
+
+SWITCH Statements
+Examples:
+
+Example 2:
+
+char grade = 'D';
+Example 1:
+switch(grade) {
+case 'A' :
+cout << "Excellent!" << endl;
+switch (suitAsChar) {
+break;
+case ‘C’: suitAsName = “Clubs”; break;
+case 'B' :
+case ‘D’: suitAsName = “Diamonds”; break; case 'C' :
+cout << "Well done" << endl;
+case ‘H’: suitAsName = “Hearts”; break;
+break;
+case ‘S’: suitAsName = “Spades”; break;
+case 'D' :
+default: suitAsName = “Unknown”;
+cout << "You passed" << endl;
+}
+break;
+case 'F' :
+cout << "Better try again" << endl;
+break;
+default :
+cout << "Invalid grade" << endl;
+}
+cout << "Your grade is " << grade << endl;
+
+SWITCH Statements
+Examples:
+
+Example 4:
+
+cout<<"Enter number of week's day (1-7): ";
+cin>>dow;
+Example 3:
+switch(dow)
+{
+int a = 100;
+case 1 : cout<<"\nSunday";
+int b = 200;
+break;
+case 2 : cout<<"\nMonday";
+switch(a) {
+break;
+case 100:
+case 3 : cout<<"\nTuesday";
+cout << "This is part of outer switch" << endl;
+break;
+case 4 : cout<<"\nWednesday";
+switch(b) {
+break;
+case 200:
+cout << "This is part of inner switch" << endl; case 5 : cout<<"\nThursday";
+break;
+}
+case 6 : cout<<"\nFriday";
+}
+break;
+cout << "Exact value of a is : " << a << endl;
+case 7 : cout<<"\nSaturday";
+cout << "Exact value of b is : " << b << endl;
+break;
+default : cout<<"\nWrong number of day";
+break;
+}
+
+SWITCH Statements
+Examples:
+Write a C++ program
+to choose a country.
+The program contains
+a list of countries
+(Iraq,
+Germany,
+Lebanon, Egypt, and
+France). When we
+choose any of these
+countries, the city
+center
+of
+these
+countries
+is
+displayed.
+The
+countries will be
+represented from (0)
+to (3) and fourth
+country will be any
+number except these
+three numbers.
+
+#include <iostream>
+using namespace std;
+int main ()
+{
+int n;
+cout<<“Select a country 0-Iraq, 1-Germany, 2-Lebanon, 3-Egypt, 4-France : “;
+cin >> n;
+switch (n){
+case 0:
+cout<< "Baghdad"; break;
+case 1:
+cout<< "Berlin"; break;
+case 2:
+cout<< "Beirut"; break;
+case 3:
+cout<< "Cairo"; break;
+default:
+cout<< "Paris"; break;
+}
+return 0;
+}
+
+SWITCH Statements
+Example:
+// Program to build a simple calculator using switch Statement
+#include <iostream>
+using namespace std;
+int main() {
+char oper;
+float num1, num2;
+cout << "Enter an operator (+, -, *, /): ";
+cin >> oper;
+cout << "Enter two numbers: " << endl;
+cin >> num1 >> num2;
+switch (oper) {
+case '+':
+cout << num1 << " + " << num2 << " = " << num1 + num2;
+break;
+case '-':
+cout << num1 << " - " << num2 << " = " << num1 - num2;
+break;
+case '*':
+cout << num1 << " * " << num2 << " = " << num1 * num2;
+break;
+case '/':
+cout << num1 << " / " << num2 << " = " << num1 / num2;
+
+}
+}
+
+break;
+default:
+// operator is doesn't match any case constant (+, -, *, /)
+cout << "Error! The operator is not correct";
+break;
+
+return 0;
+
+SWITCH Statements
+/*
+
+This will convert length (cm to inches, inches to cm) and mass
+(pounds to Kg, Kg to pounds)
+*/
+#include<iostream>
+using namespace std;
+int main()
+{
+char option1;
+int option2;
+float length,weight, cm, inch, kg, pound;
+cout<<"Conversion"<<endl;
+cout<<"[A] Length"<<endl;
+cout<<"[B] Mass"<<endl;
+cout<<"Select your choice: ";
+cin>>option1;
+switch(option1){
+case 'A':
+case 'a':
+cout<<"[1] Centimeter to Inches"<<endl;
+cout<<"[2] Inches to Centimeter"<<endl;
+cout<<"Select your choice: ";
+cin>>option2;
+if(option2==1){
+cout<<"Enter length(in Centimeter): ";
+cin>>length;
+inch = length/2.54 ;
+cout<<length<<" centimeter is equivalent to "<<inch<<" inches"<<endl;
+}else if(option2==2){
+cout<<"Enter length(in Inches): ";
+cin>>length;
+cm = length*2.54;
+cout<<length<<" inches is equivalent to "<<cm<<" centimeter"<<endl;
+}
+
+else{
+
+cout<<"Invalid Input. Please try again."<<endl;
+}
+break;
+case 'B':
+case 'b':
+cout<<"[1] Pounds to Kilogram"<<endl;
+cout<<"[2] Kilogram to Pounds"<<endl;
+cout<<"Select your choice: ";
+cin>>option2;
+if(option2==1){
+cout<<"Enter weight(in pounds): ";
+cin>>weight;
+kg = weight/2.20462262185 ;
+cout<<weight<<" pounds is equivalent to "<<kg<<"
+kilogram"<<endl;
+}else if(option2==2){
+cout<<"Enter weight(in kilogram): ";
+cin>>weight;
+pound = weight*2.20462262185;
+cout<<weight<<" kilogram is equivalent to "<<pound<<"
+pounds"<<endl;
+}
+else{
+cout<<"Invalid Input. Please try again."<<endl;
+}
+break;
+default:
+cout<<"Invalid Input. Please try again."<<endl;
+}
+return 0;
+}
+
+SWITCH VS IF-ELSE
+The switch and if-else both are selection statements and they both let you select an
+alternative out of given many alternatives by testing an expression. However, there are
+some differences in their operations. These are given below:
+• The switch statement differs from the if statement in that switch can only test for
+equality whereas if can evaluate a relational or logical expression i.e., multiple
+conditions.
+• The switch statement selects its branches by testing the value of same variable
+(against a set of constants) whereas the if-else construction lets you use a series of
+expressions that may involve unrelated variables and complex expressions.
+• The if-else is more versatile of the two statements. For example, if-else can handle
+ranges whereas switch cannot. Each switch case label must be a single value.
+• The if-else statement can handle floating-point tests also apart from handling integer
+and character tests whereas a switch cannot handle floating-point tests. The case
+labels of switch must be an integer (which includes char also).
+• The switch case label value must be a constant. So, if two or more variables are to be
+compared, use if-else.
+• The switch statement is more efficient choice in terms of code used in a situation that
+supports the nature of switch operation (testing a value against a set of constants).
+
+SUGGESTED ACTIVITIES
+1. Write a C++ program to enter a number then display the message "Even
+Number" if the entered number is even and the message "ODD Number" if it is
+odd2.
+2. Write a C++ program to enter a string then display the message boxes "Greater
+than 6 characters", "Less than 6 characters", and "Equal to 6 characters" if this
+number was greater, less, and equal to six characters respectively
+3. Write a C++ program to find W from the equations:
+
+4. Suppose the random bank offers 9% interest on balances of less than $5000,
+12% for balances of $5000 or more but less than $10000, and 15% for balances
+of $10000 or more. Write a C++ program to enter a person balance then
+calculates a customer’s new balance after one year.
+
+THANK YOU!
+
+

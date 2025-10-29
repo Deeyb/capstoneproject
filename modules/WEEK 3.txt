@@ -1,0 +1,559 @@
+CCIS1102/L
+COMPUTER
+PROGRAMMING 1
+WEEK 3 – Program Design and Development
+
+LEARNING OUTCOMES:
+At the end of the lesson, students are expected to:
+• Identify the stages of the program development life cycle.
+• Apply analysis and design techniques to plan programs.
+• Utilize pseudocode and flowcharts to design program logic.
+• Apply debugging and troubleshooting techniques to identify
+and fix errors.
+
+Programming Development Cycle
+• It is a model which is used to represent the stages
+and tasks that are included orderly in each step to
+write and put software.
+• It is a set of steps or phases that are used to develop
+a program in any programming language.
+1.
+2.
+3.
+4.
+5.
+6.
+
+Problem Definition
+Problem Analysis
+Algorithm Development
+Coding & Documentation
+Testing & Debugging
+Maintenance
+
+1. Problem Definition
+•
+
+In this phase, we define the problem statement and we
+decide the boundaries of the problem. We need to
+understand the problem statement, what is our
+requirement, what should be the output of the problem
+solution. These are defined in this first phase of the
+program development life cycle.
+
+Example:
+A Human Resources department that needs a
+printed list of all employees, a Billing department
+that wants a list of clients who are 30 or more days
+overdue on their payments, and an Order
+department that needs a Web site to provide buyers
+with an online shopping cart in which to gather their
+orders. Because programmers are providing a
+service to these users, programmers must first
+understand what the users want.
+
+2. Problem Analysis
+•
+
+In phase 2, we determine the requirements like variables,
+functions, etc. to solve the problem. That means we gather the
+required resources to solve the problem defined in the problem
+definition phase. We also determine the bounds of the solution.
+
+•
+
+Note:
+• Develop a list of problem variables & their relationships
+• Identify the problem input variables
+• Identify the desired output variables
+• Identify local or temporary variables
+• Determine type & units for the variables
+• Determine how should the output be displayed
+• Determine relevant formulas needed to transform input into
+output
+• Identify any additional requirements or constraints
+
+3. Algorithm Development
+•
+
+Also known as Design Phase. During this phase, we develop a
+step-by-step procedure to solve the problem using the
+specification given in the previous phase. This phase is very
+important for program development. That means we write the
+solution in step-by-step statements.
+
+•
+
+Develop a list of steps (Algorithm) to solve the problem, using
+pseudocode, flowcharts, or IPO (Input/Process/Output chart)
+charts
+Test if the algorithm will solve the problem as intended by
+using sample input and checking the output.
+Top-Down design should be used.
+
+•
+•
+
+Algorithm
+An algorithm is the sequence of steps necessary to
+solve any programming problem.
+•
+
+Qualities of a good algorithm
+• Inputs and outputs should be defined precisely.
+• Each steps in algorithm should be clear and
+unambiguous.
+• Algorithm should be most effective among many
+different ways to solve a problem.
+• An algorithm shouldn't have computer code. Instead,
+the algorithm should be written in such a way that,
+it can be used in similar programming languages.
+
+Algorithm
+Problem Statement:
+Write a solution on how to find the average grades of
+a class of 10 students
+1.
+2.
+3.
+4.
+5.
+
+Identify the grades of the 10 students.
+Add all the grades.
+Divide the total of the grades by 10.
+Round off the answer by two decimal places.
+Show the result.
+
+Pseudocode
+•
+•
+•
+
+an English-like representation of the logical steps it takes to
+solve a problem.
+Describes steps of an algorithm in the “Design” phase
+Not a programming language
+
+Example
+
+Initialize sum to 0
+Repeat for N = 1 to 10
+Read grade
+Calculate sum = sum + grade
+End Loop
+Calculate average = sum/10
+Print average
+
+Pseudocode
+Problem: Counting characters in a
+string
+• Input from terminal a word Process (refinement):
+(character string)
+Initialize Count to 0
+• Output to terminal how many REPEAT:
+Read one character at a time
+characters it contains
+Process (high-level):
+•
+•
+•
+
+Read one character at a time
+Add one to the count for each
+character read
+Repeat the above 2 steps until
+there are no more characters
+
+If a character is found, add 1
+to Count
+UNTIL there are no more characters
+
+4. Coding and Documentation
+•
+
+This phase uses a programming language to write or implement
+the actual programming instructions for the steps defined in the
+previous phase. In this phase, we construct the actual program.
+That means we write the program to solve the given problem
+using programming languages like C, C++, Java, etc.,
+
+5. Testing & Debugging
+•
+
+During this phase, we check whether the code written in the
+previous step is solving the specified problem or not. That
+means we test the program whether it is solving the problem
+for various input data values or not. We also test whether it is
+providing the desired output or not.
+
+Syntax
+• Syntax refers to the rules that define the
+structure and format of valid statements
+and expressions in a programming
+language. In other words, syntax specifies
+the correct way to write a program in a
+particular language, including the use of
+keywords, punctuation, and other
+elements.
+
+Grammar
+• Grammar refers to a set of rules that
+define the structure of a programming
+language. It encompasses syntax as well
+as rules for composing expressions,
+statements, and program structures. A
+programming
+language's
+grammar
+specifies how its various elements can
+be combined to create valid programs.
+
+Semantics
+• Semantics refers to the meaning of a
+program, or the way in which a program
+behaves when it is executed. It involves
+understanding how the various constructs in
+a program interact with each other, and how
+they operate on data to produce results. A
+program's semantics are determined by its
+syntax and grammar, as well as the underlying
+algorithms and data structures it uses to
+perform its tasks.
+
+Program Errors
+• Syntax Errors​
+• Errors in grammar of the language​
+• Runtime error​
+• When there are no syntax errors, but the program can’t
+complete execution​
+• Divide by zero​
+• Invalid input data​
+• Logical errors​
+• The program completes execution, but delivers incorrect
+results​
+• Incorrect usage of parentheses​
+
+Debugging
+• Bug
+• In the context of software development, it refers
+to an error, flaw or fault in a computer program
+that causes it to behave in unexpected or
+unintended ways. Bugs can be caused by a variety
+of factors such as programming errors, software
+design flaws, hardware malfunctions, and
+unexpected inputs.
+• Debugging
+• is the process of identifying, isolating, and fixing
+bugs in computer programs.
+
+6. Maintenance
+•
+
+During this phase, the program is actively used by the users. If
+any enhancements found in this phase, all the phases are to be
+repeated to make the enhancements. That means in this phase,
+the solution (program) is used by the end-user. If the user
+encounters any problem or wants any enhancement, then we
+need to repeat all the phases from the starting, so that the
+encountered problem is solved or enhancement is added.
+
+Flowchart
+•
+•
+
+•
+
+A schematic representation of a sequence of operations, as in
+manufacturing process or computer program
+A graphical representation of the sequence of operations in an
+information system or program. Information system flowcharts
+show how data flows from source documents through the
+computer to final distribution to users. Program flowcharts show
+the sequence of instructions in a single program or subroutine.
+Different symbols are used to draw each type of flowchart.
+In the workplace, flowcharts are often used by programmers to
+organize and share their ideas. In fact, they are so useful that
+most professions use them to communicate how a process
+works including engineers, scientists, manufacturers, business
+managers, and health care workers.
+
+Guidelines for Developing Flowcharts
+•
+
+Flowchart can have only one start and one stop symbol
+
+•
+
+On-page connectors are referenced using numbers
+
+•
+
+Off-page connectors are referenced using alphabets
+
+•
+
+General flow of processes is top to bottom or left to right
+
+•
+
+Arrows should not cross each other
+
+Flowcharting Symbols
+
+Supply Request
+
+Firmware Update
+
+Crossing Traffic
+
+Found Food in Fridge
+
+Flowcharting
+
+Flowcharting
+
+Flowcharting
+
+Activity
+•
+
+Draw a flowchart to convert the length in feet to centimeter.
+
+Algorithm:
+-Input the length in feet
+-Calculate the length in cm by multiplying length in feet with
+30.48
+-Print length in cm
+
+Activity
+•
+
+Draw a flowchart that
+•
+will read the two sides of a rectangle and
+•
+calculate its area.
+
+Algorithm
+1.
+Input the width (W) and Length (L) of a rectangle
+2.
+Calculate the area (A) by multiplying L with W
+3.
+Print the area (A)
+Pseudocode:
+Step 1 Input W,L
+Step 2 A = L x W
+Step 3 Print A
+
+Activity
+•
+
+Draw a flowchart that of a program that will compute and print the net
+pay an employee. You need to ask for the input of the employee’s rate
+and hours worked and deductions. Compute the gross pay by
+multiplying the rate hours worked. You can get the net pay by
+subtracting the deductions from the gross pay.
+
+Algorithm
+1. Input the hours worked , rate and deductions
+2. Calculate the gross pay by multiplying hours worked with rate
+3. Calculate the netpay = grosspay - deduction
+4. Print the netpay.
+Pseudocode:
+Step 1 Input hrs, rate, deduction
+Step 2 gp = hrs * rate
+Step 3 netpay = gp – deduction
+Step 4 Print netpay
+
+Flowcharts for decision making
+•
+
+Computers are used extensively for performing various types of
+analysis. The decision symbol is used in flowcharts to indicate it.
+•
+The general format of steps for flowcharting is as follows:
+•
+Perform the test of the condition.
+•
+If condition evaluates true branch to Yes steps.
+•
+If condition evaluates false branch to No steps.
+
+Flowcharting
+
+Flowcharting
+
+Flowcharting
+
+Example
+•
+
+Write an algorithm and draw a flowchart that
+determine the student’s final grade and indicate
+whether it is passing or failing. The passing grade
+is 75.
+
+Algorithm
+1.
+Input the prelim, midterm and final scores of the
+student
+2. Calculate the average by summing all the scores
+and divide by 3
+3.
+Check if the average is greater than 75
+4.
+If the average is greater than or equal to 75, print
+“Passed”, otherwise print “Failed”.
+Pseudocode:
+Step 1 Input prelim, midterm and final grade
+Step 2 Compute average = (prelim+midterm+final)/3
+Step 2 Is average >= 75
+Print “Passed”
+else
+Print “Failed”
+
+Example
+•
+
+Write an algorithm and draw a flowchart that
+check whether the triangle is equilateral,
+isosceles or scalene.
+•
+Equilateral triangle: All three sides are
+equal.
+•
+Isosceles triangle: All two sides are
+equal.
+•
+Scalene triangle: No sides are equal.
+
+Algorithm
+1. Get the three sides of the triangle
+2. If side1 is equal to side2 and side2 is equal
+to side3, the triangle is equilateral.
+3. If side1 is equal to side2 or side2 is equal to
+side3 or side3 is equal side1, the triangle is
+isosceles.
+4. Otherwise, the triangle is scalene.
+
+Activity
+•
+
+Write an algorithm and draw a flowchart that
+•
+Determine if the number is odd or even
+
+Algorithm
+1.
+Input a number
+2.
+Check if a number is odd or even
+3.
+Print the result
+Pseudocode:
+Step 1 Input num
+Step 2 Get the remainder by dividing num to 2
+Step 3 If remainder = 0 print “The number is EVEN”, otherwise print “The
+number is ODD”
+
+•
+
+Flowcharts for loops
+
+Looping refers to the repeated use of one or more steps. i.e. the
+statement or block of statements within the loop are executed
+repeatedly.
+•
+There are two types of loops.
+•
+One is known as the fixed loop where the operations are repeated a
+fixed number of times. In this case, the values of the variables within
+the loop have no effect on the number of times the loop is to be
+executed.
+•
+In the other type which is known as the variable loop, the operations
+are repeated until a specific condition is met. Here, the number of
+times the loop is repeated can vary.
+•
+The loop process in general includes :
+•
+Setting and initializing a counter
+•
+Execution of operations
+•
+Testing the completion of operations
+•
+Incrementing the counter
+•
+The test could either be to determine whether the loop has executed
+the specified number of times, or whether a specified condition has
+been met.
+
+Example
+•
+
+Draw a flowchart that find the sum of first N numbers.
+
+The steps are :
+1. Start
+2. Declare S , N, I
+3. Read N
+4. Set S (sum) to 0
+5. Set counter (I) to 1.
+6. S = S + I
+7. Increment I by 1.
+8. Check if I is less than or equal to N. If no, go to step 6.
+9. Print S
+10. Stop
+
+Example
+•
+
+Draw a flowchart that check whether
+character read from keyboard is Z. If it is
+Z then print END, else read another
+character
+
+The steps are :
+1. Start
+2. Declare C
+3. Read C,
+4. Check if C = ‘Z’. If no goto step 3.
+5. Print END
+6. Stop
+
+Example
+•
+
+Draw a flowchart that find Even number
+between 1 to 50
+
+The steps are :
+1. Start
+2. Initialize number (I) to 1
+3. Check if I is > 50, if true goto Step 8
+4. Get the remainder by using modulo of I %
+2
+5. If remainder is equal to 0, Print I.
+6. Increment the value of I by 1.
+7. Goto Step 3
+8. Stop
+
+1
+1
+
+True
+False
+
+Activity
+•
+
+Write an algorithm and draw a flowchart to
+find the average of all odd numbers from 1 to
+100
+
+THANK YOU!
+
+

@@ -19,10 +19,10 @@ class ActivityProgressService {
         $stmt = $this->db->prepare("
             SELECT 
                 ap.*,
-                a.title as activity_title,
-                a.type as activity_type
+                la.title as activity_title,
+                la.type as activity_type
             FROM activity_progress ap
-            JOIN activities a ON ap.activity_id = a.id
+            JOIN lesson_activities la ON ap.activity_id = la.id
             WHERE ap.activity_id = ? AND ap.user_id = ?
         ");
         $stmt->execute([$activityId, $userId]);
