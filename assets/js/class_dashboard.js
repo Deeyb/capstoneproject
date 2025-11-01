@@ -2868,7 +2868,7 @@ function openMaterialViewer(material) {
       url = new URL(url, window.location.href).toString();
     } catch (_) {}
 
-    const overlay = document.createElement('div');
+  const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;';
     const wrap = document.createElement('div');
     wrap.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.25);width:96%;height:90vh;display:flex;flex-direction:column;overflow:hidden;';
@@ -2892,8 +2892,20 @@ function openMaterialViewer(material) {
         '</div>'+
       '</div>'+
       '<div id="matViewerBody" style="flex:1;background:#f8fafc;"></div>';
-    overlay.appendChild(wrap);
+  overlay.appendChild(wrap);
     document.body.appendChild(overlay);
+
+  // If viewing our markdown page viewer, expand to true fullscreen for a reading experience
+  try {
+    if (/material_page_view\.php/i.test(url)) {
+      overlay.style.alignItems = 'stretch';
+      overlay.style.justifyContent = 'stretch';
+      wrap.style.width = '100%';
+      wrap.style.height = '100vh';
+      wrap.style.borderRadius = '0';
+      wrap.style.boxShadow = 'none';
+    }
+  } catch(_) {}
 
     const close = () => { if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });

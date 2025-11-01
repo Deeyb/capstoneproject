@@ -848,6 +848,8 @@ function viewOutline(courseId) {
         return;
       }
       if (!Array.isArray(res.data)) { res.data = []; }
+      // OPTIMIZED: Store outline data for points calculation (avoid refetch)
+      try { window.__lastOutlineData = res.data; } catch(_){}
       try {
       renderOutline(res.data, body);
       initOutlineSortables(courseId, body);
@@ -857,6 +859,9 @@ function viewOutline(courseId) {
 
       // Wire basic actions (delete/edit) similar to admin implementation
       const modulesWrap = body;
+      // OPTIMIZED: Remove old handler before adding new one to prevent memory leaks
+      const oldHandler = modulesWrap.onclick;
+      if (oldHandler) modulesWrap.onclick = null;
       // Use a single-click handler to avoid stacking multiple listeners across re-renders
       modulesWrap.onclick = function(e){
         const btn = e.target.closest('button');
@@ -918,21 +923,24 @@ function viewOutline(courseId) {
           const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
           if (!lessonId) return;
           let type;
-          // Dynamically fetch material types (with CSRF)
+          // OPTIMIZED: Show prompt immediately with default options, fetch types in background
+          // Matches backend material_types response exactly: PDF, Link, Page
+          const defaultOpts = [
+            {value:'pdf',label:'PDF'}, 
+            {value:'link',label:'Link'}, 
+            {value:'page',label:'Page'}
+          ];
+          // Fetch types in background for future use (non-blocking) - DO THIS BEFORE PROMPT
           (async function(){
             let fd = new FormData();
             fd.append('action','material_types');
             try { fd = await addCSRFToken(fd); } catch(_){ }
-            return fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd });
-          })()
-            .then(function(r){ return r.json(); })
-            .then(function(resp){
-              let opts = (resp && resp.success && Array.isArray(resp.types)) ? resp.types : [
-            {value:'pdf',label:'PDF'}, {value:'link',label:'Link'}, {value:'code',label:'Code'}, {value:'file',label:'General File'}
-              ];
-              // Add PowerPoint convenience option
-              opts.push({ value: 'pptx', label: 'PowerPoint (.pptx)' });
-              outlinePrompt({ title: 'Material type', label: 'Type', options: opts, value: 'pdf' }, function(val){
+            fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
+              .then(r=>r.json())
+              .catch(()=>null);
+          })();
+          
+          outlinePrompt({ title: 'Material type', label: 'Type', options: defaultOpts, value: 'pdf' }, function(val){
             type = (val||'link').toLowerCase();
             if (!type) return;
 
@@ -1126,7 +1134,19 @@ function viewOutline(courseId) {
                   try { fd = await addCSRFToken(fd); } catch(_){ }
                   fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
                     .then(r=>r.json())
-                    .then(()=> { modal.remove(); viewOutline(courseId); })
+                    .then(resp => {
+                      if (resp && resp.success) {
+                        if (typeof window.showNotification === 'function') {
+                          window.showNotification('success', 'Success', 'Content page created successfully!');
+                        }
+                        modal.remove();
+                        viewOutline(courseId);
+                      } else {
+                        if (typeof window.showNotification === 'function') {
+                          window.showNotification('error', 'Error', resp && resp.message ? resp.message : 'Failed to create content page');
+                        }
+                      }
+                    })
                     .catch(()=> { if (typeof window.showNotification === 'function') window.showNotification('error','Error','Save failed'); });
                 })();
               };
@@ -1143,7 +1163,6 @@ function viewOutline(courseId) {
               try { fd = await addCSRFToken(fd); } catch(_){ }
             postAndRefresh('course_outline_manage.php', fd);
             })();
-          });
           });
           });
           return;
@@ -1212,7 +1231,7 @@ function viewOutline(courseId) {
                       modal.className = 'modal';
                       modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
                       modal.innerHTML = `
-                        <div class="modal-card" style="max-width:1000px;width:95%;height:80vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">\n\
+                        <div class="modal-card" style="max-width:1280px;width:98%;height:88vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">\n\
                           <div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">\n\
                             <strong style="font-size:16px;color:#333;">Edit Page</strong>\n\
                             <div style="display:flex;gap:8px;align-items:center;">\n\
@@ -1251,10 +1270,12 @@ function viewOutline(courseId) {
                             // Expose instance to the modal so Save can read the live value
                             try { modal.__mde = em; } catch(_) {}
                             const style = document.createElement('style'); style.textContent='\
-.EasyMDEContainer{height:100%;display:flex;flex-direction:column;min-height:0;}\
+.EasyMDEContainer{height:100%;display:flex;flex-direction:column;min-height:0;flex:1 1 auto;}\
 .EasyMDEContainer .editor-toolbar{flex:0 0 auto;}\
 .EasyMDEContainer .CodeMirror{flex:1 1 auto;height:100%;min-height:0;font-family: monospace;}\
-.EasyMDEContainer .CodeMirror-scroll{height:100%;}'; document.head.appendChild(style);
+.EasyMDEContainer .CodeMirror-scroll{height:100%;}\
+.EasyMDEContainer .editor-statusbar{flex:0 0 22px;line-height:22px;}\
+#pgContent{display:none !important;}'; document.head.appendChild(style);
                             // Normalize markdown token styles inside editor to avoid perceived auto-resize
                             const style2 = document.createElement('style');
                             style2.textContent = '\
@@ -1361,6 +1382,25 @@ function viewOutline(courseId) {
             // Open PDF in modal viewer (add view=true parameter)
             const viewUrl = absoluteUrl + (absoluteUrl.includes('?') ? '&' : '?') + 'view=true';
             showPDFViewer(viewUrl);
+          } else if (type === 'page' || /material_page_view\.php/i.test(url)) {
+            // Open material page in fullscreen iframe viewer (consistent with class_dashboard)
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:stretch;justify-content:stretch;';
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'background:#fff;width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;border-radius:0;box-shadow:none;';
+            wrap.innerHTML = ''+
+              '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);">'+
+                '<div style="font-weight:700;color:#0f172a;">Content Page</div>'+
+                '<button id="coordMatCloseBtn" style="background:#6b7280;color:#fff;border:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Close</button>'+
+              '</div>'+
+              '<iframe src="' + absoluteUrl + '" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
+            overlay.appendChild(wrap);
+            document.body.appendChild(overlay);
+            const close = () => { if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+            overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+            wrap.querySelector('#coordMatCloseBtn').addEventListener('click', close);
+            const esc = (e)=>{ if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } };
+            document.addEventListener('keydown', esc);
           } else if (type === 'code') {
             // Open code in modal viewer
             showCodeViewer(absoluteUrl);
@@ -1442,7 +1482,17 @@ function viewOutline(courseId) {
           const lessonEl = btn.closest('[data-lesson-id]');
           const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
           if (!lessonId) return;
+          // OPTIMIZED: Show modal immediately, initialize in background
           showCreateActivityForm(lessonId);
+          // Use requestAnimationFrame to defer heavy rendering
+          requestAnimationFrame(function() {
+            try {
+              const modal = document.getElementById('createActivityForm');
+              if (modal && modal.style.display !== 'none') {
+                // Render will be triggered by showCreateActivityForm
+              }
+            } catch(_) {}
+          });
           return;
         }
         if (act === 'act-open-editor') {
@@ -1808,6 +1858,8 @@ function viewOutline(courseId) {
 
 // Render outline JSON into HTML (copied from admin_panel.js)
 function renderOutline(outline, mount) {
+  // OPTIMIZED: Store outline data globally for points calculation
+  try { window.__lastOutlineData = outline; } catch(_){}
   if (!Array.isArray(outline) || outline.length === 0) {
     mount.innerHTML = '<div class="empty-state">No modules yet</div>';
     return;
@@ -1951,52 +2003,117 @@ function renderOutline(outline, mount) {
     }
   });
 
-  // Compute and render total points per activity (quiz-like types)
-  (function(){
+  // OPTIMIZED: Compute and render total points per activity - DEFERRED to avoid blocking modal display
+  // Load points AFTER modal is visible for better perceived performance
+  requestAnimationFrame(function(){
     try {
       const pointBadges = Array.from(mount.querySelectorAll('[data-points-for]'));
       if (!pointBadges.length) return;
-      pointBadges.forEach(function(badge){
-        const actId = badge.getAttribute('data-points-for');
-        if (!actId) return;
-        const fd = new FormData(); fd.append('action','activity_get'); fd.append('id', actId);
-        fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
-          .then(r=>r.json())
-          .then(function(j){
-            if (!j || !j.success || !j.data) { 
-              badge.textContent = '—'; 
-              return; 
-            }
-            const a = j.data;
+      
+      // OPTIMIZED: Extract all activity IDs and calculate points from already-loaded outline data
+      // Instead of making separate fetch requests, use the data we already have!
+      const activityDataMap = new Map();
+      
+      // Find all activities in the outline data and map them by ID
+      const findActivities = (outline) => {
+        outline.forEach(mod => {
+          (mod.lessons || []).forEach(lesson => {
+            (lesson.activities || []).forEach(act => {
+              if (act && act.id) activityDataMap.set(String(act.id), act);
+            });
+          });
+        });
+      };
+      
+      // Try to get outline data from the closure or window
+      let outlineData = null;
+      try {
+        if (typeof window.__lastOutlineData !== 'undefined') {
+          outlineData = window.__lastOutlineData;
+        }
+      } catch(_){}
+      
+      // If we have outline data, use it directly - NO FETCH REQUESTS!
+      if (outlineData && Array.isArray(outlineData)) {
+        findActivities(outlineData);
+        pointBadges.forEach(function(badge){
+          const actId = badge.getAttribute('data-points-for');
+          if (!actId) return;
+          const a = activityDataMap.get(actId);
+          if (!a) { badge.textContent = '—'; return; }
+          
+          const t = String(a.type||'').toLowerCase();
+          if (t === 'coding') {
+            const ms = Number(a.max_score || 0);
+            badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
+            return;
+          }
+          const questions = Array.isArray(a.questions) ? a.questions : [];
+          const total = questions.reduce(function(sum,q){
+            const p = Number(q.points||1);
+            return sum + (isFinite(p) ? p : 0);
+          }, 0);
+          if (total > 0) {
+            badge.textContent = total + ' pts';
+          } else {
+            const ms = Number(a.max_score || 0);
+            badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
+          }
+        });
+        return; // Done! No network requests needed
+      }
+      
+      // Fallback: If outline data not available, fetch points (but batch them)
+      // Collect all IDs first
+      const actIds = pointBadges.map(b => b.getAttribute('data-points-for')).filter(Boolean);
+      if (!actIds.length) return;
+      
+      // OPTIMIZED: Batch fetch all activities at once instead of individual requests
+      const fd = new FormData();
+      fd.append('action','activities_batch_get');
+      fd.append('ids', JSON.stringify(actIds));
+      
+      fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd })
+        .then(r=>r.json())
+        .then(function(resp){
+          if (!resp || !resp.success || !Array.isArray(resp.data)) return;
+          
+          // Create map from response
+          resp.data.forEach(function(a){
+            if (a && a.id) activityDataMap.set(String(a.id), a);
+          });
+          
+          // Update badges
+          pointBadges.forEach(function(badge){
+            const actId = badge.getAttribute('data-points-for');
+            if (!actId) return;
+            const a = activityDataMap.get(actId);
+            if (!a) { badge.textContent = '—'; return; }
+            
             const t = String(a.type||'').toLowerCase();
             if (t === 'coding') {
               const ms = Number(a.max_score || 0);
-              const displayPoints = (isFinite(ms) ? ms : 0) + ' pts';
-              badge.textContent = displayPoints;
+              badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
               return;
             }
-            // Sum question points if available
             const questions = Array.isArray(a.questions) ? a.questions : [];
             const total = questions.reduce(function(sum,q){
               const p = Number(q.points||1);
               return sum + (isFinite(p) ? p : 0);
             }, 0);
-            if (total > 0) { 
-              const displayPoints = total + ' pts';
-              badge.textContent = displayPoints; 
-            }
-            else {
+            if (total > 0) {
+              badge.textContent = total + ' pts';
+            } else {
               const ms = Number(a.max_score || 0);
-              const displayPoints = (isFinite(ms) ? ms : 0) + ' pts';
-              badge.textContent = displayPoints;
+              badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
             }
-          })
-          .catch(function(err){ 
-            badge.textContent = '—'; 
           });
-      });
+        })
+        .catch(function(err){ 
+          pointBadges.forEach(b => b.textContent = '—');
+        });
     } catch(_) {}
-  })();
+  });
 }
 
 // Initialize SortableJS on modules, lessons, and materials and persist order
@@ -2293,9 +2410,11 @@ function outlinePrompt(options, onSubmit) {
   const cfg = Object.assign({ title: 'Input', label: 'Value', placeholder: '', value: '', options: null }, options||{});
   let modal = document.getElementById('outlinePromptModal');
   if (!modal) {
+    // OPTIMIZED: Pre-create modal on page load to avoid lag
     modal = document.createElement('div');
     modal.id = 'outlinePromptModal';
     modal.className = 'modal-overlay';
+    modal.style.display = 'none'; // Hidden initially
     modal.innerHTML = `
       <div class="modal-card" style="max-width:460px;width:92%;padding:18px 20px;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);background:#fff;">
         <h3 class="modal-title" id="opTitle" style="margin:0 0 10px 0;font-size:16px;font-weight:700;color:#333;">Title</h3>
@@ -2309,6 +2428,15 @@ function outlinePrompt(options, onSubmit) {
       </div>`;
     document.body.appendChild(modal);
     modal.addEventListener('click', function(e){ if (e.target === modal) modal.style.display = 'none'; });
+    // OPTIMIZED: Attach focus/blur styles once, not every call
+    const inputEl = modal.querySelector('#opInput');
+    const selectEl = modal.querySelector('#opSelect');
+    const focusHandler = function() { this.style.borderColor = '#28a745'; this.style.boxShadow = '0 0 0 3px rgba(40, 167, 69, 0.1)'; };
+    const blurHandler = function() { this.style.borderColor = '#e1e5e9'; this.style.boxShadow = 'none'; };
+    inputEl.addEventListener('focus', focusHandler);
+    inputEl.addEventListener('blur', blurHandler);
+    selectEl.addEventListener('focus', focusHandler);
+    selectEl.addEventListener('blur', blurHandler);
   }
   const titleEl = modal.querySelector('#opTitle');
   const labelEl = modal.querySelector('#opLabel');
@@ -2322,24 +2450,6 @@ function outlinePrompt(options, onSubmit) {
   inputEl.placeholder = cfg.placeholder || '';
   inputEl.value = cfg.value || '';
   
-  // Add focus styles
-  inputEl.addEventListener('focus', function() {
-    this.style.borderColor = '#28a745';
-    this.style.boxShadow = '0 0 0 3px rgba(40, 167, 69, 0.1)';
-  });
-  inputEl.addEventListener('blur', function() {
-    this.style.borderColor = '#e1e5e9';
-    this.style.boxShadow = 'none';
-  });
-  
-  selectEl.addEventListener('focus', function() {
-    this.style.borderColor = '#28a745';
-    this.style.boxShadow = '0 0 0 3px rgba(40, 167, 69, 0.1)';
-  });
-  selectEl.addEventListener('blur', function() {
-    this.style.borderColor = '#e1e5e9';
-    this.style.boxShadow = 'none';
-  });
   if (Array.isArray(cfg.options) && cfg.options.length) {
     selectEl.innerHTML = cfg.options.map(function(opt){
       var val = typeof opt === 'string' ? opt : (opt.value || '');
@@ -2353,14 +2463,40 @@ function outlinePrompt(options, onSubmit) {
     inputEl.style.display = '';
     selectEl.style.display = 'none';
   }
+  
+  // OPTIMIZED: Clean up old handlers before adding new ones
+  const oldOkHandler = okBtn.onclick;
+  const oldCancelHandler = cancelBtn.onclick;
+  const oldKeyHandler = inputEl.onkeydown;
+  
   function cleanup(){
-    okBtn.onclick = null; cancelBtn.onclick = null; inputEl.onkeydown = null;
+    if (oldOkHandler) okBtn.onclick = null;
+    if (oldCancelHandler) cancelBtn.onclick = null;
+    if (oldKeyHandler) inputEl.onkeydown = null;
   }
-  okBtn.onclick = function(){ const v = (selectEl.style.display !== 'none') ? selectEl.value : inputEl.value.trim(); cleanup(); modal.style.display='none'; if (onSubmit) onSubmit(v); };
-  cancelBtn.onclick = function(){ cleanup(); modal.style.display='none'; };
-  inputEl.onkeydown = function(e){ if (e.key === 'Enter') { okBtn.click(); } };
+  
+  okBtn.onclick = function(){ 
+    const v = (selectEl.style.display !== 'none') ? selectEl.value : inputEl.value.trim(); 
+    cleanup(); 
+    modal.style.display='none'; 
+    if (onSubmit) onSubmit(v); 
+  };
+  cancelBtn.onclick = function(){ 
+    cleanup(); 
+    modal.style.display='none'; 
+  };
+  inputEl.onkeydown = function(e){ 
+    if (e.key === 'Enter') { 
+      e.preventDefault();
+      okBtn.click(); 
+    } 
+  };
+  
   modal.style.display = 'flex';
-  setTimeout(function(){ (selectEl.style.display !== 'none' ? selectEl : inputEl).focus(); }, 30);
+  // OPTIMIZED: Use requestAnimationFrame for smoother focus
+  requestAnimationFrame(function(){ 
+    (selectEl.style.display !== 'none' ? selectEl : inputEl).focus(); 
+  });
 }
 
 // ===== Auto-bootstrap (defensive) =====
@@ -3576,11 +3712,13 @@ function updateModalTitle(mode) {
 
 // ===== Create Activity Open Form (all steps visible) =====
 function showCreateActivityForm(lessonId, opts){
+  // OPTIMIZED: Pre-create modal on first page load to avoid lag
   let modal = document.getElementById('createActivityForm');
   if (!modal){
     modal = document.createElement('div');
     modal.id = 'createActivityForm';
     modal.className = 'modal-overlay';
+    modal.style.display = 'none'; // Hidden initially
     // Ensure preview CSS is present once
     try {
       if (!document.getElementById('cafPreviewCSS')) {
@@ -3608,15 +3746,14 @@ function showCreateActivityForm(lessonId, opts){
     document.body.appendChild(modal);
     modal.addEventListener('click', function(e){ if (e.target===modal) modal.style.display='none'; });
     modal.querySelector('#cafClose').onclick=function(){ modal.style.display='none'; };
-    // Mode toggle buttons
+    // Mode toggle buttons - OPTIMIZED: Attach once
     try {
       const editBtn = modal.querySelector('#cafEditMode');
       const previewBtn = modal.querySelector('#cafPreviewMode');
       if (editBtn) editBtn.onclick = function(){ 
         try { 
-          window.createActivityState.viewMode = 'edit'; 
+          if (window.createActivityState) window.createActivityState.viewMode = 'edit'; 
           updateModalTitle('edit'); 
-          // Show footer in edit mode
           const footer = modal.querySelector('#cafFooter');
           if (footer) footer.style.display = 'flex';
           try { modal.classList.remove('is-preview'); } catch(_){ }
@@ -3625,9 +3762,8 @@ function showCreateActivityForm(lessonId, opts){
       };
       if (previewBtn) previewBtn.onclick = function(){ 
         try { 
-          window.createActivityState.viewMode = 'preview'; 
+          if (window.createActivityState) window.createActivityState.viewMode = 'preview'; 
           updateModalTitle('preview'); 
-          // Hide footer in preview mode
           const footer = modal.querySelector('#cafFooter');
           if (footer) footer.style.display = 'none';
           try { modal.classList.add('is-preview'); } catch(_){ }
@@ -3636,7 +3772,12 @@ function showCreateActivityForm(lessonId, opts){
       };
     } catch(_){ }
   }
+  // OPTIMIZED: Show modal immediately with loading state
   modal.style.display='flex';
+  
+  // OPTIMIZED: Get body reference immediately and show loading
+  const body = modal.querySelector('#cafBody');
+  body.innerHTML = '<div style="text-align:center;padding:40px;color:#6c757d;">Loading form...</div>';
 
   const state = { 
     type:'lecture', 
@@ -3712,9 +3853,52 @@ function showCreateActivityForm(lessonId, opts){
   
   // Listen for re-render events (ensure single handler)
   try { if (window.__cafRenderHandler) { window.removeEventListener('createActivityRender', window.__cafRenderHandler); } } catch(_){ }
-  window.__cafRenderHandler = function(){ try { render(); } catch(_){ } };
+  window.__cafRenderHandler = function(){ 
+    // OPTIMIZED: Use requestAnimationFrame for render to avoid blocking
+    requestAnimationFrame(function(){ try { render(); } catch(_){ } });
+  };
   window.addEventListener('createActivityRender', window.__cafRenderHandler);
-  const body = modal.querySelector('#cafBody');
+  
+  // OPTIMIZED: Defer localStorage operations to avoid blocking UI
+  requestAnimationFrame(function(){
+    try {
+      const key = 'cr_createActivityDraft_' + String(lessonId);
+      // Restore draft if available and state is fresh
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try { 
+          const saved = JSON.parse(raw); 
+          if (saved && typeof saved === 'object') { 
+            // Never restore editActivityId from a draft; drafts are for new items only
+            if (!opts || !opts.editActivityId) { delete saved.editActivityId; }
+            Object.assign(state, saved);
+            // Trigger render after restore
+            requestAnimationFrame(function(){ try { render(); } catch(_){ } });
+          } 
+        } catch(e){}
+      }
+      // Debounced autosave function
+      let saveTimer = null;
+      const scheduleSave = function(){
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(function(){ 
+          try { 
+            const snapshot = Object.assign({}, state);
+            // Do not persist editActivityId in drafts
+            delete snapshot.editActivityId;
+            localStorage.setItem(key, JSON.stringify(snapshot)); 
+          } catch(_){} 
+        }, 400);
+      };
+      // Expose to inner handlers
+      window.__cafScheduleSave = scheduleSave;
+    } catch(_){}
+  });
+  
+  // OPTIMIZED: Defer initial render to avoid blocking modal display
+  requestAnimationFrame(function(){
+    try { render(); } catch(_){}
+  });
   
   // Test if elements exist
   function render(){

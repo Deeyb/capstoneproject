@@ -6260,7 +6260,7 @@ function showNotification(type, title, message){
     if (type === 'success') iconClass = 'fa-check-circle';
     else if (type === 'error') iconClass = 'fa-exclamation-circle';
     else if (type === 'warning') iconClass = 'fa-exclamation-triangle';
-
+    
     notification.innerHTML = `
         <i class="fas ${iconClass}"></i>
         <div class="notification-content">
@@ -6268,7 +6268,7 @@ function showNotification(type, title, message){
             <div class="notification-message">${message}</div>
         </div>
     `;
-
+    
     document.body.appendChild(notification);
     console.log('✅ Notification added to DOM');
     
@@ -6283,12 +6283,12 @@ function showNotification(type, title, message){
         console.log('⏰ Auto-removing notification after 5 seconds');
         notification.classList.remove('show');
         setTimeout(() => { 
-            if (notification.parentElement) {
-                notification.remove();
+        if (notification.parentElement) {
+            notification.remove();
                 console.log('✅ Notification removed');
             } else {
                 console.log('⚠️ Notification already removed');
-            }
+        }
         }, 300); // Wait for fade-out animation
     }, 5000);
 }

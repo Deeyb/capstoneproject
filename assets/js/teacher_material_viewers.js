@@ -111,6 +111,19 @@
       const materialType = (material && material.type) ? material.type.toLowerCase() : '';
       const materialFilename = (material && material.filename) ? material.filename.toLowerCase() : '';
       
+      // Check for material page viewer (needs to be checked first)
+      const isMaterialPage = /material_page_view\.php/i.test(url) || materialType === 'page';
+      
+      // If viewing our markdown page viewer, expand to true fullscreen for a reading experience
+      if (isMaterialPage) {
+        overlay.style.alignItems = 'stretch';
+        overlay.style.justifyContent = 'stretch';
+        wrap.style.width = '100%';
+        wrap.style.height = '100vh';
+        wrap.style.borderRadius = '0';
+        wrap.style.boxShadow = 'none';
+      }
+      
       // Check file type by material type and filename, not just URL
       const isPdf = lower.endsWith('.pdf') || materialType === 'pdf' || materialFilename.endsWith('.pdf');
       const isVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || materialType === 'video' || materialFilename.match(/\.(mp4|webm)$/);
@@ -236,6 +249,13 @@
             '</div>'+
           '</div>';
         }
+      } else if (isMaterialPage) {
+        // Handle material page viewer - use iframe for full content
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.referrerPolicy = 'no-referrer-when-downgrade';
+        iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
+        body.appendChild(iframe);
       } else {
         // Generic link - show fallback card
         body.style.display = 'flex';

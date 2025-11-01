@@ -1,0 +1,391 @@
+/* Material Page View Styles */
+body { 
+  margin:0; 
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif; 
+  background: #f8fafc;
+  color:#1f2937; 
+  min-height: 100vh;
+}
+.container { 
+  max-width: 100%; 
+  margin: 0; 
+  padding: 40px 60px; 
+  width: 100%;
+  box-sizing: border-box;
+}
+.card { 
+  background:#fff; 
+  border-radius:0; 
+  box-shadow: none; 
+  padding: 40px 60px; 
+  border: none;
+  max-width: 100%;
+  margin: 0;
+}
+h1 { 
+  color:#1f2937; 
+  font-size: 2.25rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.75rem;
+}
+h2 { 
+  color:#374151; 
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+h3 { 
+  color:#4b5563; 
+  font-size: 1.375rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+p { 
+  color:#4b5563; 
+  line-height: 1.7; 
+  margin-bottom: 1.25rem;
+  font-size: 1.1rem;
+}
+ul, ol { 
+  margin-bottom: 1.5rem; 
+  padding-left: 2rem; 
+}
+li { 
+  margin-bottom: 0.5rem; 
+  color:#4b5563; 
+  line-height: 1.6;
+}
+blockquote { 
+  border-left: 3px solid #22c55e; 
+  background: #f8fafc;
+  padding: 1rem 1.5rem; 
+  margin: 1.5rem 0; 
+  border-radius: 0 4px 4px 0; 
+  color: #475569;
+  font-style: italic;
+}
+pre { 
+  background: #ffffff; 
+  color: #000000 !important; 
+  padding: 1rem; 
+  border-radius: 6px; 
+  overflow:auto; 
+  margin: 1.5rem 0;
+  border: 1px solid #e1e4e8;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  font-weight: 400;
+}
+code { 
+  font-family: 'Fira Code', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace; 
+  background: #f1f5f9;
+  color: #e11d48;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+pre code {
+  background: transparent !important;
+  color: inherit;
+  padding: 0;
+  font-family: 'Fira Code', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+}
+/* Enhanced colorful syntax highlighting - Match reference image theme */
+/* White background, colorful syntax - No bold weights */
+/* MAXIMUM SPECIFICITY - Override Prism theme */
+pre code {
+  color: #000000 !important;
+  font-weight: 400 !important;
+}
+/* AGGRESSIVE OVERRIDE - Reset ALL tokens first to prevent Prism theme interference */
+pre code .token,
+pre code .token.token,
+pre code[class*="language"] .token,
+pre code[class*="language"] .token.token {
+  font-weight: 400 !important;
+  /* Don't set color here - let individual rules handle it */
+}
+/* Keywords - PURPLE (#9C27B0) */
+pre code .token.token.keyword,
+pre code .token.token.atrule,
+pre code .token.token.attr-value,
+pre code .token.token.directive,
+pre code .token.token.type,
+pre code .token.keyword,
+pre code .token.atrule,
+pre code .token.attr-value,
+pre code .token.directive,
+pre code .token.type {
+  color: #9C27B0 !important;
+  font-weight: 400 !important;
+}
+/* Built-ins (general) - PURPLE to match keywords */
+pre code .token.token.builtin,
+pre code .token.builtin {
+  color: #9C27B0 !important;
+  font-weight: 400 !important;
+}
+/* Boolean - ORANGE (#FF9800) */
+pre code .token.token.boolean,
+pre code .token.boolean {
+  color: #FF9800 !important;
+  font-weight: 400 !important;
+}
+/* Comments - LIGHT GRAY (#9E9E9E), italic */
+pre code .token.token.comment,
+pre code .token.token.prolog,
+pre code .token.token.doctype,
+pre code .token.token.cdata,
+pre code .token.comment,
+pre code .token.prolog,
+pre code .token.doctype,
+pre code .token.cdata {
+  color: #9E9E9E !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+}
+pre code .token.punctuation,
+pre code .token.operator {
+  color: #000000 !important;
+  font-weight: 400 !important;
+}
+/* Properties/Tags - BLACK (match reference) */
+pre code .token.property,
+pre code .token.tag {
+  color: #000000 !important;
+  font-weight: 400 !important;
+}
+/* Numbers/Constants - ORANGE (#FF9800) */
+pre code .token.token.number,
+pre code .token.token.constant,
+pre code .token.token.symbol,
+pre code .token.number,
+pre code .token.constant,
+pre code .token.symbol {
+  color: #FF9800 !important;
+  font-weight: 400 !important;
+}
+/* Variables/Identifiers - BLACK */
+pre code .token.selector,
+pre code .token.attr-name,
+pre code .token.builtin,
+pre code .token.inserted,
+pre code .token.deleted {
+  color: #000000 !important;
+  font-weight: 400 !important;
+}
+/* Strings - DARK GREEN (#4CAF50) - MAXIMUM SPECIFICITY */
+pre code .token.token.string,
+pre code .token.token.char,
+pre code .token.string,
+pre code .token.char,
+pre code[class*="language"] .token.token.string,
+pre code[class*="language"] .token.token.char,
+pre code[class*="language"] .token.string,
+pre code[class*="language"] .token.char {
+  color: #4CAF50 !important;
+  font-weight: 400 !important;
+}
+/* Override ANY red colors for strings */
+pre code .token[style*="red"],
+pre code .token[style*="rgb(255"],
+pre code .token.string[style*="red"],
+pre code .token.string[style*="rgb(255"] {
+  color: #4CAF50 !important;
+}
+pre code .token.entity,
+pre code .token.url {
+  color: #000000 !important;
+  font-weight: 400 !important;
+}
+/* Functions - LIGHT BLUE/CYAN (#00BCD4) */
+pre code .token.token.function,
+pre code .token.token.class-name,
+pre code .token.function,
+pre code .token.class-name {
+  color: #00BCD4 !important;
+  font-weight: 400 !important;
+}
+/* Variables - BLACK */
+pre code .token.regex,
+pre code .token.important,
+pre code .token.variable {
+  color: #000000 !important;
+  font-weight: 400 !important;
+}
+/* C++ specific - Match reference theme - MAXIMUM SPECIFICITY */
+/* Keywords, types, directives - PURPLE */
+pre code.language-cpp .token.token.keyword,
+pre code.language-cpp .token.token.directive,
+pre code.language-cpp .token.token.type,
+pre code.language-cpp .token.keyword,
+pre code.language-cpp .token.directive,
+pre code.language-cpp .token.type {
+  color: #9C27B0 !important; /* Purple keywords */
+  font-weight: 400 !important;
+}
+/* Built-ins like cout, assert, vector - PURPLE (match reference) */
+pre code.language-cpp .token.token.builtin,
+pre code.language-cpp .token.builtin {
+  color: #9C27B0 !important; /* Purple for std functions/objects */
+  font-weight: 400 !important;
+}
+/* Strings - DARK GREEN - MAXIMUM SPECIFICITY */
+pre code.language-cpp .token.token.string,
+pre code.language-cpp .token.token.char,
+pre code.language-cpp .token.string,
+pre code.language-cpp .token.char {
+  color: #4CAF50 !important;
+  font-weight: 400 !important;
+}
+/* Numbers - ORANGE - MAXIMUM SPECIFICITY */
+pre code.language-cpp .token.token.number,
+pre code.language-cpp .token.token.constant,
+pre code.language-cpp .token.number,
+pre code.language-cpp .token.constant {
+  color: #FF9800 !important;
+  font-weight: 400 !important;
+}
+/* Functions - LIGHT BLUE/CYAN - MAXIMUM SPECIFICITY */
+pre code.language-cpp .token.token.function,
+pre code.language-cpp .token.token.class-name,
+pre code.language-cpp .token.function,
+pre code.language-cpp .token.class-name {
+  color: #00BCD4 !important;
+  font-weight: 400 !important;
+}
+/* Operators/Punctuation - BLACK */
+pre code.language-cpp .token.token.operator,
+pre code.language-cpp .token.token.punctuation,
+pre code.language-cpp .token.operator,
+pre code.language-cpp .token.punctuation {
+  color: #000000 !important;
+  font-weight: 400 !important;
+}
+a { 
+  color: #3b82f6; 
+  text-decoration: none; 
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+a:hover { 
+  border-bottom-color: #3b82f6;
+  color: #1d4ed8;
+}
+.run-toolbar { 
+  display:flex; 
+  gap:8px; 
+  align-items:center; 
+  justify-content:flex-end; 
+  margin:1rem 0 1.5rem; 
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+.btn { 
+  border:1px solid #d1d5db; 
+  border-radius:4px; 
+  padding:8px 12px; 
+  cursor:pointer; 
+  font-weight:500; 
+  font-size: 13px;
+  transition: all 0.15s;
+  background: #fff;
+  color: #374151;
+}
+.btn-success { 
+  background: #22c55e !important; 
+  color: #fff !important; 
+  border-color: #16a34a !important;
+}
+.btn-success:hover {
+  background: #16a34a !important;
+  color: #fff !important;
+}
+.run-toolbar .btn-success {
+  background: #22c55e !important;
+  color: #fff !important;
+  border-color: #16a34a !important;
+}
+.run-toolbar .btn-success:hover {
+  background: #16a34a !important;
+}
+.btn-ghost { 
+  background:#fff; 
+  color:#6b7280; 
+  border: 1px solid #d1d5db;
+}
+.btn-ghost:hover {
+  background: #f9fafb;
+  color: #374151;
+}
+.terminal-modal { 
+  position:fixed; 
+  inset:0; 
+  background:rgba(0,0,0,0.5); 
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  z-index:9999; 
+}
+.terminal-card { 
+  width:90vw; 
+  max-width:1000px; 
+  height:70vh; 
+  background:#111827; 
+  color:#e5e7eb; 
+  border-radius:8px; 
+  box-shadow:0 4px 20px rgba(0,0,0,0.3); 
+  display:flex; 
+  flex-direction:column; 
+  overflow:hidden;
+  border: 1px solid #374151;
+}
+.terminal-header { 
+  padding:12px 16px; 
+  background:#1f2937; 
+  display:flex; 
+  align-items:center; 
+  justify-content:space-between;
+  border-bottom: 1px solid #374151;
+}
+.terminal-body { 
+  flex:1; 
+  padding:16px; 
+  font-family: 'Fira Code', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace; 
+  white-space:pre-wrap; 
+  overflow:auto;
+  background: #0f172a;
+}
+.terminal-close { 
+  background:#ef4444; 
+  color:#fff; 
+  border:0; 
+  border-radius:4px; 
+  width:28px; 
+  height:28px; 
+  cursor:pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  transition: all 0.15s;
+}
+.terminal-close:hover {
+  background: #dc2626;
+}
+/* header/meta intentionally removed for clean content view */
+@media (max-width: 768px) {
+  .container { padding: 20px 16px; }
+  .card { padding: 24px; }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  .content-meta { flex-direction: column; gap: 0.5rem; }
+}
+
