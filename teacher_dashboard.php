@@ -180,16 +180,58 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
             <select id="playRecentSelect" class="play-select" title="Load recent snippet">
               <option value="">Recent snippets…</option>
             </select>
+            <button id="playStopBtn" class="play-stop-btn" type="button" style="display:none;" title="Stop execution">
+              <i class="fas fa-stop"></i>
+              <span>Stop</span>
+            </button>
             <button id="playRunBtn" class="play-run-btn" type="button">
               <i class="fas fa-play"></i>
               <span>Run Code</span>
             </button>
           </div>
         </div>
-        <div class="play-editor">
-          <textarea id="playSource" class="play-textarea" placeholder="Write your code here..."></textarea>
+        <div class="play-ide-container">
+          <!-- Left: Code Editor -->
+          <div class="play-editor-wrapper">
+            <div class="play-file-tabs">
+              <div class="play-file-tab active">
+                <span class="play-file-name">main.cpp</span>
+                <span class="play-file-close">+</span>
+              </div>
+            </div>
+            <div id="playEditor" class="play-editor-monaco"></div>
+            <!-- Fallback textarea for when Monaco is not loaded -->
+            <textarea id="playSource" class="play-textarea" placeholder="Write your code here..." style="display:none;"></textarea>
+          </div>
+          
+          <!-- Right: CodeRegal Terminal (hidden initially, appears after Run Code) -->
+          <div id="playTerminalSidebar" class="play-terminal-sidebar" style="display:none;">
+            <div class="play-terminal-header-bar">
+              <div class="play-terminal-title">
+                <span class="play-terminal-icon"><></span>
+                <span>CodeRegal Terminal</span>
+              </div>
+              <button id="playClearTerminal" class="play-terminal-clear-btn" title="Clear terminal">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div id="playTerminalBody" class="play-terminal-body-content">
+              <div class="terminal-placeholder">Executing...</div>
+            </div>
+            <!-- Input field (hidden by default, shown when program needs input) -->
+            <div id="playTerminalInputWrapper" class="play-terminal-input-wrapper" style="display:none;">
+              <div class="play-terminal-prompt-line">
+                <span id="playTerminalPrompt" class="play-terminal-prompt-text"></span>
+                <input type="text" id="playTerminalInputField" class="play-terminal-input-inline" 
+                  autocomplete="off" spellcheck="false" placeholder="Enter input..." />
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="play-hint">Tip: Press Ctrl/Cmd + Enter to run quickly.</div>
+        <div class="play-hint">
+          <i class="fas fa-lightbulb"></i>
+          <span>Tip: Press Ctrl/Cmd + Enter to run quickly. Use Ctrl/Cmd + / to comment/uncomment lines.</span>
+        </div>
       </div>
     </div>
 
@@ -322,7 +364,39 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
         <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
         <script src="assets/js/teacher_material_viewers.js?v=<?php echo time(); ?>"></script>
   <script>
+    // Verify showSection AFTER scripts are loaded (using setTimeout to ensure scripts execute first)
+    setTimeout(function() {
+      if (typeof window.showSection === 'function') {
+        console.log('✅ showSection is available and properly loaded');
+      } else {
+        console.error('❌ showSection is NOT available! Function not found after script load.');
+        console.error('This means the IIFE in teacher_dashboard.js did not execute properly.');
+        // Fallback: Define a minimal showSection if missing
+        window.showSection = function(sectionId, clickedEl) {
+          console.warn('[FALLBACK] showSection fallback being used - main function not loaded!');
+          console.log('Attempting to show section:', sectionId);
+          const sections = document.querySelectorAll('.section-content');
+          sections.forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
+          const target = document.getElementById(sectionId);
+          if (target) { 
+            target.style.display = 'block'; 
+            target.classList.add('active');
+          }
+          document.querySelectorAll('.sidebar .nav-item').forEach(li => li.classList.remove('active'));
+          if (clickedEl) { clickedEl.classList.add('active'); }
+        };
+        console.log('⚠️ Fallback showSection function has been defined');
+      }
+    }, 100);
+    
     document.addEventListener('DOMContentLoaded', function(){
+      // Verify showSection again after DOM loads
+      if (typeof window.showSection !== 'function') {
+        console.error('❌ CRITICAL: showSection still not available after DOMContentLoaded!');
+      } else {
+        console.log('✅ showSection verified after DOMContentLoaded');
+      }
+      
       // Initialize reusable activity creator system
       if (typeof initTeacherActivitySystem === 'function') {
         try { initTeacherActivitySystem(); } catch(e) { console.error('Activity system init error:', e); }

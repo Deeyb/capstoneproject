@@ -67,13 +67,15 @@ class SecurityConfig {
         // Referrer policy
         header('Referrer-Policy: strict-origin-when-cross-origin');
         
-        // Content Security Policy (basic)
+        // Content Security Policy (enhanced for Monaco Editor and CDN resources)
         $csp = "default-src 'self'; ";
         $csp .= "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; ";
         $csp .= "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; ";
-        $csp .= "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; ";
+        $csp .= "font-src 'self' data: blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com; ";
         $csp .= "img-src 'self' data: https:; ";
-        $csp .= "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com;";
+        $csp .= "worker-src 'self' blob: data: https://cdn.jsdelivr.net; "; // Allow web workers for Monaco Editor
+        $csp .= "child-src 'self' blob:; "; // Allow iframes (if needed)
+        $csp .= "connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com;";
         
         header("Content-Security-Policy: $csp");
     }

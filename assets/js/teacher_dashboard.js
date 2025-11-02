@@ -1,15 +1,24 @@
-    (function initTeacherDashboardMain(){
-    
+// IMMEDIATELY INVOKED FUNCTION - Execute immediately when script loads
+(function initTeacherDashboardMain(){
+	try {
 	function qs(sel, root){ return (root||document).querySelector(sel); }
 	function qsa(sel, root){ return Array.from((root||document).querySelectorAll(sel)); }
 
 	// ===== Moved from teacher_dashboard_init.js =====
-	// Section switching
+	// Section switching - MUST be defined immediately and globally
 	window.showSection = function(sectionId, clickedEl){
+		console.log('[showSection] Called with:', sectionId, clickedEl);
 		const sections = qsa('.section-content');
+		console.log('[showSection] Found sections:', sections.length);
 		sections.forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
 		const target = qs('#' + sectionId);
-		if (target) { target.style.display = 'block'; target.classList.add('active'); }
+		if (target) { 
+			target.style.display = 'block'; 
+			target.classList.add('active');
+			console.log('[showSection] ✅ Showing section:', sectionId);
+		} else {
+			console.error('[showSection] ❌ Section not found:', sectionId);
+		}
 		// Sidebar active state
 		qsa('.sidebar .nav-item').forEach(li => li.classList.remove('active'));
 		if (clickedEl) { clickedEl.classList.add('active'); }
@@ -30,6 +39,8 @@
 			}
 		}
 	};
+	
+	console.log('[initTeacherDashboardMain] ✅ showSection function defined and attached to window');
 
 	// Sidebar toggle (mobile)
 	window.toggleSidebar = function(){
@@ -327,6 +338,23 @@
 
 	// Expose open handler for inline buttons
 	window.enterClass = enterClass;
+	
+	console.log('[initTeacherDashboardMain] ✅ IIFE completed successfully. showSection available:', typeof window.showSection === 'function');
+	} catch (e) {
+		console.error('[initTeacherDashboardMain] ❌ ERROR in IIFE:', e);
+		// Emergency fallback
+		if (typeof window.showSection !== 'function') {
+			window.showSection = function(sectionId, clickedEl) {
+				console.error('[EMERGENCY FALLBACK] showSection called - IIFE failed!');
+				const sections = document.querySelectorAll('.section-content');
+				sections.forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
+				const target = document.getElementById(sectionId);
+				if (target) { target.style.display = 'block'; target.classList.add('active'); }
+				document.querySelectorAll('.sidebar .nav-item').forEach(li => li.classList.remove('active'));
+				if (clickedEl) { clickedEl.classList.add('active'); }
+			};
+		}
+	}
 })();
 
 // Bind click on "My Classes" in sidebar to exit embedded view if open
@@ -1080,73 +1108,884 @@ function renderCourseOutlineHTML(outline){
 }
 
 // ===== Play Area bindings =====
+var playMonacoEditor = null;
+var playMonacoLoaded = false;
+
+function loadPlayMonacoEditor() {
+    if (playMonacoLoaded && window.monaco) return Promise.resolve();
+    if (playMonacoLoaded) return Promise.resolve();
+    
+    return new Promise(function(resolve, reject) {
+        window.MonacoEnvironment = {
+            getWorkerUrl: function (moduleId, label) {
+                // Monaco workers - use blob URLs created from fetched CDN content (CSP-friendly)
+                const path = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs';
+                const workers = {
+                    json: 'language/json/json.worker.js',
+                    css: 'language/css/css.worker.js', 
+                    html: 'language/html/html.worker.js',
+                    ts: 'language/typescript/ts.worker.js',
+                    cpp: 'language/cpp/cpp.worker.js',
+                    java: 'language/java/java.worker.js',
+                    python: 'language/python/python.worker.js',
+                    default: 'editor/editor.worker.js'
+                };
+                const file = workers[label] || workers.default;
+                
+                // For CSP compliance, fetch worker code and create blob URL
+                // But for now, return direct CDN URL (CSP allows https://cdn.jsdelivr.net in worker-src)
+                return `${path}/${file}`;
+            },
+            getWorker: function(workerId, label) {
+                // Fallback worker creation method
+                const path = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs';
+                const workers = {
+                    json: 'language/json/json.worker.js',
+                    css: 'language/css/css.worker.js', 
+                    html: 'language/html/html.worker.js',
+                    ts: 'language/typescript/ts.worker.js',
+                    cpp: 'language/cpp/cpp.worker.js',
+                    java: 'language/java/java.worker.js',
+                    python: 'language/python/python.worker.js',
+                    default: 'editor/editor.worker.js'
+                };
+                const file = workers[label] || workers.default;
+                try {
+                    return new Worker(`${path}/${file}`, { type: 'module' });
+                } catch(e) {
+                    console.warn('Worker creation failed, will use main thread:', e);
+                    return null;
+                }
+            }
+        };
+
+        if (!document.querySelector('link[href*="monaco-editor"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/editor/editor.main.min.css';
+            document.head.appendChild(link);
+        }
+
+        if (!window.require) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/loader.min.js';
+            script.onload = function() {
+                window.require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs' } });
+                window.require(['vs/editor/editor.main'], function() {
+                    playMonacoLoaded = true;
+                    resolve();
+                });
+            };
+            script.onerror = reject;
+            document.head.appendChild(script);
+        } else {
+            window.require(['vs/editor/editor.main'], function() {
+                playMonacoLoaded = true;
+                resolve();
+            });
+        }
+    });
+}
+
+function initPlayMonacoEditor() {
+    var container = document.getElementById('playEditor');
+    var textarea = document.getElementById('playSource');
+    if (!container) return;
+    
+    loadPlayMonacoEditor().then(function() {
+        if (playMonacoEditor) {
+            playMonacoEditor.dispose();
+        }
+        
+        var lang = document.getElementById('playLanguage') ? document.getElementById('playLanguage').value : 'cpp';
+        var langMap = { 'cpp': 'cpp', 'java': 'java', 'python3': 'python' };
+        var monacoLang = langMap[lang] || 'cpp';
+        var initialValue = textarea ? textarea.value : '';
+        
+        playMonacoEditor = window.monaco.editor.create(container, {
+            value: initialValue,
+            language: monacoLang,
+            theme: 'vs-dark',
+            fontSize: 14,
+            automaticLayout: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            wordWrap: 'on',
+            lineNumbers: 'on',
+            folding: true,
+            renderWhitespace: 'selection',
+            formatOnPaste: true,
+            tabSize: 4
+        });
+        
+        if (textarea) {
+            playMonacoEditor.onDidChangeModelContent(function() {
+                textarea.value = playMonacoEditor.getValue();
+            });
+        }
+        
+        // Update language when selector changes
+        var langSel = document.getElementById('playLanguage');
+        if (langSel) {
+            langSel.addEventListener('change', function() {
+                var newLang = langMap[langSel.value] || 'cpp';
+                if (window.monaco && playMonacoEditor) {
+                    window.monaco.editor.setModelLanguage(playMonacoEditor.getModel(), newLang);
+                }
+            });
+        }
+        
+    }).catch(function(err) {
+        console.error('Failed to load Monaco editor:', err);
+        if (textarea) textarea.style.display = 'block';
+    });
+}
+
 (function initPlayArea(){
+    console.log('[PlayArea] Initializing Play Area...');
+    console.log('[PlayArea] Document ready state:', document.readyState);
+    
+    // Remove any existing modal popups on page load (cleanup)
+    var removeExistingModals = function() {
+        var existingModal = document.getElementById('playCodeRegalTerminalModal');
+        if (existingModal) {
+            existingModal.remove();
+            console.log('[PlayArea] Removed existing modal popup on init');
+        }
+    };
+    
+    // Remove modals immediately if DOM is ready
+    if (document.readyState !== 'loading') {
+        removeExistingModals();
+    }
+    
+    // Also remove on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', removeExistingModals);
+    
+    // Periodic cleanup (every 2 seconds) to catch any modals that appear
+    setInterval(removeExistingModals, 2000);
+    
+    // Initialize Monaco Editor on page load
+    if (document.readyState === 'loading') {
+        console.log('[PlayArea] Waiting for DOMContentLoaded');
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[PlayArea] DOMContentLoaded fired, initializing Monaco');
+            initPlayMonacoEditor();
+        });
+    } else {
+        console.log('[PlayArea] DOM already loaded, initializing Monaco in 100ms');
+        setTimeout(function() {
+            console.log('[PlayArea] Timeout fired, initializing Monaco');
+            initPlayMonacoEditor();
+        }, 100);
+    }
+    
+    // Console tab switching
+    console.log('[PlayArea] Setting up console tabs');
+    var consoleTabs = document.querySelectorAll('.console-tab');
+    console.log('[PlayArea] Found', consoleTabs.length, 'console tabs');
+    consoleTabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var tabName = this.getAttribute('data-tab');
+            consoleTabs.forEach(function(t) { t.classList.remove('active'); });
+            this.classList.add('active');
+            
+            var outputDiv = document.getElementById('playConsoleOutput');
+            var inputDiv = document.getElementById('playConsoleInput');
+            
+            if (tabName === 'output') {
+                if (outputDiv) outputDiv.classList.add('active');
+                if (inputDiv) inputDiv.classList.remove('active');
+            } else if (tabName === 'input') {
+                if (inputDiv) inputDiv.classList.add('active');
+                if (outputDiv) outputDiv.classList.remove('active');
+            }
+        });
+    });
+    
+    // Clear terminal
+    console.log('[PlayArea] Setting up clear terminal button');
+    var clearBtn = document.getElementById('playClearTerminal');
+    console.log('[PlayArea] Clear button found:', !!clearBtn);
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            var terminalBody = document.getElementById('playTerminalBody');
+            if (terminalBody) {
+                terminalBody.innerHTML = '<div class="terminal-placeholder">Terminal ready. Write your code and click "Run Code"...</div>';
+                // Clear stored terminal input
+                window.playAreaTerminalInput = null;
+                window.playAreaTerminalInputValue = null;
+            }
+            
+            // Hide input wrapper
+            var inputWrapper = document.getElementById('playTerminalInputWrapper');
+            if (inputWrapper) {
+                inputWrapper.style.display = 'none';
+            }
+        });
+    }
+    
+    // Load recent snippets on initialization
+    console.log('[PlayArea] Loading recent snippets');
+    if (typeof loadRecentSnippets === 'function') {
+        loadRecentSnippets();
+        console.log('[PlayArea] Recent snippets loaded');
+    } else {
+        console.warn('[PlayArea] loadRecentSnippets function not found!');
+    }
+    
+    // Verify button exists
+    setTimeout(function() {
+        var runBtn = document.getElementById('playRunBtn');
+        console.log('[PlayArea] Run button check:', {
+            exists: !!runBtn,
+            id: runBtn ? runBtn.id : 'none',
+            visible: runBtn ? (runBtn.offsetParent !== null) : false,
+            disabled: runBtn ? runBtn.disabled : 'N/A'
+        });
+        
+        var langSel = document.getElementById('playLanguage');
+        console.log('[PlayArea] Language selector check:', {
+            exists: !!langSel,
+            value: langSel ? langSel.value : 'none'
+        });
+        
+        var editor = document.getElementById('playEditor');
+        console.log('[PlayArea] Editor container check:', {
+            exists: !!editor,
+            visible: editor ? (editor.offsetParent !== null) : false
+        });
+        
+        console.log('[PlayArea] Play Area initialization complete!');
+    }, 1000);
+    
     function onClick(e){
-        if (!e || !e.target) return;
-        if (e.target.id === 'playTemplateBtn') { insertTemplate(); return; }
-        if (e.target.id === 'playSaveBtn') { saveSnippet(); return; }
-        if (e.target.id === 'playRecentSelect') { return; }
-        if (e.target.id === 'playRecentSelect' && e.type === 'change') { loadSelectedSnippet(); return; }
-        if (e.target.id !== 'playRunBtn') return;
+        if (!e || !e.target) {
+            console.log('[PlayArea] onClick: No event or target');
+            return;
+        }
+        
+        // Debug: Log all clicks to see what's happening
+        console.log('[PlayArea] onClick triggered:', {
+            targetId: e.target.id,
+            targetTag: e.target.tagName,
+            targetClass: e.target.className,
+            targetParent: e.target.parentElement ? e.target.parentElement.id : 'none'
+        });
+        
+        // Handle button clicks - check button itself or find parent button
+        var clickedEl = e.target;
+        var buttonId = clickedEl.id;
+        
+        // If clicked on icon or span inside button, get parent button
+        if (!buttonId && clickedEl.closest) {
+            var parentBtn = clickedEl.closest('button');
+            if (parentBtn) buttonId = parentBtn.id;
+        }
+        
+        // Fallback: Check parent element
+        if (!buttonId && clickedEl.parentElement) {
+            buttonId = clickedEl.parentElement.id;
+        }
+        
+        console.log('[PlayArea] Resolved button ID:', buttonId);
+        
+        if (buttonId === 'playTemplateBtn') { 
+            console.log('[PlayArea] Insert template clicked');
+            insertTemplate(); 
+            return; 
+        }
+        if (buttonId === 'playSaveBtn') { 
+            console.log('[PlayArea] Save clicked');
+            saveSnippet(); 
+            return; 
+        }
+        if (buttonId === 'playRecentSelect') { 
+            return; 
+        }
+        if (buttonId === 'playRecentSelect' && e.type === 'change') { 
+            loadSelectedSnippet(); 
+            return; 
+        }
+        if (buttonId !== 'playRunBtn' && buttonId !== 'crTermRunBtn') {
+            console.log('[PlayArea] Not a run button click, ignoring');
+            return;
+        }
+        
+        console.log('[PlayArea] Run button clicked! Starting execution...');
+        
         try {
-            var src = document.getElementById('playSource');
+            console.log('[PlayArea] Getting code from editor...');
+            
+            // Get code from Monaco editor or fallback to textarea
+            var code = '';
+            if (playMonacoEditor) {
+                console.log('[PlayArea] Using Monaco Editor');
+                code = playMonacoEditor.getValue();
+                console.log('[PlayArea] Monaco code length:', code.length);
+            } else {
+                console.log('[PlayArea] Using textarea fallback');
+                var src = document.getElementById('playSource');
+                code = src ? src.value : '';
+                console.log('[PlayArea] Textarea code length:', code.length);
+            }
+            
             var langSel = document.getElementById('playLanguage');
-            var out = document.getElementById('playOutput');
-            // out may not exist after UI simplification; guard
-            if (!src || !langSel) return;
+            var consoleOutput = document.getElementById('playConsoleOutput');
+            if (!langSel) return;
+            
             var language = langSel.value || 'cpp';
-            var code = src.value || '';
-            if (out) out.textContent = '';
-            var term = ensureCodeRegalTerminal();
-            term.body.textContent = '';
-            term.modal.style.display = 'flex';
-            if (!code.trim()) { term.body.textContent = 'Please write some code first.'; if (out) out.textContent='Please write some code first.'; return; }
-            if (out) out.textContent = 'Running...';
-            term.body.textContent = 'Running...';
+            if (!code.trim()) {
+                if (consoleOutput) {
+                    consoleOutput.innerHTML = '<div style="color:#ef4444;">❌ Please write some code first.</div>';
+                    consoleOutput.classList.add('active');
+                }
+                return;
+            }
+            
+            // Get console tabs and input element
+            var outputTab = document.querySelector('.console-tab[data-tab="output"]');
+            var inputTab = document.querySelector('.console-tab[data-tab="input"]');
+            var needsInput = hasInputStatements(code);
+            
+            // Parse code to extract prompts (cout statements before cin)
+            var promptsAndInputs = [];
+            if (needsInput && language === 'cpp') {
+                promptsAndInputs = extractPromptsAndInputs(code);
+                console.log('[PlayArea] Extracted prompts:', promptsAndInputs);
+            }
+            
+            // Use terminal-style input if we have prompts
+            var useTerminalInput = promptsAndInputs.length > 0;
+            
+            // Get stdin from sidebar terminal (NOT modal popup)
+            var stdin = '';
+            if (window.playAreaTerminalInputValue) {
+                stdin = window.playAreaTerminalInputValue;
+                console.log('[PlayArea] Using terminal input value:', stdin);
+            } else {
+                // Get from sidebar terminal input field
+                var terminalInputField = document.getElementById('playTerminalInputField');
+                if (terminalInputField && terminalInputField.value) {
+                    stdin = terminalInputField.value.trim();
+                    console.log('[PlayArea] Using sidebar terminal input field:', stdin);
+                }
+            }
+            
+            // Fallback to old methods (for backwards compatibility)
+            if (!stdin) {
+                var inlineTerminalInput = window.playAreaTerminalInput;
+                var oldTerminalInputField = document.getElementById('terminalInputField');
+                var stdinInput = document.getElementById('playStdin');
+                
+                if (inlineTerminalInput && inlineTerminalInput.value) {
+                    stdin = inlineTerminalInput.value.trim();
+                } else if (oldTerminalInputField) {
+                    stdin = oldTerminalInputField.value || '';
+                } else if (stdinInput) {
+                    stdin = stdinInput.value || '';
+                }
+            }
+            
+            console.log('[PlayArea] Checking for input needs:', {
+                needsInput: needsInput,
+                useTerminalInput: useTerminalInput,
+                promptsCount: promptsAndInputs.length,
+                stdinValue: stdin,
+                stdinLength: stdin.length
+            });
+            
+            // If needs input but none provided, show terminal prompt
+            if (needsInput && !stdin.trim() && (buttonId === 'playRunBtn' || clickedEl.closest('#playRunBtn'))) {
+                console.log('[PlayArea] No input provided, showing terminal prompt');
+                
+                // Restore run button
+                var runBtn = document.getElementById('playRunBtn');
+                var stopBtn = document.getElementById('playStopBtn');
+                if (runBtn) runBtn.style.display = 'flex';
+                if (stopBtn) stopBtn.style.display = 'none';
+                
+                // Show sidebar terminal for input (NOT modal popup)
+                if (useTerminalInput && promptsAndInputs.length > 0) {
+                    var firstPrompt = promptsAndInputs[0];
+                    var promptText = firstPrompt.prompt || 'Enter value: ';
+                    
+                    console.log('[PlayArea] Showing sidebar terminal for input:', promptText);
+                    
+                    // Show sidebar terminal
+                    var terminalSidebar = document.getElementById('playTerminalSidebar');
+                    var terminalBody = document.getElementById('playTerminalBody');
+                    var terminalInputWrapper = document.getElementById('playTerminalInputWrapper');
+                    var terminalInputField = document.getElementById('playTerminalInputField');
+                    var terminalPrompt = document.getElementById('playTerminalPrompt');
+                    
+                    if (terminalSidebar) {
+                        terminalSidebar.style.display = 'flex';
+                        var ideContainer = terminalSidebar.closest('.play-ide-container');
+                        if (ideContainer) {
+                            ideContainer.classList.add('play-terminal-visible');
+                        }
+                    }
+                    
+                    if (terminalBody) {
+                        terminalBody.textContent = promptText;
+                    }
+                    
+                    if (terminalInputWrapper && terminalPrompt && terminalInputField) {
+                        terminalPrompt.textContent = promptText;
+                        terminalInputWrapper.style.display = 'block';
+                        terminalInputField.value = '';
+                        
+                        setTimeout(function() {
+                            terminalInputField.focus();
+                        }, 100);
+                        
+                        // Enter key handler
+                        terminalInputField.onkeydown = function(e) {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                var value = terminalInputField.value.trim();
+                                if (value) {
+                                    window.playAreaTerminalInputValue = value;
+                                    if (terminalBody) {
+                                        terminalBody.textContent = promptText + ' ' + value + '\nExecuting...';
+                                    }
+                                    terminalInputWrapper.style.display = 'none';
+                                    
+                                    // Trigger run again
+                                    setTimeout(function() {
+                                        var runBtn = document.getElementById('playRunBtn');
+                                        if (runBtn) runBtn.click();
+                                    }, 100);
+                                }
+                            }
+                        };
+                    }
+                    
+                    return; // Stop execution, wait for user input
+                } else {
+                    // Fallback to old input method
+                    if (inputTab) inputTab.click();
+                    if (stdinInput) {
+                        stdinInput.focus();
+                        stdinInput.style.borderColor = '#ef4444';
+                        setTimeout(function(){ 
+                            if(stdinInput) stdinInput.style.borderColor = '#d1d5db'; 
+                        }, 2000);
+                    }
+                    
+                    if (consoleOutput && outputTab) {
+                        consoleOutput.innerHTML = '<div style="color:#f59e0b;padding:12px;background:#fff7ed;border:1px solid #fbbf24;border-radius:6px;margin:8px;">⚠️ This program requires input. Please enter a value and run again.</div>';
+                        consoleOutput.classList.add('active');
+                        setTimeout(function() {
+                            if (outputTab) outputTab.click();
+                        }, 100);
+                    }
+                }
+                
+                console.log('[PlayArea] ⛔ Stopping execution - waiting for user input');
+                return;
+            }
+            
+            if (needsInput && stdin.trim()) {
+                console.log('[PlayArea] ✅ Input available, proceeding with execution. stdin:', stdin);
+            } else if (!needsInput) {
+                console.log('[PlayArea] No input needed');
+            }
+            
+            // Show CodeRegal Terminal (appears after Run Code, like CodeChum)
+            console.log('[PlayArea] Showing CodeRegal Terminal...');
+            var terminalSidebar = document.getElementById('playTerminalSidebar');
+            var terminalBody = document.getElementById('playTerminalBody');
+            var terminalInputWrapper = document.getElementById('playTerminalInputWrapper');
+            var terminalInputField = document.getElementById('playTerminalInputField');
+            var terminalPrompt = document.getElementById('playTerminalPrompt');
+            
+            // Show terminal sidebar (appears from right, like CodeChum)
+            if (terminalSidebar) {
+                terminalSidebar.style.display = 'flex';
+                // Add class to container for CSS styling
+                var ideContainer = terminalSidebar.closest('.play-ide-container');
+                if (ideContainer) {
+                    ideContainer.classList.add('play-terminal-visible');
+                }
+                console.log('[PlayArea] Terminal sidebar displayed');
+            }
+            
+            if (terminalBody) {
+                // Show "Executing..." initially
+                terminalBody.innerHTML = '';
+                terminalBody.textContent = 'Executing...';
+            }
+            
+            // Show input if needed
+            if (needsInput && promptsAndInputs && promptsAndInputs.length > 0 && !stdin.trim()) {
+                var firstPrompt = promptsAndInputs[0].prompt || 'Enter value:';
+                if (terminalInputWrapper && terminalPrompt && terminalInputField) {
+                    terminalPrompt.textContent = firstPrompt;
+                    terminalInputWrapper.style.display = 'block';
+                    terminalInputField.value = '';
+                    
+                    // Update terminal body to show prompt
+                    if (terminalBody) {
+                        terminalBody.textContent = firstPrompt;
+                    }
+                    
+                    setTimeout(function() {
+                        terminalInputField.focus();
+                    }, 100);
+                    
+                    // Enter key handler
+                    terminalInputField.onkeydown = function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            var value = terminalInputField.value.trim();
+                            if (value) {
+                                window.playAreaTerminalInputValue = value;
+                                
+                                // Show input value in terminal
+                                if (terminalBody) {
+                                    terminalBody.textContent = firstPrompt + ' ' + value + '\nExecuting...';
+                                }
+                                terminalInputWrapper.style.display = 'none';
+                                
+                                // Trigger run again
+                                setTimeout(function() {
+                                    var runBtn = document.getElementById('playRunBtn');
+                                    if (runBtn) runBtn.click();
+                                }, 100);
+                            }
+                        }
+                    };
+                }
+                return; // Wait for input
+            } else if (terminalInputWrapper) {
+                terminalInputWrapper.style.display = 'none';
+            }
+            
+            // Show stop button
+            var stopBtn = document.getElementById('playStopBtn');
+            var runBtn = document.getElementById('playRunBtn');
+            if (stopBtn) {
+                stopBtn.style.display = 'flex';
+                console.log('[PlayArea] Stop button shown');
+            }
+            if (runBtn) {
+                runBtn.style.display = 'none';
+                console.log('[PlayArea] Run button hidden');
+            }
+            
+            console.log('[PlayArea] Creating FormData...');
             var fd = new FormData();
             fd.append('action','run_snippet');
             fd.append('language', language);
             fd.append('source', code);
-            fd.append('stdin', '');
+            fd.append('stdin', stdin || '');
+            
+            console.log('[PlayArea] FormData created with:', {
+                action: 'run_snippet',
+                language: language,
+                sourceLength: code.length,
+                stdinLength: stdin ? stdin.length : 0,
+                stdinValue: stdin ? stdin.substring(0, 50) : 'empty'
+            });
+            
+            console.log('[PlayArea] ✅ Ready to send request - about to get CSRF token');
+            
             function send(body){
-                fetch('teacher_materials_api.php', { method:'POST', credentials:'same-origin', body: body })
-                  .then(function(r){ return r.text(); })
-                  .then(function(t){
-                      var d; try { d = JSON.parse(t); } catch(e) { d = { success:false, message:'Non-JSON response', raw:t }; }
-                      return d;
+                console.log('[PlayArea] 🔵 send() function called!');
+                console.log('[PlayArea] Sending request to course_outline_manage.php');
+                console.log('[PlayArea] FormData entries:', {
+                    action: body.get('action'),
+                    language: body.get('language'),
+                    hasSource: !!body.get('source'),
+                    sourceLength: body.get('source') ? body.get('source').length : 0,
+                    stdin: body.get('stdin'),
+                    hasCSRF: body.has('csrf_token')
+                });
+                
+                var startTime = performance.now();
+                
+                fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: body })
+                  .then(function(r){ 
+                      console.log('[PlayArea] Response received:', {
+                          status: r.status,
+                          statusText: r.statusText,
+                          ok: r.ok,
+                          headers: Object.fromEntries(r.headers.entries())
+                      });
+                      
+                      if (!r.ok) {
+                          console.error('[PlayArea] HTTP error:', r.status, r.statusText);
+                          return r.text().then(function(text) {
+                              console.error('[PlayArea] Error response body:', text);
+                              var errorMsg = 'HTTP ' + r.status + ': ' + r.statusText;
+                              if (r.status === 403) {
+                                  errorMsg += '\nAccess forbidden. Check authentication and CSRF token.';
+                              } else if (r.status === 401) {
+                                  errorMsg += '\nNot authenticated. Please refresh the page.';
+                              }
+                              throw new Error(errorMsg + '\nResponse: ' + text.substring(0, 200));
+                          });
+                      }
+                      
+                      // Check content type
+                      var contentType = r.headers.get('content-type') || '';
+                      console.log('[PlayArea] Response content-type:', contentType);
+                      
+                      if (contentType.includes('application/json')) {
+                          return r.json();
+                      } else {
+                          // Not JSON, try to parse as text first
+                          return r.text().then(function(text) {
+                              console.warn('[PlayArea] Response is not JSON, got text:', text.substring(0, 200));
+                              try {
+                                  return JSON.parse(text);
+                              } catch(e) {
+                                  throw new Error('Invalid JSON response: ' + text.substring(0, 200));
+                              }
+                          });
+                      }
                   })
                   .then(function(d){
+                      var duration = (performance.now() - startTime).toFixed(2);
+                      console.log('[PlayArea] Response received in', duration + 'ms:', d);
+                      
                       var text = '';
                       if (d && d.success && d.results) {
+                          console.log('[PlayArea] Success! Results:', d.results);
                           try {
                               var res = Array.isArray(d.results) ? d.results : [d.results];
-                              text = res.map(function(x){
+                              text = res.map(function(x, idx){
+                                  console.log('[PlayArea] Processing result', idx + ':', x);
+                                  
+                                  // JDoodle response can be in different formats
                                   var inner = (x.data ? x.data : x) || {};
-                                  var t = (inner.output || inner.stdout || inner.outputText || inner.result || '').toString();
-                                  var err = (inner.stderr || inner.error || inner.cmpinfo || '').toString();
-                                  return [t, err].filter(Boolean).join('\n');
+                                  
+                                  // Check if this is already a JDoodle direct response
+                                  if (x.output !== undefined && !x.data) {
+                                      inner = x; // Use x directly if it has output
+                                  }
+                                  
+                                  var t = '';
+                                  var err = '';
+                                  
+                                  // Primary: JDoodle direct response structure
+                                  if (inner.output !== undefined) {
+                                      t = String(inner.output || '').trim();
+                                  }
+                                  if (inner.error !== undefined) {
+                                      err = String(inner.error || '').trim();
+                                  }
+                                  
+                                  // Fallback: Other possible field names
+                                  if (!t && !err) {
+                                      t = (inner.stdout || inner.outputText || inner.result || '').toString().trim();
+                                      err = (inner.stderr || inner.cmpinfo || '').toString().trim();
+                                  }
+                                  
+                                  // Check statusCode for errors
+                                  var statusCode = inner.statusCode || inner.status || '';
+                                  if (statusCode && statusCode !== '200' && statusCode !== 200) {
+                                      err = err || ('Status Code: ' + statusCode);
+                                  }
+                                  
+                                  // Log metadata
+                                  if (inner.cpuTime) {
+                                      console.log('[PlayArea] CPU time:', inner.cpuTime, 'ms');
+                                  }
+                                  if (inner.memory) {
+                                      console.log('[PlayArea] Memory:', inner.memory, 'KB');
+                                  }
+                                  if (statusCode) {
+                                      console.log('[PlayArea] Status Code:', statusCode);
+                                  }
+                                  
+                                  var combined = [t, err].filter(Boolean).join('\n');
+                                  console.log('[PlayArea] Combined output for result', idx + ':', combined);
+                                  return combined;
                               }).join('\n');
-                          } catch (e) { text = JSON.stringify(d.results || d, null, 2); }
-    } else {
+                          } catch (e) { 
+                              console.error('[PlayArea] Error processing results:', e);
+                              text = JSON.stringify(d.results || d, null, 2); 
+                          }
+                      } else {
+                          console.error('[PlayArea] Failed response:', d);
                           text = (d && d.message) ? ('Error: ' + d.message) : 'Run failed';
+                          if (d && d.error) {
+                              text += '\n' + String(d.error);
+                          }
                           if (d && d.raw) { text += '\n' + String(d.raw); }
                       }
                       text = (text || '').trim();
-                      if (out) out.textContent = text || '(no output)';
-                      term.body.textContent = text || '(no output)';
+                      
+                      // Show output in CodeRegal Terminal (right sidebar)
+                      console.log('[PlayArea] Final output text:', text);
+                      var terminalSidebar = document.getElementById('playTerminalSidebar');
+                      var terminalBody = document.getElementById('playTerminalBody');
+                      var terminalInputWrapper = document.getElementById('playTerminalInputWrapper');
+                      
+                      // Ensure terminal is visible
+                      if (terminalSidebar && terminalSidebar.style.display === 'none') {
+                          terminalSidebar.style.display = 'flex';
+                      }
+                      
+                      if (terminalBody) {
+                          var outputLines = [];
+                          var currentContent = terminalBody.textContent || '';
+                          
+                          // If we have stdin input, show prompt + input + output (like CodeChum)
+                          if (stdin && stdin.trim()) {
+                              // Extract prompt from current content or use default
+                              var promptText = 'Enter value:';
+                              var promptMatch = currentContent.match(/^([^:]+:)/);
+                              if (promptMatch) {
+                                  promptText = promptMatch[1];
+                              } else {
+                                  // Try to get from input wrapper
+                                  var terminalPrompt = document.getElementById('playTerminalPrompt');
+                                  if (terminalPrompt) {
+                                      promptText = terminalPrompt.textContent || promptText;
+                                  }
+                              }
+                              
+                              // Format: prompt input (on same line, like CodeChum)
+                              outputLines.push(promptText + ' ' + stdin);
+                          }
+                          
+                          // Add program output
+                          if (text && text.trim()) {
+                              outputLines.push(text);
+                              // Add termination message (like CodeChum)
+                              outputLines.push('>>> Program Terminated');
+                          } else if (!stdin) {
+                              outputLines.push('(no output)');
+                              outputLines.push('>>> Program Terminated');
+                          }
+                          
+                          terminalBody.textContent = outputLines.join('\n');
+                          terminalBody.scrollTop = terminalBody.scrollHeight;
+                          
+                          // Hide input wrapper
+                          if (terminalInputWrapper) {
+                              terminalInputWrapper.style.display = 'none';
+                          }
+                      }
+                      
+                      // Hide stop button, show run button
+                      if (stopBtn) stopBtn.style.display = 'none';
+                      if (runBtn) runBtn.style.display = 'flex';
+                      
+                      console.log('[PlayArea] Execution completed successfully');
                   })
-                  .catch(function(err){ var t='Network error: ' + err; if (out) out.textContent=t; term.body.textContent=t; });
+                  .catch(function(err){ 
+                      console.error('[PlayArea] Fetch error:', err);
+                      var t = 'Network error: ' + (err.message || err);
+                      if (consoleOutput) {
+                          consoleOutput.innerHTML = '<div style="color:#ef4444;">❌ ' + escapeHtml(t) + '<br><small style="color:#9ca3af;">Check browser console for details.</small></div>';
+                          consoleOutput.classList.add('active');
+                      }
+                      if (stopBtn) stopBtn.style.display = 'none';
+                      if (runBtn) runBtn.style.display = 'flex';
+                  });
             }
+            
+            function escapeHtml(text) {
+                var div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            // Get CSRF token first
+            console.log('[PlayArea] 🔑 Getting CSRF token...');
+            console.log('[PlayArea] Checking for window.getCSRFToken:', typeof window.getCSRFToken);
+            
             if (typeof window.getCSRFToken === 'function') {
-                window.getCSRFToken().then(function(tok){ if (tok && !fd.has('csrf_token')) fd.append('csrf_token', tok); send(fd); }).catch(function(){ send(fd); });
-            } else { send(fd); }
+                console.log('[PlayArea] ✅ Using window.getCSRFToken');
+                var tokenPromise = window.getCSRFToken();
+                console.log('[PlayArea] CSRF token promise created');
+                
+                tokenPromise.then(function(tok){ 
+                    console.log('[PlayArea] ✅ CSRF token received:', tok ? 'yes (' + tok.substring(0, 10) + '...)' : 'no');
+                    if (tok && !fd.has('csrf_token')) {
+                        fd.append('csrf_token', tok);
+                        console.log('[PlayArea] ✅ CSRF token added to FormData');
+                    } else {
+                        console.warn('[PlayArea] ⚠️ No CSRF token or already present');
+                    }
+                    console.log('[PlayArea] 🔵 Calling send() with CSRF token');
+                    send(fd); 
+                }).catch(function(err){ 
+                    console.error('[PlayArea] ❌ CSRF token fetch failed:', err);
+                    console.log('[PlayArea] 🔵 Calling send() without CSRF token (may fail)');
+                    send(fd); 
+                });
+            } else { 
+                console.log('[PlayArea] ⚠️ window.getCSRFToken not available, fetching from API');
+                // Try to get CSRF token from course_outline_manage.php
+                var csrfFd = new FormData();
+                csrfFd.append('action','get_csrf_token');
+                
+                console.log('[PlayArea] 🔵 Fetching CSRF token from API...');
+                fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: csrfFd })
+                    .then(function(r){ 
+                        console.log('[PlayArea] CSRF token response status:', r.status, r.statusText);
+                        if (!r.ok) {
+                            console.error('[PlayArea] ❌ CSRF token request failed:', r.status);
+                            return r.text().then(function(text) {
+                                console.error('[PlayArea] CSRF error response:', text);
+                                return { success: false };
+                            });
+                        }
+                        return r.json(); 
+                    })
+                    .then(function(j){ 
+                        console.log('[PlayArea] CSRF token response:', j);
+                        // Check both 'token' and 'csrf_token' field names
+                        var token = (j && j.success) ? (j.csrf_token || j.token) : null;
+                        if (token) {
+                            fd.append('csrf_token', token);
+                            console.log('[PlayArea] ✅ CSRF token added from API:', token.substring(0, 10) + '...');
+                        } else {
+                            console.warn('[PlayArea] ⚠️ No CSRF token in response, sending without it');
+                        }
+                        console.log('[PlayArea] 🔵 Calling send() after CSRF fetch');
+                        send(fd);
+                    })
+                    .catch(function(err){ 
+                        console.error('[PlayArea] ❌ CSRF token fetch error:', err);
+                        console.log('[PlayArea] 🔵 Calling send() without CSRF token (may fail)');
+                        send(fd); 
+                    });
+            }
+            
+            console.log('[PlayArea] ⏳ CSRF token flow initiated, waiting for token...');
         } catch (err) {
-            var term = ensureCodeRegalTerminal();
-            term.modal.style.display = 'flex';
-            term.body.textContent = 'Runtime error: ' + err;
+            var consoleOutput = document.getElementById('playConsoleOutput');
+            if (consoleOutput) {
+                consoleOutput.innerHTML = '<div style="color:#ef4444;">❌ Runtime error: ' + escapeHtml(String(err)) + '</div>';
+                consoleOutput.classList.add('active');
+            }
         }
     }
-    document.addEventListener('click', onClick);
+    // Add click event listener with capture to catch early
+    document.addEventListener('click', onClick, true); // Use capture phase
+    
+    // Also try direct binding as fallback
+    setTimeout(function() {
+        var runBtn = document.getElementById('playRunBtn');
+        if (runBtn) {
+            console.log('[PlayArea] Directly binding playRunBtn click handler');
+            runBtn.addEventListener('click', function(e) {
+                console.log('[PlayArea] Direct button click handler fired');
+                e.stopPropagation();
+                onClick(e);
+            });
+        } else {
+            console.warn('[PlayArea] playRunBtn not found! Button may not be in DOM yet.');
+        }
+    }, 500);
     document.addEventListener('change', function(e){ if (e && e.target && e.target.id==='playRecentSelect') loadSelectedSnippet(); });
     // Keyboard shortcut: Ctrl/Cmd + Enter
     document.addEventListener('keydown', function(ev){
@@ -1164,40 +2003,160 @@ function renderCourseOutlineHTML(outline){
     });
 })();
 
-function ensureCodeRegalTerminal(){
+function hasInputStatements(source){
+    // Check if code uses cin, input(), raw_input(), Scanner, etc.
+    const cppInput = /\bcin\s*>>/i.test(source);
+    const pythonInput = /\binput\s*\(/i.test(source) || /\braw_input\s*\(/i.test(source);
+    const javaInput = /new\s+Scanner\s*\(/i.test(source) || /\bSystem\.in/i.test(source);
+    return cppInput || pythonInput || javaInput;
+}
+
+// Parse C++ code to extract cout prompts before cin statements
+function extractPromptsAndInputs(code) {
+    var prompts = [];
+    var lines = code.split('\n');
+    
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var trimmedLine = line.trim();
+        
+        // Look for cin >> variable pattern
+        var cinMatch = trimmedLine.match(/cin\s*>>\s*(\w+)/);
+        
+        if (cinMatch) {
+            var prompt = '';
+            var variable = cinMatch[1];
+            
+            // Look for cout in the same line first: cout << "prompt"; cin >> var;
+            var sameLineCout = line.match(/cout\s*<<\s*["']([^"']+)["']/);
+            if (sameLineCout) {
+                prompt = sameLineCout[1];
+            } else {
+                // Look in previous lines (check up to 5 lines back)
+                for (var j = Math.max(0, i - 5); j < i; j++) {
+                    var prevLine = lines[j];
+                    var coutMatch = prevLine.match(/cout\s*<<\s*["']([^"']+)["']/);
+                    if (coutMatch) {
+                        prompt = coutMatch[1];
+                        break;
+                    }
+                    // Also check for multi-line cout: cout << "line1" << "line2";
+                    var multiCout = prevLine.match(/cout\s*<<\s*["']([^"']+)["']\s*<<\s*["']([^"']+)["']/);
+                    if (multiCout) {
+                        prompt = multiCout[1] + multiCout[2];
+                        break;
+                    }
+                }
+            }
+            
+            // If still no prompt, use default
+            if (!prompt) {
+                prompt = 'Enter value for ' + variable + ': ';
+            }
+            
+            prompts.push({
+                prompt: prompt.trim(),
+                variable: variable
+            });
+        }
+    }
+    
+    console.log('[extractPromptsAndInputs] Found prompts:', prompts);
+    return prompts;
+}
+
+// Format output to show terminal-style interaction (prompt + input + output)
+function formatTerminalOutput(output, stdin) {
+    if (!output) return '';
+    
+    var result = output;
+    
+    // If we have stdin, try to incorporate it into the output format
+    // For C++ programs, prompts are usually in the output
+    // But we want to show: "Enter your mark: " + userInput + "\n" + programOutput
+    
+    // Check if output already contains prompts (JDoodle should include them)
+    // If not, we might need to reconstruct from stdin
+    
+    // For now, return the output as-is since JDoodle includes prompts in output
+    // But we can enhance this to show input values separately if needed
+    return result;
+}
+
+function ensureCodeRegalTerminal(needsInput){
 	var modal = document.getElementById('crTerminalModal');
-  if (!modal) {
-    modal = document.createElement('div');
-		modal.id = 'crTerminalModal';
-		modal.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:4000;';
-		modal.innerHTML = '<div style="width:90%;max-width:900px;background:#0b1220;color:#e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.35);overflow:hidden;">' +
+    
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'crTerminalModal';
+        modal.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:4000;';
+        var stdinSection = needsInput ? 
+            '<div id="crTermStdinContainer" style="padding:14px;background:#1a1f2e;border-bottom:1px solid #1f2937;">' +
+            '<label style="display:block;margin-bottom:8px;font-weight:600;color:#e5e7eb;font-size:13px;">Program Input (stdin):</label>' +
+            '<textarea id="crTermStdin" placeholder="Enter input values here (one per line)" style="width:100%;min-height:60px;padding:8px;border:1px solid #374151;border-radius:6px;background:#0f172a;color:#e5e7eb;font-family:ui-monospace,monospace;font-size:13px;resize:vertical;"></textarea>' +
+            '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;">' +
+            '<button id="crTermRunBtn" style="background:#22c55e;color:white;border:none;padding:6px 16px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;">▶ Run with Input</button>' +
+            '<div style="flex:1;font-size:11px;color:#9ca3af;line-height:1.4;">Tip: Multiple inputs? Enter each value on a new line or separated by spaces.</div>' +
+            '</div></div>' : '';
+        
+        modal.innerHTML = '<div style="width:90%;max-width:900px;background:#0b1220;color:#e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.35);overflow:hidden;">' +
 			'<div style="display:flex;align-items:center;justify-content:space-between;background:#0f172a;padding:10px 14px;border-bottom:1px solid #1f2937;">' +
 			  '<div style="font-weight:700;">CodeRegal Terminal</div>' +
 			  '<button id="crTermClose" style="background:#1f2937;color:#e5e7eb;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">Close</button>' +
 			'</div>' +
+            stdinSection +
 			'<pre id="crTermBody" style="margin:0;white-space:pre-wrap;padding:14px;min-height:220px;max-height:60vh;overflow:auto;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace;"></pre>' +
 		'</div>';
-    document.body.appendChild(modal);
+        document.body.appendChild(modal);
 		modal.addEventListener('click', function(e){ if (e.target === modal) modal.style.display = 'none'; });
 		var c = modal.querySelector('#crTermClose'); if (c) c.onclick = function(){ modal.style.display = 'none'; };
+		
+		// Bind stdin run button
+		var runBtn = modal.querySelector('#crTermRunBtn');
+		if (runBtn) {
+			runBtn.onclick = onClick;
+		}
+	} else {
+		// Update existing modal if needs input section
+		var stdinContainer = document.getElementById('crTermStdinContainer');
+		var bodyEl = modal.querySelector('#crTermBody');
+		if (needsInput && !stdinContainer && bodyEl) {
+			var stdinHtml = '<div id="crTermStdinContainer" style="padding:14px;background:#1a1f2e;border-bottom:1px solid #1f2937;">' +
+				'<label style="display:block;margin-bottom:8px;font-weight:600;color:#e5e7eb;font-size:13px;">Program Input (stdin):</label>' +
+				'<textarea id="crTermStdin" placeholder="Enter input values here (one per line)" style="width:100%;min-height:60px;padding:8px;border:1px solid #374151;border-radius:6px;background:#0f172a;color:#e5e7eb;font-family:ui-monospace,monospace;font-size:13px;resize:vertical;"></textarea>' +
+				'<div style="margin-top:8px;display:flex;gap:8px;align-items:center;">' +
+				'<button id="crTermRunBtn" style="background:#22c55e;color:white;border:none;padding:6px 16px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;">▶ Run with Input</button>' +
+				'<div style="flex:1;font-size:11px;color:#9ca3af;line-height:1.4;">Tip: Multiple inputs? Enter each value on a new line or separated by spaces.</div>' +
+				'</div></div>';
+			bodyEl.insertAdjacentHTML('beforebegin', stdinHtml);
+			var newRunBtn = modal.querySelector('#crTermRunBtn');
+			if (newRunBtn) newRunBtn.onclick = onClick;
+		}
 	}
 	return { modal: modal, body: modal.querySelector('#crTermBody') };
 }
 
 function insertTemplate(){
     var langSel = document.getElementById('playLanguage');
-    var src = document.getElementById('playSource');
-    if (!langSel || !src) return;
+    if (!langSel) return;
+    
     var lang = langSel.value || 'cpp';
     var code = '';
     if (lang === 'cpp') {
-        code = '#include <iostream>\nusing namespace std;\nint main(){\n  cout << "Hello, World!" << endl;\n  return 0;\n}\n';
+        code = '#include <iostream>\nusing namespace std;\n\nint main(){\n  cout << "Hello, World!" << endl;\n  return 0;\n}\n';
     } else if (lang === 'java') {
         code = 'public class Main {\n  public static void main(String[] args){\n    System.out.println("Hello, World!");\n  }\n}\n';
-  } else {
+    } else {
         code = 'print("Hello, World!")\n';
     }
-    src.value = code;
+    
+    // Use Monaco editor if available, otherwise textarea
+    if (playMonacoEditor) {
+        playMonacoEditor.setValue(code);
+    } else {
+        var src = document.getElementById('playSource');
+        if (src) src.value = code;
+    }
 }
 
 // Snippet persistence (localStorage)
@@ -1216,11 +2175,20 @@ function loadRecentSnippets(){
 function saveSnippet(){
     try {
         var langSel = document.getElementById('playLanguage');
-        var src = document.getElementById('playSource');
-        if (!langSel || !src) return;
+        if (!langSel) return;
+        
+        // Get code from Monaco editor or textarea
+        var code = '';
+        if (playMonacoEditor) {
+            code = playMonacoEditor.getValue();
+        } else {
+            var src = document.getElementById('playSource');
+            code = src ? src.value : '';
+        }
+        
         var title = prompt('Snippet title:', 'My snippet');
         if (title === null) return;
-        var item = { title: (title||'Untitled'), lang: langSel.value||'', code: src.value||'' };
+        var item = { title: (title||'Untitled'), lang: langSel.value||'', code: code };
         var raw = localStorage.getItem('cr_play_snippets');
         var list = raw ? JSON.parse(raw) : [];
         list.unshift(item);
@@ -1240,14 +2208,208 @@ function loadSelectedSnippet(){
         var s = list[idx];
         if (!s) return;
         var langSel = document.getElementById('playLanguage');
-        var src = document.getElementById('playSource');
-        if (langSel) langSel.value = s.lang || langSel.value;
-        if (src) src.value = s.code || '';
+        if (langSel && s.lang) langSel.value = s.lang;
+        
+        // Update Monaco editor or textarea
+        if (playMonacoEditor) {
+            playMonacoEditor.setValue(s.code || '');
+            // Update language if needed
+            var langMap = { 'cpp': 'cpp', 'java': 'java', 'python3': 'python' };
+            var monacoLang = langMap[s.lang] || 'cpp';
+            window.monaco.editor.setModelLanguage(playMonacoEditor.getModel(), monacoLang);
+        } else {
+            var src = document.getElementById('playSource');
+            if (src) src.value = s.code || '';
+        }
+        
         sel.selectedIndex = 0;
     } catch(_) {}
 }
 
 function escapeHtml(str){ return String(str).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]); }); }
+
+// DISABLED: Open CodeRegal Terminal Modal (popup window) - NOT USED ANYMORE, using sidebar instead
+function openCodeRegalTerminalModal(needsInput, promptsAndInputs) {
+    // This function is disabled - we use sidebar terminal instead
+    console.warn('[PlayArea] openCodeRegalTerminalModal called but disabled - using sidebar terminal instead');
+    
+    // Remove any existing modal popups
+    var existingModal = document.getElementById('playCodeRegalTerminalModal');
+    if (existingModal) {
+        existingModal.remove();
+        console.log('[PlayArea] Removed existing modal popup');
+    }
+    
+    return null;
+    
+    /* DISABLED CODE - DO NOT USE MODAL POPUP - USE SIDEBAR TERMINAL INSTEAD
+    var modalId = 'playCodeRegalTerminalModal';
+    var modal = document.getElementById(modalId);
+    
+    if (!modal) {
+        // Create modal
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'play-terminal-modal';
+        modal.style.display = 'flex'; // Show immediately
+        
+        var terminalBodyId = 'playTerminalBody_' + Date.now();
+        var stdinSection = '';
+        
+        if (needsInput && promptsAndInputs && promptsAndInputs.length > 0) {
+            var firstPrompt = promptsAndInputs[0].prompt || 'Enter value:';
+            stdinSection = `
+                <div class="play-terminal-input-section active" id="playTerminalInputSection">
+                    <label class="play-terminal-input-label">${escapeHtml(firstPrompt)}</label>
+                    <input type="text" id="playTerminalInputField" class="play-terminal-input-field" 
+                        placeholder="Type your input here..." autocomplete="off" spellcheck="false" />
+                    <button class="play-terminal-run-btn" id="playTerminalRunBtn">▶ Run</button>
+                </div>
+            `;
+        }
+        
+        modal.innerHTML = `
+            <div class="play-terminal-card">
+                <div class="play-terminal-header">
+                    <div class="play-terminal-header-text">CodeRegal Terminal</div>
+                    <button class="play-terminal-close" id="playTerminalClose">✕</button>
+                </div>
+                ${stdinSection}
+                <div class="play-terminal-body" id="${terminalBodyId}">🔄 Processing code...</div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Close button
+        var closeBtn = modal.querySelector('#playTerminalClose');
+        if (closeBtn) {
+            closeBtn.onclick = function() {
+                modal.remove();
+            };
+        }
+        
+        // Close on background click
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+        // Run button for input
+        var runBtn = modal.querySelector('#playTerminalRunBtn');
+        var inputField = modal.querySelector('#playTerminalInputField');
+        if (runBtn && inputField) {
+            runBtn.onclick = function() {
+                var inputValue = inputField.value.trim();
+                if (inputValue) {
+                    // Store input and trigger actual run
+                    window.playAreaTerminalInputValue = inputValue;
+                    // Hide input section
+                    var inputSection = modal.querySelector('#playTerminalInputSection');
+                    if (inputSection) inputSection.classList.remove('active');
+                    // Update terminal body
+                    var terminalBody = modal.querySelector('.play-terminal-body');
+                    if (terminalBody) {
+                        var promptText = inputSection ? inputSection.querySelector('.play-terminal-input-label').textContent : 'Enter value:';
+                        terminalBody.textContent = promptText + ' ' + inputValue + '\n🔄 Processing...';
+                    }
+                    // Trigger the run button click
+                    var actualRunBtn = document.getElementById('playRunBtn');
+                    if (actualRunBtn) {
+                        actualRunBtn.click();
+                    }
+                } else {
+                    inputField.focus();
+                }
+            };
+            
+            // Enter key to run
+            inputField.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    runBtn.click();
+                }
+            });
+            
+            // Auto-focus input field
+            setTimeout(function() {
+                inputField.focus();
+            }, 100);
+        }
+        
+        // Store terminal body ID for output updates
+        window.playTerminalBodyId = terminalBodyId;
+        console.log('[PlayArea] CodeRegal Terminal modal created and displayed');
+    } else {
+        // Update existing modal - show it
+        modal.style.display = 'flex';
+        var terminalBody = modal.querySelector('.play-terminal-body');
+        if (terminalBody) {
+            terminalBody.textContent = '🔄 Processing code...';
+        }
+        
+        // Update input section if needed
+        var inputSection = modal.querySelector('#playTerminalInputSection');
+        if (needsInput && promptsAndInputs && promptsAndInputs.length > 0) {
+            if (!inputSection) {
+                var firstPrompt = promptsAndInputs[0].prompt || 'Enter value:';
+                var newInputSection = document.createElement('div');
+                newInputSection.className = 'play-terminal-input-section active';
+                newInputSection.id = 'playTerminalInputSection';
+                newInputSection.innerHTML = `
+                    <label class="play-terminal-input-label">${escapeHtml(firstPrompt)}</label>
+                    <input type="text" id="playTerminalInputField" class="play-terminal-input-field" 
+                        placeholder="Type your input here..." autocomplete="off" spellcheck="false" />
+                    <button class="play-terminal-run-btn" id="playTerminalRunBtn">▶ Run</button>
+                `;
+                var header = modal.querySelector('.play-terminal-header');
+                header.insertAdjacentElement('afterend', newInputSection);
+                
+                // Setup run button
+                var runBtn = newInputSection.querySelector('#playTerminalRunBtn');
+                var inputField = newInputSection.querySelector('#playTerminalInputField');
+                if (runBtn && inputField) {
+                    runBtn.onclick = function() {
+                        var inputValue = inputField.value.trim();
+                        if (inputValue) {
+                            window.playAreaTerminalInputValue = inputValue;
+                            var inputSection = modal.querySelector('#playTerminalInputSection');
+                            if (inputSection) inputSection.classList.remove('active');
+                            var terminalBody = modal.querySelector('.play-terminal-body');
+                            if (terminalBody) {
+                                var promptText = inputSection ? inputSection.querySelector('.play-terminal-input-label').textContent : 'Enter value:';
+                                terminalBody.textContent = promptText + ' ' + inputValue + '\n🔄 Processing...';
+                            }
+                            var actualRunBtn = document.getElementById('playRunBtn');
+                            if (actualRunBtn) actualRunBtn.click();
+                        }
+                    };
+                    inputField.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            runBtn.click();
+                        }
+                    });
+                    setTimeout(function() { inputField.focus(); }, 100);
+                }
+            } else {
+                inputSection.classList.add('active');
+                var inputField = inputSection.querySelector('#playTerminalInputField');
+                if (inputField) {
+                    inputField.value = '';
+                    setTimeout(function() { inputField.focus(); }, 100);
+                }
+            }
+        } else if (inputSection) {
+            inputSection.classList.remove('active');
+        }
+        console.log('[PlayArea] CodeRegal Terminal modal shown');
+    }
+    
+    return modal;
+    */
+}
 
 // CSRF token helper for teacher class materials API
 function getCSRFToken(){
@@ -2548,9 +3710,14 @@ function showAddMaterialModal(topicItem, topicTitle){
             fileSection.style.display = 'block';
             // Set file input accept attribute
             var fileInput = modal.querySelector('#materialFileInput');
-            if (type === 'pdf') fileInput.accept = '.pdf,application/pdf';
-            else fileInput.accept = '*/*';
-  } else {
+            if (fileInput) {
+                if (type === 'pdf') {
+                    fileInput.setAttribute('accept', '.pdf,application/pdf');
+                } else {
+                    fileInput.setAttribute('accept', '*');
+                }
+            }
+        } else {
             urlSection.style.display = 'none';
             fileSection.style.display = 'none';
         }
@@ -2616,8 +3783,8 @@ function showAddMaterialModal(topicItem, topicTitle){
     modal.addEventListener('click', function(e){
         if (e.target === modal) {
             modal.remove();
-    }
-  });
+        }
+    });
 }
 
 // Add Activity Modal for Topics (REMOVED - No longer needed)
@@ -2992,7 +4159,9 @@ function saveMaterialToCoordinator(topicItem, type, url, file, rowForUpdate){
         var el = lessonEl; // preserve reference
         return ensureLessonSaved(el).then(function(){
             saveMaterialToCoordinator(topicItem, type, url, file); // retry after save
-        }).catch(function(){ /* surfaced via notifications */ });
+        }).catch(function(){ 
+            // Error surfaced via notifications 
+        });
     }
     
     // Helper to generate a reasonable title when title input is removed
@@ -3415,11 +4584,18 @@ function showAddMaterialToLessonModal(lessonEl){
             fileSection.style.display = 'block';
             // Set file input accept attribute
             var fileInput = modal.querySelector('#lessonMaterialFileInput');
-            if (type === 'pdf') fileInput.accept = '.pdf,application/pdf';
-            else if (type === 'video') fileInput.accept = 'video/*';
-            else if (type === 'code') fileInput.accept = '.js,.py,.java,.cpp,.c,.html,.css,.php,.sql,.json,.xml';
-            else fileInput.accept = '*/*';
-  } else {
+            if (fileInput) {
+                if (type === 'pdf') {
+                    fileInput.setAttribute('accept', '.pdf,application/pdf');
+                } else if (type === 'video') {
+                    fileInput.setAttribute('accept', 'video/*');
+                } else if (type === 'code') {
+                    fileInput.setAttribute('accept', '.js,.py,.java,.cpp,.c,.html,.css,.php,.sql,.json,.xml');
+                } else {
+                    fileInput.setAttribute('accept', '*');
+                }
+            }
+        } else {
             urlSection.style.display = 'none';
             fileSection.style.display = 'none';
         }
@@ -3658,10 +4834,15 @@ function showCoordinatorMaterialModal(element, elementTitle){
         } else if (['pdf', 'video', 'code', 'file', 'pptx'].includes(type)) {
             urlSection.style.display = 'none';
             fileSection.style.display = 'block';
-            // Set file input accept attribute
-            if (type === 'pdf') fileInput.accept = '.pdf,application/pdf';
-            else fileInput.accept = '*/*';
-      } else {
+            // Set file input accept attribute (fileInput already defined above)
+            if (fileInput) {
+                if (type === 'pdf') {
+                    fileInput.setAttribute('accept', '.pdf,application/pdf');
+                } else {
+                    fileInput.setAttribute('accept', '*');
+                }
+            }
+        } else {
             urlSection.style.display = 'none';
             fileSection.style.display = 'none';
         }

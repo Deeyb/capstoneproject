@@ -628,21 +628,56 @@ try {
                 $language = strtolower(trim((string)($_POST['language'] ?? 'cpp')));
                 $source = (string)($_POST['source'] ?? '');
                 $stdin = (string)($_POST['stdin'] ?? '');
-                if ($source === '') { echo json_encode(['success'=>false,'message'=>'No source provided']); break; }
+                
+                // Debug logging
+                error_log(sprintf(
+                    "RUN_SNIPPET: userId=%s, language=%s, sourceLen=%d, stdinLen=%d, stdin=%s",
+                    $userId,
+                    $language,
+                    strlen($source),
+                    strlen($stdin),
+                    substr($stdin, 0, 100)
+                ));
+                
+                if ($source === '') { 
+                    echo json_encode(['success'=>false,'message'=>'No source provided']); 
+                    break; 
+                }
+                
                 // Normalize language to jdoodle key
                 $lang = 'cpp';
                 if (in_array($language, ['cpp','c++','cxx'], true)) $lang = 'cpp';
                 elseif (in_array($language, ['python','py','python3'], true)) $lang = 'python3';
                 elseif ($language === 'java') $lang = 'java';
-                else { echo json_encode(['success'=>false,'message'=>'Unsupported language']); break; }
+                else { 
+                    echo json_encode(['success'=>false,'message'=>'Unsupported language']); 
+                    break; 
+                }
 
                 $cases = [['input_text'=>$stdin]];
                 $startTime = microtime(true);
                 $result = $svc->runWithJDoodle($lang, $source, $cases);
                 $duration = (int)round((microtime(true)-$startTime)*1000);
                 $rateLimiter->recordAttempt($identifier, 'run_snippet');
+                
+                // Debug response
+                error_log(sprintf(
+                    "RUN_SNIPPET Response: success=%s, resultCount=%d, duration=%dms",
+                    'true',
+                    is_array($result) ? count($result) : 0,
+                    $duration
+                ));
+                if (is_array($result) && !empty($result[0])) {
+                    $firstResult = $result[0];
+                    error_log("RUN_SNIPPET First result keys: " . implode(', ', array_keys($firstResult)));
+                    if (isset($firstResult['data'])) {
+                        error_log("RUN_SNIPPET Data keys: " . implode(', ', array_keys($firstResult['data'])));
+                    }
+                }
+                
                 echo json_encode(['success'=>true,'results'=>$result,'duration_ms'=>$duration]);
             } catch (Throwable $e) {
+                error_log("RUN_SNIPPET Exception: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                 echo json_encode(['success'=>false,'message'=>'Run failed','error'=>$e->getMessage()]);
             }
             break;

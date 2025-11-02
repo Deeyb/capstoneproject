@@ -1984,21 +1984,53 @@ function renderOutline(outline, mount) {
   mount.innerHTML = html;
   
   // Add collapse/expand toggles per module
+  // Get course ID for localStorage key (use current courseId from context)
+  var courseId = (typeof window.__CURRENT_COURSE_ID__ !== 'undefined') ? window.__CURRENT_COURSE_ID__ : 
+                 (mount.closest('[data-course-id]') && mount.closest('[data-course-id]').getAttribute('data-course-id')) || 
+                 'default';
+  var storageKey = 'module_collapse_state_' + courseId;
+  
+  // Load saved collapse state
+  var savedState = {};
+  try {
+    var saved = localStorage.getItem(storageKey);
+    if (saved) savedState = JSON.parse(saved);
+  } catch(e) {}
+  
   mount.querySelectorAll('[data-module-id]').forEach(function(mod){
+    var moduleId = mod.getAttribute('data-module-id');
     var header = mod.querySelector('.module-header');
     var content = mod.querySelector('.module-content');
     if (!header || !content) return;
+    
+    // Check saved state for this module
+    var moduleKey = 'module_' + moduleId;
+    var isCollapsed = savedState[moduleKey] === true;
+    
+    // Apply saved state on load
+    if (isCollapsed) {
+      content.style.display = 'none';
+    }
+    
     if (!header.querySelector('.module-toggle')) {
       var t = document.createElement('button');
       t.type = 'button'; t.className = 'module-toggle';
       t.style.marginRight = '8px'; t.style.background = 'transparent'; t.style.border = '0'; t.style.cursor = 'pointer';
-      t.innerHTML = '<i class="fas fa-chevron-down"></i>';
+      t.innerHTML = isCollapsed ? '<i class="fas fa-chevron-right"></i>' : '<i class="fas fa-chevron-down"></i>';
       header.insertBefore(t, header.firstChild);
       t.onclick = function(ev){
         ev.preventDefault(); ev.stopPropagation();
         var isOpen = content.style.display !== 'none';
         content.style.display = isOpen ? 'none' : '';
         t.innerHTML = isOpen ? '<i class="fas fa-chevron-right"></i>' : '<i class="fas fa-chevron-down"></i>';
+        
+        // Save state to localStorage
+        try {
+          savedState[moduleKey] = isOpen; // true = collapsed, false = expanded
+          localStorage.setItem(storageKey, JSON.stringify(savedState));
+        } catch(e) {
+          console.warn('Failed to save module collapse state:', e);
+        }
       };
     }
   });
@@ -3390,6 +3422,7 @@ function loadMonacoEditor() {
     // Set up Monaco environment for workers
     window.MonacoEnvironment = {
       getWorkerUrl: function (moduleId, label) {
+        // Use direct CDN URLs - CSP now allows https://cdn.jsdelivr.net in worker-src
         const path = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs';
         const workers = {
           json: 'language/json/json.worker.js',
@@ -3399,10 +3432,7 @@ function loadMonacoEditor() {
           default: 'editor/editor.worker.js'
         };
         const file = workers[label] || workers.default;
-        return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
-          self.MonacoEnvironment = { baseUrl: '${path}' };
-          importScripts('${path}/${file}');
-        `)}`;
+        return `${path}/${file}`;
       }
     };
 

@@ -172,3 +172,4 @@ int main() {
 - Algorithms should be clear, easy to understand, and effective
 - No programming code in algorithms - just plain language
 
+

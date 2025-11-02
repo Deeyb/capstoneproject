@@ -832,6 +832,16 @@ class CourseService {
 
     private function jdoodleRequest(array $payload): array {
         $url = 'https://api.jdoodle.com/v1/execute';
+        
+        // Debug logging
+        error_log(sprintf(
+            "JDoodle Request: language=%s, stdin_length=%d, code_length=%d, has_clientId=%s",
+            $payload['language'] ?? 'unknown',
+            strlen($payload['stdin'] ?? ''),
+            strlen($payload['script'] ?? ''),
+            !empty($payload['clientId']) ? 'yes' : 'no'
+        ));
+        
         $ch = curl_init($url);
         $headers = ['Content-Type: application/json'];
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -839,23 +849,43 @@ class CourseService {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
         curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        
         $response = curl_exec($ch);
-        if ($response === false) {
-            $err = curl_error($ch);
-            $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            return ['success'=>false,'status'=>$status,'error'=>'cURL error','message'=>$err];
-        }
+        $curlError = curl_error($ch);
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        
+        if ($response === false || !empty($curlError)) {
+            error_log("JDoodle cURL Error: " . $curlError);
+            return ['success'=>false,'status'=>$status,'error'=>'cURL error','message'=>$curlError];
+        }
+        
+        error_log("JDoodle HTTP Status: " . $status);
+        error_log("JDoodle Response (first 500 chars): " . substr($response, 0, 500));
+        
         $data = json_decode($response, true);
         if ($data === null && trim((string)$response) !== 'null') {
             // Not JSON; include raw for debugging
+            error_log("JDoodle Non-JSON Response: " . substr($response, 0, 500));
             return ['success'=>($status>=200 && $status<300), 'status'=>$status, 'raw'=>$response];
         }
+        
         if ($status >= 200 && $status < 300) {
+            // Log successful response details
+            if (isset($data['output'])) {
+                error_log("JDoodle Output: " . substr($data['output'], 0, 200));
+            }
+            if (isset($data['error'])) {
+                error_log("JDoodle Error: " . substr($data['error'], 0, 200));
+            }
+            if (isset($data['statusCode'])) {
+                error_log("JDoodle StatusCode: " . $data['statusCode']);
+            }
             return ['success'=>true,'data'=>$data];
         }
+        
+        error_log("JDoodle HTTP Error Response: " . json_encode($data));
         return ['success'=>false,'status'=>$status,'data'=>$data];
     }
 

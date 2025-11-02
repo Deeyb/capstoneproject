@@ -160,36 +160,98 @@ $content = @file_get_contents($path) ?: '';
       return fd;
     }
 
+    function hasInputStatements(source){
+      // Check if code uses cin, input(), raw_input(), Scanner, etc.
+      const cppInput = /\bcin\s*>>/i.test(source);
+      const pythonInput = /\binput\s*\(/i.test(source) || /\braw_input\s*\(/i.test(source);
+      const javaInput = /new\s+Scanner\s*\(/i.test(source) || /\bSystem\.in/i.test(source);
+      return cppInput || pythonInput || javaInput;
+    }
+
     function openTerminalAndRun(lang, source){
+      const needsInput = hasInputStatements(source);
       const modal = document.createElement('div');
       modal.className = 'terminal-modal';
+      const outElId = 'terminalBody_' + Date.now();
       modal.innerHTML = `
-        <div class="terminal-card">
+        <div class="terminal-card" style="max-width: 700px;">
           <div class="terminal-header"><div>CodeRegal Terminal</div><button class="terminal-close">✕</button></div>
-          <div class="terminal-body" id="terminalBody">Running...</div>
+          ${needsInput ? `
+          <div style="padding: 12px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057; font-size: 13px;">Program Input (stdin):</label>
+            <textarea id="terminalStdin" placeholder="Enter input values here (one per line, e.g., for cin >> mark; enter: 85)" 
+              style="width: 100%; min-height: 60px; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-family: monospace; font-size: 13px; resize: vertical;"></textarea>
+            <div style="margin-top: 8px; display: flex; gap: 8px;">
+              <button id="runWithInputBtn" style="background: #28a745; color: white; border: none; padding: 6px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 500;">▶ Run with Input</button>
+              <div style="flex: 1; font-size: 11px; color: #6c757d; line-height: 1.5; padding-top: 6px;">Tip: Multiple inputs? Enter each value on a new line or separated by spaces.</div>
+            </div>
+          </div>
+          ` : ''}
+          <div class="terminal-body" id="${outElId}">${needsInput ? 'Enter input above and click "Run with Input" button.' : 'Running...'}</div>
         </div>`;
       document.body.appendChild(modal);
       modal.querySelector('.terminal-close').onclick = function(){ modal.remove(); };
-      runSnippet(lang, source, modal.querySelector('#terminalBody'));
+      
+      const stdinEl = modal.querySelector('#terminalStdin');
+      const outEl = modal.querySelector('#' + outElId);
+      const runBtn = modal.querySelector('#runWithInputBtn');
+      
+      if (needsInput) {
+        // Auto-focus input
+        setTimeout(() => stdinEl.focus(), 100);
+        
+        // Run button click handler
+        if (runBtn) {
+          runBtn.onclick = function(){
+            runBtn.disabled = true;
+            runBtn.textContent = 'Running...';
+            outEl.textContent = 'Running...';
+            runSnippet(lang, source, outEl, stdinEl.value, function(){
+              runBtn.disabled = false;
+              runBtn.textContent = '▶ Run with Input';
+            });
+          };
+        }
+        
+        // Ctrl+Enter to run
+        stdinEl.addEventListener('keydown', function(e){
+          if (e.ctrlKey && e.key === 'Enter') {
+            e.preventDefault();
+            if (runBtn) runBtn.click();
+          }
+        });
+      } else {
+        // No input needed, run immediately
+        runSnippet(lang, source, outEl, '');
+      }
     }
 
     function showOutput(container, text){ container.textContent = text; }
 
-    async function runSnippet(lang, source, outEl){
+    async function runSnippet(lang, source, outEl, stdin, onComplete){
       let fd = new FormData();
       fd.append('action','run_snippet');
       fd.append('language', lang);
       fd.append('source', source);
+      fd.append('stdin', stdin || '');
       try { fd = await addCSRF(fd); } catch(_){ }
       try {
         const res = await fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd });
         const j = await res.json();
-        if (!j || !j.success) { if (outEl) showOutput(outEl, 'Run failed: ' + (j && j.message || '')); return; }
+        if (!j || !j.success) { 
+          if (outEl) showOutput(outEl, 'Run failed: ' + (j && j.message || '')); 
+          if (onComplete) onComplete();
+          return;
+        }
         const r = (j.results && j.results[0]) || {};
         const payload = r && (r.output || r.raw || r.error || r.data) ? (r.data || r) : r; // support both shapes
         const stdout = (typeof payload === 'string') ? payload : (payload.output || payload.raw || payload.error || '');
         if (outEl) showOutput(outEl, stdout || '(no output)');
-      } catch(e){ if (outEl) showOutput(outEl, 'Run failed'); }
+        if (onComplete) onComplete();
+      } catch(e){ 
+        if (outEl) showOutput(outEl, 'Run failed'); 
+        if (onComplete) onComplete();
+      }
     }
   </script>
   <script>
