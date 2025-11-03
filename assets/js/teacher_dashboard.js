@@ -1245,25 +1245,14 @@ function initPlayMonacoEditor() {
     console.log('[PlayArea] Initializing Play Area...');
     console.log('[PlayArea] Document ready state:', document.readyState);
     
-    // Remove any existing modal popups on page load (cleanup)
-    var removeExistingModals = function() {
+    // One-time cleanup: ensure no stale terminal modal from previous navigations
+    (function(){
         var existingModal = document.getElementById('playCodeRegalTerminalModal');
         if (existingModal) {
             existingModal.remove();
-            console.log('[PlayArea] Removed existing modal popup on init');
+            console.log('[PlayArea] One-time cleanup: removed stale terminal modal');
         }
-    };
-    
-    // Remove modals immediately if DOM is ready
-    if (document.readyState !== 'loading') {
-        removeExistingModals();
-    }
-    
-    // Also remove on DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', removeExistingModals);
-    
-    // Periodic cleanup (every 2 seconds) to catch any modals that appear
-    setInterval(removeExistingModals, 2000);
+    })();
     
     // Initialize Monaco Editor on page load
     if (document.readyState === 'loading') {
@@ -1506,63 +1495,9 @@ function initPlayMonacoEditor() {
                 if (runBtn) runBtn.style.display = 'flex';
                 if (stopBtn) stopBtn.style.display = 'none';
                 
-                // Show sidebar terminal for input (NOT modal popup)
+                // Show modal terminal for input
                 if (useTerminalInput && promptsAndInputs.length > 0) {
-                    var firstPrompt = promptsAndInputs[0];
-                    var promptText = firstPrompt.prompt || 'Enter value: ';
-                    
-                    console.log('[PlayArea] Showing sidebar terminal for input:', promptText);
-                    
-                    // Show sidebar terminal
-                    var terminalSidebar = document.getElementById('playTerminalSidebar');
-                    var terminalBody = document.getElementById('playTerminalBody');
-                    var terminalInputWrapper = document.getElementById('playTerminalInputWrapper');
-                    var terminalInputField = document.getElementById('playTerminalInputField');
-                    var terminalPrompt = document.getElementById('playTerminalPrompt');
-                    
-                    if (terminalSidebar) {
-                        terminalSidebar.style.display = 'flex';
-                        var ideContainer = terminalSidebar.closest('.play-ide-container');
-                        if (ideContainer) {
-                            ideContainer.classList.add('play-terminal-visible');
-                        }
-                    }
-                    
-                    if (terminalBody) {
-                        terminalBody.textContent = promptText;
-                    }
-                    
-                    if (terminalInputWrapper && terminalPrompt && terminalInputField) {
-                        terminalPrompt.textContent = promptText;
-                        terminalInputWrapper.style.display = 'block';
-                        terminalInputField.value = '';
-                        
-                        setTimeout(function() {
-                            terminalInputField.focus();
-                        }, 100);
-                        
-                        // Enter key handler
-                        terminalInputField.onkeydown = function(e) {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                var value = terminalInputField.value.trim();
-                                if (value) {
-                                    window.playAreaTerminalInputValue = value;
-                                    if (terminalBody) {
-                                        terminalBody.textContent = promptText + ' ' + value + '\nExecuting...';
-                                    }
-                                    terminalInputWrapper.style.display = 'none';
-                                    
-                                    // Trigger run again
-                                    setTimeout(function() {
-                                        var runBtn = document.getElementById('playRunBtn');
-                                        if (runBtn) runBtn.click();
-                                    }, 100);
-                                }
-                            }
-                        };
-                    }
-                    
+                    openCodeRegalTerminalModal(true, promptsAndInputs);
                     return; // Stop execution, wait for user input
                 } else {
                     // Fallback to old input method
@@ -1594,27 +1529,14 @@ function initPlayMonacoEditor() {
                 console.log('[PlayArea] No input needed');
             }
             
-            // Show CodeRegal Terminal (appears after Run Code, like CodeChum)
-            console.log('[PlayArea] Showing CodeRegal Terminal...');
-            var terminalSidebar = document.getElementById('playTerminalSidebar');
-            var terminalBody = document.getElementById('playTerminalBody');
+            // Show CodeRegal Terminal as modal (appears after Run Code)
+            console.log('[PlayArea] Showing CodeRegal Terminal modal...');
+            openCodeRegalTerminalModal(false, promptsAndInputs);
+            var terminalBody = document.getElementById(window.playTerminalBodyId || 'playTerminalBody');
             var terminalInputWrapper = document.getElementById('playTerminalInputWrapper');
             var terminalInputField = document.getElementById('playTerminalInputField');
             var terminalPrompt = document.getElementById('playTerminalPrompt');
-            
-            // Show terminal sidebar (appears from right, like CodeChum)
-            if (terminalSidebar) {
-                terminalSidebar.style.display = 'flex';
-                // Add class to container for CSS styling
-                var ideContainer = terminalSidebar.closest('.play-ide-container');
-                if (ideContainer) {
-                    ideContainer.classList.add('play-terminal-visible');
-                }
-                console.log('[PlayArea] Terminal sidebar displayed');
-            }
-            
             if (terminalBody) {
-                // Show "Executing..." initially
                 terminalBody.innerHTML = '';
                 terminalBody.textContent = 'Executing...';
             }
@@ -1820,16 +1742,11 @@ function initPlayMonacoEditor() {
                       }
                       text = (text || '').trim();
                       
-                      // Show output in CodeRegal Terminal (right sidebar)
+                      // Show output in CodeRegal Terminal (modal if available)
                       console.log('[PlayArea] Final output text:', text);
-                      var terminalSidebar = document.getElementById('playTerminalSidebar');
-                      var terminalBody = document.getElementById('playTerminalBody');
+                      var terminalBody = document.getElementById(window.playTerminalBodyId || 'playTerminalBody');
                       var terminalInputWrapper = document.getElementById('playTerminalInputWrapper');
                       
-                      // Ensure terminal is visible
-                      if (terminalSidebar && terminalSidebar.style.display === 'none') {
-                          terminalSidebar.style.display = 'flex';
-                      }
                       
                       if (terminalBody) {
                           var outputLines = [];
@@ -1837,8 +1754,8 @@ function initPlayMonacoEditor() {
                           
                           // If we have stdin input, show prompt + input + output (like CodeChum)
                           if (stdin && stdin.trim()) {
-                              // Extract prompt from current content or use default
-                              var promptText = 'Enter value:';
+                              // Extract prompt from current content or use stored modal prompt
+                              var promptText = (window.playTerminalPromptText || 'Enter value:');
                               var promptMatch = currentContent.match(/^([^:]+:)/);
                               if (promptMatch) {
                                   promptText = promptMatch[1];
@@ -2228,187 +2145,58 @@ function loadSelectedSnippet(){
 
 function escapeHtml(str){ return String(str).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]); }); }
 
-// DISABLED: Open CodeRegal Terminal Modal (popup window) - NOT USED ANYMORE, using sidebar instead
+// Open CodeRegal Terminal Modal (popup window)
 function openCodeRegalTerminalModal(needsInput, promptsAndInputs) {
-    // This function is disabled - we use sidebar terminal instead
-    console.warn('[PlayArea] openCodeRegalTerminalModal called but disabled - using sidebar terminal instead');
-    
-    // Remove any existing modal popups
+    // Remove any existing modal to avoid duplicates
     var existingModal = document.getElementById('playCodeRegalTerminalModal');
-    if (existingModal) {
-        existingModal.remove();
-        console.log('[PlayArea] Removed existing modal popup');
+    if (existingModal) existingModal.remove();
+    
+    var modalId = 'playCodeRegalTerminalModal';
+    var modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'play-terminal-modal';
+    modal.style.display = 'flex';
+    
+    var terminalBodyId = 'playTerminalBody_' + Date.now();
+    var bodyInitial = '🔄 Processing code...';
+    var firstPromptText = '';
+    if (needsInput && promptsAndInputs && promptsAndInputs.length > 0) {
+        firstPromptText = (promptsAndInputs[0].prompt || 'Enter value:');
+        // Persist prompt for later echoing in output
+        try { window.playTerminalPromptText = firstPromptText; } catch(_) {}
+        bodyInitial = '<span class="play-terminal-prompt-text">' + escapeHtml(firstPromptText) + '</span> ' +
+                      '<input type="text" id="playTerminalInputField" class="terminal-inline-input" autocomplete="off" spellcheck="false" placeholder="" />';
     }
     
-    return null;
+    modal.innerHTML = '\n        <div class="play-terminal-card">\n            <div class="play-terminal-header">\n                <div class="play-terminal-header-text">CodeChum Terminal</div>\n                <button class="play-terminal-close" id="playTerminalClose">✕</button>\n            </div>\n            <div class="play-terminal-body" id="' + terminalBodyId + '">' + bodyInitial + '</div>\n        </div>\n    ';
+    document.body.appendChild(modal);
     
-    /* DISABLED CODE - DO NOT USE MODAL POPUP - USE SIDEBAR TERMINAL INSTEAD
-    var modalId = 'playCodeRegalTerminalModal';
-    var modal = document.getElementById(modalId);
+    // Close handlers
+    var closeBtn = modal.querySelector('#playTerminalClose');
+    if (closeBtn) closeBtn.onclick = function(){ modal.remove(); };
+    modal.addEventListener('click', function(e){ if (e.target === modal) modal.remove(); });
     
-    if (!modal) {
-        // Create modal
-        modal = document.createElement('div');
-        modal.id = modalId;
-        modal.className = 'play-terminal-modal';
-        modal.style.display = 'flex'; // Show immediately
-        
-        var terminalBodyId = 'playTerminalBody_' + Date.now();
-        var stdinSection = '';
-        
-        if (needsInput && promptsAndInputs && promptsAndInputs.length > 0) {
-            var firstPrompt = promptsAndInputs[0].prompt || 'Enter value:';
-            stdinSection = `
-                <div class="play-terminal-input-section active" id="playTerminalInputSection">
-                    <label class="play-terminal-input-label">${escapeHtml(firstPrompt)}</label>
-                    <input type="text" id="playTerminalInputField" class="play-terminal-input-field" 
-                        placeholder="Type your input here..." autocomplete="off" spellcheck="false" />
-                    <button class="play-terminal-run-btn" id="playTerminalRunBtn">▶ Run</button>
-                </div>
-            `;
-        }
-        
-        modal.innerHTML = `
-            <div class="play-terminal-card">
-                <div class="play-terminal-header">
-                    <div class="play-terminal-header-text">CodeRegal Terminal</div>
-                    <button class="play-terminal-close" id="playTerminalClose">✕</button>
-                </div>
-                ${stdinSection}
-                <div class="play-terminal-body" id="${terminalBodyId}">🔄 Processing code...</div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Close button
-        var closeBtn = modal.querySelector('#playTerminalClose');
-        if (closeBtn) {
-            closeBtn.onclick = function() {
-                modal.remove();
-            };
-        }
-        
-        // Close on background click
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                modal.remove();
+    // Input handling (inline, press Enter to run)
+    var inputField = modal.querySelector('#playTerminalInputField');
+    if (inputField) {
+        inputField.addEventListener('keydown', function(e){
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var inputValue = inputField.value.trim();
+                if (!inputValue) { inputField.focus(); return; }
+                window.playAreaTerminalInputValue = inputValue;
+                var tb = modal.querySelector('.play-terminal-body');
+                if (tb) tb.textContent = (firstPromptText || 'Enter value:') + ' ' + inputValue + '\n🔄 Processing...';
+                var actualRunBtn = document.getElementById('playRunBtn');
+                if (actualRunBtn) actualRunBtn.click();
             }
         });
-        
-        // Run button for input
-        var runBtn = modal.querySelector('#playTerminalRunBtn');
-        var inputField = modal.querySelector('#playTerminalInputField');
-        if (runBtn && inputField) {
-            runBtn.onclick = function() {
-                var inputValue = inputField.value.trim();
-                if (inputValue) {
-                    // Store input and trigger actual run
-                    window.playAreaTerminalInputValue = inputValue;
-                    // Hide input section
-                    var inputSection = modal.querySelector('#playTerminalInputSection');
-                    if (inputSection) inputSection.classList.remove('active');
-                    // Update terminal body
-                    var terminalBody = modal.querySelector('.play-terminal-body');
-                    if (terminalBody) {
-                        var promptText = inputSection ? inputSection.querySelector('.play-terminal-input-label').textContent : 'Enter value:';
-                        terminalBody.textContent = promptText + ' ' + inputValue + '\n🔄 Processing...';
-                    }
-                    // Trigger the run button click
-                    var actualRunBtn = document.getElementById('playRunBtn');
-                    if (actualRunBtn) {
-                        actualRunBtn.click();
-                    }
-                } else {
-                    inputField.focus();
-                }
-            };
-            
-            // Enter key to run
-            inputField.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    runBtn.click();
-                }
-            });
-            
-            // Auto-focus input field
-            setTimeout(function() {
-                inputField.focus();
-            }, 100);
-        }
-        
-        // Store terminal body ID for output updates
-        window.playTerminalBodyId = terminalBodyId;
-        console.log('[PlayArea] CodeRegal Terminal modal created and displayed');
-    } else {
-        // Update existing modal - show it
-        modal.style.display = 'flex';
-        var terminalBody = modal.querySelector('.play-terminal-body');
-        if (terminalBody) {
-            terminalBody.textContent = '🔄 Processing code...';
-        }
-        
-        // Update input section if needed
-        var inputSection = modal.querySelector('#playTerminalInputSection');
-        if (needsInput && promptsAndInputs && promptsAndInputs.length > 0) {
-            if (!inputSection) {
-                var firstPrompt = promptsAndInputs[0].prompt || 'Enter value:';
-                var newInputSection = document.createElement('div');
-                newInputSection.className = 'play-terminal-input-section active';
-                newInputSection.id = 'playTerminalInputSection';
-                newInputSection.innerHTML = `
-                    <label class="play-terminal-input-label">${escapeHtml(firstPrompt)}</label>
-                    <input type="text" id="playTerminalInputField" class="play-terminal-input-field" 
-                        placeholder="Type your input here..." autocomplete="off" spellcheck="false" />
-                    <button class="play-terminal-run-btn" id="playTerminalRunBtn">▶ Run</button>
-                `;
-                var header = modal.querySelector('.play-terminal-header');
-                header.insertAdjacentElement('afterend', newInputSection);
-                
-                // Setup run button
-                var runBtn = newInputSection.querySelector('#playTerminalRunBtn');
-                var inputField = newInputSection.querySelector('#playTerminalInputField');
-                if (runBtn && inputField) {
-                    runBtn.onclick = function() {
-                        var inputValue = inputField.value.trim();
-                        if (inputValue) {
-                            window.playAreaTerminalInputValue = inputValue;
-                            var inputSection = modal.querySelector('#playTerminalInputSection');
-                            if (inputSection) inputSection.classList.remove('active');
-                            var terminalBody = modal.querySelector('.play-terminal-body');
-                            if (terminalBody) {
-                                var promptText = inputSection ? inputSection.querySelector('.play-terminal-input-label').textContent : 'Enter value:';
-                                terminalBody.textContent = promptText + ' ' + inputValue + '\n🔄 Processing...';
-                            }
-                            var actualRunBtn = document.getElementById('playRunBtn');
-                            if (actualRunBtn) actualRunBtn.click();
-                        }
-                    };
-                    inputField.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            runBtn.click();
-                        }
-                    });
-                    setTimeout(function() { inputField.focus(); }, 100);
-                }
-            } else {
-                inputSection.classList.add('active');
-                var inputField = inputSection.querySelector('#playTerminalInputField');
-                if (inputField) {
-                    inputField.value = '';
-                    setTimeout(function() { inputField.focus(); }, 100);
-                }
-            }
-        } else if (inputSection) {
-            inputSection.classList.remove('active');
-        }
-        console.log('[PlayArea] CodeRegal Terminal modal shown');
+        setTimeout(function(){ inputField.focus(); }, 60);
     }
     
+    // Expose body id for output updates
+    window.playTerminalBodyId = terminalBodyId;
     return modal;
-    */
 }
 
 // CSRF token helper for teacher class materials API
