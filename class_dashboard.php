@@ -130,6 +130,19 @@ if ($userRole === 'student') {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
 <body class="<?php echo strtolower($userRole) === 'student' ? 'student-view' : 'teacher-view'; ?>">
+  <script>
+    // Resilient global toggler for the kebab menu; defined early to avoid dependency on other scripts
+    window.toggleNavMenu = function(ev){
+      try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch(_){ }
+      try {
+        var menu = document.getElementById('navMenuDropdown');
+        if (!menu) return;
+        menu.style.display = (menu.style.display==='block' ? 'none' : 'block');
+      } catch(_){ }
+    };
+    // Close on outside click (capture)
+    (function(){ try { document.addEventListener('click', function(e){ var m = document.getElementById('navMenuDropdown'); var b = document.getElementById('menuBtn'); if (!m) return; var t=e.target; var inside = m.contains(t) || (b && b.contains(t)); if (m.style.display==='block' && !inside) m.style.display='none'; }, true); } catch(_){ }})();
+  </script>
   <!-- Loading overlay to prevent layout jumps -->
   <div id="loadingOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.3s ease;">
     <div style="text-align: center;">
@@ -172,13 +185,18 @@ if ($userRole === 'student') {
         </button>
         <?php endif; ?>
         <div style="position: relative; display:inline-block;">
-          <button class="nav-menu-btn" id="menuBtn" title="Menu">
+          <button class="nav-menu-btn" id="menuBtn" title="Menu" type="button" onclick="toggleNavMenu(event)" style="position:relative; z-index:3001;">
             <i class="fas fa-ellipsis-v"></i>
           </button>
-          <div id="navMenuDropdown" style="display:none; position:absolute; right:0; top:36px; background:#fff; border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,0.08); border-radius:8px; min-width:180px; z-index:1000;">
+          <div id="navMenuDropdown" style="display:none; position:absolute; right:0; top:36px; background:#fff; border:1px solid #e5e7eb; box-shadow:0 12px 28px rgba(0,0,0,0.15); border-radius:8px; min-width:200px; z-index:3000;">
             <button id="copyClassCodeMenu" style="width:100%; background:none; border:none; padding:10px 12px; text-align:left; cursor:pointer; font-size:14px; color:#374151;">
               <i class="fas fa-copy" style="margin-right:8px;"></i> Copy Class Code
             </button>
+            <?php if (strtolower($userRole) === 'teacher'): ?>
+            <button id="archiveClassMenu" style="width:100%; background:none; border:none; padding:10px 12px; text-align:left; cursor:pointer; font-size:14px; color:#374151; border-top:1px solid #e5e7eb;">
+              <i class="fas fa-archive" style="margin-right:8px;color:#6b7280;"></i> Archive Class
+            </button>
+            <?php endif; ?>
           </div>
         </div>
       </div>
@@ -410,6 +428,41 @@ if ($userRole === 'student') {
         // Update page title for teachers
         document.title = 'Class Dashboard - Teacher View';
       }
+
+      // Kebab menu actions
+      function toggleNavMenu(ev){
+        var menu = document.getElementById('navMenuDropdown');
+        if (!menu) return; if (ev){ ev.preventDefault(); ev.stopPropagation(); }
+        menu.style.display = (menu.style.display==='block' ? 'none' : 'block');
+      }
+      (function(){
+        var menuBtn = document.getElementById('menuBtn');
+        var menu = document.getElementById('navMenuDropdown');
+        if (menuBtn && menu){
+          function toggleMenu(ev){ ev && ev.stopPropagation(); toggleNavMenu(ev); }
+          menuBtn.addEventListener('click', toggleMenu);
+          menuBtn.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
+          document.addEventListener('click', function(e){ var inside = menu.contains(e.target) || (menuBtn && menuBtn.contains(e.target)); if (menu.style.display==='block' && !inside) menu.style.display='none'; }, true);
+        }
+        var copyBtn = document.getElementById('copyClassCodeMenu');
+        if (copyBtn){ copyBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); menu.style.display='none'; try { navigator.clipboard.writeText(document.getElementById('courseCode').textContent || ''); } catch(_){} }); }
+        var archiveBtn = document.getElementById('archiveClassMenu');
+        if (archiveBtn){
+          archiveBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); menu.style.display='none';
+            var id = window.__CLASS_ID__;
+            var fd = new FormData(); fd.append('action','archive'); fd.append('id', id);
+            fetch('class_manage.php', { method:'POST', credentials:'same-origin', body: fd })
+              .then(function(r){ return r.json().catch(function(){ return {}; }); })
+              .then(function(j){ if (j && j.success){
+                  try { if (window.parent && window.parent.loadArchivedForSection) window.parent.loadArchivedForSection(); } catch(_){ }
+                  try { if (window.parent && window.parent.__teacherLoadActive) window.parent.__teacherLoadActive(); } catch(_){ }
+                  try { if (window.parent && window.parent.exitEmbeddedClass) window.parent.exitEmbeddedClass(); else window.location.href='teacher_dashboard.php?section=my-classes'; } catch(_){ window.location.href='teacher_dashboard.php?section=my-classes'; }
+                } else { alert('Archive failed'); }
+              })
+              .catch(function(){ alert('Archive failed'); });
+          });
+        }
+      })();
     });
   </script>
 </body>

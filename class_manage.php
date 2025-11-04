@@ -41,6 +41,14 @@ try {
         exit;
     }
 
+    if ($action === 'list_archived') {
+        Auth::requireRole('teacher');
+        $ownerId = (int)($_SESSION['user_id'] ?? 0);
+        $classes = $service->listArchivedClasses($ownerId);
+        echo json_encode(['success' => true, 'classes' => $classes]);
+        exit;
+    }
+
     if ($action === 'create') {
         // Only teachers can create classes
         Auth::requireRole('teacher');
@@ -91,6 +99,36 @@ try {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Failed to delete class']);
         }
+        exit;
+    }
+
+    if ($action === 'archive') {
+        Auth::requireRole('teacher');
+        $ownerId = (int)($_SESSION['user_id'] ?? 0);
+        $classId = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
+        if ($ownerId <= 0 || $classId <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid request']);
+            exit;
+        }
+        $ok = $service->archiveClass($classId, $ownerId);
+        if ($ok) { echo json_encode(['success' => true]); }
+        else { http_response_code(400); echo json_encode(['success' => false, 'message' => 'Archive failed']); }
+        exit;
+    }
+
+    if ($action === 'unarchive') {
+        Auth::requireRole('teacher');
+        $ownerId = (int)($_SESSION['user_id'] ?? 0);
+        $classId = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
+        if ($ownerId <= 0 || $classId <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid request']);
+            exit;
+        }
+        $ok = $service->unarchiveClass($classId, $ownerId);
+        if ($ok) { echo json_encode(['success' => true]); }
+        else { http_response_code(400); echo json_encode(['success' => false, 'message' => 'Unarchive failed']); }
         exit;
     }
 

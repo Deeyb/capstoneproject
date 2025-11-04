@@ -389,3 +389,27 @@ a:hover {
   .content-meta { flex-direction: column; gap: 0.5rem; }
 }
 
+/* Finish Reading interactive prompt */
+.finish-reading-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #16a34a; /* green theme */
+  color: #ffffff;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 99999;
+  transform: translateY(120%);
+  opacity: 0;
+  transition: transform .28s ease, opacity .28s ease;
+}
+.finish-reading-toast.show { transform: translateY(0); opacity: 1; }
+.finish-reading-toast .msg { font-weight: 700; color:#fff; }
+.finish-reading-toast .dot { width:10px; height:10px; border-radius:50%; background:#ffffff; opacity:.9; animation: frPulse 1.2s ease-in-out infinite; }
+@keyframes frPulse { 0%,100%{ transform: scale(0.9); opacity:.7 } 50%{ transform: scale(1.2); opacity:1 } }
+

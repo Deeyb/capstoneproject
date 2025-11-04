@@ -84,6 +84,8 @@ $current_section = $_GET['section'] ?? 'myclasses';
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <!-- Student-specific Styles -->
   <link rel="stylesheet" href="assets/css/student_dashboard.css">
+  <!-- Shared Play Area styles -->
+  <link rel="stylesheet" href="assets/css/play_area.css">
 </head>
 <body class="student-dashboard">
   <!-- Header (match Teacher/Coordinator/Admin exactly) -->
@@ -136,6 +138,10 @@ $current_section = $_GET['section'] ?? 'myclasses';
         <li class="nav-item" onclick="showSection('leaderboards', this)">
           <i class="fas fa-trophy"></i>
           <span>Leaderboards</span>
+        </li>
+        <li class="nav-item" onclick="showSection('play-area', this)">
+          <i class="fas fa-terminal"></i>
+          <span>Play Area</span>
         </li>
         <li class="nav-item" onclick="showSection('certification', this)">
           <i class="fas fa-star"></i>
@@ -249,6 +255,55 @@ $current_section = $_GET['section'] ?? 'myclasses';
       </div>
     </div>
 
+    <!-- Play Area Section -->
+    <div id="play-area" class="section-content">
+      <div class="section-title">Play Area</div>
+      <div class="play-card">
+        <div class="play-toolbar">
+          <div class="play-title">
+            <i class="fas fa-terminal"></i>
+            <span>CodeRegal Playground</span>
+          </div>
+          <div class="play-controls">
+            <label class="play-label">Language</label>
+            <select id="stuPlayLanguage" class="play-select">
+              <option value="cpp">C++</option>
+              <option value="java">Java</option>
+              <option value="python3">Python</option>
+            </select>
+            <button id="stuPlaySaveBtn" class="play-secondary-btn" type="button" title="Save snippet (Ctrl/Cmd+S)">
+              <i class="fas fa-save"></i>
+              <span>Save</span>
+            </button>
+            <button id="stuPlayStopBtn" class="play-stop-btn" type="button" style="display:none;" title="Stop execution">
+              <i class="fas fa-stop"></i>
+              <span>Stop</span>
+            </button>
+            <button id="stuPlayRunBtn" class="play-run-btn" type="button">
+              <i class="fas fa-play"></i>
+              <span>Run Code</span>
+            </button>
+          </div>
+        </div>
+        <div class="play-ide-container">
+          <div class="play-editor-wrapper">
+            <div class="play-file-tabs">
+              <div class="play-file-tab active">
+                <span class="play-file-name">main.cpp</span>
+                <span class="play-file-close">+</span>
+              </div>
+            </div>
+            <div id="stuPlayEditor" class="play-editor-monaco"></div>
+            <textarea id="stuPlaySource" class="play-textarea" placeholder="Write your code here..." style="display:none;"></textarea>
+          </div>
+        </div>
+        <div class="play-hint">
+          <i class="fas fa-lightbulb"></i>
+          <span>Tip: Press Ctrl/Cmd + Enter to run quickly.</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Profile Section -->
     <div id="profile" class="section-content">
       <?php include 'includes/profile_section.php'; ?>
@@ -302,6 +357,21 @@ $current_section = $_GET['section'] ?? 'myclasses';
 
   <!-- Scripts -->
   <script src="assets/js/admin_panel.js"></script>
+  <!-- Shared Play Area terminal (reusable) -->
+  <script src="assets/js/play_area_terminal.js?v=<?php echo time(); ?>"></script>
+  <script src="assets/js/play_area_monaco.js?v=<?php echo time(); ?>"></script>
+  <script src="assets/js/play_area_core.js?v=<?php echo time(); ?>"></script>
+  <script src="assets/js/student_play_area.js?v=<?php echo time(); ?>"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      if (window.PlayArea && typeof PlayArea.initMonaco === 'function') {
+        PlayArea.initMonaco({ editorId: 'stuPlayEditor', textareaId: 'stuPlaySource', languageSelectId: 'stuPlayLanguage' });
+      }
+      if (window.PlayArea && typeof PlayArea.init === 'function') {
+        PlayArea.init({ idPrefix: 'stuPlay', enableMonaco: true, languageId: 'stuPlayLanguage', sourceId: 'stuPlaySource', autoFullscreen: true });
+      }
+    });
+  </script>
   <script src="assets/js/shared_profile.js"></script>
   <script src="assets/js/student_dashboard.js"></script>
 </body>

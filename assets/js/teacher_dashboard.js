@@ -175,7 +175,7 @@
   }
 		// Optional: show Create tile first
 		renderCreateTile(grid);
-		classes.forEach(function(cls){
+        classes.forEach(function(cls){
 			var card = document.createElement('div');
 			card.className = 'class-item';
             card.style.cssText = 'cursor:pointer;background:linear-gradient(135deg,#1d9b3e 0%,#28a745 100%);border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 8px 32px rgba(29,155,62,0.15);transition:all 0.3s ease;position:relative;overflow:hidden;height:200px;';
@@ -202,13 +202,13 @@
 				'</div>',
                         '</div>',
                         '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">',
-                            '<div style="display:flex;gap:6px;">',
+                        '<div style="display:flex;gap:6px;">',
                                 '<button style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:12px;backdrop-filter:blur(10px);transition:all 0.2s;" title="Enter Class" onclick="enterClass(' + cls.id + ')">',
                                     '<i class="fas fa-door-open"></i>',
                                 '</button>',
                                 '<button style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:12px;backdrop-filter:blur(10px);transition:all 0.2s;" title="Class Settings">',
                                     '<i class="fas fa-cog"></i>',
-                                '</button>',
+                            '</button>',
                             '</div>',
                         '</div>',
                     '</div>',
@@ -253,7 +253,9 @@
 				this.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
 			});
 			
-			grid.appendChild(card);
+            grid.appendChild(card);
+
+            // no kebab menu on cards (moved inside classroom)
 		});
 	}
 
@@ -294,6 +296,68 @@
 
 	// Expose for manual refresh if needed
 	window.__teacherLoadActive = loadActiveClasses;
+
+  // Load archived classes into archive section
+  function renderArchived(classes){
+    var cont = document.getElementById('archivedClassesContainer'); if (!cont) return;
+    cont.innerHTML = '';
+    (classes||[]).forEach(function(c){
+      var d = document.createElement('div');
+      d.className = 'class-item archived';
+      d.style.cssText = 'cursor:default;background:linear-gradient(135deg,#f59e0b 0%, #fbbf24 100%);border-radius:16px;padding:24px;margin:12px 12px 20px 0;box-shadow:0 8px 32px rgba(245,158,11,0.25);transition:all 0.3s ease;position:relative;overflow:hidden;height:200px;display:inline-block;vertical-align:top;min-width:320px;';
+      d.innerHTML = [
+        '<div style="position:relative;z-index:2;">',
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">',
+            '<div style="flex:1;">',
+              '<h3 style="color:#1f2937;font-size:24px;font-weight:800;margin:0 0 8px 0;text-shadow:0 1px 0 rgba(255,255,255,0.6);">' + (c.name || 'Archived Class') + '</h3>',
+              '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">',
+                '<span style="background:#fff7ed;color:#b45309;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.05);">ARCHIVED</span>',
+              '</div>',
+            '</div>',
+            '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">',
+              '<div style="display:flex;gap:6px;">',
+                '<button class="btn-unarchive" data-id="' + c.id + '" title="Unarchive" style="background:rgba(255,255,255,0.35);color:#1f2937;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;backdrop-filter:blur(10px);transition:all 0.2s;">',
+                  '<i class="fas fa-undo"></i>',
+                '</button>',
+              '</div>',
+            '</div>',
+          '</div>',
+          '<div style="display:flex;justify-content:space-between;align-items:center;color:#1f2937;font-size:14px;">',
+            '<div style="display:flex;align-items:center;gap:16px;">',
+              // removed class code display per request
+            '</div>',
+            '<div style="display:flex;align-items:center;gap:6px;color:#78350f;font-size:12px;">',
+              '<i class="fas fa-archive"></i>',
+              '<span>In archive</span>',
+            '</div>',
+          '</div>',
+        '</div>',
+        '<div style="position:absolute;top:0;right:0;width:100px;height:100px;background:rgba(255,255,255,0.25);border-radius:50%;transform:translate(30px,-30px);"></div>',
+        '<div style="position:absolute;bottom:0;left:0;width:60px;height:60px;background:rgba(255,255,255,0.15);border-radius:50%;transform:translate(-20px,20px);"></div>'
+      ].join('');
+      cont.appendChild(d);
+    });
+    // wire unarchive
+    cont.querySelectorAll('.btn-unarchive').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = this.getAttribute('data-id'); if (!id) return;
+        var fd = new FormData(); fd.append('action','unarchive'); fd.append('id', id);
+        fetch('class_manage.php', { method:'POST', credentials:'same-origin', body: fd })
+          .then(function(r){ return r.json().catch(function(){ return {}; }); })
+          .then(function(j){ if (j && j.success){ loadArchived(); if (typeof __teacherLoadActive === 'function') __teacherLoadActive(); }
+            else { alert('Unarchive failed'); }
+          })
+          .catch(function(){ alert('Unarchive failed'); });
+      });
+    });
+  }
+  function loadArchived(){
+    fetch('class_manage.php?action=list_archived', { credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if (j && j.success) renderArchived(j.classes||[]); else renderArchived([]); })
+      .catch(function(){ renderArchived([]); });
+  }
+  window.loadArchivedForSection = loadArchived;
 	
 	// Function to enter a class
 	function enterClass(classId) {
@@ -578,7 +642,6 @@ function loadPublishedCoursesForCreate(){
 		})
 		.catch(() => { selectedText.textContent = 'Failed to load courses'; options.innerHTML=''; });
 }
-
 function populateCourseSelect(courses){
 	var options = document.getElementById('courseOptions');
 	var selectedText = document.getElementById('courseSelectedText');
@@ -602,7 +665,6 @@ function toggleCourseDropdown(){
 		options.style.display = 'none'; if (selected) selected.classList.remove('open');
 	}
 }
-
 function selectCourse(courseId, courseTitle, courseCode){
 	var courseSelect = document.getElementById('courseSelect');
 	var selectedText = document.getElementById('courseSelectedText');
@@ -1186,7 +1248,6 @@ function loadPlayMonacoEditor() {
         }
     });
 }
-
 function initPlayMonacoEditor() {
     var container = document.getElementById('playEditor');
     var textarea = document.getElementById('playSource');
@@ -1240,10 +1301,20 @@ function initPlayMonacoEditor() {
         if (textarea) textarea.style.display = 'block';
     });
 }
-
 (function initPlayArea(){
     console.log('[PlayArea] Initializing Play Area...');
     console.log('[PlayArea] Document ready state:', document.readyState);
+    // If shared PlayArea core is available, delegate and stop local bindings
+    try {
+        if (window.PlayArea && typeof window.PlayArea.init === 'function') {
+            if (!window.__PLAY_AREA_TEACHER_INIT__) {
+                window.__PLAY_AREA_TEACHER_INIT__ = true;
+                window.PlayArea.init({ idPrefix: 'play', enableMonaco: true, languageId: 'playLanguage', sourceId: 'playSource' });
+                console.log('[PlayArea] Delegated to shared PlayArea core (teacher).');
+            }
+            return; // Prevent legacy handlers from binding twice and causing multi-runs
+        }
+    } catch(e) { console.error('PlayArea core init error:', e); }
     
     // One-time cleanup: ensure no stale terminal modal from previous navigations
     (function(){
@@ -1813,7 +1884,6 @@ function initPlayMonacoEditor() {
                 div.textContent = text;
                 return div.innerHTML;
             }
-            
             // Get CSRF token first
             console.log('[PlayArea] 🔑 Getting CSRF token...');
             console.log('[PlayArea] Checking for window.getCSRFToken:', typeof window.getCSRFToken);
@@ -2147,6 +2217,10 @@ function escapeHtml(str){ return String(str).replace(/[&<>"']/g, function(c){ re
 
 // Open CodeRegal Terminal Modal (popup window)
 function openCodeRegalTerminalModal(needsInput, promptsAndInputs) {
+    // Delegate to shared PlayArea module if available
+    if (window.PlayArea && typeof window.PlayArea.openTerminal === 'function') {
+        return window.PlayArea.openTerminal(needsInput, promptsAndInputs);
+    }
     // Remove any existing modal to avoid duplicates
     var existingModal = document.getElementById('playCodeRegalTerminalModal');
     if (existingModal) existingModal.remove();
@@ -2395,7 +2469,6 @@ function createNewModule(title){
     
     try { updateModuleLessonCount(div); } catch(_) {}
 }
-
 // Dynamic Add Lesson Modal
 function showAddLessonModal(moduleEl){
     // Guard against duplicate instances
@@ -2489,7 +2562,6 @@ function showAddLessonModal(moduleEl){
       }
     });
   }
-
 // Advanced Features
 function showModuleTemplates(moduleEl){
     var modal = document.createElement('div');
@@ -2531,7 +2603,7 @@ function showModuleTemplates(moduleEl){
     
     if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
     if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
-
+    
     // Close on backdrop click
     modal.addEventListener('click', function(e){
         if (e.target === modal) {
@@ -2606,7 +2678,7 @@ function showBulkOperations(moduleEl){
     
     if (cancelBtn) cancelBtn.addEventListener('click', function(){ modal.remove(); });
     if (closeBtn) closeBtn.addEventListener('click', function(){ modal.remove(); });
-
+    
     // Close on backdrop click
     modal.addEventListener('click', function(e){
         if (e.target === modal) {
@@ -3019,7 +3091,6 @@ function applyModuleTemplate(moduleEl, template){
     
     showNotification('success', 'Template Applied', 'Module template applied successfully!');
 }
-
 function showBulkOperations(moduleEl){
     var modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
@@ -3052,7 +3123,6 @@ function showBulkOperations(moduleEl){
         }
     });
 }
-
 function createNewTopic(lessonEl, title){
     var topicsContainer = lessonEl.querySelector('.topics');
     if (!topicsContainer) {
@@ -3664,7 +3734,6 @@ function showAddActivityModal(topicItem, topicTitle){
         }
     });
 }
-
 // Advanced Features
 function showModuleTemplates(moduleEl){
     var modal = document.createElement('div');
@@ -4290,7 +4359,6 @@ function deleteActivityFromDatabase(activityId){
         sendDeleteRequest(deleteData, 'activity');
     }
 }
-
 // Send delete request
 function sendDeleteRequest(deleteData, type){
     var formData = new FormData();
@@ -4902,7 +4970,6 @@ function addCoordinatorStyleMaterial(lessonEl, type, url, file){
         showNotification('success', 'Success', 'Material added to lesson!');
     }
 }
-
 // ===== COORDINATOR-STYLE ACTIVITY CREATION =====
 function showCoordinatorActivityModal(element, elementTitle){
     var title = elementTitle || 'Element';
@@ -5512,7 +5579,6 @@ function addActivityToTopic(topicEl, category, name, type, instructions, maxScor
         showNotification('success', 'Success', 'Activity "' + name + '" added to topic!');
     }
 }
-
 // ===== ADD ACTIVITY TO LESSON WITH DYNAMIC DATA =====
 function addActivityToLessonWithData(lessonEl, category, name, type, instructions, maxScore, dynamicData){
     // Update lesson display to show activity with enhanced info
@@ -6751,7 +6817,6 @@ function editLesson(lessonEl){
         close();
     };
 }
-
 function saveLesson(lessonEl){
     var lessonId = lessonEl.getAttribute('data-lesson-id');
     var title = lessonEl.querySelector('.lesson-header span[style*="font-weight:600"]').textContent.trim();
@@ -7402,7 +7467,6 @@ function showModuleTemplates(moduleEl){
         }
     });
 }
-
 function applyModuleTemplate(moduleEl, template){
     var templates = {
         programming: [
@@ -7477,4 +7541,3 @@ function showBulkOperations(moduleEl){
         }
     });
 }
-

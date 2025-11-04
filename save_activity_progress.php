@@ -30,6 +30,29 @@ try {
     // Initialize service
     $progressService = new ActivityProgressService($db);
     
+    // Auto-calculate score for identification activities if not provided
+    if ($score === null) {
+        // Get activity type
+        $stmt = $db->prepare("SELECT type FROM lesson_activities WHERE id = ?");
+        $stmt->execute([$activityId]);
+        $activity = $stmt->fetch(PDO::FETCH_ASSOC);
+        $activityType = strtolower($activity['type'] ?? '');
+        
+        // If identification activity, auto-calculate score
+        if ($activityType === 'identification' || ($activityType === 'quiz' && isset($activity['instructions']))) {
+            // Check if it's identification by checking instructions
+            $stmt2 = $db->prepare("SELECT instructions FROM lesson_activities WHERE id = ?");
+            $stmt2->execute([$activityId]);
+            $act = $stmt2->fetch(PDO::FETCH_ASSOC);
+            $instructions = json_decode($act['instructions'] ?? '{}', true);
+            $kind = strtolower($instructions['kind'] ?? '');
+            
+            if ($activityType === 'identification' || $kind === 'identification') {
+                $score = $progressService->calculateIdentificationScore($activityId, $answers);
+            }
+        }
+    }
+    
     // Save progress using OOP service
     $result = $progressService->saveActivityProgress($activityId, $userId, $answers, $score, $completed);
     

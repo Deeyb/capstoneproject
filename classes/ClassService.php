@@ -107,6 +107,12 @@ class ClassService {
         return $this->listTeacherClasses($ownerUserId);
     }
 
+    public function listArchivedClasses(int $ownerUserId): array {
+        $stmt = $this->db->prepare("SELECT * FROM classes WHERE owner_user_id = ? AND status = 'archived' ORDER BY updated_at DESC LIMIT 200");
+        $stmt->execute([$ownerUserId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function getClassById(int $classId): ?array {
         $stmt = $this->db->prepare("SELECT c.*, CONCAT(u.firstname, ' ', u.lastname) AS teacher_name
                                      FROM classes c
@@ -167,6 +173,22 @@ class ClassService {
         } catch (Throwable $e) {
             return false;
         }
+    }
+
+    public function archiveClass(int $classId, int $ownerUserId): bool {
+        try {
+            $stmt = $this->db->prepare("UPDATE classes SET status='archived', updated_at=CURRENT_TIMESTAMP WHERE id=? AND owner_user_id=? LIMIT 1");
+            $stmt->execute([$classId, $ownerUserId]);
+            return $stmt->rowCount() > 0;
+        } catch (Throwable $e) { return false; }
+    }
+
+    public function unarchiveClass(int $classId, int $ownerUserId): bool {
+        try {
+            $stmt = $this->db->prepare("UPDATE classes SET status='active', updated_at=CURRENT_TIMESTAMP WHERE id=? AND owner_user_id=? LIMIT 1");
+            $stmt->execute([$classId, $ownerUserId]);
+            return $stmt->rowCount() > 0;
+        } catch (Throwable $e) { return false; }
     }
 }
 

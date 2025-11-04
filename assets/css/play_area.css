@@ -1,0 +1,313 @@
+/* Play Area - CodeRegal Terminal (shared styles) */
+
+.play-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(16,24,40,0.06);
+  overflow: hidden;
+}
+
+.play-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(180deg,#f9fafb 0%, #f3f4f6 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.play-title { display:flex; align-items:center; gap:8px; color:#1f2937; font-weight:700; }
+.play-title i { color:#1d9b3e; }
+.play-controls { display:flex; align-items:center; gap:10px; }
+.play-label { color:#4b5563; font-weight:600; }
+.play-secondary-btn { background:#eef2f7; color:#1f2937; border:none; border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:8px; cursor:pointer; }
+.play-secondary-btn:hover { background:#e7edf6; }
+.play-select {
+  appearance:none;
+  border:1px solid #d1d5db;
+  background:#fff;
+  border-radius:8px;
+  padding:8px 10px;
+  min-width:150px;
+}
+.play-run-btn {
+  background:#1d9b3e;
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  padding:8px 14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  box-shadow: 0 4px 12px rgba(29,155,62,0.18);
+}
+.play-run-btn:hover { background:#178534; }
+
+.play-ide-container {
+  display: flex;
+  flex-direction: row;
+  height: 600px;
+  min-height: 600px;
+  background: #fff;
+  border-radius: 0;
+  overflow: hidden;
+  border: none;
+}
+
+.play-editor-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  min-width: 0;
+}
+
+/* Monaco editor host */
+.play-editor-monaco {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.play-file-tabs {
+  display: flex;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0;
+  min-height: 36px;
+  flex-shrink: 0;
+}
+.play-file-tab { display:flex; align-items:center; gap:8px; padding:8px 16px; background:#ffffff; border-right:1px solid #e5e7eb; font-size:13px; color:#374151; }
+.play-file-tab.active { background:#ffffff; border-bottom:2px solid #1d9b3e; }
+.play-file-name { font-weight:500; }
+.play-file-close { color:#9ca3af; font-size:16px; line-height:1; }
+
+.play-textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  border: none;
+  border-radius: 0;
+  padding: 12px 14px;
+  background: #111827;
+  color: #e5e7eb;
+  resize: none;
+  outline: none;
+}
+
+.play-hint { padding: 10px 16px 16px 16px; color:#6b7280; font-size: 12px; display:flex; align-items:center; gap:8px; background:#f9fafb; border-top:1px solid #e5e7eb; }
+.play-hint i { color:#f59e0b; }
+
+.play-terminal-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: none; /* Shown via JS */
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.play-terminal-card {
+  width: 90vw;
+  max-width: 980px;
+  height: 70vh;
+  min-height: 420px;
+  background: #0f172a;
+  color: #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #374151;
+}
+
+.play-terminal-header {
+  padding: 12px 16px;
+  background: #1f2937;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #374151;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.play-terminal-header-text {
+  color: #60a5fa; /* bluish like CodeChum */
+  letter-spacing: 0.3px;
+}
+
+.play-terminal-close {
+  background: #ef4444;
+  color: #fff;
+  border: 0;
+  border-radius: 16px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.play-terminal-close:hover { background: #dc2626; }
+
+.play-terminal-body {
+  flex: 1;
+  padding: 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+  overflow: auto;
+  background: #0f172a;
+  color: #e5e7eb;
+  line-height: 1.8;
+  font-size: 14px;
+}
+
+/* Inline input to mimic CodeChum – caret only */
+.terminal-inline-input {
+  background: transparent !important;
+  border: none !important;
+  color: #e5e7eb !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
+  font-size: 14px !important;
+  padding: 0 !important;
+  outline: none !important;
+  width: auto !important;
+  min-width: 1ch !important;
+  display: inline-block !important;
+  caret-color: #10b981 !important;
+}
+
+/* Fullscreen Play Area */
+.play-card.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  border-radius: 0;
+  box-shadow: none;
+}
+.play-card.fullscreen .play-ide-container {
+  height: calc(100vh - 140px);
+  min-height: calc(100vh - 140px);
+}
+.play-fullscreen-header {
+  position: sticky;
+  top: 0;
+  z-index: 2002;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f7f8fa; /* light grey match theme */
+  border-bottom: 1px solid #e5e7eb;
+}
+.play-fullscreen-header .back-link {
+  color: #6b7280; /* grey text */
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.play-fullscreen-header .theme-btn {
+  background: transparent;
+  color: #6b7280;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+/* Dark mode page overrides */
+body.dark-mode,
+body.dark,
+body[data-theme="dark"] {
+  background: #0b1220;
+}
+body.dark-mode .play-card,
+body.dark .play-card,
+body[data-theme="dark"] .play-card {
+  background: #0f172a;
+  border-color: #1f2937;
+}
+body.dark .play-toolbar,
+body[data-theme="dark"] .play-toolbar { background: #111827; border-bottom-color: #1f2937; }
+body.dark .play-title,
+body[data-theme="dark"] .play-title { color: #e5e7eb; }
+body.dark .play-label,
+body[data-theme="dark"] .play-label { color: #cbd5e1; }
+body.dark .play-select,
+body[data-theme="dark"] .play-select { background:#0f172a; color:#e5e7eb; border-color:#374151; }
+body.dark .play-secondary-btn,
+body[data-theme="dark"] .play-secondary-btn { background:#1f2937; color:#e5e7eb; }
+body.dark .play-secondary-btn:hover,
+body[data-theme="dark"] .play-secondary-btn:hover { background:#374151; }
+body.dark .play-run-btn,
+body[data-theme="dark"] .play-run-btn { background:#16a34a; }
+body.dark .play-hint,
+body[data-theme="dark"] .play-hint { background:#0f172a; border-top-color:#1f2937; color:#94a3b8; }
+body.dark .play-fullscreen-header,
+body[data-theme="dark"] .play-fullscreen-header { background:#111827; border-bottom-color:#1f2937; }
+body.dark .play-fullscreen-header .back-link,
+body[data-theme="dark"] .play-fullscreen-header .back-link { color:#e5e7eb; }
+body.dark .play-fullscreen-header .theme-btn,
+body[data-theme="dark"] .play-fullscreen-header .theme-btn { color:#e5e7eb; }
+body.dark .play-ide-container,
+body[data-theme="dark"] .play-ide-container { background:#0f172a; }
+body.dark .play-editor-wrapper,
+body[data-theme="dark"] .play-editor-wrapper { background:#0f172a; }
+body.dark .play-file-tabs,
+body[data-theme="dark"] .play-file-tabs { background:#0b1220; border-bottom-color:#1f2937; }
+body.dark .play-file-tab,
+body[data-theme="dark"] .play-file-tab { background:#0f172a; border-right-color:#1f2937; color:#cbd5e1; }
+body.dark .play-file-tab.active,
+body[data-theme="dark"] .play-file-tab.active { background:#0f172a; border-bottom-color:#16a34a; }
+.play-fullscreen-exit {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  z-index: 2001;
+}
+
+/* Lightweight preloader shown on initial entry */
+.play-preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(17,24,39,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e5e7eb;
+}
+.play-preloader .spinner {
+  width: 44px; height: 44px; border: 4px solid rgba(229,231,235,0.2); border-top-color: #10b981; border-radius: 50%; animation: playSpin 0.9s linear infinite;
+}
+@keyframes playSpin { to { transform: rotate(360deg); } }
+
+
+
+
+
+

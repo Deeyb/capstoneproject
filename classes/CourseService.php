@@ -853,8 +853,8 @@ class CourseService {
         
         $response = curl_exec($ch);
         $curlError = curl_error($ch);
-        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+            $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
         
         if ($response === false || !empty($curlError)) {
             error_log("JDoodle cURL Error: " . $curlError);

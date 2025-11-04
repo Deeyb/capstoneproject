@@ -200,6 +200,98 @@ class ActivityProgressService {
             throw new InvalidArgumentException('Answers must be an array');
         }
     }
+    
+    /**
+     * Calculate score for identification activity (supports multiple correct answers)
+     * @param int $activityId Activity ID
+     * @param array $studentAnswers Student answers array (question_id => answer)
+     * @return float Calculated score
+     */
+    public function calculateIdentificationScore($activityId, $studentAnswers) {
+        $this->validateActivityId($activityId);
+        if (!is_array($studentAnswers)) {
+            return 0.0;
+        }
+        
+        // Get all questions for this activity
+        $stmt = $this->db->prepare("
+            SELECT id, question_text, points, explanation
+            FROM activity_questions 
+            WHERE activity_id = ? 
+            ORDER BY position ASC, id ASC
+        ");
+        $stmt->execute([$activityId]);
+        $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $totalScore = 0.0;
+        
+        foreach ($questions as $question) {
+            $questionId = (int)$question['id'];
+            $points = (float)$question['points'];
+            $studentAnswer = isset($studentAnswers[$questionId]) ? trim((string)$studentAnswers[$questionId]) : '';
+            
+            if ($studentAnswer === '') {
+                continue; // No answer, skip
+            }
+            
+            // Get all acceptable answers (primary + alternatives)
+            $acceptableAnswers = [];
+            
+            // Try to parse explanation as JSON (new format: {"primary": "...", "alternatives": [...]})
+            if (!empty($question['explanation'])) {
+                try {
+                    $parsed = json_decode($question['explanation'], true);
+                    if (is_array($parsed)) {
+                        // New format with primary + alternatives
+                        if (isset($parsed['primary']) && !empty($parsed['primary'])) {
+                            $acceptableAnswers[] = trim(strtolower((string)$parsed['primary']));
+                        }
+                        if (isset($parsed['alternatives']) && is_array($parsed['alternatives'])) {
+                            foreach ($parsed['alternatives'] as $alt) {
+                                if (!empty($alt)) {
+                                    $acceptableAnswers[] = trim(strtolower((string)$alt));
+                                }
+                            }
+                        }
+                    } else {
+                        // Legacy format: plain text (old single answer)
+                        $acceptableAnswers[] = trim(strtolower((string)$question['explanation']));
+                    }
+                } catch (Exception $e) {
+                    // Not JSON, treat as plain text (legacy format)
+                    $acceptableAnswers[] = trim(strtolower((string)$question['explanation']));
+                }
+            }
+            
+            // Fallback: check question_choices for correct answer (legacy storage)
+            if (empty($acceptableAnswers)) {
+                $choiceStmt = $this->db->prepare("SELECT choice_text FROM question_choices WHERE question_id = ? AND is_correct = 1 LIMIT 1");
+                $choiceStmt->execute([$questionId]);
+                $primaryAnswer = $choiceStmt->fetchColumn();
+                if ($primaryAnswer) {
+                    $acceptableAnswers[] = trim(strtolower($primaryAnswer));
+                }
+            }
+            
+            // Normalize student answer
+            $normalizedStudent = trim(strtolower($studentAnswer));
+            
+            // Check if student answer matches any acceptable answer
+            $isCorrect = false;
+            foreach ($acceptableAnswers as $acceptable) {
+                if ($normalizedStudent === $acceptable) {
+                    $isCorrect = true;
+                    break;
+                }
+            }
+            
+            if ($isCorrect) {
+                $totalScore += $points;
+            }
+        }
+        
+        return $totalScore;
+    }
 }
 ?>
 

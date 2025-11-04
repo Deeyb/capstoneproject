@@ -831,8 +831,19 @@ try {
                     foreach ($qs as $q) {
                         // Normalize explanation/answer per type
                         $exp = isset($q['explanation']) ? (string)$q['explanation'] : '';
-                        if ($lower === 'identification' && $exp === '') {
-                            $exp = (string)($q['answer'] ?? '');
+                        if ($lower === 'identification') {
+                            // Store primary answer + alternatives as JSON in explanation field
+                            $primaryAnswer = (string)($q['answer'] ?? '');
+                            $alternatives = isset($q['alternativeAnswers']) && is_array($q['alternativeAnswers']) ? $q['alternativeAnswers'] : [];
+                            if ($primaryAnswer !== '' || !empty($alternatives)) {
+                                $exp = json_encode([
+                                    'primary' => $primaryAnswer,
+                                    'alternatives' => array_filter(array_map('trim', $alternatives))
+                                ]);
+                            } else if ($exp === '') {
+                                // Fallback: if no primary answer, check if explanation already has JSON
+                                $exp = (string)($q['answer'] ?? '');
+                            }
                         } else if ($lower === 'essay' && $exp === '') {
                             $exp = (string)($q['answer'] ?? '');
                         }

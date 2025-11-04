@@ -1522,7 +1522,7 @@ function viewOutline(courseId) {
                 if (t === 'upload_based' && st.questionType !== 'upload_based') {
                   // Set the correct question type
                   st.questionType = 'upload_based';
-                  st.type = 'laboratory';
+                  st.type = 'lecture';
                   // Trigger form re-render
                   window.dispatchEvent(new CustomEvent('createActivityRender'));
                 }
@@ -1538,7 +1538,7 @@ function viewOutline(courseId) {
                   st.timeLimit = meta.timeLimit || st.timeLimit;
                   st.testCases = (data.test_cases||[]).map(function(tc){ return { input: tc.input_text||'', output: tc.expected_output_text||'', isSample: !!tc.is_sample }; });
                 } else if (t === 'upload_based') {
-                  st.type = 'laboratory';
+                  st.type = 'lecture';
                   st.questionType = 'upload_based';
                   st.instructionsText = meta.instructions || '';
                   
@@ -1611,9 +1611,45 @@ function viewOutline(courseId) {
                         const correct = choices.find(function(c){ return !!c.is_correct; });
                         base.answer = correct ? (correct.choice_text||'') : '';
                       }
-                    // Fallback to explanation field if still empty (legacy storage)
-                    if (!base.answer && base.explanation) {
-                      base.answer = base.explanation;
+                      // Fallback to explanation field if still empty (legacy storage)
+                      if (!base.answer && base.explanation) {
+                        // Check if explanation contains JSON with primary + alternatives
+                        try {
+                          const parsed = JSON.parse(base.explanation);
+                          if (parsed && typeof parsed === 'object' && parsed !== null) {
+                            // New format: {"primary": "...", "alternatives": [...]}
+                            if (parsed.primary) {
+                              base.answer = String(parsed.primary).trim();
+                            }
+                            if (parsed.alternatives && Array.isArray(parsed.alternatives)) {
+                              base.alternativeAnswers = parsed.alternatives.filter(a => a && String(a).trim()).map(a => String(a).trim());
+                            }
+                            base.explanation = ''; // Clear explanation since we've extracted the data
+                          } else {
+                            // Not object, treat as legacy single answer
+                            base.answer = base.explanation;
+                          }
+                        } catch(e) {
+                          // Not JSON, treat as legacy single answer
+                          base.answer = base.explanation;
+                        }
+                      } else if (base.explanation) {
+                        // Check if explanation contains JSON with primary + alternatives (even if answer exists)
+                        try {
+                          const parsed = JSON.parse(base.explanation);
+                          if (parsed && typeof parsed === 'object' && parsed !== null) {
+                            // New format: {"primary": "...", "alternatives": [...]}
+                            if (parsed.primary && !base.answer) {
+                              base.answer = String(parsed.primary).trim();
+                            }
+                            if (parsed.alternatives && Array.isArray(parsed.alternatives)) {
+                              base.alternativeAnswers = parsed.alternatives.filter(a => a && String(a).trim()).map(a => String(a).trim());
+                            }
+                            base.explanation = '';
+                          }
+                        } catch(e) {
+                          // Not JSON, ignore
+                        }
                       }
                     } else if (subtype === 'essay') {
                       if (!base.answer && base.explanation) { base.answer = base.explanation; }
@@ -3852,17 +3888,20 @@ function showCreateActivityForm(lessonId, opts){
   // === AUTOSAVE/RESTORE (localStorage) ===
   try {
     const key = 'cr_createActivityDraft_' + String(lessonId);
-    // Restore draft if available and state is fresh
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      try { 
-        const saved = JSON.parse(raw); 
-        if (saved && typeof saved === 'object') { 
-          // Never restore editActivityId from a draft; drafts are for new items only
-          if (!opts || !opts.editActivityId) { delete saved.editActivityId; }
-          Object.assign(state, saved); 
-        } 
-      } catch(e){}
+    // Do NOT restore drafts in edit mode; they can corrupt the loaded record's type
+    if (!opts || !opts.editActivityId) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try { 
+          const saved = JSON.parse(raw); 
+          if (saved && typeof saved === 'object') { 
+            delete saved.editActivityId;
+            Object.assign(state, saved); 
+          } 
+        } catch(e){}
+      }
+    } else {
+      try { localStorage.removeItem(key); } catch(_){ }
     }
     // Debounced autosave function
     let saveTimer = null;
@@ -4268,9 +4307,14 @@ function showCreateActivityForm(lessonId, opts){
                       <input type="number" class="modal-input" min="1" value="${q.points || 1}" style="max-width:100px;padding:8px;border:1px solid #ddd;border-radius:6px;" onchange="updateQuestion(${index}, 'points', this.value)" />
                     </div>
                     
+                    <div style="margin-bottom:16px;">
+                      <label style="display:block;margin-bottom:6px;font-weight:500;color:#333;">Primary Correct Answer:</label>
+                      <input type="text" class="modal-input" value="${q.answer || q.explanation || ''}" placeholder="Enter the primary correct answer..." onchange="updateQuestion(${index}, 'answer', this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+                    </div>
                     <div>
-                      <label style="display:block;margin-bottom:6px;font-weight:500;color:#333;">Correct Answer:</label>
-                      <input type="text" class="modal-input" value="${q.answer || q.explanation || ''}" placeholder="Enter the correct answer..." onchange="updateQuestion(${index}, 'answer', this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+                      <label style="display:block;margin-bottom:6px;font-weight:500;color:#333;">Alternative Answers (Optional):</label>
+                      <textarea class="modal-input" rows="2" placeholder="Enter alternative acceptable answers, one per line (e.g., Lexer&#10;Lexical Analyzer&#10;Lexical Analysis)" onchange="updateQuestion(${index}, 'alternativeAnswers', this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;">${(q.alternativeAnswers || []).join('\n') || ''}</textarea>
+                      <div style="margin-top:4px;font-size:11px;color:#666;">Separate multiple acceptable answers with new lines. All will be accepted as correct.</div>
                     </div>
                   </div>
                 `).join('')}
@@ -4732,14 +4776,25 @@ function showCreateActivityForm(lessonId, opts){
   }
 
   render();
-  modal.querySelector('#cafCreate').onclick=async function(){
-    const btn = this;
-    if (btn.disabled) return; // Prevent double-clicks
-    
-    // Required field validation
-    const isCodingActivity = (state.questionType==='coding') || ((document.getElementById('cafActivityType')||{}).value==='coding');
-    const isUploadBasedActivity = (state.questionType==='upload_based') || ((document.getElementById('cafActivityType')||{}).value==='upload_based');
-    const hasName = state.name && state.name.trim().length > 0;
+  // SAFETY: Always re-attach create handler to ensure it works after save/close
+  const createBtn = modal.querySelector('#cafCreate');
+  if (createBtn) {
+    createBtn.onclick = async function(){
+      const btn = this;
+      if (btn.disabled) return; // Prevent double-clicks
+      
+      // Re-check state exists (might be null if modal opened stale)
+      if (!window.createActivityState) {
+        if (typeof window.showNotification === 'function') window.showNotification('error', 'Error', 'Form state lost. Please close and reopen the form.');
+        else alert('Form state lost. Please close and reopen.');
+        return;
+      }
+      const state = window.createActivityState;
+      
+      // Required field validation
+      const isCodingActivity = (state.questionType==='coding') || ((document.getElementById('cafActivityType')||{}).value==='coding');
+      const isUploadBasedActivity = (state.questionType==='upload_based') || ((document.getElementById('cafActivityType')||{}).value==='upload_based');
+      const hasName = state.name && state.name.trim().length > 0;
     const hasLanguage = !isCodingActivity || (state.language && state.language.trim().length > 0);
     const hasTestCases = !isCodingActivity || (Array.isArray(state.testCases) && state.testCases.length > 0);
     const hasUploadTasks = !isUploadBasedActivity || (Array.isArray(state.questions) && state.questions.length > 0);
@@ -4835,12 +4890,22 @@ function showCreateActivityForm(lessonId, opts){
       payload.questions = (Array.isArray(state.questions)?state.questions:[]).map(function(q){
         const qt = String(state.questionType||'multiple_choice').toLowerCase();
         const item = { text: q.text||'', points: Number(q.points||1), explanation: q.explanation || '' };
-        if (qt==='identification') { item.answer = q.answer || item.explanation || ''; }
         if (qt==='essay' && !item.explanation) { item.explanation = q.answer || ''; }
         if (qt==='multiple_choice' || qt==='quiz') {
           item.choices = (Array.isArray(q.choices)?q.choices:[]).map(function(c){ return { text: c.text||'', is_correct: !!c.correct }; });
         } else if (qt==='identification') {
           item.answer = q.answer || '';
+          // Store primary answer + alternatives in explanation field as JSON (new format: {"primary": "...", "alternatives": [...]})
+          const primaryAnswer = String(q.answer || '').trim();
+          const alternatives = Array.isArray(q.alternativeAnswers) ? q.alternativeAnswers.filter(a => a && String(a).trim()).map(a => String(a).trim()) : [];
+          if (primaryAnswer || alternatives.length > 0) {
+            item.explanation = JSON.stringify({
+              primary: primaryAnswer,
+              alternatives: alternatives
+            });
+          } else {
+            item.explanation = '';
+          }
         } else if (qt==='essay') {
           // Store expected answer into explanation column to persist
           item.explanation = (q.answer || q.explanation || '');
@@ -4892,15 +4957,20 @@ function showCreateActivityForm(lessonId, opts){
           if (typeof window.showNotification === 'function') window.showNotification('success', isEdit?'Activity updated':'Activity created', 'Item #' + actId);
         } catch(_) {}
         try { localStorage.removeItem('cr_createActivityDraft_' + String(lessonId)); } catch(_){ }
-        // Reset state for next creation
+        // FULL RESET: Clear state and ensure modal is ready for next use
         if (window.createActivityState) {
           window.createActivityState = null;
         }
+        // Clear any disabled state on button for next creation
+        try { btn.disabled = false; btn.textContent = 'Create Item'; } catch(_){ }
         const outline = document.getElementById('courseOutlineModal');
         const prevScroll = outline ? (outline.querySelector('#outlineBody')?.scrollTop || 0) : 0;
         viewOutline();
         setTimeout(function(){ try { const b = outline?.querySelector('#outlineBody'); if (b) b.scrollTop = prevScroll; } catch(_){ } }, 0);
+        // Close modal and ensure it's fully reset
         modal.style.display='none';
+        // Clear modal body to prevent stale content
+        try { const body = modal.querySelector('#cafBody'); if (body) body.innerHTML = ''; } catch(_){ }
       })
       .catch(function(e){ 
         try { clearTimeout(timeoutId); } catch(_){}
@@ -4911,8 +4981,10 @@ function showCreateActivityForm(lessonId, opts){
         btn.disabled = false;
         btn.textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item';
       });
-  };
-  try { window.__cafHandleCreate = modal.querySelector('#cafCreate').onclick; } catch(_){ }
+    };
+    // Store handler reference for fallback click listener
+    try { window.__cafHandleCreate = createBtn.onclick; } catch(_){ }
+  }
   // Hide footer in preview mode - Force update on every render and set class flag
   setTimeout(() => {
     const footer = modal.querySelector('#cafFooter');
@@ -4997,35 +5069,367 @@ function renderStudentTestInterface(activity, activityType) {
   }
 }
 
-// Function to render coding test interface
+// Function to render coding test interface (Codestem-style layout)
 function renderStudentCodingTest(activity) {
   try {
     const meta = JSON.parse(activity.instructions || '{}');
+    const language = meta.language || 'cpp';
+    const starterCode = meta.starterCode || '';
+    const problemDescription = activity.problem || meta.instructions || 'Complete the coding challenge.';
+    const testCases = Array.isArray(activity.testCases) ? activity.testCases : [];
+    
+    // Get user info for profile section
+    const userName = (window.__USER_NAME__ || 'Student').split(' ').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' ');
+    const timeLeft = activity.timeLimit ? `${Math.floor(activity.timeLimit / 60)}:${String(activity.timeLimit % 60).padStart(2, '0')}` : 'No limit';
+    const maxScore = activity.max_score || 0;
+    
     return `
-      <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:#f8f9fa;">
-        <h4 style="margin:0 0 12px 0;">Coding Exercise</h4>
-        <p style="margin:0 0 12px 0;color:#666;">Language: ${meta.language || 'Not specified'}</p>
-        <div style="margin-bottom:12px;">
-          <label style="display:block;margin-bottom:4px;font-weight:500;">Your Code:</label>
-          <textarea name="test-code" rows="10" placeholder="Write your code here..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-family:monospace;resize:vertical;"></textarea>
-        </div>
-        ${meta.starterCode ? `
-          <div style="margin-bottom:12px;">
-            <label style="display:block;margin-bottom:4px;font-weight:500;">Starter Code:</label>
-            <pre style="background:#f5f5f5;padding:8px;border-radius:4px;font-size:12px;overflow-x:auto;">${meta.starterCode}</pre>
+      <div class="codestem-coding-interface" style="display:flex;height:calc(100vh - 200px);min-height:600px;gap:0;background:#f8fafc;font-family:'Inter',sans-serif;">
+        <!-- LEFT PANEL: Problem Description -->
+        <div class="codestem-left-panel" style="width:350px;background:#fff;border-right:1px solid #e5e7eb;overflow-y:auto;display:flex;flex-direction:column;">
+          <div style="padding:24px;border-bottom:1px solid #e5e7eb;">
+            <h3 style="margin:0 0 8px 0;font-size:18px;font-weight:600;color:#1f2937;">${activity.title || 'Coding Challenge'}</h3>
+            <p style="margin:0;font-size:12px;color:#6b7280;">by CodeRegal Admin</p>
           </div>
-        ` : ''}
-        <div style="display:flex;gap:8px;">
-          <button type="button" id="codingRunBtn" class="action-btn" style="background:#2196F3;color:#fff;">Run</button>
-          <button type="button" id="codingSubmitBtn" class="action-btn" style="background:#28a745;color:#fff;">Submit</button>
+          <div style="padding:24px;flex:1;">
+            <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#374151;">Problem Description</h4>
+            <div style="color:#4b5563;line-height:1.7;font-size:14px;white-space:pre-wrap;">${escapeHtml(problemDescription)}</div>
+            
+            ${testCases.length > 0 ? `
+              <div style="margin-top:32px;">
+                <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#374151;">Sample Output</h4>
+                ${testCases.filter(tc => tc.is_sample).map((tc, idx) => `
+                  <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:6px;border-left:3px solid #10b981;">
+                    <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:8px;">Sample Output ${idx + 1}</div>
+                    <pre style="margin:0;font-size:13px;color:#1f2937;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(tc.expectedOutput || '')}</pre>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+          <div style="padding:16px 24px;border-top:1px solid #e5e7eb;background:#f9fafb;">
+            <div style="font-size:14px;font-weight:600;color:#374151;">Score: <span id="codingActivityScore">0</span>/${maxScore}</div>
+          </div>
         </div>
-        <div id="codingRunOut" style="margin-top:12px;"></div>
+        
+        <!-- MIDDLE PANEL: Code Editor -->
+        <div class="codestem-middle-panel" style="flex:1;display:flex;flex-direction:column;background:#fff;">
+          <div style="padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:#f9fafb;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:13px;font-weight:600;color:#6b7280;">${language.toUpperCase()}</span>
+              <span style="font-size:12px;color:#9ca3af;" id="codingSavedIndicator">
+                <i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Saved
+              </span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="toggleCodingDarkMode()" style="background:none;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;color:#6b7280;">
+                <i class="fas fa-moon"></i>
+              </button>
+            </div>
+          </div>
+          <div id="codestemMonacoContainer" style="flex:1;min-height:0;position:relative;">
+            <textarea id="codestemCodeTextarea" 
+                      placeholder="Write your code here..." 
+                      style="width:100%;height:100%;padding:16px;border:none;font-family:'Courier New',monospace;font-size:14px;resize:none;outline:none;background:#fff;color:#1f2937;">${escapeHtml(starterCode)}</textarea>
+          </div>
+          <div style="padding:16px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;gap:12px;">
+            <button id="codestemRunBtn" 
+                    onclick="runCodestemCode()" 
+                    style="background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+              <i class="fas fa-play"></i> Run Code
+            </button>
+            <button id="codestemCheckBtn" 
+                    onclick="checkCodestemTests()" 
+                    style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+              <i class="fas fa-check"></i> Check Tests
+            </button>
+          </div>
+        </div>
+        
+        <!-- RIGHT PANEL: Profile Details & Test Cases -->
+        <div class="codestem-right-panel" style="width:320px;background:#fff;border-left:1px solid #e5e7eb;display:flex;flex-direction:column;">
+          <!-- Profile Details Section -->
+          <div style="padding:20px;border-bottom:1px solid #e5e7eb;background:#f9fafb;">
+            <div style="margin-bottom:16px;">
+              <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:4px;">${escapeHtml(userName)}</div>
+              <div style="font-size:12px;color:#6b7280;">Time Left: <span id="codestemTimeLeft">${timeLeft}</span></div>
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Overall Score</div>
+              <div style="font-size:18px;font-weight:700;color:#10b981;" id="codestemOverallScore">0/${maxScore}</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Current Rank</div>
+              <div style="font-size:14px;font-weight:600;color:#374151;" id="codestemRank">-</div>
+            </div>
+          </div>
+          
+          <!-- Test Cases Section -->
+          <div style="flex:1;overflow-y:auto;padding:16px;">
+            <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #e5e7eb;padding-bottom:12px;">
+              <button class="codestem-tab active" onclick="switchCodestemTab('testcases')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#3b82f6;cursor:pointer;border-bottom:2px solid #3b82f6;">Test Cases</button>
+              <button class="codestem-tab" onclick="switchCodestemTab('executions')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer;">Executions</button>
+            </div>
+            
+            <div id="codestemTestCasesTab" class="codestem-tab-content">
+              ${testCases.length > 0 ? testCases.map((tc, idx) => `
+                <div class="codestem-test-case" data-test-id="${tc.id || idx}" style="margin-bottom:12px;padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;cursor:pointer;" onclick="toggleTestCaseDetails(${idx})">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <input type="radio" ${tc.is_sample ? 'checked' : ''} disabled style="margin:0;">
+                      <span style="font-size:13px;font-weight:600;color:#374151;">Test Case ${idx + 1}</span>
+                    </div>
+                    <i class="fas fa-chevron-down" style="font-size:10px;color:#9ca3af;"></i>
+                  </div>
+                  <div class="test-case-details" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
+                    ${tc.inputText ? `<div style="margin-bottom:8px;"><span style="font-size:11px;color:#6b7280;">Input:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.inputText)}</pre></div>` : ''}
+                    <div><span style="font-size:11px;color:#6b7280;">Expected Output:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.expectedOutput || '')}</pre></div>
+                  </div>
+                </div>
+              `).join('') : '<div style="color:#9ca3af;font-size:13px;">No test cases available</div>'}
+            </div>
+            
+            <div id="codestemExecutionsTab" class="codestem-tab-content" style="display:none;">
+              <div style="color:#9ca3af;font-size:13px;">Execution history will appear here</div>
+            </div>
+          </div>
+        </div>
       </div>
+      
+      <script>
+        // Initialize Monaco Editor for Codestem interface
+        (function() {
+          const container = document.getElementById('codestemMonacoContainer');
+          const textarea = document.getElementById('codestemCodeTextarea');
+          if (!container || !textarea) return;
+          
+          // Load Monaco editor
+          loadMonacoEditor().then(() => {
+            if (window.monaco && window.monaco.editor) {
+              const editor = window.monaco.editor.create(container, {
+                value: textarea.value,
+                language: '${language}',
+                theme: 'vs',
+                fontSize: 14,
+                automaticLayout: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                lineNumbers: 'on'
+              });
+              
+              // Sync with textarea
+              editor.onDidChangeModelContent(() => {
+                textarea.value = editor.getValue();
+                document.getElementById('codingSavedIndicator').innerHTML = '<i class="fas fa-circle" style="color:#f59e0b;margin-right:4px;"></i>Unsaved';
+              });
+              
+              // Store editor reference
+              window.__codestemEditor = editor;
+            }
+          }).catch(() => {
+            // Fallback: show textarea
+            textarea.style.display = 'block';
+          });
+        })();
+      </script>
     `;
   } catch (e) {
+    console.error('Error rendering Codestem coding interface:', e);
     return '<div class="empty-state">Invalid coding activity data</div>';
   }
 }
+
+// Codestem-style coding interface helper functions
+window.runCodestemCode = function() {
+  const editor = window.__codestemEditor;
+  const textarea = document.getElementById('codestemCodeTextarea');
+  const code = editor ? editor.getValue() : (textarea ? textarea.value : '');
+  
+  if (!code.trim()) {
+    alert('Please write some code first!');
+    return;
+  }
+  
+  // Open terminal modal (reuse Play Area terminal)
+  if (window.PlayArea && window.PlayArea.openTerminal) {
+    window.PlayArea.openTerminal(false, []);
+  } else {
+    // Fallback: show output in alert or create simple output div
+    alert('Terminal feature not available. Use "Check Tests" to run against test cases.');
+  }
+};
+
+window.checkCodestemTests = async function() {
+  const editor = window.__codestemEditor;
+  const textarea = document.getElementById('codestemCodeTextarea');
+  const code = editor ? editor.getValue() : (textarea ? textarea.value : '');
+  
+  if (!code.trim()) {
+    alert('Please write some code first!');
+    return;
+  }
+  
+  // Get current activity data
+  const activityId = window.__CURRENT_ACTIVITY_ID__ || 0;
+  if (!activityId) {
+    alert('Activity ID not found. Please refresh and try again.');
+    return;
+  }
+  
+  // Disable button
+  const btn = document.getElementById('codestemCheckBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+  }
+  
+  try {
+    // Run code against test cases (similar to existing submission logic)
+    // This would call the existing JDoodle submission API
+    const response = await fetch('submissions_api.php?action=submit_attempt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        activity_id: activityId,
+        language: 'cpp', // Get from activity meta
+        source: code,
+        results: JSON.stringify([]),
+        verdict: 'pending',
+        score: null
+      })
+    });
+    
+    const result = await response.json();
+    
+    // Show results popup
+    const score = result.score || 0;
+    const maxScore = window.__CURRENT_ACTIVITY_MAX_SCORE__ || 10;
+    const passed = result.passed || 0;
+    const total = result.total || 0;
+    
+    alert(`Score: ${score}/${maxScore}\nPassed: ${passed}/${total} test cases`);
+    
+    // Update score display
+    const scoreEl = document.getElementById('codingActivityScore');
+    if (scoreEl) scoreEl.textContent = score;
+    
+    const overallScoreEl = document.getElementById('codestemOverallScore');
+    if (overallScoreEl) overallScoreEl.textContent = `${score}/${maxScore}`;
+    
+    // Mark as saved
+    const savedIndicator = document.getElementById('codingSavedIndicator');
+    if (savedIndicator) {
+      savedIndicator.innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Saved';
+    }
+    
+  } catch (error) {
+    console.error('Error checking tests:', error);
+    alert('Error checking tests. Please try again.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> Check Tests';
+    }
+  }
+};
+
+window.switchCodestemTab = function(tab) {
+  // Update tab buttons (handle both student and preview tabs)
+  const container = event.target.closest('.codestem-right-panel');
+  if (!container) return;
+  
+  container.querySelectorAll('.codestem-tab').forEach(t => {
+    t.classList.remove('active');
+    t.style.color = '#6b7280';
+    t.style.borderBottom = 'none';
+  });
+  
+  const activeTab = event.target;
+  activeTab.classList.add('active');
+  activeTab.style.color = '#3b82f6';
+  activeTab.style.borderBottom = '2px solid #3b82f6';
+  
+  // Show/hide tab content (handle both student and preview tabs)
+  const testCasesTab = container.querySelector('#codestemTestCasesTab') || container.querySelector('#previewTestCasesTab');
+  const executionsTab = container.querySelector('#codestemExecutionsTab') || container.querySelector('#previewExecutionsTab');
+  const resultsTab = container.querySelector('#previewResultsTab');
+  
+  if (testCasesTab) testCasesTab.style.display = 'none';
+  if (executionsTab) executionsTab.style.display = 'none';
+  if (resultsTab) resultsTab.style.display = 'none';
+  
+  if (tab === 'testcases' && testCasesTab) {
+    testCasesTab.style.display = 'block';
+  } else if (tab === 'executions' && executionsTab) {
+    executionsTab.style.display = 'block';
+  } else if (tab === 'results' && resultsTab) {
+    resultsTab.style.display = 'block';
+  }
+};
+
+window.toggleTestCaseDetails = function(idx) {
+  const testCase = event.currentTarget;
+  const details = testCase.querySelector('.test-case-details');
+  const chevron = testCase.querySelector('.fa-chevron-down');
+  
+  if (details.style.display === 'none') {
+    details.style.display = 'block';
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+  } else {
+    details.style.display = 'none';
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  }
+};
+
+window.toggleCodingDarkMode = function() {
+  const editor = window.__codestemEditor;
+  if (!editor) return;
+  
+  const currentTheme = editor._themeService._theme;
+  const newTheme = currentTheme === 'vs-dark' ? 'vs' : 'vs-dark';
+  window.monaco.editor.setTheme(newTheme);
+  
+  // Update button icon
+  const btn = event.target.closest('button');
+  if (btn) {
+    const icon = btn.querySelector('i');
+    if (icon) {
+      icon.className = newTheme === 'vs-dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
+  }
+};
+
+// Helper function for HTML escaping (if not already available)
+if (typeof escapeHtml === 'undefined') {
+  window.escapeHtml = function(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+}
+
+// Coordinator preview helper functions
+window.runPreviewCode = function() {
+  const runBtn = document.getElementById('previewRunBtn');
+  if (runBtn && runBtn.onclick) {
+    runBtn.onclick();
+  }
+};
+
+window.testPreviewCode = function() {
+  const testBtn = document.getElementById('previewTestBtn');
+  if (testBtn && testBtn.onclick) {
+    testBtn.onclick();
+  }
+};
+
+window.resetPreviewCode = function() {
+  const resetBtn = document.getElementById('previewResetBtn');
+  if (resetBtn && resetBtn.onclick) {
+    resetBtn.onclick();
+  }
+};
 
 // Submit handler for student coding test (runs JDoodle then saves attempt)
 document.addEventListener('click', function(e){
@@ -5137,6 +5541,60 @@ function renderStudentIdentificationTest(activity) {
   
   return html;
 }
+
+// Helper function to check if identification answer is correct (supports multiple acceptable answers)
+// Usage: checkIdentificationAnswer(studentAnswer, question)
+// Returns: { isCorrect: boolean, matchedAnswer: string|null }
+window.checkIdentificationAnswer = function(studentAnswer, question) {
+  if (!studentAnswer || !question) return { isCorrect: false, matchedAnswer: null };
+  
+  // Normalize student answer (trim, lowercase)
+  const normalized = String(studentAnswer).trim().toLowerCase();
+  if (normalized === '') return { isCorrect: false, matchedAnswer: null };
+  
+  // Get all acceptable answers (primary + alternatives)
+  const acceptableAnswers = [];
+  
+  // Try to parse explanation as JSON (new format: {"primary": "...", "alternatives": [...]})
+  if (question.explanation) {
+    try {
+      const parsed = JSON.parse(question.explanation);
+      if (parsed && typeof parsed === 'object' && parsed !== null) {
+        // New format with primary + alternatives
+        if (parsed.primary && String(parsed.primary).trim()) {
+          acceptableAnswers.push({ text: String(parsed.primary).trim(), isPrimary: true });
+        }
+        if (parsed.alternatives && Array.isArray(parsed.alternatives)) {
+          parsed.alternatives.forEach(alt => {
+            if (alt && String(alt).trim()) {
+              acceptableAnswers.push({ text: String(alt).trim(), isPrimary: false });
+            }
+          });
+        }
+      }
+    } catch(e) {
+      // Not JSON, treat as plain text (legacy format)
+      if (question.explanation.trim()) {
+        acceptableAnswers.push({ text: question.explanation.trim(), isPrimary: true });
+      }
+    }
+  }
+  
+  // Fallback: use question.answer if available and no explanation found
+  if (acceptableAnswers.length === 0 && question.answer) {
+    acceptableAnswers.push({ text: String(question.answer).trim(), isPrimary: true });
+  }
+  
+  // Check if student answer matches any acceptable answer (case-insensitive, trimmed)
+  for (const acceptable of acceptableAnswers) {
+    const acceptableNormalized = String(acceptable.text).trim().toLowerCase();
+    if (acceptableNormalized === normalized) {
+      return { isCorrect: true, matchedAnswer: acceptable.text, isPrimary: acceptable.isPrimary };
+    }
+  }
+  
+  return { isCorrect: false, matchedAnswer: null };
+};
 
 // Function to render true/false test interface
 function renderStudentTrueFalseTest(activity) {
@@ -5282,50 +5740,170 @@ function renderProfessionalTestQuestions(activity, activityType) {
   return html;
 }
 
-// Coordinator preview for coding activities (reads instructions JSON)
+// Coordinator preview for coding activities (Codestem-style layout)
 function renderCodingPreview(activity){
   let meta = {};
   try { meta = JSON.parse(activity.instructions||'{}'); } catch(_){ meta = {}; }
   const language = (meta.language || 'cpp').toString();
-  const timeLimit = meta.timeLimit ? meta.timeLimit + 's' : 'No time limit';
-  const starter = meta.starterCode || '';
-  const expected = Array.isArray(activity.testCases) ? activity.testCases.filter(tc=>tc && tc.expectedOutput).map((tc,i)=>`Case ${i+1}: ${tc.expectedOutput}`).join('\n') : '';
-  const pts = activity.max_score || 0;
+  const starterCode = meta.starterCode || '';
+  const problemDescription = activity.problem || meta.instructions || meta.displayInstructions || 'Complete the coding challenge.';
+  const testCases = Array.isArray(activity.testCases) ? activity.testCases : (Array.isArray(activity.test_cases) ? activity.test_cases : []);
+  const maxScore = activity.max_score || 0;
+  
+  // Store activity ID for later use
+  window.__CURRENT_ACTIVITY_ID__ = activity.id || activity.activity_id || 0;
+  window.__CURRENT_ACTIVITY_MAX_SCORE__ = maxScore;
+  
   return `
-    <div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;">
-      <div style="background:linear-gradient(135deg,#28a745 0%,#20c997 100%);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <h2 style="margin:0;font-size:24px;font-weight:600;">${activity.title||'Coding Exercise'}</h2>
-          <div style="margin-top:6px;opacity:.9;font-size:14px;">💻 ${language.toUpperCase()} • ⏱️ ${timeLimit}</div>
+    <div class="codestem-coding-interface" style="display:flex;height:calc(100vh - 200px);min-height:600px;gap:0;background:#f8fafc;font-family:'Inter',sans-serif;">
+      <!-- LEFT PANEL: Problem Description -->
+      <div class="codestem-left-panel" style="width:350px;background:#fff;border-right:1px solid #e5e7eb;overflow-y:auto;display:flex;flex-direction:column;">
+        <div style="padding:24px;border-bottom:1px solid #e5e7eb;">
+          <h3 style="margin:0 0 8px 0;font-size:18px;font-weight:600;color:#1f2937;">${activity.title || 'Coding Challenge'}</h3>
+          <p style="margin:0;font-size:12px;color:#6b7280;">by CodeRegal Admin</p>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:14px;opacity:.9;">Total Points</div>
-          <div style="font-size:20px;font-weight:700;">${pts}</div>
+        <div style="padding:24px;flex:1;">
+          <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#374151;">Problem Description</h4>
+          <div style="color:#4b5563;line-height:1.7;font-size:14px;white-space:pre-wrap;">${escapeHtml(problemDescription)}</div>
+          
+          ${testCases.length > 0 ? `
+            <div style="margin-top:32px;">
+              <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#374151;">Sample Output</h4>
+              ${testCases.filter(tc => tc.is_sample).map((tc, idx) => `
+                <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:6px;border-left:3px solid #10b981;">
+                  <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:8px;">Sample Output ${idx + 1}</div>
+                  <pre style="margin:0;font-size:13px;color:#1f2937;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(tc.expectedOutput || tc.expected_output || '')}</pre>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+        <div style="padding:16px 24px;border-top:1px solid #e5e7eb;background:#f9fafb;">
+          <div style="font-size:14px;font-weight:600;color:#374151;">Total Points: ${maxScore}</div>
         </div>
       </div>
-      ${meta.instructions ? `<div style="padding:18px;border-bottom:1px solid #e9ecef;background:#f8f9fa;"><h3 style="margin:0 0 8px 0;font-size:16px;color:#374151;">Instructions</h3><div style="color:#4b5563;white-space:pre-wrap;">${meta.instructions}</div></div>` : ''}
-      <div style="display:flex;">
-        <div style="flex:1;padding:18px;">
-          <div style="margin-bottom:10px;font-weight:600;color:#374151;">Starter Code</div>
-          <textarea rows="14" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:8px;font-family:monospace;font-size:14px;resize:vertical;">${starter.replace(/</g,'&lt;')}</textarea>
-          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button id="previewRunBtn" style="background:#28a745;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Run</button>
-            <button id="previewTestBtn" style="background:#0ea5e9;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Test (All Cases)</button>
-            <button id="previewResetBtn" style="background:#6b7280;color:#fff;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;">Reset</button>
+      
+      <!-- MIDDLE PANEL: Code Editor -->
+      <div class="codestem-middle-panel" style="flex:1;display:flex;flex-direction:column;background:#fff;">
+        <div style="padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:#f9fafb;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:13px;font-weight:600;color:#6b7280;">${language.toUpperCase()}</span>
+            <span style="font-size:12px;color:#9ca3af;" id="previewSavedIndicator">
+              <i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Ready
+            </span>
           </div>
-          <div id="previewRunOutput" style="margin-top:12px;padding:12px;background:#f8f9fa;border-radius:6px;font-family:monospace;font-size:13px;min-height:40px;display:none;"></div>
-          <div id="previewTestResults" style="margin-top:12px;display:none;"></div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="toggleCodingDarkMode()" style="background:none;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;color:#6b7280;">
+              <i class="fas fa-moon"></i>
+            </button>
+          </div>
         </div>
-        <div style="width:280px;border-left:1px solid #e9ecef;background:#f8f9fa;padding:18px;">
-          <div style="font-weight:600;color:#374151;margin-bottom:8px;">Progress</div>
-          <div style="font-size:14px;color:#10b981;font-weight:700;">Ready to code</div>
-          ${expected ? `<div style="margin-top:18px;"><div style="font-weight:600;color:#374151;margin-bottom:6px;">Expected Output</div><pre style="background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;white-space:pre-wrap;">${expected.replace(/</g,'&lt;')}</pre></div>` : ''}
+        <div id="previewMonacoContainer" style="flex:1;min-height:0;position:relative;">
+          <textarea id="previewCodeTextarea" 
+                    placeholder="Write your code here..." 
+                    style="width:100%;height:100%;padding:16px;border:none;font-family:'Courier New',monospace;font-size:14px;resize:none;outline:none;background:#fff;color:#1f2937;">${escapeHtml(starterCode)}</textarea>
+        </div>
+        <div style="padding:16px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;gap:12px;">
+          <button id="previewRunBtn" 
+                  onclick="runPreviewCode()" 
+                  style="background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-play"></i> Run Code
+          </button>
+          <button id="previewTestBtn" 
+                  onclick="testPreviewCode()" 
+                  style="background:#0ea5e9;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-vial"></i> Test (All Cases)
+          </button>
+          <button id="previewResetBtn" 
+                  onclick="resetPreviewCode()" 
+                  style="background:#6b7280;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-undo"></i> Reset
+          </button>
+        </div>
+        <div id="previewRunOutput" style="padding:16px;border-top:1px solid #e5e7eb;background:#fff;max-height:200px;overflow-y:auto;display:none;font-family:monospace;font-size:13px;"></div>
+        <div id="previewTestResults" style="padding:16px;border-top:1px solid #e5e7eb;background:#fff;max-height:300px;overflow-y:auto;display:none;"></div>
+      </div>
+      
+      <!-- RIGHT PANEL: Test Cases -->
+      <div class="codestem-right-panel" style="width:320px;background:#fff;border-left:1px solid #e5e7eb;display:flex;flex-direction:column;">
+        <!-- Test Cases Section -->
+        <div style="flex:1;overflow-y:auto;padding:16px;">
+          <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #e5e7eb;padding-bottom:12px;">
+            <button class="codestem-tab active" onclick="switchCodestemTab('testcases')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#3b82f6;cursor:pointer;border-bottom:2px solid #3b82f6;">Test Cases</button>
+            <button class="codestem-tab" onclick="switchCodestemTab('results')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer;">Results</button>
+          </div>
+          
+          <div id="previewTestCasesTab" class="codestem-tab-content">
+            ${testCases.length > 0 ? testCases.map((tc, idx) => `
+              <div class="codestem-test-case" data-test-id="${tc.id || idx}" style="margin-bottom:12px;padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;cursor:pointer;" onclick="toggleTestCaseDetails(${idx})">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <input type="radio" ${tc.is_sample ? 'checked' : ''} disabled style="margin:0;">
+                    <span style="font-size:13px;font-weight:600;color:#374151;">Test Case ${idx + 1} ${tc.is_sample ? '(Sample)' : ''}</span>
+                  </div>
+                  <i class="fas fa-chevron-down" style="font-size:10px;color:#9ca3af;"></i>
+                </div>
+                <div class="test-case-details" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
+                  ${tc.inputText || tc.input_text ? `<div style="margin-bottom:8px;"><span style="font-size:11px;color:#6b7280;">Input:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.inputText || tc.input_text || '')}</pre></div>` : ''}
+                  <div><span style="font-size:11px;color:#6b7280;">Expected Output:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.expectedOutput || tc.expected_output || '')}</pre></div>
+                </div>
+              </div>
+            `).join('') : '<div style="color:#9ca3af;font-size:13px;">No test cases available</div>'}
+          </div>
+          
+          <div id="previewResultsTab" class="codestem-tab-content" style="display:none;">
+            <div style="color:#9ca3af;font-size:13px;">Test results will appear here after running tests</div>
+          </div>
         </div>
       </div>
     </div>
+    
+    <script>
+      // Initialize Monaco Editor for Coordinator preview
+      (function() {
+        const container = document.getElementById('previewMonacoContainer');
+        const textarea = document.getElementById('previewCodeTextarea');
+        if (!container || !textarea) return;
+        
+        // Store preview activity data
+        window.__previewActivityData = ${JSON.stringify(activity)};
+        
+        // Load Monaco editor
+        loadMonacoEditor().then(() => {
+          if (window.monaco && window.monaco.editor) {
+            const editor = window.monaco.editor.create(container, {
+              value: textarea.value,
+              language: '${language}',
+              theme: 'vs',
+              fontSize: 14,
+              automaticLayout: true,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              lineNumbers: 'on'
+            });
+            
+            // Sync with textarea
+            editor.onDidChangeModelContent(() => {
+              textarea.value = editor.getValue();
+              const indicator = document.getElementById('previewSavedIndicator');
+              if (indicator) {
+                indicator.innerHTML = '<i class="fas fa-circle" style="color:#f59e0b;margin-right:4px;"></i>Modified';
+              }
+            });
+            
+            // Store editor reference
+            window.__previewEditor = editor;
+          }
+        }).catch(() => {
+          // Fallback: show textarea
+          textarea.style.display = 'block';
+        });
+      })();
+    </script>
   `;
   // expose preview context for delegated handlers
-  try { window.__codingPreviewCtx = { meta: meta || {}, starter: starter || '', expected: expected || '', activity: activity || {} }; } catch(_){ }
+  try { window.__codingPreviewCtx = { meta: meta || {}, starter: starterCode || '', expected: expected || '', activity: activity || {} }; } catch(_){ }
   
   // Bind Run/Reset handlers for coding preview
   setTimeout(() => {
@@ -5334,11 +5912,17 @@ function renderCodingPreview(activity){
     const resetBtn = document.getElementById('previewResetBtn');
     const outputDiv = document.getElementById('previewRunOutput');
     const testDiv = document.getElementById('previewTestResults');
-    const textarea = document.querySelector('textarea');
     
-    if (runBtn && textarea) {
+    // Get code from Monaco editor or textarea fallback
+    const getCode = () => {
+      const editor = window.__previewEditor;
+      const textarea = document.getElementById('previewCodeTextarea');
+      return editor ? editor.getValue() : (textarea ? textarea.value : '');
+    };
+    
+    if (runBtn) {
       runBtn.onclick = function() {
-        const code = textarea.value.trim();
+        const code = getCode().trim();
         if (!code) {
           if (outputDiv) {
             outputDiv.style.display = 'block';
@@ -5348,14 +5932,14 @@ function renderCodingPreview(activity){
         }
         
         runBtn.disabled = true;
-        runBtn.textContent = 'Running...';
+        runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
         if (outputDiv) {
           outputDiv.style.display = 'block';
           outputDiv.innerHTML = '<div style="color:#007bff;">🔄 Running code...</div>';
         }
         
         // Test the code based on language
-        const language = (meta && meta.language) ? String(meta.language).toLowerCase() : 'javascript';
+        const language = (meta && meta.language) ? String(meta.language).toLowerCase() : 'cpp';
         // For JavaScript, run locally. For C++/Java/Python, use server runner (JDoodle)
         if (language === 'javascript') {
           testCodingActivity(code, language, expected, outputDiv, runBtn);
@@ -5391,18 +5975,18 @@ function renderCodingPreview(activity){
               .catch(err => {
                 outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run failed: ${err && err.message ? err.message : err}</div>`;
               })
-              .finally(() => { runBtn.disabled=false; runBtn.textContent='Run'; });
+              .finally(() => { runBtn.disabled=false; runBtn.innerHTML='<i class="fas fa-play"></i> Run Code'; });
           } catch (err) {
             outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run error: ${err && err.message ? err.message : err}</div>`;
-            runBtn.disabled = false; runBtn.textContent = 'Run';
+            runBtn.disabled = false; runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
           }
         }
       };
     }
     
-    if (testBtn && textarea) {
+    if (testBtn) {
       testBtn.onclick = function() {
-        const code = textarea.value.trim();
+        const code = getCode().trim();
         if (!code) {
           if (testDiv) {
             testDiv.style.display = 'block';
@@ -5412,7 +5996,7 @@ function renderCodingPreview(activity){
         }
 
         testBtn.disabled = true;
-        testBtn.textContent = 'Testing...';
+        testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
         if (testDiv) {
           testDiv.style.display = 'block';
           testDiv.innerHTML = '<div style="color:#0ea5e9;">🔄 Running all test cases...</div>';
@@ -5451,19 +6035,54 @@ function renderCodingPreview(activity){
               </div>`;
             }).join('');
             testDiv.innerHTML = header + rows;
+            
+            // Also show in Results tab
+            const resultsTab = document.getElementById('previewResultsTab');
+            if (resultsTab) {
+              resultsTab.innerHTML = header + rows;
+              // Switch to Results tab automatically
+              const resultsTabBtn = document.querySelector('.codestem-tab[onclick*="results"]');
+              if (resultsTabBtn) {
+                resultsTabBtn.click();
+              }
+            }
           })
           .catch(err => {
             testDiv.innerHTML = `<div style="color:#dc3545;">❌ Test failed: ${err && err.message ? err.message : err}</div>`;
+            const resultsTab = document.getElementById('previewResultsTab');
+            if (resultsTab) {
+              resultsTab.innerHTML = `<div style="color:#dc3545;">❌ Test failed: ${err && err.message ? err.message : err}</div>`;
+            }
           })
-          .finally(() => { testBtn.disabled=false; testBtn.textContent='Test (All Cases)'; });
+          .finally(() => { testBtn.disabled=false; testBtn.innerHTML='<i class="fas fa-vial"></i> Test (All Cases)'; });
       };
     }
 
-    if (resetBtn && textarea) {
+    if (resetBtn) {
       resetBtn.onclick = function() {
-        textarea.value = starter;
+        const editor = window.__previewEditor;
+        const textarea = document.getElementById('previewCodeTextarea');
+        const originalCode = starterCode;
+        
+        if (editor) {
+          editor.setValue(originalCode);
+        } else if (textarea) {
+          textarea.value = originalCode;
+        }
+        
         if (outputDiv) {
           outputDiv.style.display = 'none';
+          outputDiv.innerHTML = '';
+        }
+        if (testDiv) {
+          testDiv.style.display = 'none';
+          testDiv.innerHTML = '';
+        }
+        
+        // Reset saved indicator
+        const indicator = document.getElementById('previewSavedIndicator');
+        if (indicator) {
+          indicator.innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Ready';
         }
       };
     }
@@ -5528,7 +6147,7 @@ function testCodingActivity(code, language, expectedOutput, outputDiv, runBtn) {
   } finally {
     if (runBtn) {
       runBtn.disabled = false;
-      runBtn.textContent = 'Run';
+      runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
     }
   }
 }
@@ -6084,7 +6703,9 @@ function addQuestion() {
     matchingPairs: state.questionType === 'matching' ? [{ left: '', right: '' }] : [],
     // Upload-based specific fields
     acceptedFiles: state.questionType === 'upload_based' ? ['pdf', 'docx', 'xml', 'jpg', 'png'] : [],
-    maxFileSize: state.questionType === 'upload_based' ? 10 : null
+    maxFileSize: state.questionType === 'upload_based' ? 10 : null,
+    // Identification: multiple correct answers support
+    alternativeAnswers: state.questionType === 'identification' ? [] : undefined
   };
   
   state.questions.push(newQuestion);
@@ -6145,7 +6766,12 @@ function updateQuestion(index, property, value) {
   }
   
   if (state.questions[index]) {
-    state.questions[index][property] = value;
+    // Convert alternativeAnswers textarea (newline-separated) to array
+    if (property === 'alternativeAnswers') {
+      state.questions[index].alternativeAnswers = value ? value.split('\n').map(a => a.trim()).filter(a => a.length > 0) : [];
+    } else {
+      state.questions[index][property] = value;
+    }
   }
   if (window.__cafScheduleSave) window.__cafScheduleSave();
 }

@@ -89,6 +89,29 @@ $content = @file_get_contents($path) ?: '';
     })();
   </script>
   <script>
+    // Finish Reading interactive toast
+    (function(){
+      var toast, shown = false; var revealOffset = 200; var lastY = window.scrollY;
+      function ensureToast(){
+        if (toast) return toast;
+        toast = document.createElement('div');
+        toast.className = 'finish-reading-toast';
+        toast.innerHTML = '<span class="dot"></span><div class="msg">Finish reading?</div>';
+        document.body.appendChild(toast);
+        return toast;
+      }
+      function nearBottom(){ return (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - revealOffset); }
+      function onScroll(){
+        var goingUp = window.scrollY < lastY; lastY = window.scrollY;
+        if (nearBottom()) { ensureToast().classList.add('show'); shown = true; }
+        if (goingUp && toast) { toast.classList.remove('show'); }
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      // In case already at bottom on load
+      setTimeout(onScroll, 300);
+    })();
+  </script>
+  <script>
     // Attach run buttons to fenced code blocks (cpp, python, java)
     function enhanceCodeBlocks() {
       console.log('[Enhance] enhanceCodeBlocks called');

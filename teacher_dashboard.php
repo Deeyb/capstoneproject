@@ -43,6 +43,8 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <!-- Teacher-specific Styles -->
   <link rel="stylesheet" href="assets/css/teacher_dashboard.css">
+  <!-- Shared Play Area styles -->
+  <link rel="stylesheet" href="assets/css/play_area.css">
 </head>
 <body class="teacher-dashboard">
   <!-- Header (match Coordinator/Admin exactly) -->
@@ -88,10 +90,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
           <i class="fas fa-book-open"></i>
           <span>My Classes</span>
         </li>
-        <li class="nav-item" onclick="showSection('my-students', this)">
-          <i class="fas fa-user-graduate"></i>
-          <span>My Students</span>
-        </li>
+        
         
         <li class="nav-item" onclick="showSection('reports', this)">
           <i class="fas fa-chart-bar"></i>
@@ -104,6 +103,10 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
         <li class="nav-item" onclick="showSection('play-area', this)">
           <i class="fas fa-terminal"></i>
           <span>Play Area</span>
+        </li>
+        <li class="nav-item" onclick="showSection('archive-classes', this)">
+          <i class="fas fa-archive"></i>
+          <span>Archive Classes</span>
         </li>
         <li class="nav-item" onclick="showSection('profile', this)">
           <i class="fas fa-user"></i>
@@ -133,11 +136,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
       </div>
     </div>
 
-    <!-- My Students Section -->
-    <div id="my-students" class="section-content">
-      <div class="section-title">My Students</div>
-      <p>Student management features will be implemented here.</p>
-    </div>
+    
 
     
 
@@ -169,17 +168,10 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
               <option value="java">Java</option>
               <option value="python3">Python</option>
             </select>
-            <button id="playTemplateBtn" class="play-secondary-btn" type="button">
-              <i class="fas fa-file-code"></i>
-              <span>Insert template</span>
-            </button>
             <button id="playSaveBtn" class="play-secondary-btn" type="button" title="Save snippet (Ctrl/Cmd+S)">
               <i class="fas fa-save"></i>
               <span>Save</span>
             </button>
-            <select id="playRecentSelect" class="play-select" title="Load recent snippet">
-              <option value="">Recent snippets…</option>
-            </select>
             <button id="playStopBtn" class="play-stop-btn" type="button" style="display:none;" title="Stop execution">
               <i class="fas fa-stop"></i>
               <span>Stop</span>
@@ -233,6 +225,12 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
           <span>Tip: Press Ctrl/Cmd + Enter to run quickly. Use Ctrl/Cmd + / to comment/uncomment lines.</span>
         </div>
       </div>
+    </div>
+
+    <!-- Archive Classes Section -->
+    <div id="archive-classes" class="section-content">
+      <div class="section-title">Archive Classes</div>
+      <div id="archivedClassesContainer" class="classes-grid"></div>
     </div>
 
     <!-- Profile Section -->
@@ -360,7 +358,22 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
         <script src="assets/js/teacher_activity_integration.js"></script>
         <!-- Load scripts in correct order -->
         <!-- REMOVED: admin_panel.js - causes 403 errors for teachers -->
+        <!-- Shared Play Area terminal (reusable) -->
+        <script src="assets/js/play_area_terminal.js?v=<?php echo time(); ?>"></script>
+        <script src="assets/js/play_area_monaco.js?v=<?php echo time(); ?>"></script>
+        <script src="assets/js/play_area_core.js?v=<?php echo time(); ?>"></script>
         <script src="assets/js/teacher_dashboard.js?v=<?php echo time(); ?>"></script>
+        <script>
+          document.addEventListener('DOMContentLoaded', function(){
+            if (window.PlayArea && typeof PlayArea.initMonaco === 'function') {
+              PlayArea.initMonaco({ editorId: 'playEditor', textareaId: 'playSource', languageSelectId: 'playLanguage' });
+            }
+            if (window.PlayArea && typeof PlayArea.init === 'function') {
+              PlayArea.init({ idPrefix: 'play', enableMonaco: true, languageId: 'playLanguage', sourceId: 'playSource', autoFullscreen: true });
+            }
+            if (typeof loadArchivedForSection === 'function') { try { loadArchivedForSection(); } catch(e){} }
+          });
+        </script>
         <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
         <script src="assets/js/teacher_material_viewers.js?v=<?php echo time(); ?>"></script>
   <script>
