@@ -145,6 +145,17 @@ class CourseService {
                 }
             } catch (Throwable $e) {}
 
+            // Ensure required_construct column exists for construct gating in coding activities
+            try { 
+                $this->db->exec("ALTER TABLE lesson_activities ADD COLUMN required_construct VARCHAR(32) NULL AFTER max_score");
+                error_log("[DB_SETUP] Added required_construct column to lesson_activities");
+            } catch (Throwable $e) {
+                // Column might already exist, which is fine
+                if (strpos($e->getMessage(), 'Duplicate column') === false) {
+                    error_log("[DB_SETUP] Warning checking required_construct column: " . $e->getMessage());
+                }
+            }
+
             // Test cases for coding activities
             $this->db->exec("CREATE TABLE IF NOT EXISTS activity_test_cases (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -153,9 +164,13 @@ class CourseService {
                 input_text MEDIUMTEXT NULL,
                 expected_output_text MEDIUMTEXT NULL,
                 time_limit_ms INT DEFAULT 2000,
+                points INT DEFAULT 0,
                 position INT NOT NULL DEFAULT 1,
                 FOREIGN KEY (activity_id) REFERENCES lesson_activities(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // Add points column to activity_test_cases for legacy installs
+            try { $this->db->exec("ALTER TABLE activity_test_cases ADD COLUMN points INT DEFAULT 0"); } catch (Throwable $e) {}
 
             // MCQ schema (questions and choices)
             $this->db->exec("CREATE TABLE IF NOT EXISTS activity_questions (
@@ -634,10 +649,19 @@ class CourseService {
         $stmt->execute([$id]);
         $a = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$a) return null;
+        // CRITICAL: Log all columns to verify required_construct exists
+        error_log("[GET_ACTIVITY] Activity $id - All columns: " . implode(', ', array_keys($a)));
+        error_log("[GET_ACTIVITY] Activity $id - required_construct: " . var_export($a['required_construct'] ?? 'NULL', true));
+        error_log("[GET_ACTIVITY] Activity $id - required_construct type: " . gettype($a['required_construct'] ?? null));
+        error_log("[GET_ACTIVITY] Activity $id - required_construct isset: " . (isset($a['required_construct']) ? 'YES' : 'NO'));
         // Attach test cases for coding
         $caseStmt = $this->db->prepare("SELECT * FROM activity_test_cases WHERE activity_id=? ORDER BY position ASC, id ASC");
         $caseStmt->execute([$id]);
         $a['test_cases'] = $caseStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        error_log("[GET_ACTIVITY] Activity $id - test cases count: " . count($a['test_cases']));
+        foreach ($a['test_cases'] as $idx => $tc) {
+            error_log("[GET_ACTIVITY] TC $idx: points=" . ($tc['points'] ?? 'NULL') . ", is_sample=" . ($tc['is_sample'] ?? 'NULL'));
+        }
         // Attach questions/choices for MCQ/quiz/upload_based
         if (in_array($a['type'], ['multiple_choice','quiz','true_false','identification','essay','upload_based'], true)) {
             $qStmt = $this->db->prepare("SELECT * FROM activity_questions WHERE activity_id=? ORDER BY position ASC, id ASC");
@@ -665,15 +689,26 @@ class CourseService {
     public function updateActivity(int $id, array $data): bool {
         $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based','essay'];
         $type = $data['type'] ?? 'lecture'; if (!in_array($type, $allowedTypes, true)) { $type = 'lecture'; }
-        $stmt = $this->db->prepare("UPDATE lesson_activities SET type=?, title=?, instructions=?, due_at=?, max_score=? WHERE id=?");
-        return $stmt->execute([
+        $requiredConstruct = isset($data['required_construct']) ? (string)$data['required_construct'] : null;
+        if ($requiredConstruct === '') $requiredConstruct = null; // Empty string -> null
+        error_log("[UPDATE_ACTIVITY] Updating activity $id with required_construct: " . ($requiredConstruct ?: 'NULL'));
+        $stmt = $this->db->prepare("UPDATE lesson_activities SET type=?, title=?, instructions=?, due_at=?, max_score=?, required_construct=? WHERE id=?");
+        $result = $stmt->execute([
             $type,
             $data['title'] ?? '',
             $data['instructions'] ?? null,
             $data['due_at'] ?? null,
             (int)($data['max_score'] ?? 100),
+            $requiredConstruct,
             $id
         ]);
+        if ($result) {
+            error_log("[UPDATE_ACTIVITY] Successfully updated activity $id");
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            error_log("[UPDATE_ACTIVITY] Failed to update activity $id: " . json_encode($errorInfo));
+        }
+        return $result;
     }
 
     // === MCQ helpers ===
@@ -743,20 +778,30 @@ class CourseService {
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function addTestCase(int $activityId, bool $isSample, string $inputText = null, string $expectedText = null, int $timeLimitMs = 2000): int {
+    public function addTestCase(int $activityId, bool $isSample, string $inputText = null, string $expectedText = null, int $timeLimitMs = 2000, int $points = 0): int {
         $pos = (int)$this->db->query("SELECT COALESCE(MAX(position),0)+1 FROM activity_test_cases WHERE activity_id=" . (int)$activityId)->fetchColumn();
-        $stmt = $this->db->prepare("INSERT INTO activity_test_cases (activity_id, is_sample, input_text, expected_output_text, time_limit_ms, position) VALUES (?, ?, ?, ?, ?, ?)");
-        $ok = $stmt->execute([$activityId, $isSample ? 1 : 0, $inputText, $expectedText, $timeLimitMs, $pos]);
-        return $ok ? (int)$this->db->lastInsertId() : 0;
+        error_log("[ADD_TEST_CASE] Adding to activity $activityId: points=$points, is_sample=" . ($isSample ? '1' : '0') . ", input_length=" . strlen($inputText ?? ''));
+        $stmt = $this->db->prepare("INSERT INTO activity_test_cases (activity_id, is_sample, input_text, expected_output_text, time_limit_ms, points, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $ok = $stmt->execute([$activityId, $isSample ? 1 : 0, $inputText, $expectedText, $timeLimitMs, $points, $pos]);
+        if ($ok) {
+            $newId = (int)$this->db->lastInsertId();
+            error_log("[ADD_TEST_CASE] Successfully added test case ID: $newId");
+            return $newId;
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            error_log("[ADD_TEST_CASE] Failed to add test case: " . json_encode($errorInfo));
+            return 0;
+        }
     }
 
     public function updateTestCase(int $id, array $data): bool {
-        $stmt = $this->db->prepare("UPDATE activity_test_cases SET is_sample=?, input_text=?, expected_output_text=?, time_limit_ms=? WHERE id=?");
+        $stmt = $this->db->prepare("UPDATE activity_test_cases SET is_sample=?, input_text=?, expected_output_text=?, time_limit_ms=?, points=? WHERE id=?");
         return $stmt->execute([
             !empty($data['is_sample']) ? 1 : 0,
             $data['input_text'] ?? null,
             $data['expected_output_text'] ?? null,
             (int)($data['time_limit_ms'] ?? 2000),
+            (int)($data['points'] ?? 0),
             $id
         ]);
     }
@@ -780,13 +825,16 @@ class CourseService {
         $config = self::getJDoodleConfig($language);
         $results = [];
         foreach ($testCases as $idx => $tc) {
+			// Convert escaped sequences (\\n, \\r, \\t) into real characters for stdin
+			$stdinRaw = $tc['input_text'] ?? '';
+			$stdin = $this->unescapeTestInput($stdinRaw);
             $payload = [
                 'clientId' => $this->jdoodleClientId,
                 'clientSecret' => $this->jdoodleClientSecret,
                 'script' => $sourceCode,
                 'language' => $language,
                 'versionIndex' => (string)$config['versionIndex'],
-                'stdin' => $tc['input_text'] ?? ''
+				'stdin' => $stdin
             ];
             $res = $this->jdoodleRequest($payload);
             // Normalize shape for frontend
@@ -798,6 +846,16 @@ class CourseService {
         }
         return $results;
     }
+
+	/**
+	 * Replace common escaped sequences with real characters for stdin handling.
+	 */
+	private function unescapeTestInput(string $text): string {
+		// Handle CRLF first to avoid double replacements
+		$text = str_replace(["\\r\\n"], ["\r\n"], $text);
+		$text = str_replace(["\\n", "\\r", "\\t"], ["\n", "\r", "\t"], $text);
+		return $text;
+	}
 
     // Record a coding attempt
     public function recordAttempt(int $activityId, int $studentUserId, string $language, string $sourceCode, array $results, ?string $verdict = null, ?float $score = null, ?int $durationMs = null): int {
@@ -833,13 +891,15 @@ class CourseService {
     private function jdoodleRequest(array $payload): array {
         $url = 'https://api.jdoodle.com/v1/execute';
         
-        // Debug logging
+        // Debug logging - CREDIT TRACKING
         error_log(sprintf(
-            "JDoodle Request: language=%s, stdin_length=%d, code_length=%d, has_clientId=%s",
+            "JDoodle Request [CREDIT USED]: language=%s, stdin_length=%d, code_length=%d, has_clientId=%s, timestamp=%s, call_stack=%s",
             $payload['language'] ?? 'unknown',
             strlen($payload['stdin'] ?? ''),
             strlen($payload['script'] ?? ''),
-            !empty($payload['clientId']) ? 'yes' : 'no'
+            !empty($payload['clientId']) ? 'yes' : 'no',
+            date('Y-m-d H:i:s'),
+            json_encode(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3))
         ));
         
         $ch = curl_init($url);

@@ -1,4 +1,44 @@
 // ===== CSRF TOKEN MANAGEMENT =====
+
+// ===== Construct Usage Detection (language-agnostic heuristics) =====
+function detectConstructUsage(source, language, required) {
+  try {
+    const lang = String(language || '').toLowerCase();
+    let code = String(source || '');
+    // Strip comments (C/Java/C++ // and /* */, Python #)
+    try {
+      code = code.replace(/\/\*[^]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '').replace(/(^|\s)#.*$/gm, '');
+    } catch(_){}
+
+    const isPython = lang.includes('py');
+    const rx = {
+      while_c: /\bwhile\s*\(/,
+      for_c: /\bfor\s*\(/,
+      if_else_c: /\bif\s*\([^)]*\)[^]*?\belse\b/,
+      do_while_c: /\bdo\b[^]*?\bwhile\s*\(/,
+      switch_c: /\bswitch\s*\(/,
+
+      while_py: /\bwhile\s+.+:/,
+      for_py: /\bfor\s+.+\s+in\s+.+:/,
+      if_else_py: /\bif\s+.+:[^]*?\belse\s*:/
+    };
+
+    const used = {
+      while: isPython ? rx.while_py.test(code) : rx.while_c.test(code),
+      for: isPython ? rx.for_py.test(code) : rx.for_c.test(code),
+      if_else: isPython ? rx.if_else_py.test(code) : rx.if_else_c.test(code),
+      do_while: !isPython && rx.do_while_c.test(code),
+      switch: !isPython && rx.switch_c.test(code)
+    };
+
+    const needs = String(required || '').toLowerCase();
+    if (!needs) return { ok: true, used };
+    const ok = !!used[needs];
+    return { ok, used };
+  } catch(_) {
+    return { ok: true, used: {} };
+  }
+}
 let csrfToken = null;
 let csrfTokenTs = 0; // epoch ms when fetched
 
@@ -419,7 +459,6 @@ function renderCoordinatorCourses(courses) {
     </table>
   `;
 }
-
 // Create course modal
 function ensureCreateCourseModal() {
   let modal = document.getElementById('createCourseModal');
@@ -757,7 +796,6 @@ function editCourse(courseId) {
       if (err) err.textContent = 'Network error loading course';
     });
 }
-
 // View outline function (copied from admin_panel.js)
 function viewOutline(courseId) {
   // Allow callers to omit courseId; derive from modal/global
@@ -1035,7 +1073,7 @@ function viewOutline(courseId) {
             // styling for toolbar buttons and focus
                   (function(){
                       const style = document.createElement('style');
-              style.textContent = '.tb{background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer} .tb:hover{background:#f9fafb;border-color:#9ca3af} #peTitle:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)} #previewContent h1{font-size:28px;margin:14px 0;border-bottom:2px solid #e5e7eb;padding-bottom:6px} #previewContent h2{font-size:22px;margin:12px 0} #previewContent p, #previewContent li{color:#374151} #previewContent pre{background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;overflow:auto} #previewContent code{background:#f3f4f6;color:#111827;padding:2px 6px;border-radius:4px} #previewContent pre code{background:transparent;color:inherit;padding:0;border-radius:0}';
+              style.textContent = '.tb{background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer} .tb:hover{background:#f9fafb;border-color:#9ca3af} #peTitle:focus{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.1)} #previewContent h1{font-size:28px;margin:14px 0;border-bottom:2px solid #e5e7eb;padding-bottom:6px} #previewContent h2{font-size:22px;margin:12px 0} #previewContent p, #previewContent li{color:#374151} #previewContent pre{background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;overflow:auto} #previewContent code{background:#f3f4f6;color:#111827;padding:2px 6px;border-radius:4px} #previewContent pre code{background:transparent;color:inherit;padding:0;border-radius:0}';
                       document.head.appendChild(style);
                   })();
 
@@ -1314,10 +1352,10 @@ function viewOutline(courseId) {
                         };
                         const getToken = () => fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: (()=>{ const fd=new FormData(); fd.append('action','get_csrf_token'); return fd; })() }).then(r=>r.json()).then(j=>j && j.token ? j.token : null).catch(()=>null);
                         const doSave = (token, attempt) => {
-                          const saveFd = new FormData();
-                          saveFd.append('action','material_page_update');
-                          saveFd.append('id', id);
-                          saveFd.append('content', content || '');
+                        const saveFd = new FormData();
+                        saveFd.append('action','material_page_update');
+                        saveFd.append('id', id);
+                        saveFd.append('content', content || '');
                           if (token) { saveFd.append('csrf_token', token); }
                           return fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: saveFd })
                             .then(r => r.json().catch(()=>({ success:false, message:'Invalid JSON response'})))
@@ -1502,6 +1540,10 @@ function viewOutline(courseId) {
           const lessonId = lessonEl ? lessonEl.getAttribute('data-lesson-id') : null;
           const aType = (item?.getAttribute('data-type') || '').toLowerCase();
           if (!lessonId) return;
+          // DEPRECATED: This old code path should not be used anymore
+          // The new edit handler (act-edit) fetches data FIRST and passes it as preloadedData
+          // This code is kept for backward compatibility but should be removed
+          console.warn('🔍 [DEPRECATED] Using old edit path - this should use the new act-edit handler instead');
           // Open the unified editor modal in edit mode for ALL activity types
           showCreateActivityForm(lessonId, { editActivityId: aId });
           // Prefill from server
@@ -1536,7 +1578,24 @@ function viewOutline(courseId) {
                   st.additionalRequirements = meta.additionalRequirements || '';
                   st.hints = meta.hints || '';
                   st.timeLimit = meta.timeLimit || st.timeLimit;
-                  st.testCases = (data.test_cases||[]).map(function(tc){ return { input: tc.input_text||'', output: tc.expected_output_text||'', isSample: !!tc.is_sample }; });
+                  // CRITICAL: Include points when mapping test cases
+                  const dbValue = data.required_construct || data.requiredConstruct || null;
+                  const metaValue = meta && (meta.requiredConstruct || meta.required_construct) ? (meta.requiredConstruct || meta.required_construct) : null;
+                  st.requiredConstruct = (dbValue && dbValue !== 'null' && dbValue !== '') ? String(dbValue) : (metaValue && metaValue !== 'null' && metaValue !== '') ? String(metaValue) : '';
+                  st.testCases = (data.test_cases||[]).map(function(tc){ 
+                    let pointsValue = 0;
+                    if (tc.points !== null && tc.points !== undefined && tc.points !== '') {
+                      pointsValue = parseInt(String(tc.points), 10);
+                      if (isNaN(pointsValue)) pointsValue = 0;
+                    }
+                    return { 
+                      input: tc.input_text||'', 
+                      output: tc.expected_output_text||'', 
+                      isSample: !!tc.is_sample,
+                      points: pointsValue,
+                      timeLimitMs: parseInt(tc.time_limit_ms || 2000, 10) || 2000
+                    }; 
+                  });
                 } else if (t === 'upload_based') {
                   st.type = 'lecture';
                   st.questionType = 'upload_based';
@@ -1611,8 +1670,8 @@ function viewOutline(courseId) {
                         const correct = choices.find(function(c){ return !!c.is_correct; });
                         base.answer = correct ? (correct.choice_text||'') : '';
                       }
-                      // Fallback to explanation field if still empty (legacy storage)
-                      if (!base.answer && base.explanation) {
+                    // Fallback to explanation field if still empty (legacy storage)
+                    if (!base.answer && base.explanation) {
                         // Check if explanation contains JSON with primary + alternatives
                         try {
                           const parsed = JSON.parse(base.explanation);
@@ -1627,7 +1686,7 @@ function viewOutline(courseId) {
                             base.explanation = ''; // Clear explanation since we've extracted the data
                           } else {
                             // Not object, treat as legacy single answer
-                            base.answer = base.explanation;
+                      base.answer = base.explanation;
                           }
                         } catch(e) {
                           // Not JSON, treat as legacy single answer
@@ -1694,17 +1753,99 @@ function viewOutline(courseId) {
           
           // Use unified editor for ALL activity types
           if (lessonId) {
-            showCreateActivityForm(lessonId, { editActivityId: aId });
+            // CRITICAL: Fetch activity data FIRST before opening form (same as act-test)
+            console.log('🔍 [EDIT BUTTON] Fetching activity data for ID:', aId);
+            const fd = new FormData();
+            fd.append('action', 'activity_get');
+            fd.append('id', aId);
+            
+            fetch('course_outline_manage.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+              .then(r => r.json())
+              .then(res => {
+                if (res && res.success && res.data) {
+                  const activityData = res.data;
+                  console.log('🔍 [EDIT BUTTON] Raw activity data from backend:', activityData);
+                  console.log('🔍 [EDIT BUTTON] All keys in activityData:', Object.keys(activityData));
+                  console.log('🔍 [EDIT BUTTON] required_construct:', activityData.required_construct, 'type:', typeof activityData.required_construct);
+                  console.log('🔍 [EDIT BUTTON] test_cases:', activityData.test_cases);
+                  
+                  // CRITICAL: Load data into preloadedState (same logic as act-test)
+                  const preloadedState = {
+                    name: activityData.title || 'Untitled Activity',
+                    type: activityData.type === 'coding' ? 'laboratory' : 'lecture',
+                    questionType: activityData.type,
+                    instructionsText: activityData.instructions || '',
+                    max_score: activityData.max_score || 0,
+                    requiredConstruct: '',
+                    testCases: [],
+                    editActivityId: aId,
+                    viewMode: 'edit'
+                  };
+                  
+                  // For coding activities, parse the instructions and load test cases
+                  if (activityData.type === 'coding' && activityData.instructions) {
+                    try {
+                      const meta = JSON.parse(activityData.instructions);
+                      preloadedState.language = meta.language || 'cpp';
+                      preloadedState.starterCode = meta.starterCode || '';
+                      preloadedState.problemStatement = meta.problemStatement || '';
+                      preloadedState.expectedOutput = meta.expectedOutput || '';
+                      preloadedState.additionalRequirements = meta.additionalRequirements || '';
+                      preloadedState.hints = meta.hints || '';
+                      
+                      // CRITICAL: Load required_construct from DB field FIRST
+                      const dbValue = activityData.required_construct || activityData.requiredConstruct || null;
+                      const metaValue = meta && (meta.requiredConstruct || meta.required_construct) ? (meta.requiredConstruct || meta.required_construct) : null;
+                      preloadedState.requiredConstruct = (dbValue && dbValue !== 'null' && dbValue !== '') ? String(dbValue) : (metaValue && metaValue !== 'null' && metaValue !== '') ? String(metaValue) : '';
+                      console.log('🔍 [EDIT BUTTON] Pre-loaded requiredConstruct:', preloadedState.requiredConstruct);
+                      
+                      // Map test cases properly
+                      const dbTestCases = activityData.test_cases || [];
+                      console.log('🔍 [EDIT BUTTON] Raw test cases from backend:', JSON.stringify(dbTestCases));
+                      preloadedState.testCases = dbTestCases.map(function(tc, idx) {
+                        let pointsValue = 0;
+                        if (tc.points !== null && tc.points !== undefined && tc.points !== '') {
+                          pointsValue = parseInt(String(tc.points), 10);
+                          if (isNaN(pointsValue)) pointsValue = 0;
+                        }
+                        const mapped = {
+                          input: tc.input_text || '',
+                          output: tc.expected_output_text || '',
+                          isSample: !!tc.is_sample,
+                          points: pointsValue,
+                          timeLimitMs: parseInt(tc.time_limit_ms || 2000, 10) || 2000
+                        };
+                        console.log(`🔍 [EDIT BUTTON] Mapped TC ${idx}:`, mapped);
+                        return mapped;
+                      });
+                      console.log('🔍 [EDIT BUTTON] Pre-loaded', preloadedState.testCases.length, 'test cases');
+                    } catch (e) {
+                      console.error('🔍 [EDIT BUTTON] Failed to parse coding instructions:', e);
+                    }
+                  }
+                  
+                  // NOW open the form with pre-loaded data
+                  console.log('🔍 [EDIT BUTTON] Opening form with preloadedData:', preloadedState);
+                  showCreateActivityForm(lessonId, { editActivityId: aId, preloadedData: preloadedState });
+                } else {
+                  console.error('🔍 [EDIT BUTTON] Failed to load activity data');
+                  alert('Failed to load activity data for editing');
+                }
+              })
+              .catch(err => {
+                console.error('🔍 [EDIT BUTTON] Error loading activity:', err);
+                alert('Error loading activity for editing');
+              });
           } else {
             // Fallback to simple title edit if lessonId not available
-          outlinePrompt({ title: 'Edit activity', label: 'Title', value: current }, function(title){
-            if (title === null) return;
-            const fd = new FormData();
-            fd.append('action','activity_update');
-            fd.append('id', aId);
-            fd.append('title', title);
-            postAndRefresh('course_outline_manage.php', fd);
-          });
+            outlinePrompt({ title: 'Edit activity', label: 'Title', value: current }, function(title){
+              if (title === null) return;
+              const fd = new FormData();
+              fd.append('action','activity_update');
+              fd.append('id', aId);
+              fd.append('title', title);
+              postAndRefresh('course_outline_manage.php', fd);
+            });
           }
           return;
         }
@@ -1727,66 +1868,155 @@ function viewOutline(courseId) {
             .then(res => {
               if (res && res.success && res.data) {
                 const activityData = res.data;
-                // Open the activity editor with the REAL data
-                showCreateActivityForm(lessonId, { editActivityId: activityId });
+                console.log('🔍 [EDIT LOAD] Raw activity data from backend:', activityData);
+                console.log('🔍 [EDIT LOAD] All keys in activityData:', Object.keys(activityData));
+                console.log('🔍 [EDIT LOAD] required_construct:', activityData.required_construct, 'type:', typeof activityData.required_construct, 'isset:', activityData.hasOwnProperty('required_construct'));
+                console.log('🔍 [EDIT LOAD] test_cases:', activityData.test_cases);
+                if (activityData.test_cases) {
+                  activityData.test_cases.forEach((tc, i) => {
+                    console.log(`🔍 [EDIT LOAD] TC ${i}: points=${tc.points}, is_sample=${tc.is_sample}, input="${tc.input_text}", output="${tc.expected_output_text}"`);
+                  });
+                }
+                // CRITICAL: Load data into a temporary object FIRST, then open form with pre-loaded data
+                const preloadedState = {
+                  name: activityData.title || 'Untitled Activity',
+                  type: activityData.type === 'coding' ? 'laboratory' : 'lecture',
+                  questionType: activityData.type,
+                  instructionsText: activityData.instructions || '',
+                  max_score: activityData.max_score || 0,
+                  requiredConstruct: '', // Will be set below
+                  testCases: [], // Will be set below
+                  editActivityId: activityId,
+                  viewMode: 'edit'
+                };
                 
-                // Set to preview mode and load the real data
-                setTimeout(() => {
+                // For coding activities, parse the instructions and load test cases
+                if (activityData.type === 'coding' && activityData.instructions) {
                   try {
-                    if (window.createActivityState) {
-                      // Load the real activity data into the state
-                      window.createActivityState.name = activityData.title || 'Untitled Activity';
-                      window.createActivityState.type = activityData.type === 'coding' ? 'laboratory' : 'lecture';
-                      window.createActivityState.questionType = activityData.type;
-                      // Store the full instructions JSON for activity type detection
-                      window.createActivityState.instructionsText = activityData.instructions || '';
-                      console.log('🔍 DEBUG: Stored instructionsText:', window.createActivityState.instructionsText);
+                    const meta = JSON.parse(activityData.instructions);
+                    preloadedState.language = meta.language || 'cpp';
+                    preloadedState.starterCode = meta.starterCode || '';
+                    preloadedState.problemStatement = meta.problemStatement || '';
+                    preloadedState.expectedOutput = meta.expectedOutput || '';
+                    preloadedState.additionalRequirements = meta.additionalRequirements || '';
+                    preloadedState.hints = meta.hints || '';
+                    // CRITICAL: Load required_construct from DB field FIRST (more reliable), then fallback to meta
+                    // Check both snake_case and camelCase field names (backend might return either)
+                    const dbValue = activityData.required_construct || activityData.requiredConstruct || null;
+                    const metaValue = meta && (meta.requiredConstruct || meta.required_construct) ? (meta.requiredConstruct || meta.required_construct) : null;
+                    // Use the first non-null/non-empty value found
+                    preloadedState.requiredConstruct = (dbValue && dbValue !== 'null' && dbValue !== '') ? String(dbValue) : (metaValue && metaValue !== 'null' && metaValue !== '') ? String(metaValue) : '';
+                    console.log('🔍 [EDIT LOAD] Pre-loaded requiredConstruct:', preloadedState.requiredConstruct, 'from DB (snake_case):', activityData.required_construct, 'from DB (camelCase):', activityData.requiredConstruct, 'DB type:', typeof activityData.required_construct, 'from meta:', metaValue);
+                    
+                    // Map test cases properly: DB format -> form format
+                    const dbTestCases = activityData.test_cases || [];
+                    console.log('🔍 [EDIT LOAD] Raw test cases from backend:', JSON.stringify(dbTestCases));
+                    preloadedState.testCases = dbTestCases.map(function(tc, idx) {
+                      // CRITICAL: Log the raw test case object to see all properties
+                      console.log(`🔍 [EDIT LOAD] Raw TC ${idx} object:`, tc);
+                      console.log(`🔍 [EDIT LOAD] Raw TC ${idx} keys:`, Object.keys(tc));
+                      console.log(`🔍 [EDIT LOAD] Raw TC ${idx} points value:`, tc.points, 'type:', typeof tc.points, 'isNull:', tc.points === null, 'isUndefined:', tc.points === undefined);
                       
-                      // Extract just the instructions text for display
-                      let displayInstructions = '';
-                      if (activityData.instructions && typeof activityData.instructions === 'string') {
-                        if (activityData.instructions.startsWith('{')) {
-                          try {
-                            const parsed = JSON.parse(activityData.instructions);
-                            displayInstructions = parsed.instructions || '';
-                          } catch (e) {
-                            displayInstructions = activityData.instructions;
+                      // CRITICAL: Handle points explicitly - check for null, undefined, or empty
+                      let pointsValue = 0;
+                      if (tc.points !== null && tc.points !== undefined && tc.points !== '') {
+                        pointsValue = parseInt(String(tc.points), 10);
+                        if (isNaN(pointsValue)) pointsValue = 0;
+                      }
+                      
+                      const mapped = {
+                        input: tc.input_text || '',
+                        output: tc.expected_output_text || '',
+                        isSample: !!tc.is_sample,
+                        points: pointsValue,
+                        timeLimitMs: parseInt(tc.time_limit_ms || 2000, 10) || 2000
+                      };
+                      console.log(`🔍 [EDIT LOAD] Mapped TC ${idx}:`, mapped, 'points:', mapped.points, 'type:', typeof mapped.points);
+                      return mapped;
+                    });
+                    console.log('🔍 [EDIT LOAD] Pre-loaded', preloadedState.testCases.length, 'test cases');
+                  } catch (e) {
+                    console.error('🔍 [EDIT LOAD] Failed to parse coding instructions:', e);
+                  }
+                }
+                
+                // NOW open the form with pre-loaded data
+                showCreateActivityForm(lessonId, { editActivityId: activityId, preloadedData: preloadedState });
+                
+                // CRITICAL: Wait for form to be fully initialized before applying pre-loaded data
+                const loadDataIntoForm = () => {
+                  try {
+                    if (!window.createActivityState) {
+                      console.warn('🔍 [EDIT LOAD] State not ready, retrying...');
+                      setTimeout(loadDataIntoForm, 50);
+                      return;
+                    }
+                    
+                    console.log('🔍 [EDIT LOAD] Data already pre-loaded, just verifying state...');
+                    console.log('🔍 [EDIT LOAD] Current state:', {
+                      requiredConstruct: window.createActivityState.requiredConstruct,
+                      testCases: window.createActivityState.testCases,
+                      testCasesCount: window.createActivityState.testCases ? window.createActivityState.testCases.length : 0
+                    });
+                    
+                    // Set to edit mode so form fields are visible
+                    window.createActivityState.viewMode = 'edit';
+                    try { 
+                      const formModal = document.getElementById('createActivityForm')||document.querySelector('#createActivityModal');
+                      if (formModal) formModal.classList.remove('is-preview'); 
+                    } catch(_){ }
+                    
+                    // CRITICAL: Trigger render immediately since data is already in state
+                    console.log('🔍 [EDIT LOAD] Triggering render with pre-loaded data, state.requiredConstruct:', window.createActivityState.requiredConstruct);
+                    window.dispatchEvent(new CustomEvent('createActivityRender'));
+                    
+                    // CRITICAL: Also explicitly set dropdown and render test cases after render completes
+                    setTimeout(() => {
+                      try {
+                        console.log('🔍 [EDIT LOAD] Attempting to set dropdown value...');
+                        console.log('🔍 [EDIT LOAD] State requiredConstruct:', window.createActivityState.requiredConstruct);
+                        console.log('🔍 [EDIT LOAD] State questionType:', window.createActivityState.questionType);
+                        // Set required construct dropdown value
+                        const rcDropdown = document.getElementById('cafRequiredConstruct');
+                        console.log('🔍 [EDIT LOAD] Dropdown found:', !!rcDropdown);
+                        if (rcDropdown) {
+                          console.log('🔍 [EDIT LOAD] Dropdown current value:', rcDropdown.value);
+                          console.log('🔍 [EDIT LOAD] State requiredConstruct value:', window.createActivityState.requiredConstruct);
+                          if (window.createActivityState.requiredConstruct) {
+                            rcDropdown.value = window.createActivityState.requiredConstruct;
+                            console.log('🔍 [EDIT LOAD] Set dropdown value to:', window.createActivityState.requiredConstruct, 'new value:', rcDropdown.value);
+                          } else {
+                            console.warn('🔍 [EDIT LOAD] WARNING: State requiredConstruct is empty!');
                           }
                         } else {
-                          displayInstructions = activityData.instructions;
+                          console.error('🔍 [EDIT LOAD] ERROR: Required Construct dropdown not found in DOM!');
+                          console.error('🔍 [EDIT LOAD] Searching for all selects in body...');
+                          const allSelects = document.querySelectorAll('#cafBody select');
+                          console.error('🔍 [EDIT LOAD] Found', allSelects.length, 'select elements');
+                          allSelects.forEach((sel, i) => {
+                            console.error('🔍 [EDIT LOAD] Select', i, 'id:', sel.id, 'name:', sel.name);
+                          });
                         }
-                      }
-                      window.createActivityState.displayInstructions = displayInstructions;
-                      window.createActivityState.questions = activityData.questions || [];
-                      console.log('🔍 DEBUG: Test button loaded questions:', window.createActivityState.questions);
-                      console.log('🔍 DEBUG: Activity data:', activityData);
-                      if (window.createActivityState.questions[0]) {
-                        console.log('🔍 DEBUG: First question:', window.createActivityState.questions[0]);
-                      }
-                      window.createActivityState.max_score = activityData.max_score || 0;
-                      
-                      // Update modal title to show activity name
-                      updateModalTitle('preview');
-                      
-                      // For coding activities, parse the instructions
-                      if (activityData.type === 'coding' && activityData.instructions) {
-                        try {
-                          const meta = JSON.parse(activityData.instructions);
-                          window.createActivityState.language = meta.language || 'cpp';
-                          window.createActivityState.starterCode = meta.starterCode || '';
-                          window.createActivityState.testCases = activityData.test_cases || [];
-                        } catch (e) {
-                          console.warn('Failed to parse coding instructions:', e);
+                        
+                        // Render test cases
+                        if (typeof renderTestCases === 'function') {
+                          console.log('🔍 [EDIT LOAD] Calling renderTestCases() explicitly');
+                          renderTestCases();
+                        } else {
+                          console.warn('🔍 [EDIT LOAD] renderTestCases function not found!');
                         }
+                      } catch(e) {
+                        console.error('🔍 [EDIT LOAD] Error setting form values:', e);
+                        console.error('🔍 [EDIT LOAD] Error stack:', e.stack);
                       }
-                      
-                      window.createActivityState.viewMode = 'preview';
-                      try { (document.getElementById('createActivityForm')||document.querySelector('#createActivityModal')).classList.add('is-preview'); } catch(_){ }
-                      window.dispatchEvent(new CustomEvent('createActivityRender'));
-                      }
+                    }, 500); // Increased timeout to ensure render completes
                   } catch (e) {
-                    }
-                }, 100);
+                    console.error('🔍 [EDIT LOAD] Error loading data:', e);
+                  }
+                };
+                
+                // Start loading after form is initialized
+                setTimeout(loadDataIntoForm, 150);
               } else {
                 alert('Failed to load activity data for preview');
               }
@@ -2104,9 +2334,9 @@ function renderOutline(outline, mount) {
       // If we have outline data, use it directly - NO FETCH REQUESTS!
       if (outlineData && Array.isArray(outlineData)) {
         findActivities(outlineData);
-        pointBadges.forEach(function(badge){
-          const actId = badge.getAttribute('data-points-for');
-          if (!actId) return;
+      pointBadges.forEach(function(badge){
+        const actId = badge.getAttribute('data-points-for');
+        if (!actId) return;
           const a = activityDataMap.get(actId);
           if (!a) { badge.textContent = '—'; return; }
           
@@ -2114,8 +2344,8 @@ function renderOutline(outline, mount) {
           if (t === 'coding') {
             const ms = Number(a.max_score || 0);
             badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
-            return;
-          }
+              return; 
+            }
           const questions = Array.isArray(a.questions) ? a.questions : [];
           const total = questions.reduce(function(sum,q){
             const p = Number(q.points||1);
@@ -2169,21 +2399,20 @@ function renderOutline(outline, mount) {
               const p = Number(q.points||1);
               return sum + (isFinite(p) ? p : 0);
             }, 0);
-            if (total > 0) {
+            if (total > 0) { 
               badge.textContent = total + ' pts';
             } else {
               const ms = Number(a.max_score || 0);
               badge.textContent = (isFinite(ms) ? ms : 0) + ' pts';
             }
           });
-        })
-        .catch(function(err){ 
+          })
+          .catch(function(err){ 
           pointBadges.forEach(b => b.textContent = '—');
-        });
+      });
     } catch(_) {}
   });
 }
-
 // Initialize SortableJS on modules, lessons, and materials and persist order
 function initOutlineSortables(courseId, mount) {
   if (typeof Sortable === 'undefined') return;
@@ -2626,7 +2855,6 @@ function initCoordinatorUploads() {
     });
   }
 }
-
 function loadCoordinatorUploads() {
   const list = document.getElementById('uploadsList');
   if (!list) return;
@@ -3124,7 +3352,6 @@ function showContentSeparationModal() {
       }
     };
   }
-  
   modal.style.display = 'flex';
   setTimeout(() => {
     const baseCodeInput = document.getElementById('baseCode');
@@ -3455,20 +3682,26 @@ function loadMonacoEditor() {
   if (monacoLoaded) return Promise.resolve();
   
   return new Promise((resolve, reject) => {
-    // Set up Monaco environment for workers
+    // Set up Monaco environment for workers using a same-origin Blob URL to avoid CORS
+    // CRITICAL FIX: Disable worker loading to avoid CORS issues with CDN scripts
     window.MonacoEnvironment = {
       getWorkerUrl: function (moduleId, label) {
-        // Use direct CDN URLs - CSP now allows https://cdn.jsdelivr.net in worker-src
-        const path = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs';
-        const workers = {
-          json: 'language/json/json.worker.js',
-          css: 'language/css/css.worker.js', 
-          html: 'language/html/html.worker.js',
-          ts: 'language/typescript/ts.worker.js',
-          default: 'editor/editor.worker.js'
-        };
-        const file = workers[label] || workers.default;
-        return `${path}/${file}`;
+        // Disable workers for now - use editor in main thread
+        // This avoids CORS issues with CDN worker scripts
+        return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(`
+          self.MonacoEnvironment = { baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/' };
+          self.importScripts = function() {
+            // Silently ignore worker script imports to avoid CORS errors
+            console.warn('Monaco worker script import ignored:', arguments[0]);
+          };
+          // Minimal worker stub
+          self.postMessage = function() {};
+          self.onmessage = null;
+        `);
+      },
+      getWorker: function(moduleId, label) {
+        // Return null to disable workers and use main thread
+        return null;
       }
     };
 
@@ -3490,6 +3723,12 @@ function loadMonacoEditor() {
         });
         window.require(['vs/editor/editor.main'], () => {
           monacoLoaded = true;
+          console.log('✅ Monaco Editor loaded successfully');
+          resolve();
+        }, (err) => {
+          console.error('❌ Monaco Editor load error:', err);
+          // Still resolve to allow fallback to textarea
+          monacoLoaded = false;
           resolve();
         });
       };
@@ -3498,6 +3737,11 @@ function loadMonacoEditor() {
     } else {
       window.require(['vs/editor/editor.main'], () => {
         monacoLoaded = true;
+        console.log('✅ Monaco Editor loaded successfully (require already exists)');
+        resolve();
+      }, (err) => {
+        console.error('❌ Monaco Editor load error (require exists):', err);
+        monacoLoaded = false;
         resolve();
       });
     }
@@ -3513,6 +3757,9 @@ function initMonacoEditor(container, language = 'javascript', initialValue = '')
       monacoEditor.dispose();
     }
     
+    // Hide fallback textarea when Monaco is ready
+    try { const ta = container.querySelector('textarea'); if (ta) ta.style.display = 'none'; } catch(_){ }
+
     monacoEditor = window.monaco.editor.create(container, {
       value: initialValue,
       language: language,
@@ -3534,6 +3781,7 @@ function initMonacoEditor(container, language = 'javascript', initialValue = '')
       if (starterCodeInput) {
         starterCodeInput.value = value;
       }
+    try { if (window.createActivityState) { window.createActivityState.starterCode = value; if (window.__cafScheduleSave) window.__cafScheduleSave(); } } catch(_){ }
     });
   }).catch(err => {
     console.error('Failed to load Monaco editor:', err);
@@ -3557,7 +3805,6 @@ function updateMonacoLanguage(language) {
     window.monaco.editor.setModelLanguage(monacoEditor.getModel(), monacoLang);
   }
 }
-
 // ===== Create Activity Wizard (non-disruptive) =====
 function showCreateActivityWizard(lessonId){
   let modal = document.getElementById('createActivityWizard');
@@ -3795,7 +4042,7 @@ function showCreateActivityForm(lessonId, opts){
       }
     } catch(_){}
     modal.innerHTML = `
-      <div class="modal-card" style="max-width:1200px;width:95%;max-height:90vh;display:flex;flex-direction:column;">
+      <div class="modal-card" style="max-width:1400px;width:98%;max-height:95vh;display:flex;flex-direction:column;">
         <div style="padding:12px 14px;border-bottom:1px solid #e9ecef;display:flex;align-items:center;gap:8px;">
           <strong style="flex:1" id="cafModalTitle">Create Activity</strong>
           <div id="cafMode" style="display:flex;gap:6px;align-items:center;">
@@ -3851,6 +4098,7 @@ function showCreateActivityForm(lessonId, opts){
     language:'', 
     instructionsText:'', 
     maxScore:100, 
+    requiredConstruct: '',
     questions:[{
       text: '',
       points: 1,
@@ -3882,14 +4130,115 @@ function showCreateActivityForm(lessonId, opts){
   
   // Attach editActivityId if provided
   if (opts && opts.editActivityId) { state.editActivityId = String(opts.editActivityId); }
+  
+  // CRITICAL: Merge preloadedData if provided (for editing activities)
+  if (opts && opts.preloadedData) {
+    console.log('🔍 [SHOW_FORM] ========== MERGING PRELOADED DATA ==========');
+    console.log('🔍 [SHOW_FORM] PreloadedData object:', JSON.stringify(opts.preloadedData, null, 2));
+    console.log('🔍 [SHOW_FORM] PreloadedData.requiredConstruct:', opts.preloadedData.requiredConstruct, 'type:', typeof opts.preloadedData.requiredConstruct, 'truthy:', !!opts.preloadedData.requiredConstruct);
+    console.log('🔍 [SHOW_FORM] PreloadedData.testCases:', opts.preloadedData.testCases, 'count:', opts.preloadedData.testCases ? opts.preloadedData.testCases.length : 0);
+    if (opts.preloadedData.testCases && opts.preloadedData.testCases.length > 0) {
+      opts.preloadedData.testCases.forEach((tc, i) => {
+        console.log(`🔍 [SHOW_FORM] PreloadedData.testCases[${i}]:`, {
+          points: tc.points,
+          pointsType: typeof tc.points,
+          isSample: tc.isSample,
+          input: tc.input,
+          output: tc.output
+        });
+      });
+    }
+    
+    // CRITICAL: Manually copy each property to ensure proper assignment
+    // This is more reliable than Object.assign for nested objects/arrays
+    Object.keys(opts.preloadedData).forEach(key => {
+      const value = opts.preloadedData[key];
+      if (value !== null && value !== undefined) {
+        // CRITICAL: For arrays (like testCases), create a DEEP copy with ALL properties
+        if (Array.isArray(value)) {
+          state[key] = value.map((item, idx) => {
+            if (typeof item === 'object' && item !== null) {
+              // CRITICAL: Use spread operator to ensure ALL properties are copied
+              const copied = { ...item };
+              // CRITICAL: Explicitly verify points property exists
+              if (key === 'testCases') {
+                console.log(`🔍 [SHOW_FORM] Copying TC ${idx} - Original:`, item, 'Has points?', 'points' in item, 'points value:', item.points);
+                console.log(`🔍 [SHOW_FORM] Copying TC ${idx} - Copied:`, copied, 'Has points?', 'points' in copied, 'points value:', copied.points);
+                // CRITICAL: Ensure points is explicitly set (handle undefined/null)
+                if (!('points' in copied) || copied.points === null || copied.points === undefined) {
+                  copied.points = item.points !== null && item.points !== undefined ? item.points : 0;
+                  console.log(`🔍 [SHOW_FORM] TC ${idx} points was missing/null/undefined, set to:`, copied.points);
+                }
+              }
+              return copied;
+            }
+            return item;
+          });
+          console.log(`🔍 [SHOW_FORM] Copied array key "${key}" with ${state[key].length} items`);
+          // CRITICAL: Verify testCases after copy
+          if (key === 'testCases' && state[key].length > 0) {
+            state[key].forEach((tc, i) => {
+              console.log(`🔍 [SHOW_FORM] VERIFIED TC ${i} after copy:`, {
+                hasPoints: 'points' in tc,
+                points: tc.points,
+                pointsType: typeof tc.points,
+                allKeys: Object.keys(tc)
+              });
+            });
+          }
+        } else {
+          state[key] = value;
+          if (key === 'requiredConstruct') {
+            console.log(`🔍 [SHOW_FORM] CRITICAL: Copied requiredConstruct: "${value}" (type: ${typeof value}, truthy: ${!!value})`);
+          } else {
+            console.log(`🔍 [SHOW_FORM] Copied key "${key}":`, typeof value === 'string' ? value.substring(0, 50) : value);
+          }
+        }
+      }
+    });
+    
+    // CRITICAL: Explicitly verify critical fields after merge
+    console.log('🔍 [SHOW_FORM] ========== AFTER MERGE VERIFICATION ==========');
+    console.log('🔍 [SHOW_FORM] state.requiredConstruct:', state.requiredConstruct, 'type:', typeof state.requiredConstruct, 'truthy:', !!state.requiredConstruct);
+    console.log('🔍 [SHOW_FORM] state.testCases:', state.testCases, 'count:', state.testCases ? state.testCases.length : 0);
+    if (state.testCases && state.testCases.length > 0) {
+      state.testCases.forEach((tc, i) => {
+        console.log(`🔍 [SHOW_FORM] state.testCases[${i}]:`, {
+          points: tc.points,
+          pointsType: typeof tc.points,
+          isSample: tc.isSample,
+          input: tc.input ? tc.input.substring(0, 20) + '...' : 'empty',
+          output: tc.output ? tc.output.substring(0, 20) + '...' : 'empty',
+          fullObject: tc
+        });
+      });
+    }
+    console.log('🔍 [SHOW_FORM] ============================================');
+  }
+  
   // Make state globally accessible
   window.createActivityState = state;
+  // CRITICAL: Log immediately after making global to verify state
+  console.log('🔍 [SHOW_FORM] ========== GLOBAL STATE SET ==========');
+  console.log('🔍 [SHOW_FORM] window.createActivityState.requiredConstruct:', window.createActivityState.requiredConstruct, 'type:', typeof window.createActivityState.requiredConstruct, 'truthy:', !!window.createActivityState.requiredConstruct);
+  console.log('🔍 [SHOW_FORM] window.createActivityState.testCases count:', window.createActivityState.testCases ? window.createActivityState.testCases.length : 0);
+  if (window.createActivityState.testCases && window.createActivityState.testCases.length > 0) {
+    window.createActivityState.testCases.forEach((tc, i) => {
+      console.log(`🔍 [SHOW_FORM] window.createActivityState.testCases[${i}].points:`, tc.points, 'type:', typeof tc.points);
+    });
+  }
+  console.log('🔍 [SHOW_FORM] =====================================');
   
   // === AUTOSAVE/RESTORE (localStorage) ===
   try {
     const key = 'cr_createActivityDraft_' + String(lessonId);
-    // Do NOT restore drafts in edit mode; they can corrupt the loaded record's type
-    if (!opts || !opts.editActivityId) {
+    // CRITICAL: Do NOT restore from localStorage if preloadedData is provided (editing mode)
+    if (opts && opts.preloadedData) {
+      console.log('🔍 [SHOW_FORM] Skipping initial localStorage restore because preloadedData is provided');
+      // Clear any existing draft when editing
+      try { localStorage.removeItem(key); } catch(_){ }
+    } else if (!opts || !opts.editActivityId) {
+      // Do NOT restore drafts in edit mode; they can corrupt the loaded record's type
       const raw = localStorage.getItem(key);
       if (raw) {
         try { 
@@ -3932,19 +4281,24 @@ function showCreateActivityForm(lessonId, opts){
   requestAnimationFrame(function(){
     try {
       const key = 'cr_createActivityDraft_' + String(lessonId);
-      // Restore draft if available and state is fresh
-      const raw = localStorage.getItem(key);
-      if (raw) {
-        try { 
-          const saved = JSON.parse(raw); 
-          if (saved && typeof saved === 'object') { 
-            // Never restore editActivityId from a draft; drafts are for new items only
-            if (!opts || !opts.editActivityId) { delete saved.editActivityId; }
-            Object.assign(state, saved);
-            // Trigger render after restore
-            requestAnimationFrame(function(){ try { render(); } catch(_){ } });
-          } 
-        } catch(e){}
+      // CRITICAL: Do NOT restore from localStorage if preloadedData is provided (editing mode)
+      if (opts && opts.preloadedData) {
+        console.log('🔍 [SHOW_FORM] Skipping localStorage restore because preloadedData is provided');
+      } else {
+        // Restore draft if available and state is fresh
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try { 
+            const saved = JSON.parse(raw); 
+            if (saved && typeof saved === 'object') { 
+              // Never restore editActivityId from a draft; drafts are for new items only
+              if (!opts || !opts.editActivityId) { delete saved.editActivityId; }
+              Object.assign(state, saved);
+              // Trigger render after restore
+              requestAnimationFrame(function(){ try { render(); } catch(_){ } });
+            } 
+          } catch(e){}
+        }
       }
       // Debounced autosave function
       let saveTimer = null;
@@ -3965,26 +4319,59 @@ function showCreateActivityForm(lessonId, opts){
   });
   
   // OPTIMIZED: Defer initial render to avoid blocking modal display
-  requestAnimationFrame(function(){
-    try { render(); } catch(_){}
-  });
-  
+  // CRITICAL: If preloadedData is provided, ensure it's merged before render
+  if (opts && opts.preloadedData) {
+    console.log('🔍 [SHOW_FORM] PreloadedData provided, ensuring state is ready before render');
+    console.log('🔍 [SHOW_FORM] State BEFORE render:', {
+      requiredConstruct: state.requiredConstruct,
+      testCases: state.testCases ? state.testCases.length : 0,
+      questionType: state.questionType
+    });
+    // Small delay to ensure preloadedData merge is complete
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        try { 
+          console.log('🔍 [SHOW_FORM] Rendering with preloadedData, state.requiredConstruct:', state.requiredConstruct, 'type:', typeof state.requiredConstruct, 'truthy:', !!state.requiredConstruct);
+          console.log('🔍 [SHOW_FORM] State object reference check:', state === window.createActivityState);
+          render(); 
+        } catch(e){
+          console.error('🔍 [SHOW_FORM] Render error:', e);
+        }
+      });
+    });
+  } else {
+    requestAnimationFrame(function(){
+      try { render(); } catch(_){}
+    });
+  }
   // Test if elements exist
   function render(){
+    // CRITICAL: Always use the current global state, not the closure variable
+    const currentState = window.createActivityState || state;
+    console.log('🔍 [RENDER] ========== RENDER START ==========');
+    console.log('🔍 [RENDER] currentState.requiredConstruct:', currentState.requiredConstruct, 'type:', typeof currentState.requiredConstruct, 'truthy:', !!currentState.requiredConstruct);
+    console.log('🔍 [RENDER] State object reference check:', currentState === window.createActivityState, 'currentState === state:', currentState === state);
+    console.log('🔍 [RENDER] currentState.testCases count:', currentState.testCases ? currentState.testCases.length : 0);
+    if (currentState.testCases && currentState.testCases.length > 0) {
+      currentState.testCases.forEach((tc, i) => {
+        console.log(`🔍 [RENDER] currentState.testCases[${i}].points:`, tc.points, 'type:', typeof tc.points, 'isSample:', tc.isSample);
+      });
+    }
+    console.log('🔍 [RENDER] =================================');
     // Preserve scroll position within the modal body across renders
     var prevScrollTop = body ? body.scrollTop : 0;
     // Update mode button visuals
     try {
       const editBtn = modal.querySelector('#cafEditMode');
       const previewBtn = modal.querySelector('#cafPreviewMode');
-      if (editBtn) { editBtn.style.background = (state.viewMode==='edit') ? '#28a745' : ''; editBtn.style.color = (state.viewMode==='edit') ? '#fff' : ''; }
-      if (previewBtn) { previewBtn.style.background = (state.viewMode==='preview') ? '#28a745' : ''; previewBtn.style.color = (state.viewMode==='preview') ? '#fff' : ''; }
+      if (editBtn) { editBtn.style.background = (currentState.viewMode==='edit') ? '#28a745' : ''; editBtn.style.color = (currentState.viewMode==='edit') ? '#fff' : ''; }
+      if (previewBtn) { previewBtn.style.background = (currentState.viewMode==='preview') ? '#28a745' : ''; previewBtn.style.color = (currentState.viewMode==='preview') ? '#fff' : ''; }
     } catch(_){ }
 
     // Render PREVIEW mode using professional test interface
-    if (state.viewMode === 'preview') {
-      console.log('🔍 DEBUG: Rendering preview mode, state:', state);
-      console.log('🔍 DEBUG: instructionsText:', state.instructionsText);
+    if (currentState.viewMode === 'preview') {
+      console.log('🔍 DEBUG: Rendering preview mode, currentState:', currentState);
+      console.log('🔍 DEBUG: instructionsText:', currentState.instructionsText);
       
       // Determine activity type - handle true_false stored as 'quiz' in database
       let activityType = state.questionType || 'multiple_choice';
@@ -4072,6 +4459,38 @@ function showCreateActivityForm(lessonId, opts){
         // Render dedicated coding preview (does not require questions array)
         try {
           body.innerHTML = renderCodingPreview(activity);
+          // Ensure Monaco initializes (avoid relying on inline <script> execution)
+          setTimeout(function(){
+            try {
+              const container = document.getElementById('previewMonacoContainer');
+              const textarea = document.getElementById('previewCodeTextarea');
+              if (container && textarea) {
+                loadMonacoEditor().then(function(){
+                  if (window.monaco && window.monaco.editor) {
+                    const existing = window.__previewEditor; if (existing && typeof existing.dispose === 'function') existing.dispose();
+                    const lang = (function(){ try { const meta = JSON.parse(activity.instructions||'{}'); return (meta.language||'cpp'); } catch(_){ return 'cpp'; } })();
+                    const editor = window.monaco.editor.create(container, {
+                      value: textarea.value,
+                      language: String(lang||'cpp').toLowerCase(),
+                      theme: 'vs',
+                      fontSize: 14,
+                      automaticLayout: true,
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      wordWrap: 'on',
+                      lineNumbers: 'on'
+                    });
+                    editor.onDidChangeModelContent(function(){ textarea.value = editor.getValue(); });
+                    window.__previewEditor = editor;
+                    try { textarea.style.display = 'none'; } catch(_){ }
+                  } else {
+                    // Fallback: show textarea
+                    textarea.style.display = 'block';
+                  }
+                }).catch(function(){ if (textarea) textarea.style.display='block'; });
+              }
+            } catch(_){ }
+          }, 0);
         } catch(e) {
           body.innerHTML = '<div class="empty-state">Failed to render coding preview</div>';
         }
@@ -4127,7 +4546,7 @@ function showCreateActivityForm(lessonId, opts){
               <p style="margin:0;color:#555;line-height:1.6;">${state.displayInstructions || state.instructionsText}</p>
             </div>
           ` : ''}
-
+          
           <!-- Progress Bar (hidden for upload-based activities like teacher side) -->
           ${activityType !== 'upload_based' ? `
           <div id="progress-section" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #e9ecef;">
@@ -4136,19 +4555,19 @@ function showCreateActivityForm(lessonId, opts){
               <div style="display:flex;gap:20px;align-items:center;">
                 <span id="progress-counter" style="font-size:14px;color:#28a745;font-weight:600;">0 / ${activity.questions ? activity.questions.length : 0} answered</span>
                 <span id="timer" style="font-size:14px;color:#6c757d;font-weight:600;">⏱️ 00:00</span>
+                  </div>
               </div>
-            </div>
             <div style="background:#e9ecef;border-radius:10px;height:6px;overflow:hidden;">
               <div id="progress-bar" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);height:100%;width:0%;transition:width 0.3s ease;"></div>
+              </div>
             </div>
-          </div>
           ` : ''}
-
+            
           <!-- Main content -->
           <div style="flex:1;overflow:auto;padding:24px;">
-            ${activity.questions && activity.questions.length > 0 ? 
-              renderProfessionalTestQuestions(activity, activityType) : 
-              `
+              ${activity.questions && activity.questions.length > 0 ? 
+                renderProfessionalTestQuestions(activity, activityType) : 
+                `
               <div style=\"text-align:center;padding:40px;color:#6c757d;\">No Questions Added</div>
               `}
           </div>
@@ -4156,36 +4575,36 @@ function showCreateActivityForm(lessonId, opts){
           <!-- No pagination - show all questions at once like teacher side -->
 
           <!-- Sticky submit (match student modal) -->
-          ${activity.questions && activity.questions.length > 0 ? `
+              ${activity.questions && activity.questions.length > 0 ? `
           <div id="submitSection" style="position:sticky;bottom:0;padding:15px 25px;background:#f8f9fa;border-top:1px solid #e9ecef;z-index:5;">
             <div style="display:flex;justify-content:space-between;align-items:center;max-width:1100px;margin:0 auto;">
-              <div>
+                  <div>
                 <div style="font-size:13px;color:#6c757d;margin-bottom:2px;">Ready to submit?</div>
                 <div style="font-size:11px;color:#6c757d;">Make sure you've answered all questions</div>
-              </div>
+                  </div>
               <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);" onclick="window.finishPreviewAttempt()">Finish Attempt</button>
-            </div>
-          </div>
-          ` : ''}
+                </div>
+              </div>
+              ` : ''}
         </div>
       `;
       if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
       
-        // Initialize interactive features
-        setTimeout(() => {
-          try {
+      // Initialize interactive features
+      setTimeout(() => {
+        try {
             // Initialize progress tracking for fallback preview (only for non-upload activities)
             if (activityType !== 'upload_based') {
               initializePreviewProgressTracking();
               
-              if (typeof window.updateProgress === 'function') {
-                window.updateProgress();
-              }
+          if (typeof window.updateProgress === 'function') {
+            window.updateProgress();
+            }
             }
           } catch (e) {
             console.error('Error initializing preview features:', e);
           }
-        }, 100);
+      }, 100);
       
       return;
     }
@@ -4212,7 +4631,7 @@ function showCreateActivityForm(lessonId, opts){
         <!-- STEP 2: Activity Name -->
         <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
           <div style="font-weight:600;margin-bottom:12px;color:#333;">Step 2 · Activity Name <span style="color:red;">*</span></div>
-          <input id="cafName" type="text" class="modal-input" placeholder="Enter activity name (e.g., Introduction to Variables)" value="${(state.name||'').replace(/"/g,'&quot;')}" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" required />
+          <input id="cafName" type="text" class="modal-input" placeholder="Enter activity name (e.g., Introduction to Variables)" value="${((currentState && currentState.name)||'').replace(/"/g,'&quot;')}" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" required />
         </div>
         
         <!-- STEP 3: Activity Type Dropdown -->
@@ -4552,43 +4971,40 @@ function showCreateActivityForm(lessonId, opts){
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Programming Language *</label>
                 <select id="cafLang" class="modal-input" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:white;">
                   <option value="">Select programming language...</option>
-                  <option value="java" ${state.language==='java'?'selected':''}>☕ Java</option>
-                  <option value="python" ${state.language==='python'?'selected':''}>🐍 Python</option>
-                  <option value="cpp" ${state.language==='cpp'?'selected':''}>⚡ C++</option>
+                  <option value="java" ${(currentState && currentState.language)==='java'?'selected':''}>☕ Java</option>
+                  <option value="python" ${(currentState && currentState.language)==='python'?'selected':''}>🐍 Python</option>
+                  <option value="cpp" ${(currentState && currentState.language)==='cpp'?'selected':''}>⚡ C++</option>
                 </select>
+              </div>
+
+              <!-- Required Construct -->
+              <div style="margin-bottom:20px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Required Construct (Optional)</label>
+                <select id="cafRequiredConstruct" class="modal-input" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:white;">
+                  <option value="" ${!currentState.requiredConstruct?'selected':''}>None</option>
+                  <option value="if_else" ${currentState.requiredConstruct==='if_else'?'selected':''}>if / else</option>
+                  <option value="while" ${currentState.requiredConstruct==='while'?'selected':''}>while</option>
+                  <option value="for" ${currentState.requiredConstruct==='for'?'selected':''}>for</option>
+                  <option value="do_while" ${currentState.requiredConstruct==='do_while'?'selected':''}>do...while</option>
+                  <option value="switch" ${currentState.requiredConstruct==='switch'?'selected':''}>switch</option>
+                </select>
+                <div style="margin-top:4px;font-size:12px;color:#666;">If set, students must use this construct; otherwise their score is gated.</div>
               </div>
               
               <!-- Problem Statement -->
               <div style="margin-bottom:20px;">
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Problem Statement *</label>
-                <textarea id="cafProblem" class="modal-input" rows="5" placeholder="Describe the coding problem, requirements, and what students need to implement..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;">${state.problemStatement || ''}</textarea>
+                <textarea id="cafProblem" class="modal-input" rows="5" placeholder="Describe the coding problem, requirements, and what students need to implement..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;">${(currentState && currentState.problemStatement) || ''}</textarea>
                 <div style="margin-top:4px;font-size:12px;color:#666;">Provide clear instructions and requirements for the coding task</div>
               </div>
               
-              <!-- Difficulty Level -->
-              <div style="margin-bottom:20px;">
-                <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Difficulty Level</label>
-                <div style="display:flex;gap:12px;">
-                  <label style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:white;flex:1;">
-                    <input type="radio" name="codingDifficulty" value="beginner" ${state.codingDifficulty==='beginner'?'checked':''} style="margin:0;" />
-                    <span style="font-weight:500;color:#28a745;">🟢 Beginner</span>
-                  </label>
-                  <label style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:white;flex:1;">
-                    <input type="radio" name="codingDifficulty" value="intermediate" ${state.codingDifficulty==='intermediate'?'checked':''} style="margin:0;" />
-                    <span style="font-weight:500;color:#ffc107;">🟡 Intermediate</span>
-                  </label>
-                  <label style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:white;flex:1;">
-                    <input type="radio" name="codingDifficulty" value="advanced" ${state.codingDifficulty==='advanced'?'checked':''} style="margin:0;" />
-                    <span style="font-weight:500;color:#dc3545;">🔴 Advanced</span>
-                  </label>
-                </div>
-              </div>
+              <!-- Difficulty Level removed -->
               
               <!-- Starter Code -->
               <div style="margin-bottom:20px;">
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Starter Code (Optional)</label>
                 <div id="monacoContainer" style="height:300px;border:1px solid #ddd;border-radius:6px;margin-top:8px;">
-                  <textarea id="cafStarterCode" class="modal-input" rows="8" placeholder="Provide starter code, function signatures, or class templates for students..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;resize:vertical;display:none;">${state.starterCode || ''}</textarea>
+                  <textarea id="cafStarterCode" class="modal-input" rows="8" placeholder="Provide starter code, function signatures, or class templates for students..." style="width:100%;height:100%;padding:12px;border:0;font-size:14px;font-family:monospace;resize:vertical;">${(currentState && currentState.starterCode) || ''}</textarea>
                 </div>
                 <div style="margin-top:4px;font-size:12px;color:#666;">💡 Monaco editor will load automatically. Fallback to textarea if needed.</div>
                 <div style="margin-top:4px;font-size:12px;color:#666;">Include function signatures, class templates, or partial code to help students get started</div>
@@ -4597,53 +5013,54 @@ function showCreateActivityForm(lessonId, opts){
               <!-- Expected Output -->
               <div style="margin-bottom:20px;">
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Expected Output/Result</label>
-                <textarea id="cafExpectedOutput" class="modal-input" rows="4" placeholder="Describe the expected output, test cases, or success criteria..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;">${state.expectedOutput || ''}</textarea>
+                <textarea id="cafExpectedOutput" class="modal-input" rows="4" placeholder="Describe the expected output, test cases, or success criteria..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;">${(currentState && currentState.expectedOutput) || ''}</textarea>
                 <div style="margin-top:4px;font-size:12px;color:#666;">Include sample outputs, test cases, or success criteria for evaluation</div>
               </div>
               <!-- Test Cases -->
               <div style="margin-bottom:20px;">
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Test Cases (Optional)</label>
                 <div id="testCasesContainer">
-                  ${(state.testCases || []).map((testCase, index) => `
+                  ${((currentState && currentState.testCases) || []).map((testCase, index) => {
+                    const safeIn = (testCase.input||'').replace(/"/g,'&quot;');
+                    const safeOut = (testCase.output||'').replace(/"/g,'&quot;');
+                    // CRITICAL: Handle points explicitly - check for undefined, null, or empty
+                    let pts = 0;
+                    if (testCase.points !== null && testCase.points !== undefined && testCase.points !== '') {
+                      pts = parseInt(String(testCase.points), 10);
+                      if (isNaN(pts)) pts = 0;
+                    }
+                    console.log(`🔍 [RENDER TEMPLATE] TC ${index} - testCase.points:`, testCase.points, 'type:', typeof testCase.points, 'parsed pts:', pts, 'full testCase:', testCase);
+                    return `
                     <div class="test-case" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;padding:12px;background:white;border-radius:6px;border:1px solid #e3e6ea;">
                       <div style="flex:1;">
                         <label style="display:block;margin-bottom:4px;font-size:12px;color:#666;font-weight:500;">Input:</label>
-                        <input type="text" class="modal-input" value="${testCase.input || ''}" placeholder="Test input..." oninput="updateTestCase(${index}, 'input', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />
+                        <input type="text" class="modal-input" data-tc-index="${index}" data-tc-field="input" value="${safeIn}" placeholder="Test input..." oninput="updateTestCase(${index}, 'input', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />
                       </div>
                       <div style="flex:1;">
                         <label style="display:block;margin-bottom:4px;font-size:12px;color:#666;font-weight:500;">Expected Output:</label>
-                        <input type="text" class="modal-input" value="${testCase.output || ''}" placeholder="Expected output..." oninput="updateTestCase(${index}, 'output', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />
+                        <input type="text" class="modal-input" data-tc-index="${index}" data-tc-field="output" value="${safeOut}" placeholder="Expected output..." oninput="updateTestCase(${index}, 'output', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />
+                      </div>
+                      <div style="width:110px;">
+                        <label style="display:block;margin-bottom:4px;font-size:12px;color:#666;font-weight:500;">Points</label>
+                        <input type="number" min="0" step="1" class="modal-input" data-tc-index="${index}" data-tc-field="points" value="${pts}" oninput="updateTestCase(${index}, 'points', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />
                       </div>
                       <div style="display:flex;align-items:center;gap:6px;">
                         <label style="font-size:12px;color:#666;">Sample</label>
-                        <input type="checkbox" ${testCase.isSample? 'checked':''} onchange="updateTestCase(${index}, 'isSample', this.checked)" />
+                        <input type="checkbox" data-tc-index="${index}" data-tc-field="isSample" ${testCase.isSample? 'checked':''} onchange="updateTestCase(${index}, 'isSample', this.checked)" />
                       </div>
                       <button class="action-btn btn-red" onclick="deleteTestCase(${index})" style="padding:8px 12px;font-size:12px;">Delete</button>
                     </div>
-                  `).join('')}
+                  `;
+                  }).join('')}
                 </div>
                 <button class="action-btn btn-green" onclick="addTestCase()" style="margin-top:8px;padding:10px 16px;font-size:14px;">+ Add Test Case</button>
               </div>
               
-              <!-- Time and Scoring -->
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-                <div>
-                  <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Time Limit (minutes)</label>
-                  <select id="cafTimeLimit" class="modal-input" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;">
-                    <option value="5" ${(state.timeLimit || 60) == 5 ? 'selected' : ''}>5 minutes - Quick syntax check</option>
-                    <option value="10" ${(state.timeLimit || 60) == 10 ? 'selected' : ''}>10 minutes - Basic problems</option>
-                    <option value="15" ${(state.timeLimit || 60) == 15 ? 'selected' : ''}>15 minutes - Simple logic</option>
-                    <option value="30" ${(state.timeLimit || 60) == 30 ? 'selected' : ''}>30 minutes - Moderate complexity</option>
-                    <option value="45" ${(state.timeLimit || 60) == 45 ? 'selected' : ''}>45 minutes - Advanced problems</option>
-                    <option value="60" ${(state.timeLimit || 60) == 60 ? 'selected' : ''}>60 minutes - Complex algorithms</option>
-                    <option value="90" ${(state.timeLimit || 60) == 90 ? 'selected' : ''}>90 minutes - Mini-projects</option>
-                    <option value="120" ${(state.timeLimit || 60) == 120 ? 'selected' : ''}>120 minutes - Advanced projects</option>
-                  </select>
-                </div>
-                <div>
+              <!-- Scoring (Time limit removed) -->
+              <div style="margin-bottom:20px;">
                   <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Maximum Score</label>
                   <input type="number" id="cafMaxScore" class="modal-input" min="1" value="${state.maxScore || 100}" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;" />
-                </div>
+                <div style="margin-top:4px;font-size:12px;color:#666;">💡 For coding activities, this will be auto-calculated from the sum of test case points when you save.</div>
               </div>
               
               <!-- Additional Requirements -->
@@ -4693,8 +5110,15 @@ function showCreateActivityForm(lessonId, opts){
     
     const nameInput = body.querySelector('#cafName');
     if (nameInput) {
+      // CRITICAL: Set value from currentState FIRST
+      if (currentState.name && nameInput.value !== currentState.name) {
+        nameInput.value = currentState.name;
+        console.log('🔍 [RENDER] Set activity name to:', currentState.name);
+      }
       nameInput.oninput=function(){ 
-        state.name=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave();
+        const updateState = window.createActivityState || currentState;
+        updateState.name=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave();
       };
     }
     
@@ -4710,59 +5134,180 @@ function showCreateActivityForm(lessonId, opts){
     }
     
     const lang = body.querySelector('#cafLang'); if (lang){ 
+      // CRITICAL: Set value from currentState FIRST
+      const langValue = currentState.language || '';
+      if (langValue && lang.value !== langValue) {
+        lang.value = langValue;
+        console.log('🔍 [RENDER] Set language dropdown to:', langValue);
+      }
       lang.onchange=function(){ 
-        state.language=this.value; 
+        const updateState = window.createActivityState || currentState;
+        updateState.language=this.value; 
         if (window.__cafScheduleSave) window.__cafScheduleSave(); 
         // Update Monaco language
         updateMonacoLanguage(this.value);
-      }; 
-      try { if (window.enableCodeEditor) window.enableCodeEditor(starter); } catch(_){} 
+      };
     }
-    const instr = body.querySelector('#cafInstr'); if (instr){ instr.oninput=function(){ state.instructionsText=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; }
+    const rcSel = body.querySelector('#cafRequiredConstruct'); 
+    if (rcSel){ 
+      // CRITICAL: Set value from currentState FIRST, before attaching handler
+      // Check both currentState and window.createActivityState to be absolutely sure
+      const rcValueFromCurrent = currentState.requiredConstruct;
+      const rcValueFromGlobal = window.createActivityState ? window.createActivityState.requiredConstruct : null;
+      const rcValue = rcValueFromCurrent || rcValueFromGlobal || '';
+      console.log('🔍 [RENDER] RequiredConstruct dropdown found.');
+      console.log('🔍 [RENDER] currentState.requiredConstruct:', rcValueFromCurrent, 'type:', typeof rcValueFromCurrent, 'truthy:', !!rcValueFromCurrent);
+      console.log('🔍 [RENDER] window.createActivityState.requiredConstruct:', rcValueFromGlobal, 'type:', typeof rcValueFromGlobal);
+      console.log('🔍 [RENDER] Final rcValue to use:', rcValue, 'type:', typeof rcValue, 'truthy:', !!rcValue);
+      console.log('🔍 [RENDER] CurrentState object:', currentState === window.createActivityState ? 'GLOBAL' : 'CLOSURE');
+      console.log('🔍 [RENDER] Dropdown current value before setting:', rcSel.value);
+      
+      // CRITICAL: Set the value even if it's empty string (to clear any previous value)
+      // But only set non-empty values to avoid clearing valid empty states
+      if (rcValue && rcValue !== '' && rcValue !== 'null' && rcValue !== 'undefined') {
+        // CRITICAL: Force set both value and selectedIndex to ensure it's applied
+        rcSel.value = String(rcValue);
+        const options = Array.from(rcSel.options);
+        const matchingIndex = options.findIndex(opt => opt.value === String(rcValue));
+        if (matchingIndex >= 0) {
+          rcSel.selectedIndex = matchingIndex;
+        }
+        console.log('🔍 [RENDER] ✅ Set requiredConstruct dropdown to:', rcValue, 'dropdown now has:', rcSel.value, 'selectedIndex:', rcSel.selectedIndex);
+      } else {
+        // If currentState is empty, ensure dropdown shows "None"
+        rcSel.value = '';
+        rcSel.selectedIndex = 0; // First option is "None"
+        console.log('🔍 [RENDER] ⚠️ RequiredConstruct is empty, setting dropdown to "None".');
+        console.log('🔍 [RENDER] Debug - currentState.requiredConstruct:', currentState.requiredConstruct);
+        console.log('🔍 [RENDER] Debug - window.createActivityState:', window.createActivityState ? window.createActivityState.requiredConstruct : 'NULL');
+        console.log('🔍 [RENDER] Debug - CurrentState keys:', Object.keys(currentState));
+      }
+      
+      rcSel.onchange=function(){ 
+        const newValue = this.value || '';
+        const updateState = window.createActivityState || currentState;
+        updateState.requiredConstruct = newValue;
+        console.log('🔍 [REQUIRED CONSTRUCT] Changed to:', newValue, 'state updated:', updateState.requiredConstruct);
+        if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+      }; 
+    } else {
+      // Only warn if we're in coding mode - otherwise it's expected
+      if (currentState.questionType === 'coding') {
+        console.warn('🔍 [RENDER] RequiredConstruct dropdown not found in DOM! questionType:', currentState.questionType);
+        console.warn('🔍 [RENDER] Debug: body.innerHTML length:', body ? body.innerHTML.length : 0);
+        console.warn('🔍 [RENDER] Debug: Searching for #cafRequiredConstruct in body...');
+        const allSelects = body.querySelectorAll('select');
+        console.warn('🔍 [RENDER] Debug: Found', allSelects.length, 'select elements in body');
+        allSelects.forEach((sel, i) => {
+          console.warn('🔍 [RENDER] Debug: Select', i, 'id:', sel.id, 'name:', sel.name);
+        });
+      }
+    }
+    const instr = body.querySelector('#cafInstr'); if (instr){ 
+      // CRITICAL: Set value from currentState FIRST
+      if (currentState.instructionsText && instr.value !== currentState.instructionsText) {
+        instr.value = currentState.instructionsText;
+        console.log('🔍 [RENDER] Set instructions textarea to:', currentState.instructionsText.substring(0, 50) + '...');
+      }
+      instr.oninput=function(){ 
+        const updateState = window.createActivityState || currentState;
+        updateState.instructionsText=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+      }; 
+    }
     // Coding-specific field bindings to preserve user input across re-renders
-    const prob = body.querySelector('#cafProblem'); if (prob){ prob.oninput=function(){ state.problemStatement=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; }
+    const prob = body.querySelector('#cafProblem'); if (prob){ 
+      // CRITICAL: Set value from currentState FIRST
+      if (currentState.problemStatement && prob.value !== currentState.problemStatement) {
+        prob.value = currentState.problemStatement;
+        console.log('🔍 [RENDER] Set problem statement to:', currentState.problemStatement.substring(0, 50) + '...');
+      }
+      prob.oninput=function(){ 
+        const updateState = window.createActivityState || currentState;
+        updateState.problemStatement=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+      }; 
+    }
     const starter = body.querySelector('#cafStarterCode'); if (starter){
-      starter.oninput=function(){ state.starterCode=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); };
+      // CRITICAL: Set value from currentState FIRST
+      if (currentState.starterCode && starter.value !== currentState.starterCode) {
+        starter.value = currentState.starterCode;
+        console.log('🔍 [RENDER] Set starter code to:', currentState.starterCode.substring(0, 50) + '...');
+      }
+      starter.oninput=function(){ 
+        const updateState = window.createActivityState || currentState;
+        updateState.starterCode=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+      };
       
       // Initialize Monaco editor for coding activities
       const monacoContainer = body.querySelector('#monacoContainer');
-      if (monacoContainer && state.questionType === 'coding') {
-        const language = state.language || 'javascript';
-        const initialCode = state.starterCode || '';
+      if (monacoContainer && currentState.questionType === 'coding') {
+        const language = currentState.language || 'javascript';
+        const initialCode = currentState.starterCode || '';
         initMonacoEditor(monacoContainer, language, initialCode);
       }
-      
-      try {
-        if (window.enableCodeEditor) {
-          window.enableCodeEditor(starter);
-          if (starter.__cm) {
-            // Ensure content reflects state and bind change once
-            try { if (starter.__cm.getValue() !== (state.starterCode||'')) starter.__cm.setValue(state.starterCode||''); } catch(_){}
-            if (!starter.__cm.__bound) {
-              starter.__cm.__bound = true;
-              starter.__cm.on('change', function(){
-                try { state.starterCode = starter.__cm.getValue(); if (window.__cafScheduleSave) window.__cafScheduleSave(); } catch(_){}
-              });
-            }
-          }
-        }
-      } catch(_){}
     }
-    const expect = body.querySelector('#cafExpectedOutput'); if (expect){ expect.oninput=function(){ state.expectedOutput=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; }
+    const expect = body.querySelector('#cafExpectedOutput'); if (expect){ 
+      // CRITICAL: Set value from currentState FIRST
+      if (currentState.expectedOutput && expect.value !== currentState.expectedOutput) {
+        expect.value = currentState.expectedOutput;
+        console.log('🔍 [RENDER] Set expected output to:', currentState.expectedOutput.substring(0, 50) + '...');
+      }
+      expect.oninput=function(){ 
+        const updateState = window.createActivityState || currentState;
+        updateState.expectedOutput=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+      }; 
+    }
     // Difficulty radios
-    const diffRadios = body.querySelectorAll('input[name="codingDifficulty"]');
-    if (diffRadios && diffRadios.length){
-      diffRadios.forEach(function(r){ r.onchange=function(){ state.codingDifficulty=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); }; });
-    }
+    // Difficulty removed: no bindings required
 
     // bind settings
     const att = body.querySelector('#cafAttempts'); if (att) att.oninput=function(){ const n=parseInt(this.value,10); if(!isNaN(n)&&n>0) { state.quizSettings.attempts=n; if (window.__cafScheduleSave) window.__cafScheduleSave(); } };
-    const tl = body.querySelector('#cafTimeLimit'); if (tl) tl.oninput=function(){ const n=parseInt(this.value,10); if(!isNaN(n)&&n>=0){ state.timeLimit=n; state.quizSettings.timeLimit=n; if (window.__cafScheduleSave) window.__cafScheduleSave(); } };
+    // Time limit removed: no binding required
     const shQ = body.querySelector('#cafShuffleQ'); if (shQ) shQ.onchange=function(){ state.quizSettings.shuffleQuestions=this.checked; };
     const shC = body.querySelector('#cafShuffleC'); if (shC) shC.onchange=function(){ state.quizSettings.shuffleChoices=this.checked; };
-    const max = body.querySelector('#cafMaxScore'); if (max) max.oninput=function(){ const n=parseInt(this.value,10); if(!isNaN(n)&&n>0){ state.maxScore=n; if (window.__cafScheduleSave) window.__cafScheduleSave(); } };
-    const addReq = body.querySelector('#cafAdditionalReq'); if (addReq) addReq.oninput=function(){ state.additionalRequirements=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); };
-    const hints = body.querySelector('#cafHints'); if (hints) hints.oninput=function(){ state.hints=this.value; if (window.__cafScheduleSave) window.__cafScheduleSave(); };
+    const max = body.querySelector('#cafMaxScore'); if (max) { 
+      // CRITICAL: Set value from currentState FIRST
+      const maxScoreValue = currentState.maxScore || currentState.max_score || 100;
+      if (max.value !== String(maxScoreValue)) {
+        max.value = String(maxScoreValue);
+        console.log('🔍 [RENDER] Set max score to:', maxScoreValue);
+      }
+      max.oninput=function(){ 
+        const n=parseInt(this.value,10); 
+        if(!isNaN(n)&&n>0){ 
+          const updateState = window.createActivityState || currentState;
+          updateState.maxScore=n; 
+          if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+        } 
+      }; 
+    }
+    const addReq = body.querySelector('#cafAdditionalReq'); if (addReq) { 
+      // CRITICAL: Set value from currentState FIRST
+      if (currentState.additionalRequirements && addReq.value !== currentState.additionalRequirements) {
+        addReq.value = currentState.additionalRequirements;
+        console.log('🔍 [RENDER] Set additional requirements to:', currentState.additionalRequirements.substring(0, 50) + '...');
+      }
+      addReq.oninput=function(){ 
+        const updateState = window.createActivityState || currentState;
+        updateState.additionalRequirements=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+      }; 
+    }
+    const hints = body.querySelector('#cafHints'); if (hints) { 
+      // CRITICAL: Set value from currentState FIRST
+      if (currentState.hints && hints.value !== currentState.hints) {
+        hints.value = currentState.hints;
+        console.log('🔍 [RENDER] Set hints to:', currentState.hints.substring(0, 50) + '...');
+      }
+      hints.oninput=function(){ 
+        const updateState = window.createActivityState || currentState;
+        updateState.hints=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave(); 
+      }; 
+    }
 
     // questions rendering
     const list = body.querySelector('#cafQList');
@@ -4773,6 +5318,17 @@ function showCreateActivityForm(lessonId, opts){
       }; 
     } else {
     }
+    
+    // CRITICAL: After render completes, explicitly call renderTestCases for coding activities
+    // This ensures test cases are rendered with the correct data from currentState
+    if (currentState.questionType === 'coding') {
+      setTimeout(() => {
+        console.log('🔍 [RENDER] Calling renderTestCases() after render for coding activity');
+        if (typeof renderTestCases === 'function') {
+          renderTestCases();
+        }
+      }, 100);
+    }
   }
 
   render();
@@ -4780,8 +5336,8 @@ function showCreateActivityForm(lessonId, opts){
   const createBtn = modal.querySelector('#cafCreate');
   if (createBtn) {
     createBtn.onclick = async function(){
-      const btn = this;
-      if (btn.disabled) return; // Prevent double-clicks
+    const btn = this;
+    if (btn.disabled) return; // Prevent double-clicks
       
       // Re-check state exists (might be null if modal opened stale)
       if (!window.createActivityState) {
@@ -4790,11 +5346,11 @@ function showCreateActivityForm(lessonId, opts){
         return;
       }
       const state = window.createActivityState;
-      
-      // Required field validation
-      const isCodingActivity = (state.questionType==='coding') || ((document.getElementById('cafActivityType')||{}).value==='coding');
-      const isUploadBasedActivity = (state.questionType==='upload_based') || ((document.getElementById('cafActivityType')||{}).value==='upload_based');
-      const hasName = state.name && state.name.trim().length > 0;
+    
+    // Required field validation
+    const isCodingActivity = (state.questionType==='coding') || ((document.getElementById('cafActivityType')||{}).value==='coding');
+    const isUploadBasedActivity = (state.questionType==='upload_based') || ((document.getElementById('cafActivityType')||{}).value==='upload_based');
+    const hasName = state.name && state.name.trim().length > 0;
     const hasLanguage = !isCodingActivity || (state.language && state.language.trim().length > 0);
     const hasTestCases = !isCodingActivity || (Array.isArray(state.testCases) && state.testCases.length > 0);
     const hasUploadTasks = !isUploadBasedActivity || (Array.isArray(state.questions) && state.questions.length > 0);
@@ -4858,11 +5414,11 @@ function showCreateActivityForm(lessonId, opts){
         instructions: state.instructionsText||'',
         problemStatement: state.problemStatement||'',
         starterCode: state.starterCode||'',
-        difficulty: state.codingDifficulty||'beginner',
         expectedOutput: state.expectedOutput || '',
         additionalRequirements: state.additionalRequirements || '',
         hints: state.hints || '',
-        timeLimit: state.timeLimit || 60
+        requiredConstruct: (modal.querySelector('#cafRequiredConstruct') && modal.querySelector('#cafRequiredConstruct').value ? modal.querySelector('#cafRequiredConstruct').value : (state.requiredConstruct || ''))
+        // timeLimit removed
       }) : (function(){
         // For non-coding, persist a small JSON envelope with kind for better labeling
         const qt = String(state.questionType||'multiple_choice').toLowerCase();
@@ -4880,12 +5436,75 @@ function showCreateActivityForm(lessonId, opts){
       max_score: Number(state.maxScore||100)
     };
     if (isCoding) {
-      payload.test_cases = (Array.isArray(state.testCases)?state.testCases:[]).map(function(tc){ return {
-        is_sample: !!tc.isSample,
-        input_text: tc.input || '',
-        expected_output_text: tc.output || '',
-        time_limit_ms: tc.timeLimitMs ? parseInt(tc.timeLimitMs, 10) : 2000
-      }; });
+      // CRITICAL: Read test case data from DOM inputs FIRST (most up-to-date), then fallback to state
+      const testCasesContainer = modal.querySelector('#testCasesContainer');
+      const testCasesFromDOM = [];
+      if (testCasesContainer) {
+        const testCaseElements = testCasesContainer.querySelectorAll('.test-case');
+        console.log('🔍 [PAYLOAD] Found', testCaseElements.length, 'test case elements in DOM');
+        testCaseElements.forEach((tcEl, idx) => {
+          const inputEl = tcEl.querySelector('input[data-tc-field="input"]');
+          const outputEl = tcEl.querySelector('input[data-tc-field="output"]');
+          const pointsEl = tcEl.querySelector('input[data-tc-field="points"]');
+          const sampleEl = tcEl.querySelector('input[data-tc-field="isSample"]');
+          const input = inputEl ? inputEl.value : '';
+          const output = outputEl ? outputEl.value : '';
+          const points = pointsEl ? parseInt(pointsEl.value || 0, 10) : 0;
+          const isSample = sampleEl ? sampleEl.checked : false;
+          console.log('🔍 [PAYLOAD] DOM TC', idx, 'input:', input, 'output:', output, 'points:', points, 'isSample:', isSample);
+          testCasesFromDOM.push({ input, output, points, isSample });
+        });
+      }
+      
+      // Use DOM data if available, otherwise fallback to state
+      const finalTestCases = testCasesFromDOM.length > 0 ? testCasesFromDOM : (Array.isArray(state.testCases) ? state.testCases : []);
+      console.log('🔍 [PAYLOAD] Using', finalTestCases.length, 'test cases (DOM:', testCasesFromDOM.length, ', state:', (state.testCases || []).length, ')');
+      
+      // Auto-derive max_score from sum of test case points when provided
+      try {
+        const sumPts = finalTestCases.reduce((s, tc) => s + (parseInt(tc.points || 0, 10) || 0), 0);
+        if (sumPts > 0) { 
+          state.maxScore = sumPts;
+          payload.max_score = sumPts;
+        }
+        console.log('🔍 [PAYLOAD] Calculated max_score from points:', sumPts);
+      } catch(_){ }
+      
+      payload.test_cases = finalTestCases.map(function(tc, idx){ 
+        const points = tc.points != null ? parseInt(tc.points, 10) : 0;
+        const mapped = {
+          is_sample: !!tc.isSample,
+          input_text: tc.input || '',
+          expected_output_text: tc.output || '',
+          time_limit_ms: tc.timeLimitMs ? parseInt(tc.timeLimitMs, 10) : 2000,
+          points: points
+        };
+        console.log('🔍 [PAYLOAD] Test case', idx, 'mapped:', JSON.stringify(mapped), 'original tc.points:', tc.points, 'parsed:', points);
+        return mapped;
+      });
+      console.log('🔍 [PAYLOAD] Total test cases in payload:', payload.test_cases.length);
+      
+      // CRITICAL: Get required_construct from dropdown FIRST (most up-to-date), then fallback to state
+      const rcDropdown = modal.querySelector('#cafRequiredConstruct');
+      let rcValue = '';
+      if (rcDropdown) {
+        rcValue = rcDropdown.value || '';
+        console.log('🔍 [PAYLOAD] Reading from dropdown, value:', rcValue, 'dropdown exists: YES');
+        // Update state to keep it in sync
+        if (rcValue !== state.requiredConstruct) {
+          console.log('🔍 [PAYLOAD] Syncing state.requiredConstruct from', state.requiredConstruct, 'to', rcValue);
+          state.requiredConstruct = rcValue;
+        }
+      } else {
+        rcValue = state.requiredConstruct || '';
+        console.log('🔍 [PAYLOAD] Dropdown not found in DOM! Using state:', rcValue, 'state.requiredConstruct:', state.requiredConstruct);
+        console.warn('🔍 [PAYLOAD] WARNING: Required Construct dropdown not found! Form might not be fully rendered or questionType is not "coding"');
+        console.log('🔍 [PAYLOAD] Debug: state.questionType =', state.questionType, ', isCoding =', isCoding);
+      }
+      payload.required_construct = rcValue;
+      console.log('🔍 [PAYLOAD] Final required_construct:', rcValue, 'dropdown exists:', !!rcDropdown, 'state value:', state.requiredConstruct);
+      console.log('🔍 [PAYLOAD] Full payload keys:', Object.keys(payload));
+      console.log('🔍 [PAYLOAD] Payload.required_construct value:', payload.required_construct);
     } else {
       payload.questions = (Array.isArray(state.questions)?state.questions:[]).map(function(q){
         const qt = String(state.questionType||'multiple_choice').toLowerCase();
@@ -4926,11 +5545,37 @@ function showCreateActivityForm(lessonId, opts){
       });
     }
 
-    try { console.log('🔍 SYNC payload:', JSON.stringify(payload)); } catch(_){ console.log('🔍 SYNC payload (object)', payload); }
+    // CRITICAL: Log the full payload structure before stringifying
+    try { 
+      console.log('🔍 [SYNC] Full payload object keys:', Object.keys(payload));
+      console.log('🔍 [SYNC] Full payload:', JSON.stringify(payload, null, 2)); 
+      console.log('🔍 [SYNC] Required construct in payload:', payload.required_construct, 'type:', typeof payload.required_construct, 'hasOwnProperty:', payload.hasOwnProperty('required_construct'));
+      console.log('🔍 [SYNC] Test cases in payload:', payload.test_cases);
+      if (payload.test_cases) {
+        payload.test_cases.forEach((tc, i) => {
+          console.log(`🔍 [SYNC] TC ${i}: points=${tc.points}, is_sample=${tc.is_sample}, input="${tc.input_text}", output="${tc.expected_output_text}"`);
+        });
+      }
+    } catch(e){ 
+      console.error('🔍 [SYNC] Error logging payload:', e);
+      console.log('🔍 [SYNC] Payload (object)', payload); 
+    }
     let handledSuccess = false;
     const syncFd = new FormData();
     syncFd.append('action','activity_sync');
-    syncFd.append('activity', JSON.stringify(payload));
+    const payloadJson = JSON.stringify(payload);
+    syncFd.append('activity', payloadJson);
+    console.log('🔍 [SYNC] FormData activity field (first 500 chars):', payloadJson.substring(0, 500));
+    console.log('🔍 [SYNC] FormData activity field (full length):', payloadJson.length, 'chars');
+    console.log('🔍 [SYNC] FormData keys:', Array.from(syncFd.keys()));
+    // CRITICAL: Verify required_construct is in the JSON string
+    if (payloadJson.includes('required_construct')) {
+      const rcMatch = payloadJson.match(/"required_construct"\s*:\s*"([^"]*)"/);
+      console.log('🔍 [SYNC] Found required_construct in JSON string:', rcMatch ? rcMatch[1] : 'NOT_FOUND');
+    } else {
+      console.error('🔍 [SYNC] ERROR: required_construct NOT FOUND in JSON string!');
+      console.error('🔍 [SYNC] Payload JSON preview:', payloadJson.substring(0, 1000));
+    }
     const fdWithCSRF = await addCSRFToken(syncFd);
     // Add timeout so we can detect stalled requests
     const controller = new AbortController();
@@ -4943,8 +5588,10 @@ function showCreateActivityForm(lessonId, opts){
       })
       .then(function(data){
         try { clearTimeout(timeoutId); } catch(_){}
+        console.log('🔍 [SYNC RESPONSE] Server response:', data);
         if (!data || !data.success){
           var msg = (data && (data.message || data.error)) ? (String(data.message||'') + (data.error?(' - '+String(data.error)):'') ) : 'Unknown error';
+          console.error('🔍 [SYNC RESPONSE] Save failed:', msg);
           if (typeof window.showNotification === 'function') window.showNotification('error', isEdit?'Update failed':'Create failed', msg);
           else alert((isEdit?'Failed to update activity: ':'Failed to create activity: ') + msg);
           btn.disabled = false;
@@ -4953,6 +5600,17 @@ function showCreateActivityForm(lessonId, opts){
         }
         handledSuccess = true;
         const actId = data.id || state.editActivityId;
+        console.log('🔍 [SYNC RESPONSE] Save successful! Activity ID:', actId);
+        console.log('🔍 [SYNC RESPONSE] Response data:', data.data);
+        if (data.data) {
+          console.log('🔍 [SYNC RESPONSE] Response required_construct:', data.data.required_construct);
+          console.log('🔍 [SYNC RESPONSE] Response test_cases count:', data.data.test_cases ? data.data.test_cases.length : 0);
+          if (data.data.test_cases) {
+            data.data.test_cases.forEach((tc, i) => {
+              console.log(`🔍 [SYNC RESPONSE] Response TC ${i}: points=${tc.points}, is_sample=${tc.is_sample}`);
+            });
+          }
+        }
         try {
           if (typeof window.showNotification === 'function') window.showNotification('success', isEdit?'Activity updated':'Activity created', 'Item #' + actId);
         } catch(_) {}
@@ -4981,7 +5639,7 @@ function showCreateActivityForm(lessonId, opts){
         btn.disabled = false;
         btn.textContent = (window.createActivityState && window.createActivityState.editActivityId) ? 'Save Changes' : 'Create Item';
       });
-    };
+  };
     // Store handler reference for fallback click listener
     try { window.__cafHandleCreate = createBtn.onclick; } catch(_){ }
   }
@@ -5075,13 +5733,35 @@ function renderStudentCodingTest(activity) {
     const meta = JSON.parse(activity.instructions || '{}');
     const language = meta.language || 'cpp';
     const starterCode = meta.starterCode || '';
-    const problemDescription = activity.problem || meta.instructions || 'Complete the coding challenge.';
-    const testCases = Array.isArray(activity.testCases) ? activity.testCases : [];
+    let problemDescription = activity.problem || meta.instructions || meta.problemStatement || 'Complete the coding challenge.';
+    try { if (typeof problemDescription === 'string' && problemDescription.trim().startsWith('{')) { const pd = JSON.parse(problemDescription); if (pd && (pd.instructions || pd.problemStatement)) { problemDescription = pd.instructions || pd.problemStatement; } } } catch(_) {}
+    // Normalize test cases - handle both frontend format and database format
+    let testCases = Array.isArray(activity.testCases) ? activity.testCases : (Array.isArray(activity.test_cases) ? activity.test_cases : []);
+    // Normalize field names: expected_output_text -> expected_output, input_text -> input_text (keep as is)
+    testCases = testCases.map(function(tc) {
+      return {
+        id: tc.id,
+        input_text: tc.input_text || tc.inputText || tc.input || '',
+        expected_output: tc.expected_output_text || tc.expectedOutput || tc.expected_output || tc.output || '',
+        is_sample: tc.is_sample !== undefined ? tc.is_sample : (tc.isSample !== undefined ? tc.isSample : false),
+        points: tc.points || 0,
+        time_limit_ms: tc.time_limit_ms || tc.timeLimitMs || 2000
+      };
+    });
+    
+    // Store activity metadata and test cases for grading
+    window.__CURRENT_ACTIVITY_ID__ = activity.id || activity.activity_id || 0;
+    window.__CURRENT_ACTIVITY_META__ = meta;
+    window.__CURRENT_ACTIVITY_TEST_CASES__ = testCases;
+    window.__CURRENT_ACTIVITY_TITLE__ = activity.title || 'Coding Activity';
+    window.__CURRENT_ACTIVITY_STARTER_CODE__ = starterCode;
+    const __sumPoints = Array.isArray(testCases) ? testCases.reduce((s, tc) => s + (parseInt(tc.points||0,10)||0), 0) : 0;
+    const maxScore = __sumPoints > 0 ? __sumPoints : (activity.max_score || 0);
+    window.__CURRENT_ACTIVITY_MAX_SCORE__ = maxScore;
     
     // Get user info for profile section
     const userName = (window.__USER_NAME__ || 'Student').split(' ').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' ');
     const timeLeft = activity.timeLimit ? `${Math.floor(activity.timeLimit / 60)}:${String(activity.timeLimit % 60).padStart(2, '0')}` : 'No limit';
-    const maxScore = activity.max_score || 0;
     
     return `
       <div class="codestem-coding-interface" style="display:flex;height:calc(100vh - 200px);min-height:600px;gap:0;background:#f8fafc;font-family:'Inter',sans-serif;">
@@ -5090,7 +5770,7 @@ function renderStudentCodingTest(activity) {
           <div style="padding:24px;border-bottom:1px solid #e5e7eb;">
             <h3 style="margin:0 0 8px 0;font-size:18px;font-weight:600;color:#1f2937;">${activity.title || 'Coding Challenge'}</h3>
             <p style="margin:0;font-size:12px;color:#6b7280;">by CodeRegal Admin</p>
-          </div>
+        </div>
           <div style="padding:24px;flex:1;">
             <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#374151;">Problem Description</h4>
             <div style="color:#4b5563;line-height:1.7;font-size:14px;white-space:pre-wrap;">${escapeHtml(problemDescription)}</div>
@@ -5101,11 +5781,11 @@ function renderStudentCodingTest(activity) {
                 ${testCases.filter(tc => tc.is_sample).map((tc, idx) => `
                   <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:6px;border-left:3px solid #10b981;">
                     <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:8px;">Sample Output ${idx + 1}</div>
-                    <pre style="margin:0;font-size:13px;color:#1f2937;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(tc.expectedOutput || '')}</pre>
+                    <pre style="margin:0;font-size:13px;color:#1f2937;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(tc.expected_output || tc.expectedOutput || '')}</pre>
                   </div>
                 `).join('')}
-              </div>
-            ` : ''}
+          </div>
+        ` : ''}
           </div>
           <div style="padding:16px 24px;border-top:1px solid #e5e7eb;background:#f9fafb;">
             <div style="font-size:14px;font-weight:600;color:#374151;">Score: <span id="codingActivityScore">0</span>/${maxScore}</div>
@@ -5121,12 +5801,12 @@ function renderStudentCodingTest(activity) {
                 <i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Saved
               </span>
             </div>
-            <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;">
               <button onclick="toggleCodingDarkMode()" style="background:none;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;color:#6b7280;">
                 <i class="fas fa-moon"></i>
               </button>
-            </div>
-          </div>
+        </div>
+      </div>
           <div id="codestemMonacoContainer" style="flex:1;min-height:0;position:relative;">
             <textarea id="codestemCodeTextarea" 
                       placeholder="Write your code here..." 
@@ -5135,7 +5815,7 @@ function renderStudentCodingTest(activity) {
           <div style="padding:16px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;gap:12px;">
             <button id="codestemRunBtn" 
                     onclick="runCodestemCode()" 
-                    style="background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                   style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
               <i class="fas fa-play"></i> Run Code
             </button>
             <button id="codestemCheckBtn" 
@@ -5167,7 +5847,7 @@ function renderStudentCodingTest(activity) {
           <!-- Test Cases Section -->
           <div style="flex:1;overflow-y:auto;padding:16px;">
             <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #e5e7eb;padding-bottom:12px;">
-              <button class="codestem-tab active" onclick="switchCodestemTab('testcases')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#3b82f6;cursor:pointer;border-bottom:2px solid #3b82f6;">Test Cases</button>
+              <button class="codestem-tab active" onclick="switchCodestemTab('testcases')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#10b981;cursor:pointer;border-bottom:2px solid #10b981;">Test Cases</button>
               <button class="codestem-tab" onclick="switchCodestemTab('executions')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer;">Executions</button>
             </div>
             
@@ -5182,8 +5862,17 @@ function renderStudentCodingTest(activity) {
                     <i class="fas fa-chevron-down" style="font-size:10px;color:#9ca3af;"></i>
                   </div>
                   <div class="test-case-details" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
-                    ${tc.inputText ? `<div style="margin-bottom:8px;"><span style="font-size:11px;color:#6b7280;">Input:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.inputText)}</pre></div>` : ''}
-                    <div><span style="font-size:11px;color:#6b7280;">Expected Output:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.expectedOutput || '')}</pre></div>
+                    ${tc.input_text || tc.inputText ? `<div style="margin-bottom:8px;"><span style="font-size:11px;color:#6b7280;">Input:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.input_text || tc.inputText || '')}</pre></div>` : ''}
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:flex-start;">
+                      <div>
+                        <div style="font-size:11px;color:#6b7280;">Your Output</div>
+                        <pre id="codestemTcYour-${idx}" style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;background:#111827;color:#e5e7eb;padding:8px;border-radius:6px;">(not run)</pre>
+                      </div>
+                      <div>
+                        <div style="font-size:11px;color:#6b7280;">Expected Output</div>
+                        <pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;background:#f3f4f6;padding:8px;border-radius:6px;">${escapeHtml(tc.expected_output || tc.expectedOutput || '')}</pre>
+                      </div>
+                    </div>
                   </div>
                 </div>
               `).join('') : '<div style="color:#9ca3af;font-size:13px;">No test cases available</div>'}
@@ -5285,37 +5974,181 @@ window.checkCodestemTests = async function() {
   }
   
   try {
-    // Run code against test cases (similar to existing submission logic)
-    // This would call the existing JDoodle submission API
-    const response = await fetch('submissions_api.php?action=submit_attempt', {
+    // Get activity metadata and test cases
+    const activityMeta = window.__CURRENT_ACTIVITY_META__ || {};
+    const language = activityMeta.language || 'cpp';
+    const testCases = window.__CURRENT_ACTIVITY_TEST_CASES__ || [];
+    const requiredConstruct = window.__CURRENT_ACTIVITY_REQUIRED_CONSTRUCT__ || (activityMeta.requiredConstruct || '');
+    
+    // Run code against ALL test cases (not quick mode)
+    const fd = new FormData();
+    fd.append('action', 'run_activity');
+    fd.append('activity_id', String(activityId));
+    fd.append('source', code);
+    // Don't append 'quick' - this runs all test cases
+    
+    const startTime = Date.now();
+    const response = await fetch('course_outline_manage.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        activity_id: activityId,
-        language: 'cpp', // Get from activity meta
-        source: code,
-        results: JSON.stringify([]),
-        verdict: 'pending',
-        score: null
-      })
+      body: fd,
+      credentials: 'same-origin'
     });
     
-    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
     
-    // Show results popup
-    const score = result.score || 0;
-    const maxScore = window.__CURRENT_ACTIVITY_MAX_SCORE__ || 10;
-    const passed = result.passed || 0;
-    const total = result.total || 0;
+    const res = await response.json();
+    if (!res || !res.success) {
+      throw new Error(res && res.message ? res.message : 'Run failed');
+    }
     
-    alert(`Score: ${score}/${maxScore}\nPassed: ${passed}/${total} test cases`);
+    const results = Array.isArray(res.results) ? res.results : [];
+    const durationMs = Date.now() - startTime;
+    
+    // Calculate score based on test case points
+    const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    
+    // CRITICAL FIX: Check if test cases have points. If not, distribute evenly from max_score
+    const sumExistingPoints = (testCases || []).reduce((s, tc) => s + (parseInt(tc.points || 0, 10) || 0), 0);
+    const maxScoreFromActivity = window.__CURRENT_ACTIVITY_MAX_SCORE__ || 0;
+    const needsPointDistribution = sumExistingPoints === 0 && maxScoreFromActivity > 0 && testCases.length > 0;
+    const pointsPerCase = needsPointDistribution ? Math.floor(maxScoreFromActivity / testCases.length) : 0;
+    
+    console.log('🔍 [STUDENT MODE] Points check:', {
+      sumExistingPoints,
+      maxScoreFromActivity,
+      testCasesCount: testCases.length,
+      needsPointDistribution,
+      pointsPerCase,
+      testCasesWithPoints: (testCases || []).map((tc, i) => ({
+        index: i + 1,
+        points: parseInt(tc.points || 0, 10) || 0
+      }))
+    });
+    
+    // Detect construct usage once per run
+    const constructCheck = (function(){
+      try {
+        if (!requiredConstruct) return { ok: true, required: '' };
+        return detectConstructUsage(code, language, requiredConstruct);
+      } catch(_){ return { ok: true, required: '' }; }
+    })();
+
+    const cases = (testCases || []).map((tc, i) => {
+      const expected = norm(tc.expected_output || tc.expectedOutput || tc.expected_output_text || '');
+      const result = results[i] || {};
+      const out = norm(result.output || result.stdout || result.outputText || (result.data && result.data.output) || '');
+      const err = result.error || result.stderr || (result.data && result.data.error) || '';
+      const statusCode = result.statusCode || (result.data && result.data.statusCode) || 0;
+      
+      // Check if passed (no error, output matches expected)
+      const hasError = err || (statusCode !== 200 && statusCode !== 0);
+      const passed = !hasError && (expected === '' ? out !== '' : (out === expected));
+      
+      // CRITICAL FIX: Use distributed points if test case has no points
+      const tcPoints = parseInt(tc.points || 0, 10) || 0;
+      const actualPoints = tcPoints > 0 ? tcPoints : (needsPointDistribution ? pointsPerCase : 0);
+      let pts = passed ? actualPoints : 0;
+      if (requiredConstruct && constructCheck && constructCheck.ok === false && pts > 0) { pts = Math.max(1, Math.round(actualPoints * 0.5)); }
+      
+      return {
+        name: `Test Case ${i + 1}`,
+        expected: expected,
+        stdout: out || (err ? `Error: ${err}` : ''),
+        status: passed ? 'AC' : (hasError ? 'RE' : 'WA'),
+        earned: pts,
+        points: actualPoints
+      };
+    });
+    
+    let totalPts = cases.reduce((s, c) => s + c.earned, 0);
+    const totalMax = sumExistingPoints > 0 ? sumExistingPoints : (needsPointDistribution ? maxScoreFromActivity : maxScoreFromActivity);
+    const passedCount = cases.filter(c => c.status === 'AC').length;
+    const totalCount = cases.length;
+    
+    // Determine verdict
+    let verdict = 'AC';
+    if (passedCount === 0) {
+      verdict = 'WA'; // All wrong
+    } else if (passedCount < totalCount) {
+      verdict = 'PA'; // Partially accepted
+    }
+    
+    // Save attempt to database
+    try {
+      const submitFd = new FormData();
+      submitFd.append('action', 'submit_attempt');
+      submitFd.append('activity_id', String(activityId));
+      submitFd.append('language', language);
+      submitFd.append('source', code);
+      submitFd.append('results', JSON.stringify(results));
+      submitFd.append('verdict', verdict);
+      submitFd.append('score', String(totalPts));
+      submitFd.append('duration_ms', String(durationMs));
+      
+      // Get CSRF token first
+      const csrfResponse = await fetch('course_outline_manage.php', {
+        method: 'POST',
+        body: new FormData().append('action', 'get_csrf_token'),
+        credentials: 'same-origin'
+      });
+      const csrfData = await csrfResponse.json();
+      if (csrfData && csrfData.token) {
+        submitFd.append(csrfData.token_name || 'csrf_token', csrfData.token);
+      }
+      
+      await fetch('submissions_api.php?action=submit_attempt', {
+        method: 'POST',
+        body: submitFd,
+        credentials: 'same-origin'
+      });
+    } catch (submitErr) {
+      console.warn('Failed to save attempt:', submitErr);
+    }
+    
+    // Save progress with score
+    try {
+      const progressResponse = await fetch('save_activity_progress.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activity_id: activityId,
+          user_id: window.__USER_ID__ || 0,
+          answers: { code: code, results: results },
+          score: totalPts,
+          completed: true
+        }),
+        credentials: 'same-origin'
+      });
+      const progressData = await progressResponse.json();
+      console.log('Progress saved:', progressData);
+    } catch (progressErr) {
+      console.warn('Failed to save progress:', progressErr);
+    }
+    
+    // Build optional construct banner
+    let noteHtml = '';
+    if (requiredConstruct) {
+      const ok = constructCheck && constructCheck.ok !== false ? true : false;
+      noteHtml = `<div style="margin-top:8px;padding:10px;background:${ok ? '#ecfdf5' : '#fffbeb'};border-left:3px solid ${ok ? '#10b981' : '#f59e0b'};border-radius:6px;">
+        <strong style="font-size:12px;color:${ok ? '#065f46' : '#991b1b'};">Construct Required:</strong>
+        <span style="font-size:12px;color:${ok ? '#065f46' : '#991b1b'};"> ${requiredConstruct.replace('_',' / ')} — ${ok ? 'used ✔' : 'missing ✖ (50% deduction applied)'} </span>
+      </div>`;
+    }
+
+    // Show results modal (like Codestem)
+    showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalCount, noteHtml);
     
     // Update score display
-    const scoreEl = document.getElementById('codingActivityScore');
-    if (scoreEl) scoreEl.textContent = score;
-    
     const overallScoreEl = document.getElementById('codestemOverallScore');
-    if (overallScoreEl) overallScoreEl.textContent = `${score}/${maxScore}`;
+    if (overallScoreEl) overallScoreEl.textContent = `${totalPts}/${totalMax}`;
+    
+    // Update test case outputs
+    cases.forEach((c, i) => {
+      const your = document.getElementById(`codestemTcYour-${i}`);
+      if (your) your.textContent = c.stdout || '(no output)';
+    });
     
     // Mark as saved
     const savedIndicator = document.getElementById('codingSavedIndicator');
@@ -5325,7 +6158,7 @@ window.checkCodestemTests = async function() {
     
   } catch (error) {
     console.error('Error checking tests:', error);
-    alert('Error checking tests. Please try again.');
+    alert('Error checking tests: ' + (error.message || 'Please try again.'));
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -5334,9 +6167,148 @@ window.checkCodestemTests = async function() {
   }
 };
 
-window.switchCodestemTab = function(tab) {
+// Show results modal (Codestem-style with "Perfect!" celebration)
+function showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalCount, noteHtml) {
+  // Remove any existing modal first
+  const existing = document.getElementById('codestemResultsModal');
+  if (existing) existing.remove();
+  
+  const modal = document.createElement('div');
+  modal.id = 'codestemResultsModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+  
+  const isPerfect = passedCount === totalCount;
+  
+  // Codestem-style modal with celebration illustration
+  modal.innerHTML = `
+    <div style="width:90%;max-width:700px;background:white;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;display:flex;">
+      <!-- Left: Results Content -->
+      <div style="flex:1;padding:40px 32px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <div style="font-size:32px;font-weight:700;color:${isPerfect ? '#10b981' : (passedCount > 0 ? '#f59e0b' : '#6b7280')};margin-bottom:12px;">
+            ${isPerfect ? 'Perfect!' : (passedCount > 0 ? 'Good Job!' : 'Try Again')}
+          </div>
+          <div style="font-size:16px;color:#6b7280;margin-bottom:24px;" id="codestemActivityTitle">Coding Activity</div>
+          <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-size:14px;color:#6b7280;">Test Cases:</span>
+              <span style="font-size:16px;font-weight:700;color:#374151;">${passedCount}/${totalCount}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:14px;color:#6b7280;">Score:</span>
+              <span style="font-size:16px;font-weight:700;color:#374151;">${totalPts}/${totalMax}</span>
+            </div>
+          </div>
+          ${noteHtml ? noteHtml : ''}
+          ${!isPerfect && cases.length > 0 ? `
+            <div style="max-height:200px;overflow-y:auto;margin-top:16px;">
+              <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:8px;">Test Case Results:</div>
+              ${cases.map((c, i) => {
+                const color = c.status === 'AC' ? '#10b981' : (c.status === 'RE' ? '#6b7280' : '#f59e0b');
+                const icon = c.status === 'AC' ? '✅' : (c.status === 'RE' ? '❌' : '⚠️');
+                return `
+                  <div style="padding:8px;background:#f9fafb;border-radius:6px;margin-bottom:6px;font-size:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <span style="color:#374151;">${c.name}</span>
+                      <span style="color:${color};font-weight:600;">${icon} ${c.status}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:24px;">
+          <button id="codestemProceedBtn" style="background:#10b981;color:white;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s;">
+            Proceed
+          </button>
+          <button id="codestemResolveBtn" style="background:#f3f4f6;color:#374151;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s;">
+            Re-Solve
+          </button>
+        </div>
+      </div>
+      <!-- Right: Celebration Illustration (only show if perfect) -->
+      ${isPerfect ? `
+        <div style="width:280px;background:linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+          <div style="text-align:center;">
+            <div style="font-size:120px;line-height:1;">🤖</div>
+            <div style="position:absolute;top:20%;left:10%;font-size:24px;">🎉</div>
+            <div style="position:absolute;top:30%;right:15%;font-size:20px;">✨</div>
+            <div style="position:absolute;bottom:25%;left:15%;font-size:22px;">🎊</div>
+            <div style="position:absolute;bottom:30%;right:10%;font-size:18px;">⭐</div>
+          </div>
+        </div>
+      ` : `
+        <div style="width:280px;background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);display:flex;align-items:center;justify-content:center;position:relative;">
+          <div style="text-align:center;">
+            <div style="font-size:120px;line-height:1;">📊</div>
+          </div>
+        </div>
+      `}
+    </div>
+  `;
+  
+  console.log('📝 [MODAL] Modal HTML created, appending to body...');
+  document.body.appendChild(modal);
+  console.log('✅ [MODAL] Modal appended to body. Checking if visible...');
+  
+  // Verify modal is in DOM and visible
+  const checkModal = document.getElementById('codestemResultsModal');
+  if (checkModal) {
+    console.log('✅ [MODAL] Modal found in DOM!', {
+      display: window.getComputedStyle(checkModal).display,
+      zIndex: window.getComputedStyle(checkModal).zIndex,
+      visibility: window.getComputedStyle(checkModal).visibility
+    });
+  } else {
+    console.error('❌ [MODAL] Modal NOT found in DOM after append!');
+  }
+  
+  // Get activity title if available
+  const activityTitleEl = modal.querySelector('#codestemActivityTitle');
+  if (activityTitleEl) {
+    const activityTitle = window.__CURRENT_ACTIVITY_TITLE__ || window.__previewActivityData?.title || 'Coding Activity';
+    activityTitleEl.textContent = activityTitle;
+    console.log('📋 [MODAL] Activity title set:', activityTitle);
+  }
+  
+  // Button handlers
+  const proceedBtn = modal.querySelector('#codestemProceedBtn');
+  if (proceedBtn) {
+    proceedBtn.onmouseover = function() { this.style.background = '#059669'; };
+    proceedBtn.onmouseout = function() { this.style.background = '#10b981'; };
+    proceedBtn.onclick = function() {
+      modal.remove();
+      // Optionally redirect or show next activity
+    };
+  }
+  
+  const resolveBtn = modal.querySelector('#codestemResolveBtn');
+  if (resolveBtn) {
+    resolveBtn.onmouseover = function() { this.style.background = '#e5e7eb'; };
+    resolveBtn.onmouseout = function() { this.style.background = '#f3f4f6'; };
+    resolveBtn.onclick = function() {
+      modal.remove();
+      // Reset code editor if needed
+      if (window.__codestemEditor && typeof window.__codestemEditor.setValue === 'function') {
+        const starterCode = window.__CURRENT_ACTIVITY_STARTER_CODE__ || '';
+        window.__codestemEditor.setValue(starterCode);
+      }
+    };
+  }
+  
+  // Close on background click
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.remove();
+  });
+}
+
+window.switchCodestemTab = function(tab, evt) {
   // Update tab buttons (handle both student and preview tabs)
-  const container = event.target.closest('.codestem-right-panel');
+  const target = evt && evt.target ? evt.target : (typeof event !== 'undefined' ? event.target : null);
+  if (!target) return;
+  
+  const container = target.closest('.codestem-right-panel');
   if (!container) return;
   
   container.querySelectorAll('.codestem-tab').forEach(t => {
@@ -5345,10 +6317,10 @@ window.switchCodestemTab = function(tab) {
     t.style.borderBottom = 'none';
   });
   
-  const activeTab = event.target;
+  const activeTab = target;
   activeTab.classList.add('active');
-  activeTab.style.color = '#3b82f6';
-  activeTab.style.borderBottom = '2px solid #3b82f6';
+  activeTab.style.color = '#10b981';
+  activeTab.style.borderBottom = '2px solid #10b981';
   
   // Show/hide tab content (handle both student and preview tabs)
   const testCasesTab = container.querySelector('#codestemTestCasesTab') || container.querySelector('#previewTestCasesTab');
@@ -5368,17 +6340,48 @@ window.switchCodestemTab = function(tab) {
   }
 };
 
-window.toggleTestCaseDetails = function(idx) {
-  const testCase = event.currentTarget;
-  const details = testCase.querySelector('.test-case-details');
-  const chevron = testCase.querySelector('.fa-chevron-down');
+window.toggleTestCaseDetails = function(idx, evt) {
+  // Find the test case element by ID or index
+  const testCaseEl = document.querySelector(`#tcDetails-${idx}`) ? 
+    document.querySelector(`[id="tcDetails-${idx}"]`).closest('.codestem-test-case') :
+    (evt && evt.currentTarget ? evt.currentTarget : (typeof event !== 'undefined' && event.currentTarget ? event.currentTarget : null));
   
-  if (details.style.display === 'none') {
-    details.style.display = 'block';
-    if (chevron) chevron.style.transform = 'rotate(180deg)';
-  } else {
-    details.style.display = 'none';
-    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  if (!testCaseEl) {
+    // Fallback: find by data attribute
+    const allCases = document.querySelectorAll('.codestem-test-case');
+    if (allCases[idx]) {
+      const details = allCases[idx].querySelector(`#tcDetails-${idx}`);
+      const chevron = allCases[idx].querySelector('.fa-chevron-down');
+      if (details) {
+        const isHidden = details.style.display === 'none' || !details.style.display;
+        details.style.display = isHidden ? 'block' : 'none';
+        if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+      }
+    }
+    return;
+  }
+  
+  const details = testCaseEl.querySelector(`#tcDetails-${idx}`) || testCaseEl.querySelector('.test-case-details');
+  const chevron = testCaseEl.querySelector('.fa-chevron-down');
+  
+  if (details) {
+    const isHidden = details.style.display === 'none' || !details.style.display;
+    details.style.display = isHidden ? 'block' : 'none';
+    if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+  }
+  
+  // Also handle radio selection
+  const radio = document.querySelector(`input[name="preview-tc"][value="${idx}"]`);
+  if (radio && !radio.checked) {
+    radio.checked = true;
+    // Hide other details, show this one
+    document.querySelectorAll('.test-case-details').forEach((d, i) => {
+      if (i !== idx) {
+        d.style.display = 'none';
+        const otherChevron = d.closest('.codestem-test-case')?.querySelector('.fa-chevron-down');
+        if (otherChevron) otherChevron.style.transform = 'rotate(0deg)';
+      }
+    });
   }
 };
 
@@ -5411,24 +6414,25 @@ if (typeof escapeHtml === 'undefined') {
 
 // Coordinator preview helper functions
 window.runPreviewCode = function() {
+  // Directly trigger the assigned handler without recursion
   const runBtn = document.getElementById('previewRunBtn');
-  if (runBtn && runBtn.onclick) {
-    runBtn.onclick();
-  }
+  if (!runBtn) return;
+  const evt = new Event('click', { bubbles: true });
+  runBtn.dispatchEvent(evt);
 };
 
 window.testPreviewCode = function() {
   const testBtn = document.getElementById('previewTestBtn');
-  if (testBtn && testBtn.onclick) {
-    testBtn.onclick();
-  }
+  if (!testBtn) return;
+  const evt = new Event('click', { bubbles: true });
+  testBtn.dispatchEvent(evt);
 };
 
 window.resetPreviewCode = function() {
   const resetBtn = document.getElementById('previewResetBtn');
-  if (resetBtn && resetBtn.onclick) {
-    resetBtn.onclick();
-  }
+  if (!resetBtn) return;
+  const evt = new Event('click', { bubbles: true });
+  resetBtn.dispatchEvent(evt);
 };
 
 // Submit handler for student coding test (runs JDoodle then saves attempt)
@@ -5483,7 +6487,6 @@ document.addEventListener('click', function(e){
     .catch(()=>{ if (mount) mount.innerHTML = '<div style="color:#dc3545;">Network error</div>'; })
     .finally(()=>{ btn.disabled = false; btn.textContent = 'Submit'; });
 });
-
 // Function to render multiple choice test interface
 function renderStudentMultipleChoiceTest(activity) {
   if (!activity.questions || !Array.isArray(activity.questions)) {
@@ -5746,13 +6749,951 @@ function renderCodingPreview(activity){
   try { meta = JSON.parse(activity.instructions||'{}'); } catch(_){ meta = {}; }
   const language = (meta.language || 'cpp').toString();
   const starterCode = meta.starterCode || '';
-  const problemDescription = activity.problem || meta.instructions || meta.displayInstructions || 'Complete the coding challenge.';
-  const testCases = Array.isArray(activity.testCases) ? activity.testCases : (Array.isArray(activity.test_cases) ? activity.test_cases : []);
-  const maxScore = activity.max_score || 0;
+  let problemDescription = activity.problem || meta.instructions || meta.problemStatement || meta.displayInstructions || 'Complete the coding challenge.';
+  try {
+    if (typeof problemDescription === 'string' && problemDescription.trim().startsWith('{')) {
+      const parsedPD = JSON.parse(problemDescription);
+      if (parsedPD && (parsedPD.instructions || parsedPD.problemStatement)) {
+        problemDescription = parsedPD.instructions || parsedPD.problemStatement;
+      }
+    }
+  } catch(_) {}
+  // Normalize test cases - handle both frontend format and database format
+  let testCases = Array.isArray(activity.testCases) ? activity.testCases : (Array.isArray(activity.test_cases) ? activity.test_cases : []);
+  // Normalize field names: expected_output_text -> expected_output, input_text -> input_text (keep as is)
+  testCases = testCases.map(function(tc) {
+    return {
+      id: tc.id,
+      input_text: tc.input_text || tc.inputText || tc.input || '',
+      expected_output: tc.expected_output_text || tc.expectedOutput || tc.expected_output || tc.output || '',
+      is_sample: tc.is_sample !== undefined ? tc.is_sample : (tc.isSample !== undefined ? tc.isSample : false),
+      points: tc.points || 0,
+      time_limit_ms: tc.time_limit_ms || tc.timeLimitMs || 2000
+    };
+  });
+  const __sumPoints = Array.isArray(testCases) ? testCases.reduce((s, tc) => s + (parseInt(tc.points||0,10)||0), 0) : 0;
+  const maxScore = __sumPoints > 0 ? __sumPoints : (activity.max_score || 0);
   
   // Store activity ID for later use
   window.__CURRENT_ACTIVITY_ID__ = activity.id || activity.activity_id || 0;
   window.__CURRENT_ACTIVITY_MAX_SCORE__ = maxScore;
+  // Required construct from DB or meta
+  let requiredConstruct = '';
+  try { const metaRC = (meta && meta.requiredConstruct) ? String(meta.requiredConstruct) : ''; requiredConstruct = activity.required_construct || metaRC || ''; } catch(_){}
+  window.__CURRENT_ACTIVITY_REQUIRED_CONSTRUCT__ = requiredConstruct;
+  
+  // CRITICAL: Create handlers IMMEDIATELY before returning HTML
+  // This ensures handlers are available as soon as HTML is rendered
+  (function() {
+    // Store preview activity data IMMEDIATELY
+    window.__previewActivityData = activity;
+    try {
+      window.__codingPreviewCtx = { 
+        meta: meta || {}, 
+        starter: starterCode || '', 
+        expected: '', 
+        activity: activity || {} 
+      };
+    } catch(_){}
+    
+    // Create RUN handler - FULLY FUNCTIONAL
+    // CREDIT FIX: Prevent duplicate execution
+    window.__previewRunHandler = function(e) {
+      // CREDIT FIX: Prevent duplicate execution
+      if (window.__previewRunHandlerExecuting) {
+        console.warn('⚠️ [CREDIT TRACK] Run handler already executing, preventing duplicate call');
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return false;
+      }
+      window.__previewRunHandlerExecuting = true;
+      
+      console.log('🔴 [CREDIT TRACK] Run handler called (window.__previewRunHandler)', {
+        timestamp: new Date().toISOString(),
+        handler: 'window.__previewRunHandler'
+      });
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      const runBtn = document.getElementById('previewRunBtn');
+      const outputDiv = document.getElementById('previewRunOutput');
+      
+      if (!outputDiv) {
+        console.error('❌ previewRunOutput div not found!');
+        window.__previewRunHandlerExecuting = false; // Reset flag on error
+        alert('Error: Output area not found. Please refresh the page.');
+        return false;
+      }
+      
+      // Get code from Monaco or textarea
+      let code = '';
+      try {
+        if (window.__previewEditor && typeof window.__previewEditor.getValue === 'function') {
+          code = window.__previewEditor.getValue();
+        } else {
+          const textarea = document.getElementById('previewCodeTextarea');
+          if (textarea) code = textarea.value;
+        }
+      } catch(err) {
+        console.error('Code extraction error:', err);
+        window.__previewRunHandlerExecuting = false; // Reset flag on error
+        return false;
+      }
+      
+      code = code.trim();
+      console.log('📝 Code extracted:', code ? (code.length + ' chars') : 'EMPTY');
+      
+      if (!code) {
+        outputDiv.style.display = 'block';
+        outputDiv.innerHTML = '<div style="color:#dc3545;">❌ Please write some code first</div>';
+        window.__previewRunHandlerExecuting = false; // Reset flag on validation error
+        return false;
+      }
+      
+      if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+      }
+      
+      // Don't show "Running code..." in outputDiv - terminal modal will show it
+      // outputDiv.style.display = 'block';
+      // outputDiv.innerHTML = '<div style="color:#007bff;">🔄 Running code...</div>';
+      
+      // Get activity data
+      const activity = window.__previewActivityData || {};
+      const meta = window.__codingPreviewCtx && window.__codingPreviewCtx.meta ? window.__codingPreviewCtx.meta : {};
+      const language = (meta && meta.language) ? String(meta.language).toLowerCase() : 'cpp';
+      
+      // CRITICAL FIX: Check if code needs input BEFORE API call
+      var needsInput = false;
+      if (language === 'cpp' || language === 'c++') {
+        needsInput = /\bcin\s*>>/i.test(code);
+      } else if (language === 'python' || language === 'python3' || language === 'py') {
+        needsInput = /\binput\s*\(/i.test(code) || /\braw_input\s*\(/i.test(code);
+      } else if (language === 'java') {
+        needsInput = /new\s+Scanner\s*\(/i.test(code) || /\bSystem\.in/i.test(code);
+      }
+      
+      // Extract prompts for C++
+      var promptsAndInputs = [];
+      if (needsInput && (language === 'cpp' || language === 'c++')) {
+        var lines = code.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          var trimmedLine = line.trim();
+          var cinMatch = trimmedLine.match(/cin\s*>>\s*(\w+)/);
+          if (cinMatch) {
+            var prompt = '';
+            var sameLineCout = line.match(/cout\s*<<\s*["']([^"']+)["']/);
+            if (sameLineCout) {
+              prompt = sameLineCout[1];
+            } else {
+              for (var j = Math.max(0, i - 5); j < i; j++) {
+                var prevLine = lines[j];
+                var coutMatch = prevLine.match(/cout\s*<<\s*["']([^"']+)["']/);
+                if (coutMatch) {
+                  prompt = coutMatch[1];
+                  break;
+                }
+              }
+            }
+            promptsAndInputs.push({
+              prompt: prompt || 'Enter value:',
+              variable: cinMatch[1]
+            });
+          }
+        }
+      }
+      
+      // Open CodeRegal Terminal Modal IMMEDIATELY (before API call)
+      var terminalModal = null;
+      var terminalBodyId = null;
+      
+      // Create terminal modal manually (always, for full control)
+      var existing = document.getElementById('previewCodeRegalTerminalModal');
+      if (existing) existing.remove();
+      
+      terminalBodyId = 'previewTerminalBody_' + Date.now();
+      var firstPromptText = '';
+      var bodyInitial = 'Executing...';
+      
+      if (needsInput && promptsAndInputs.length > 0) {
+        firstPromptText = promptsAndInputs[0].prompt || 'Enter value:';
+        bodyInitial = '<span style="color:#e5e7eb;">' + escapeHtml(firstPromptText) + '</span> ' +
+                      '<input type="text" id="previewTerminalInputField" style="background:transparent;border:none;color:#e5e7eb;outline:none;font-family:inherit;font-size:inherit;padding:2px 4px;width:200px;" autocomplete="off" spellcheck="false" />';
+      }
+      
+      terminalModal = document.createElement('div');
+      terminalModal.id = 'previewCodeRegalTerminalModal';
+      terminalModal.className = 'play-terminal-modal';
+      terminalModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+      terminalModal.innerHTML = '<div class="play-terminal-card" style="width:90vw;max-width:980px;height:70vh;min-height:420px;background:#0f172a;color:#e5e7eb;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;overflow:hidden;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;background:#0f172a;padding:10px 14px;border-bottom:1px solid #1f2937;">' +
+        '<div style="font-weight:700;">CodeRegal Terminal</div>' +
+        '<button id="previewTermClose" style="background:#1f2937;color:#e5e7eb;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">✕</button>' +
+        '</div>' +
+        '<pre id="' + terminalBodyId + '" style="margin:0;white-space:pre-wrap;padding:14px;flex:1;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,monospace;background:#0b1220;color:#e5e7eb;">' + bodyInitial + '</pre>' +
+        '</div>';
+      document.body.appendChild(terminalModal);
+      var closeBtn = terminalModal.querySelector('#previewTermClose');
+      if (closeBtn) closeBtn.onclick = function(){ 
+        // Ensure output is recorded before closing terminal
+        console.log('🔴 Terminal closed - output already recorded in test case panel');
+        terminalModal.remove(); 
+      };
+      terminalModal.addEventListener('click', function(e){ 
+        if (e.target === terminalModal) {
+          // Ensure output is recorded before closing terminal
+          console.log('🔴 Terminal closed (clicked outside) - output already recorded in test case panel');
+          terminalModal.remove(); 
+        }
+      });
+      
+      // Setup input field handler if needed (BEFORE API call)
+      if (needsInput && promptsAndInputs.length > 0) {
+        var inputField = terminalModal.querySelector('#previewTerminalInputField');
+        if (inputField) {
+          setTimeout(function(){ inputField.focus(); }, 50);
+          inputField.addEventListener('keydown', function(e){
+            if (e.key === 'Enter'){
+              e.preventDefault();
+              var val = inputField.value.trim();
+              if (!val) { inputField.focus(); return; }
+              
+              // Show input value in terminal
+              var terminalBody = document.getElementById(terminalBodyId);
+              if (terminalBody) {
+                terminalBody.innerHTML = '<span style="color:#e5e7eb;">' + escapeHtml(firstPromptText) + '</span> <span style="color:#e5e7eb;">' + escapeHtml(val) + '</span><br/>Executing...';
+              }
+              
+              // Store input value for API call
+              window.__previewTerminalInputValue = val;
+              window.playTerminalPromptText = firstPromptText;
+              
+              // Run code with user input
+              runCodeWithInput(code, val, activity, meta, language, terminalBodyId, runBtn);
+            }
+          });
+        }
+        // Don't proceed with API call - wait for user input
+        return false;
+      }
+      
+      // If no input needed, proceed with API call
+      // Execute API call
+      const fd = new FormData();
+      fd.append('action','run_activity');
+      fd.append('activity_id', String(activity.id || activity.activity_id || ''));
+      fd.append('source', code);
+      fd.append('quick','1');
+      
+      console.log('🚀 Sending API request...', {
+        activity_id: activity.id || activity.activity_id,
+        code_length: code.length,
+        language: language
+      });
+      
+      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+        .then(function(r) {
+          console.log('📡 API Response status:', r.status, r.statusText);
+          if (!r || !r.ok) {
+            throw new Error('HTTP ' + (r ? r.status : 'unknown') + ': ' + (r ? r.statusText : 'No response'));
+          }
+          return r.json ? r.json() : Promise.reject(new Error('Response is not JSON'));
+        })
+        .then(function(res) {
+          if (!res) {
+            throw new Error('Empty response from server');
+          }
+          console.log('✅ Run Code Response:', res);
+          const ok = !!(res && res.success);
+          if (!ok) {
+            const msg = res && res.message ? res.message : 'Run failed';
+            throw new Error(msg);
+          }
+          
+          const results = Array.isArray(res.results) ? res.results : [];
+          console.log('Results:', results);
+          
+          // Get test cases for input display
+          const activity = window.__previewActivityData || {};
+          const testCases = activity.testCases || activity.test_cases || [];
+          const sampleCases = testCases.filter(function(tc) { return tc.is_sample; });
+          const casesToUse = sampleCases.length > 0 ? sampleCases : testCases;
+          
+          if (results.length === 0) {
+            var terminalBody = document.getElementById(terminalBodyId);
+            if (terminalBody) {
+              terminalBody.textContent = '⚠️ No test cases found. Code compiled successfully but no output to display.';
+            }
+            return;
+          }
+          
+          // Process first result (Run Code uses quick mode - first test case only)
+          const firstResult = results[0] || {};
+          const firstTestCase = casesToUse[0] || {};
+          const inputText = firstTestCase.inputText || firstTestCase.input_text || '';
+          const out = firstResult.output || firstResult.stdout || firstResult.outputText || (firstResult.data && firstResult.data.output) || '';
+          const err = firstResult.error || firstResult.stderr || (firstResult.data && firstResult.data.error) || '';
+          const statusCode = firstResult.statusCode || (firstResult.data && firstResult.data.statusCode) || 0;
+          
+          const hasError = err || (statusCode !== 200 && statusCode !== 0);
+          const outputText = err ? ('Error: ' + err) : String(out || '').trim();
+          
+          // Update Test Case 1 "Your Output" field
+          try {
+            const yourOutputEl = document.getElementById('tcYour-0');
+            if (yourOutputEl) {
+              yourOutputEl.textContent = outputText || '(no output)';
+            }
+          } catch(e) {
+            console.warn('Could not update test case output:', e);
+          }
+          
+          // Display output in terminal (terminal already exists)
+          var terminalBody = document.getElementById(terminalBodyId);
+          if (terminalBody) {
+            var terminalOutput = '';
+            if (outputText) {
+              terminalOutput = outputText;
+            } else {
+              terminalOutput = '(no output)';
+            }
+            terminalOutput += '\n\n>>> Program Terminated';
+            terminalBody.textContent = terminalOutput;
+          }
+        })
+        .catch(function(err) {
+          console.error('❌ Run Code Error:', err);
+          const safeErr = String(err && err.message ? err.message : err).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+          
+          // Show error in terminal modal (not outputDiv)
+          var terminalBody = document.getElementById(terminalBodyId);
+          if (terminalBody) {
+            terminalBody.textContent = '❌ Error: ' + safeErr + '\n\n>>> Program Terminated';
+          }
+        })
+        .finally(function() { 
+          // CREDIT FIX: Reset execution flag
+          window.__previewRunHandlerExecuting = false;
+          if (runBtn) {
+            runBtn.disabled = false; 
+            runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
+          }
+        });
+      
+      return false;
+    };
+    
+    // Helper function to run code with user input
+    function runCodeWithInput(code, userInput, activity, meta, language, terminalBodyId, runBtn) {
+      var fd = new FormData();
+      fd.append('action','run_activity');
+      fd.append('activity_id', String(activity.id || activity.activity_id || ''));
+      fd.append('source', code);
+      fd.append('quick','1');
+      fd.append('stdin', userInput || '');
+      
+      console.log('🚀 Running code with user input:', userInput);
+      
+      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+        .then(function(r) {
+          if (!r || !r.ok) {
+            throw new Error('HTTP ' + (r ? r.status : 'unknown') + ': ' + (r ? r.statusText : 'No response'));
+          }
+          return r.json ? r.json() : Promise.reject(new Error('Response is not JSON'));
+        })
+        .then(function(res) {
+          if (!res) {
+            throw new Error('Empty response from server');
+          }
+          
+          var results = Array.isArray(res.results) ? res.results : [];
+          if (results.length === 0) {
+            var terminalBody = document.getElementById(terminalBodyId);
+            if (terminalBody) {
+              terminalBody.textContent = '⚠️ No output received';
+            }
+            return;
+          }
+          
+          var firstResult = results[0] || {};
+          var out = firstResult.output || firstResult.stdout || firstResult.outputText || (firstResult.data && firstResult.data.output) || '';
+          var err = firstResult.error || firstResult.stderr || (firstResult.data && firstResult.data.error) || '';
+          var outputText = err ? ('Error: ' + err) : String(out || '').trim();
+          
+          // Update Test Case 1 "Your Output" field
+          try {
+            var yourOutputEl = document.getElementById('tcYour-0');
+            if (yourOutputEl) {
+              yourOutputEl.textContent = outputText || '(no output)';
+            }
+          } catch(e) {
+            console.warn('Could not update test case output:', e);
+          }
+          
+          // Display output in terminal
+          var terminalBody = document.getElementById(terminalBodyId);
+          if (terminalBody) {
+            var terminalOutput = '';
+            if (userInput) {
+              var firstPrompt = window.playTerminalPromptText || 'Enter value:';
+              terminalOutput = firstPrompt + ' ' + userInput + '\n\n';
+            }
+            terminalOutput += outputText || '(no output)';
+            terminalOutput += '\n\n>>> Program Terminated';
+            terminalBody.textContent = terminalOutput;
+          }
+        })
+        .catch(function(err) {
+          console.error('❌ Run Code Error:', err);
+          var terminalBody = document.getElementById(terminalBodyId);
+          if (terminalBody) {
+            terminalBody.textContent = '❌ Error: ' + (err && err.message ? err.message : err);
+          }
+        })
+        .finally(function() {
+          if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
+          }
+        });
+    }
+    
+    // Helper function to escape HTML
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c];
+      });
+    }
+    
+    // CRITICAL: Create REAL test handler IMMEDIATELY (before HTML is returned)
+    // This prevents "Test handler not ready" error
+    window.__previewTestHandler = function(e) {
+      console.log('🔴 [PREVIEW MODE] Test button clicked via window.__previewTestHandler!');
+      
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      const activity = window.__previewActivityData || {};
+      const testCases = activity.test_cases || activity.testCases || [];
+      const testBtn = document.getElementById('previewTestBtn');
+      const testDiv = document.getElementById('previewTestResults');
+      
+      // Get code function (same as in bindPreviewHandlers)
+      const getCode = () => {
+        try {
+          if (window.__previewEditor && typeof window.__previewEditor.getValue === 'function') {
+            const code = window.__previewEditor.getValue();
+            if (code && code.trim()) return code;
+          }
+        } catch(e) {
+          console.warn('Monaco editor getValue failed:', e);
+        }
+        
+        try {
+          const textarea = document.getElementById('previewCodeTextarea');
+          if (textarea && textarea.value) {
+            return textarea.value;
+          }
+        } catch(e) {
+          console.warn('Textarea read failed:', e);
+        }
+        
+        return '';
+      };
+      
+      const code = getCode().trim();
+      console.log('📝 [PREVIEW MODE] Code extracted:', code ? `${code.length} chars` : 'EMPTY');
+      
+      if (!code) {
+        console.warn('⚠️ [PREVIEW MODE] No code found!');
+        if (testDiv) {
+          testDiv.style.display = 'block';
+          testDiv.innerHTML = '<div style="color:#dc3545;">❌ Please write some code first</div>';
+        }
+        return false;
+      }
+
+      if (testBtn) {
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+      }
+      // Don't show "Running all test cases..." message - modal will show results directly
+      // if (testDiv) {
+      //   testDiv.style.display = 'block';
+      //   testDiv.innerHTML = '<div style="color:#0ea5e9;">🔄 Running all test cases... <span style="font-size:11px;color:#6b7280;">(Preview Mode - No Save)</span></div>';
+      // }
+
+      console.log('🚀 [PREVIEW MODE] Sending API request to run all test cases...');
+      const fd = new FormData();
+      fd.append('action','run_activity');
+      fd.append('activity_id', String(activity.id || activity.activity_id || ''));
+      fd.append('source', code);
+      
+      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+        .then(r => {
+          console.log('📡 [PREVIEW MODE] API Response status:', r.status);
+          if (!r.ok) {
+            throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+          }
+          return r.json();
+        })
+        .then(res => {
+          console.log('📊 [PREVIEW MODE] API Response:', {
+            success: res && res.success,
+            resultsCount: Array.isArray(res.results) ? res.results.length : 0,
+            message: res && res.message
+          });
+          
+          if (!res || !res.success) throw new Error(res && res.message ? res.message : 'Run failed');
+          const results = Array.isArray(res.results) ? res.results : [];
+          console.log('✅ [PREVIEW MODE] Test results received:', results.length, 'results');
+          
+          // CRITICAL: Use EXACT same grading logic as student view
+          const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+          
+          // CRITICAL FIX: Check if test cases have points. If not, distribute evenly from max_score
+          const sumExistingPoints = (testCases || []).reduce((s, tc) => s + (parseInt(tc.points || 0, 10) || 0), 0);
+          const maxScoreFromActivity = activity.max_score || 0;
+          const needsPointDistribution = sumExistingPoints === 0 && maxScoreFromActivity > 0 && testCases.length > 0;
+          const pointsPerCase = needsPointDistribution ? Math.floor(maxScoreFromActivity / testCases.length) : 0;
+          
+          console.log('🔍 [PREVIEW MODE] Points check:', {
+            sumExistingPoints,
+            maxScoreFromActivity,
+            testCasesCount: testCases.length,
+            needsPointDistribution,
+            pointsPerCase,
+            testCasesWithPoints: (testCases || []).map((tc, i) => ({
+              index: i + 1,
+              points: parseInt(tc.points || 0, 10) || 0,
+              rawPoints: tc.points
+            }))
+          });
+          
+          const cases = (testCases || []).map((tc, i) => {
+            const expected = norm(tc.expected_output || tc.expectedOutput || tc.expected_output_text || '');
+            const result = results[i] || {};
+            const out = norm(result.output || result.stdout || result.outputText || (result.data && result.data.output) || '');
+            const err = result.error || result.stderr || (result.data && result.data.error) || '';
+            const statusCode = result.statusCode || (result.data && result.data.statusCode) || 0;
+            
+            const hasError = err || (statusCode !== 200 && statusCode !== 0);
+            const passed = !hasError && (expected === '' ? out !== '' : (out === expected));
+            
+            // CRITICAL FIX: Use distributed points if test case has no points
+            const tcPoints = parseInt(tc.points || 0, 10) || 0;
+            const actualPoints = tcPoints > 0 ? tcPoints : (needsPointDistribution ? pointsPerCase : 0);
+            const pts = passed ? actualPoints : 0;
+            
+            return {
+              name: `Test Case ${i + 1}`,
+              expected: expected,
+              stdout: out || (err ? `Error: ${err}` : ''),
+              status: passed ? 'AC' : (hasError ? 'RE' : 'WA'),
+              earned: pts,
+              points: actualPoints
+            };
+          });
+          
+          const totalPts = cases.reduce((s, c) => s + c.earned, 0);
+          const totalMax = sumExistingPoints > 0 ? sumExistingPoints : (needsPointDistribution ? maxScoreFromActivity : maxScoreFromActivity);
+          const passedCount = cases.filter(c => c.status === 'AC').length;
+          const totalCount = cases.length;
+          
+          console.log('📊 [PREVIEW MODE] Grading calculated:', {
+            score: totalPts,
+            maxScore: totalMax,
+            passed: passedCount,
+            total: totalCount,
+            usedDistributedPoints: needsPointDistribution,
+            cases: cases.map(c => ({ name: c.name, status: c.status, earned: c.earned, points: c.points }))
+          });
+          
+          // CRITICAL: Show results modal
+          console.log('🎯 [PREVIEW MODE] About to show results modal');
+          try {
+            showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalCount);
+            console.log('✅ [PREVIEW MODE] Results modal should be displayed');
+          } catch (modalErr) {
+            console.error('❌ [PREVIEW MODE] Error showing results modal:', modalErr);
+            if (testDiv) {
+              testDiv.innerHTML = '<div style="color:#dc3545;">Error showing results modal. Check console.</div>';
+            }
+          }
+          
+          // Update score and test case outputs
+          const scoreEl = document.getElementById('previewScoreValue');
+          if (scoreEl) scoreEl.textContent = String(totalPts);
+          
+          cases.forEach((c, i) => {
+            const your = document.getElementById(`tcYour-${i}`);
+            if (your) your.textContent = c.stdout || '(no output)';
+            const diff = document.getElementById(`tcDiff-${i}`);
+            if (diff) {
+              diff.textContent = (c.status==='AC') ? 'No differences. Output matched expected.' : `Expected:\n${c.expected}\n\nActual:\n${c.stdout}`;
+            }
+          });
+        })
+        .catch(err => {
+          console.error('❌ [PREVIEW MODE] Test failed:', err);
+          if (testDiv) {
+            testDiv.innerHTML = `<div style="color:#dc3545;">❌ Test failed: ${err && err.message ? err.message : err}</div>`;
+          }
+        })
+        .finally(() => {
+          if (testBtn) {
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<i class="fas fa-vial"></i> Test (All Cases)';
+          }
+        });
+      
+      return false;
+    };
+    
+    // CRITICAL: Create Check Test handler (tests ONE test case and shows input/output clearly)
+    window.__previewCheckTestHandler = function(e) {
+      console.log('🔍 [CHECK TEST] Check Test button clicked!');
+      
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      // Guard to avoid duplicate requests/credits
+      if (window.__previewCheckExecuting) {
+        console.warn('⏳ [CHECK TEST] Already running; skipping duplicate click');
+        return false;
+      }
+      window.__previewCheckExecuting = true;
+      
+      const activity = window.__previewActivityData || {};
+      const testCases = activity.test_cases || activity.testCases || [];
+      
+      // Check which test case is selected (radio button)
+      const selectedRadio = document.querySelector('input[name="preview-tc"]:checked');
+      let selectedIndex = 0;
+      
+      if (selectedRadio && selectedRadio.value !== undefined) {
+        selectedIndex = parseInt(selectedRadio.value, 10) || 0;
+        console.log('✅ [CHECK TEST] Selected test case:', selectedIndex + 1);
+      } else {
+        // If no radio selected, use the LAST test case (as user requested)
+        selectedIndex = testCases.length > 0 ? testCases.length - 1 : 0;
+        console.log('ℹ️ [CHECK TEST] No test case selected, using LAST test case:', selectedIndex + 1);
+      }
+      
+      // Get the selected test case
+      const selectedTestCase = testCases[selectedIndex] || {};
+      
+      if (!selectedTestCase || !selectedTestCase.input_text) {
+        alert('No test case available to check.');
+        return false;
+      }
+      
+      console.log('🔍 [CHECK TEST] Testing test case:', selectedIndex + 1, selectedTestCase);
+      
+      const checkBtn = document.getElementById('previewCheckTestBtn');
+      
+      // Get code function
+      const getCode = () => {
+        try {
+          if (window.__previewEditor && typeof window.__previewEditor.getValue === 'function') {
+            const code = window.__previewEditor.getValue();
+            if (code && code.trim()) return code;
+          }
+        } catch(e) {
+          console.warn('Monaco editor getValue failed:', e);
+        }
+        
+        try {
+          const textarea = document.getElementById('previewCodeTextarea');
+          if (textarea && textarea.value) {
+            return textarea.value;
+          }
+        } catch(e) {
+          console.warn('Textarea read failed:', e);
+        }
+        
+        return '';
+      };
+      
+      const code = getCode().trim();
+      if (!code) {
+        alert('Please write some code first.');
+        return false;
+      }
+      
+      if (checkBtn) {
+        checkBtn.disabled = true;
+        checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+      }
+      
+      // Run code with SELECTED test case (quick mode - 1 credit)
+      // Use stdin parameter to override the input with selected test case
+      const stdinValue = selectedTestCase.input_text || selectedTestCase.inputText || '';
+      
+      // DEEP DEBUG: Log what we're sending
+      console.log('🔍 [CHECK TEST DEBUG] ============================================');
+      console.log('🔍 [CHECK TEST DEBUG] Selected test case index:', selectedIndex);
+      console.log('🔍 [CHECK TEST DEBUG] Selected test case object:', selectedTestCase);
+      console.log('🔍 [CHECK TEST DEBUG] stdin value (raw):', JSON.stringify(stdinValue));
+      console.log('🔍 [CHECK TEST DEBUG] stdin value (display):', stdinValue);
+      console.log('🔍 [CHECK TEST DEBUG] Code length:', code.length);
+      console.log('🔍 [CHECK TEST DEBUG] Activity ID:', activity.id || activity.activity_id);
+      
+      const fd = new FormData();
+      fd.append('action','run_activity');
+      fd.append('activity_id', String(activity.id || activity.activity_id || ''));
+      fd.append('source', code);
+      fd.append('quick','1'); // Quick mode (single test case)
+      fd.append('stdin', stdinValue); // Use selected test case input
+      
+      console.log('🔍 [CHECK TEST DEBUG] FormData prepared, sending API request...');
+      
+      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+          return r.json();
+        })
+        .then(res => {
+          if (!res || !res.success) {
+            throw new Error(res && res.message ? res.message : 'Check failed');
+          }
+          
+          const results = Array.isArray(res.results) ? res.results : [];
+          const firstResult = results[0] || {};
+          
+          console.log('🔍 [CHECK TEST DEBUG] API Response received:');
+          console.log('🔍 [CHECK TEST DEBUG] Results array length:', results.length);
+          console.log('🔍 [CHECK TEST DEBUG] First result object:', firstResult);
+          
+          const actualOutput = firstResult.output || firstResult.stdout || firstResult.outputText || (firstResult.data && firstResult.data.output) || '';
+          const error = firstResult.error || firstResult.stderr || (firstResult.data && firstResult.data.error) || '';
+          const statusCode = firstResult.statusCode || (firstResult.data && firstResult.data.statusCode) || 0;
+          
+          console.log('🔍 [CHECK TEST DEBUG] actualOutput (raw):', JSON.stringify(actualOutput));
+          console.log('🔍 [CHECK TEST DEBUG] error:', JSON.stringify(error));
+          console.log('🔍 [CHECK TEST DEBUG] statusCode:', statusCode);
+          
+          const hasError = error || (statusCode !== 200 && statusCode !== 0);
+          const outputText = hasError ? ('Error: ' + error) : String(actualOutput || '').trim();
+          
+          console.log('🔍 [CHECK TEST DEBUG] outputText (final):', JSON.stringify(outputText));
+          
+          // Normalize for comparison
+          const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+          const normalizedActual = norm(outputText);
+          
+          // DEEP DEBUG: Log all test cases and their expected outputs for debugging
+          console.log('🔍 [CHECK TEST DEBUG] Selected test case:', selectedIndex + 1);
+          console.log('🔍 [CHECK TEST DEBUG] Selected test case input:', selectedTestCase.input_text || selectedTestCase.inputText);
+          console.log('🔍 [CHECK TEST DEBUG] Actual output (normalized):', JSON.stringify(normalizedActual));
+          
+          const allTestCases = activity.test_cases || activity.testCases || [];
+          console.log('🔍 [CHECK TEST DEBUG] Total test cases:', allTestCases.length);
+          
+          // SMART DETECTION: Compare output with ALL test cases (frontend only, no extra credits!)
+          const matchingTestCases = [];
+          const isError = hasError || outputText.startsWith('Error:');
+          
+          if (!isError) {
+            // Only do smart detection if output is NOT an error
+            allTestCases.forEach((tc, idx) => {
+              const tcInput = tc.input_text || tc.inputText || '';
+              const tcExpected = tc.expected_output_text || tc.expected_output || tc.expectedOutput || '';
+              const normalizedTcExpected = norm(tcExpected);
+              const matches = normalizedTcExpected === '' ? normalizedActual !== '' : (normalizedActual === normalizedTcExpected);
+              
+              console.log(`  Test Case ${idx + 1}: input="${JSON.stringify(tcInput)}", expected="${JSON.stringify(normalizedTcExpected)}", matches=${matches}`);
+              
+              if (matches) {
+                matchingTestCases.push({
+                  index: idx,
+                  testCase: tc,
+                  points: parseInt(tc.points || 0, 10) || 0
+                });
+              }
+            });
+            console.log('✅ [CHECK TEST DEBUG] Smart detection found', matchingTestCases.length, 'matching test case(s):', matchingTestCases.map(m => `TC ${m.index + 1}`));
+          } else {
+            console.log('⚠️ [CHECK TEST DEBUG] Output is an error, skipping smart detection');
+          }
+          
+          // Use the selected test case info for display
+          const inputText = selectedTestCase.input_text || selectedTestCase.inputText || '(no input)';
+          const expectedOutput = selectedTestCase.expected_output_text || selectedTestCase.expected_output || selectedTestCase.expectedOutput || '(no expected output)';
+          const normalizedExpected = norm(expectedOutput);
+          const passed = !isError && (normalizedExpected === '' ? normalizedActual !== '' : (normalizedActual === normalizedExpected));
+          
+          // Get points for selected test case
+          const selectedPoints = parseInt(selectedTestCase.points || 0, 10) || 0;
+  // Required construct gating
+  const reqConstruct = window.__CURRENT_ACTIVITY_REQUIRED_CONSTRUCT__ || ((window.__CURRENT_ACTIVITY_META__||{}).requiredConstruct || '');
+  let constructOk = true;
+  try { if (reqConstruct) { constructOk = detectConstructUsage(code, (window.__CURRENT_ACTIVITY_META__||{}).language || 'cpp', reqConstruct).ok; } } catch(_){}
+  let earnedPoints = (passed ? selectedPoints : 0);
+  if (passed && !constructOk && earnedPoints > 0) {
+    earnedPoints = Math.max(1, Math.round(selectedPoints * 0.5));
+  }
+          
+          console.log('🔍 [CHECK TEST DEBUG] Selected TC expected (normalized):', JSON.stringify(normalizedExpected));
+          console.log('🔍 [CHECK TEST DEBUG] Selected TC points:', selectedPoints);
+          console.log('🔍 [CHECK TEST DEBUG] Earned points:', earnedPoints);
+          console.log('🔍 [CHECK TEST DEBUG] Passed:', passed);
+          
+          // Show result in modal
+          const modalHtml = `
+            <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;">
+              <div style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #e5e7eb;">
+                  <h3 style="margin:0;font-size:20px;font-weight:700;color:#1f2937;">
+                    <i class="fas fa-check-circle" style="color:${passed ? '#10b981' : '#f59e0b'};margin-right:8px;"></i>
+                    Check Test Result - Test Case ${selectedIndex + 1}
+                  </h3>
+                  <button id="checkTestModalClose" style="background:#f3f4f6;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:18px;color:#6b7280;">✕</button>
+                </div>
+                
+                <div style="margin-bottom:20px;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                    <span style="font-weight:600;color:#374151;">Status:</span>
+                    <span style="padding:4px 12px;border-radius:6px;font-weight:600;font-size:14px;background:${passed ? '#d1fae5' : '#fee2e2'};color:${passed ? '#065f46' : '#991b1b'};">
+                      ${passed ? '✅ PASSED' : '❌ FAILED'}
+                    </span>
+                    ${selectedPoints > 0 ? `
+                    <span style="padding:4px 12px;border-radius:6px;font-weight:600;font-size:14px;background:${passed ? '#dbeafe' : '#f3f4f6'};color:${passed ? '#1e40af' : '#6b7280'};">
+                      ${earnedPoints}/${selectedPoints} pts
+                    </span>
+                    ` : ''}
+                  </div>
+                  
+                  ${!isError && matchingTestCases.length > 0 ? `
+                  <div style="padding:10px;background:#ecfdf5;border-radius:6px;border-left:3px solid #10b981;margin-bottom:12px;">
+                    <div style="font-size:12px;font-weight:600;color:#065f46;margin-bottom:4px;">🔍 Smart Detection Result:</div>
+                    <div style="font-size:11px;color:#047857;">
+                      ${matchingTestCases.length === 1 ? 
+                        `Output matches Test Case ${selectedIndex + 1} only.` :
+                        `Your output matches ${matchingTestCases.length} test case(s): ${matchingTestCases.map(m => `Test Case ${m.index + 1}`).join(', ')}`
+                      }
+                      <br/><span style="font-size:10px;color:#059669;font-style:italic;">(Code ran with Test Case ${selectedIndex + 1} input, output compared against all test cases - 1 credit used)</span>
+                    </div>
+                  </div>
+                  ` : ''}
+
+                  ${reqConstruct ? `
+                  <div style="padding:10px;background:${constructOk ? '#ecfdf5' : '#fffbeb'};border-radius:6px;border-left:3px solid ${constructOk ? '#10b981' : '#f59e0b'};margin-bottom:12px;">
+                    <div style="font-size:12px;font-weight:600;color:${constructOk ? '#065f46' : '#991b1b'};">Construct Required:</div>
+                    <div style="font-size:11px;color:${constructOk ? '#065f46' : '#991b1b'};">${reqConstruct.replace('_',' / ')} — ${constructOk ? 'used ✔' : 'missing ✖ (50% deduction applied)'}
+                    </div>
+                  </div>
+                  ` : ''}
+                  
+                  ${isError ? `
+                  <div style="padding:10px;background:#fef3c7;border-radius:6px;border-left:3px solid #f59e0b;margin-bottom:12px;">
+                    <div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:4px;">⚠️ Smart Detection Disabled:</div>
+                    <div style="font-size:11px;color:#78350f;">
+                      Code execution failed (${outputText}). Smart detection only works with valid output. Fix the error and try again.
+                    </div>
+                  </div>
+                  ` : ''}
+                  
+                  <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:8px;border-left:4px solid #10b981;">
+                    <div style="font-weight:600;color:#374151;margin-bottom:8px;font-size:14px;">Input:</div>
+                    <pre style="margin:0;padding:8px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-family:monospace;font-size:13px;color:#1f2937;white-space:pre-wrap;word-wrap:break-word;">${escapeHtml(inputText)}</pre>
+                  </div>
+                  
+                  <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:8px;border-left:4px solid ${passed ? '#10b981' : '#f59e0b'};">
+                    <div style="font-weight:600;color:#374151;margin-bottom:8px;font-size:14px;">Your Output:</div>
+                    <pre style="margin:0;padding:8px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-family:monospace;font-size:13px;color:#1f2937;white-space:pre-wrap;word-wrap:break-word;">${escapeHtml(outputText || '(no output)')}</pre>
+                  </div>
+                  
+                  <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:8px;border-left:4px solid #6b7280;">
+                    <div style="font-weight:600;color:#374151;margin-bottom:8px;font-size:14px;">Expected Output:</div>
+                    <pre style="margin:0;padding:8px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-family:monospace;font-size:13px;color:#1f2937;white-space:pre-wrap;word-wrap:break-word;">${escapeHtml(expectedOutput || '(no expected output)')}</pre>
+                  </div>
+                  
+                  ${!passed && normalizedExpected !== '' ? `
+                  <div style="padding:12px;background:#fef3c7;border-radius:8px;border-left:4px solid #f59e0b;">
+                    <div style="font-weight:600;color:#92400e;margin-bottom:8px;font-size:14px;">Difference:</div>
+                    <div style="font-size:13px;color:#78350f;">
+                      Expected: <code style="background:#fff;padding:2px 6px;border-radius:4px;">${escapeHtml(normalizedExpected)}</code><br/>
+                      Got: <code style="background:#fff;padding:2px 6px;border-radius:4px;">${escapeHtml(normalizedActual)}</code>
+                    </div>
+                  </div>
+                  ` : ''}
+                </div>
+                
+                <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;">
+                  <button id="checkTestModalOk" style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          const modal = document.createElement('div');
+          modal.innerHTML = modalHtml;
+          document.body.appendChild(modal);
+          
+          const closeModal = function() {
+            modal.remove();
+          };
+          
+          const closeBtn = modal.querySelector('#checkTestModalClose');
+          const okBtn = modal.querySelector('#checkTestModalOk');
+          if (closeBtn) closeBtn.onclick = closeModal;
+          if (okBtn) okBtn.onclick = closeModal;
+          
+          modal.addEventListener('click', function(e) {
+            if (e.target === modal.querySelector('div > div')) {
+              closeModal();
+            }
+          });
+          
+          // Update the SELECTED test case "Your Output" field
+          try {
+            const yourOutputEl = document.getElementById(`tcYour-${selectedIndex}`);
+            if (yourOutputEl) {
+              yourOutputEl.textContent = outputText || '(no output)';
+              console.log('✅ [CHECK TEST] Updated test case', selectedIndex + 1, 'output field');
+            }
+          } catch(e) {
+            console.warn('Could not update test case output:', e);
+          }
+        })
+        .catch(err => {
+          console.error('❌ Check Test Error:', err);
+          alert('Check Test failed: ' + (err && err.message ? err.message : err));
+        })
+        .finally(() => {
+          if (checkBtn) {
+            checkBtn.disabled = false;
+            checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check Test';
+          }
+          window.__previewCheckExecuting = false;
+        });
+      
+      return false;
+    };
+    
+    // Create RESET handler placeholder (will be replaced later)
+    window.__previewResetHandler = function(e) {
+      if (window.__previewResetHandlerReal) {
+        window.__previewResetHandlerReal(e);
+      } else {
+        console.error('Reset handler not ready');
+      }
+    };
+    
+    console.log('✅ Preview handlers created IMMEDIATELY (Test handler is REAL, not placeholder)');
+  })();
   
   return `
     <div class="codestem-coding-interface" style="display:flex;height:calc(100vh - 200px);min-height:600px;gap:0;background:#f8fafc;font-family:'Inter',sans-serif;">
@@ -5772,7 +7713,7 @@ function renderCodingPreview(activity){
               ${testCases.filter(tc => tc.is_sample).map((tc, idx) => `
                 <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:6px;border-left:3px solid #10b981;">
                   <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:8px;">Sample Output ${idx + 1}</div>
-                  <pre style="margin:0;font-size:13px;color:#1f2937;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(tc.expectedOutput || tc.expected_output || '')}</pre>
+                  <pre style="margin:0;font-size:13px;color:#1f2937;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(tc.expected_output || tc.expectedOutput || '')}</pre>
                 </div>
               `).join('')}
             </div>
@@ -5803,22 +7744,28 @@ function renderCodingPreview(activity){
                     placeholder="Write your code here..." 
                     style="width:100%;height:100%;padding:16px;border:none;font-family:'Courier New',monospace;font-size:14px;resize:none;outline:none;background:#fff;color:#1f2937;">${escapeHtml(starterCode)}</textarea>
         </div>
-        <div style="padding:16px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;gap:12px;">
+        <div style="padding:16px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;gap:12px;align-items:center;">
           <button id="previewRunBtn" 
-                  onclick="runPreviewCode()" 
-                  style="background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                  onclick="if(window.__previewRunHandler){window.__previewRunHandler(event||window.event);return false;}else{console.error('Handler not ready');return false;}"
+                  style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
             <i class="fas fa-play"></i> Run Code
           </button>
+          <button id="previewCheckTestBtn" 
+                  onclick="if(window.__previewCheckTestHandler){window.__previewCheckTestHandler(event||window.event);return false;}else{console.error('Check Test handler not ready');return false;}"
+                  style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-check-circle"></i> Check Test
+          </button>
           <button id="previewTestBtn" 
-                  onclick="testPreviewCode()" 
-                  style="background:#0ea5e9;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                  onclick="if(window.__previewTestHandler){window.__previewTestHandler(event||window.event);return false;}else{console.error('Test handler not ready');return false;}"
+                  style="background:#f59e0b;color:#1f2937;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;">
             <i class="fas fa-vial"></i> Test (All Cases)
           </button>
           <button id="previewResetBtn" 
-                  onclick="resetPreviewCode()" 
+                  onclick="(function(){try{const h=window.__previewResetHandler||window.__previewResetHandlerReal;if(h){h(event||window.event);}else{console.error('Reset handler not found!');}}catch(e){console.error('Reset handler error:',e);}})();return false;"
                   style="background:#6b7280;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
             <i class="fas fa-undo"></i> Reset
           </button>
+          <div style="margin-left:auto;color:#374151;font-weight:600;">Score: <span id="previewScoreValue">0</span>/${maxScore}</div>
         </div>
         <div id="previewRunOutput" style="padding:16px;border-top:1px solid #e5e7eb;background:#fff;max-height:200px;overflow-y:auto;display:none;font-family:monospace;font-size:13px;"></div>
         <div id="previewTestResults" style="padding:16px;border-top:1px solid #e5e7eb;background:#fff;max-height:300px;overflow-y:auto;display:none;"></div>
@@ -5829,165 +7776,394 @@ function renderCodingPreview(activity){
         <!-- Test Cases Section -->
         <div style="flex:1;overflow-y:auto;padding:16px;">
           <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #e5e7eb;padding-bottom:12px;">
-            <button class="codestem-tab active" onclick="switchCodestemTab('testcases')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#3b82f6;cursor:pointer;border-bottom:2px solid #3b82f6;">Test Cases</button>
-            <button class="codestem-tab" onclick="switchCodestemTab('results')" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer;">Results</button>
+            <button class="codestem-tab active" onclick="switchCodestemTab('testcases', event)" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#10b981;cursor:pointer;border-bottom:2px solid #10b981;">Test Cases</button>
+            <button class="codestem-tab" onclick="switchCodestemTab('results', event)" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer;">Results</button>
           </div>
           
           <div id="previewTestCasesTab" class="codestem-tab-content">
             ${testCases.length > 0 ? testCases.map((tc, idx) => `
-              <div class="codestem-test-case" data-test-id="${tc.id || idx}" style="margin-bottom:12px;padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;cursor:pointer;" onclick="toggleTestCaseDetails(${idx})">
+              <div class="codestem-test-case" data-test-id="${tc.id || idx}" style="margin-bottom:12px;padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;">
                 <div style="display:flex;align-items:center;justify-content:space-between;">
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <input type="radio" ${tc.is_sample ? 'checked' : ''} disabled style="margin:0;">
-                    <span style="font-size:13px;font-weight:600;color:#374151;">Test Case ${idx + 1} ${tc.is_sample ? '(Sample)' : ''}</span>
-                  </div>
-                  <i class="fas fa-chevron-down" style="font-size:10px;color:#9ca3af;"></i>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="radio" name="preview-tc" value="${idx}" ${idx===0?'checked':''} onchange="toggleTestCaseDetails(${idx}, event)" style="margin:0;">
+                    <span style="font-size:13px;font-weight:600;color:#374151;">Test Case ${idx + 1} ${tc.is_sample ? '(Sample)' : ''} ${tc.points?`- ${tc.points} pts`:''}</span>
+                  </label>
+                  <button type="button" onclick="toggleTestCaseDetails(${idx}, event)" style="background:none;border:none;color:#6b7280;cursor:pointer;"><i class="fas fa-chevron-down"></i></button>
                 </div>
-                <div class="test-case-details" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
-                  ${tc.inputText || tc.input_text ? `<div style="margin-bottom:8px;"><span style="font-size:11px;color:#6b7280;">Input:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.inputText || tc.input_text || '')}</pre></div>` : ''}
-                  <div><span style="font-size:11px;color:#6b7280;">Expected Output:</span><pre style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;">${escapeHtml(tc.expectedOutput || tc.expected_output || '')}</pre></div>
-                </div>
-              </div>
-            `).join('') : '<div style="color:#9ca3af;font-size:13px;">No test cases available</div>'}
+                <div class="test-case-details" id="tcDetails-${idx}" style="display:${idx===0?'block':'none'};margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
+                  ${tc.inputText || tc.input_text ? `<div style=\"margin-bottom:8px;\"><span style=\"font-size:11px;color:#6b7280;\">Input:</span><pre style=\"margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;\">${escapeHtml(tc.inputText || tc.input_text || '')}</pre></div>` : ''}
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:flex-start;">
+        <div>
+                      <div style="font-size:11px;color:#6b7280;">Your Output</div>
+                      <pre id="tcYour-${idx}" style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;background:#111827;color:#e5e7eb;padding:8px;border-radius:6px;">(not run)</pre>
+        </div>
+                    <div>
+                      <div style="font-size:11px;color:#6b7280;">Expected Output</div>
+                      <pre id="tcExpected-${idx}" style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;background:#f3f4f6;padding:8px;border-radius:6px;">${escapeHtml(tc.expected_output || tc.expectedOutput || '')}</pre>
+        </div>
+      </div>
+                  <div style="margin-top:6px;"><a href="#" onclick="event.preventDefault(); const el=document.getElementById('tcDiff-${idx}'); el.style.display=(el.style.display==='none'?'block':'none');">Show Differences</a></div>
+                  <pre id="tcDiff-${idx}" style="display:none;margin-top:6px;background:#fff7ed;border:1px solid #fed7aa;padding:8px;border-radius:6px;font-size:12px;white-space:pre-wrap;">Run tests to see differences here.</pre>
           </div>
+        </div>
+            `).join('') : '<div style="color:#9ca3af;font-size:13px;">No test cases available</div>'}
+        </div>
           
           <div id="previewResultsTab" class="codestem-tab-content" style="display:none;">
             <div style="color:#9ca3af;font-size:13px;">Test results will appear here after running tests</div>
-          </div>
-        </div>
+      </div>
+    </div>
       </div>
     </div>
     
     <script>
+      // Handlers are already created BEFORE this script runs (see function scope above)
+      // This script just verifies and initializes Monaco
+      (function() {
+        // Verify handler exists
+        if (window.__previewRunHandler) {
+          console.log('✅ Run handler verified - ready to use');
+        } else {
+          console.error('❌ CRITICAL: Run handler not found in script tag!');
+        }
+        
+        // Re-export data to ensure it's available (backup)
+        try {
+          window.__previewActivityData = ${JSON.stringify(activity)};
+          window.__codingPreviewCtx = { meta: ${JSON.stringify(meta || {})}, starter: ${JSON.stringify(starterCode || '')}, expected: '', activity: ${JSON.stringify(activity || {})} };
+        } catch(e) {
+          console.error('Error re-exporting data:', e);
+        }
+        
+        // Backup handler if main one doesn't exist (shouldn't happen but safety)
+        if (!window.__previewRunHandler) {
+          console.error('❌ Creating backup handler - this should not happen!');
+          window.__previewRunHandler = function(e) {
+            console.log('🔴 Backup run handler called');
+            alert('Handler not ready. Please refresh the page.');
+            return false;
+          };
+        }
+      })();
+      
       // Initialize Monaco Editor for Coordinator preview
       (function() {
         const container = document.getElementById('previewMonacoContainer');
         const textarea = document.getElementById('previewCodeTextarea');
         if (!container || !textarea) return;
         
-        // Store preview activity data
-        window.__previewActivityData = ${JSON.stringify(activity)};
-        
-        // Load Monaco editor
+        // Load Monaco editor with error handling
         loadMonacoEditor().then(() => {
-          if (window.monaco && window.monaco.editor) {
-            const editor = window.monaco.editor.create(container, {
-              value: textarea.value,
-              language: '${language}',
-              theme: 'vs',
-              fontSize: 14,
-              automaticLayout: true,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-              lineNumbers: 'on'
-            });
-            
-            // Sync with textarea
-            editor.onDidChangeModelContent(() => {
-              textarea.value = editor.getValue();
-              const indicator = document.getElementById('previewSavedIndicator');
-              if (indicator) {
-                indicator.innerHTML = '<i class="fas fa-circle" style="color:#f59e0b;margin-right:4px;"></i>Modified';
-              }
-            });
-            
-            // Store editor reference
-            window.__previewEditor = editor;
+          try {
+            if (window.monaco && window.monaco.editor) {
+              console.log('🎨 Creating Monaco editor instance in preview...');
+              const editor = window.monaco.editor.create(container, {
+                value: textarea.value,
+                language: '${language}',
+                theme: 'vs',
+                fontSize: 14,
+                automaticLayout: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                lineNumbers: 'on'
+              });
+              
+              // Sync with textarea
+              editor.onDidChangeModelContent(() => {
+                try {
+                  textarea.value = editor.getValue();
+                  const indicator = document.getElementById('previewSavedIndicator');
+                  if (indicator) {
+                    indicator.innerHTML = '<i class="fas fa-circle" style="color:#f59e0b;margin-right:4px;"></i>Modified';
+                  }
+                } catch(e) {
+                  console.warn('Monaco sync error:', e);
+                }
+              });
+              
+              // Store editor reference
+              window.__previewEditor = editor;
+              console.log('✅ Monaco editor created successfully in preview');
+              
+              // Hide textarea if Monaco loaded
+              textarea.style.display = 'none';
+            } else {
+              console.warn('⚠️ Monaco not available, using textarea fallback');
+              textarea.style.display = 'block';
+            }
+          } catch(err) {
+            console.error('❌ Monaco editor creation failed:', err);
+            textarea.style.display = 'block';
           }
-        }).catch(() => {
+        }).catch((err) => {
+          console.error('❌ Monaco editor load failed:', err);
           // Fallback: show textarea
           textarea.style.display = 'block';
         });
       })();
     </script>
   `;
-  // expose preview context for delegated handlers
-  try { window.__codingPreviewCtx = { meta: meta || {}, starter: starterCode || '', expected: expected || '', activity: activity || {} }; } catch(_){ }
+  // expose preview context for delegated handlers - ALREADY SET IN SCRIPT TAG ABOVE
+  // This is just a backup
+  try { 
+    if (!window.__codingPreviewCtx) {
+      window.__codingPreviewCtx = { meta: meta || {}, starter: starterCode || '', expected: expected || '', activity: activity || {} };
+    }
+  } catch(_){ }
   
-  // Bind Run/Reset handlers for coding preview
-  setTimeout(() => {
+  // CRITICAL: Bind handlers immediately and also in setTimeout as backup
+  function bindPreviewHandlers() {
+    console.log('🔧 Binding preview handlers...');
     const runBtn = document.getElementById('previewRunBtn');
     const testBtn = document.getElementById('previewTestBtn');
     const resetBtn = document.getElementById('previewResetBtn');
     const outputDiv = document.getElementById('previewRunOutput');
     const testDiv = document.getElementById('previewTestResults');
     
-    // Get code from Monaco editor or textarea fallback
-    const getCode = () => {
-      const editor = window.__previewEditor;
-      const textarea = document.getElementById('previewCodeTextarea');
-      return editor ? editor.getValue() : (textarea ? textarea.value : '');
-    };
+    console.log('🔍 Elements found:', {
+      runBtn: !!runBtn,
+      testBtn: !!testBtn,
+      resetBtn: !!resetBtn,
+      outputDiv: !!outputDiv,
+      testDiv: !!testDiv
+    });
     
-    if (runBtn) {
-      runBtn.onclick = function() {
-        const code = getCode().trim();
-        if (!code) {
-          if (outputDiv) {
-            outputDiv.style.display = 'block';
-            outputDiv.innerHTML = '<div style="color:#dc3545;">❌ Please write some code first</div>';
-          }
-          return;
-        }
-        
-        runBtn.disabled = true;
-        runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
-        if (outputDiv) {
-          outputDiv.style.display = 'block';
-          outputDiv.innerHTML = '<div style="color:#007bff;">🔄 Running code...</div>';
-        }
-        
-        // Test the code based on language
-        const language = (meta && meta.language) ? String(meta.language).toLowerCase() : 'cpp';
-        // For JavaScript, run locally. For C++/Java/Python, use server runner (JDoodle)
-        if (language === 'javascript') {
-          testCodingActivity(code, language, expected, outputDiv, runBtn);
-        } else {
-          try {
-            const fd = new FormData();
-            fd.append('action','run_activity');
-            fd.append('activity_id', String(activity.id || activity.activity_id || ''));
-            fd.append('source', code);
-            fd.append('quick','1');
-            fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
-              .then(r => r.json())
-              .then(res => {
-                const ok = !!(res && res.success);
-                if (!ok) throw new Error(res && res.message ? res.message : 'Run failed');
-                const results = Array.isArray(res.results) ? res.results : [];
-                // Consolidate outputs
-                const outs = results.map(r => String(r.output || r.outputText || '').trim());
-                const combined = outs.join('\n').trim();
-                const passed = expected ? (combined === String(expected).trim()) : true;
-                const statusIcon = passed ? '✅' : '⚠️';
-                const statusColor = passed ? '#28a745' : '#ffc107';
-                outputDiv.innerHTML = `
-                  <div style="color:${statusColor};margin-bottom:8px;">${statusIcon} <strong>${passed ? 'PASSED' : 'COMPLETED'}</strong></div>
-                  <div style="margin-bottom:6px;"><strong>Output:</strong></div>
-                  <pre style="background:#f1f3f4;padding:8px;border-radius:4px;white-space:pre-wrap;">${combined || '(no output)'}</pre>
-                  ${expected ? `
-                    <div style=\"margin-top:6px;\"><strong>Expected:</strong></div>
-                    <pre style=\"background:#e8f5e8;padding:8px;border-radius:4px;white-space:pre-wrap;\">${String(expected)}</pre>
-                  ` : ''}
-                `;
-              })
-              .catch(err => {
-                outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run failed: ${err && err.message ? err.message : err}</div>`;
-              })
-              .finally(() => { runBtn.disabled=false; runBtn.innerHTML='<i class="fas fa-play"></i> Run Code'; });
-          } catch (err) {
-            outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run error: ${err && err.message ? err.message : err}</div>`;
-            runBtn.disabled = false; runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
-          }
-        }
-      };
+    if (!runBtn || !outputDiv) {
+      console.error('❌ CRITICAL: Run button or output div not found!');
+      return false;
     }
     
-    if (testBtn) {
-      testBtn.onclick = function() {
-        const code = getCode().trim();
+    // Get code from Monaco editor or textarea fallback - ROBUST VERSION
+    const getCode = () => {
+      try {
+        // Try Monaco editor first
+        if (window.__previewEditor && typeof window.__previewEditor.getValue === 'function') {
+          const code = window.__previewEditor.getValue();
+          if (code && code.trim()) return code;
+        }
+      } catch(e) {
+        console.warn('Monaco editor getValue failed:', e);
+      }
+      
+      // Fallback to textarea
+      try {
+        const textarea = document.getElementById('previewCodeTextarea');
+        if (textarea && textarea.value) {
+          return textarea.value;
+        }
+      } catch(e) {
+        console.warn('Textarea read failed:', e);
+      }
+      
+      // Last resort: try to find any code in the container
+      try {
+        const container = document.getElementById('previewMonacoContainer');
+        if (container) {
+          const codeEl = container.querySelector('textarea') || container.querySelector('[contenteditable="true"]');
+          if (codeEl && codeEl.value) return codeEl.value;
+        }
+      } catch(e) {
+        console.warn('Container code read failed:', e);
+      }
+      
+      return '';
+    };
+    
+    // CRITICAL: Define the run handler function - COMPLETE VERSION
+    // CREDIT FIX: Check if window.__previewRunHandler already executed
+    const runHandler = function(e) {
+      // CREDIT FIX: If window.__previewRunHandler is executing, skip this handler
+      if (window.__previewRunHandlerExecuting) {
+        console.warn('⚠️ [CREDIT TRACK] runHandler skipped - window.__previewRunHandler already executing');
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return false;
+      }
+      
+      console.log('🔴 [CREDIT TRACK] Run Code button clicked! (runHandler)', {
+        timestamp: new Date().toISOString(),
+        handler: 'runHandler (bindPreviewHandlers)'
+      });
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      const runBtn = document.getElementById('previewRunBtn');
+      const outputDiv = document.getElementById('previewRunOutput');
+      
+      if (!outputDiv) {
+        console.error('❌ previewRunOutput div not found!');
+        alert('Error: Output area not found. Please refresh the page.');
+        return false;
+      }
+      
+      const code = getCode().trim();
+      console.log('📝 Code extracted:', code ? `${code.length} chars` : 'EMPTY');
+      
+      if (!code) {
+        outputDiv.style.display = 'block';
+        outputDiv.innerHTML = '<div style="color:#dc3545;">❌ Please write some code first</div>';
+        return false;
+      }
+      
+      if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+      }
+      
+      // Don't show "Running code..." in outputDiv - terminal modal will show it
+      // outputDiv.style.display = 'block';
+      // outputDiv.innerHTML = '<div style="color:#007bff;">🔄 Running code...</div>';
+      
+      // Get activity data from window
+      const activity = window.__previewActivityData || {};
+      const meta = window.__codingPreviewCtx?.meta || {};
+      const language = (meta && meta.language) ? String(meta.language).toLowerCase() : 'cpp';
+      
+      // For JavaScript, run locally. For C++/Java/Python, use server runner (JDoodle)
+      if (language === 'javascript') {
+        const expected = window.__codingPreviewCtx?.expected || '';
+        testCodingActivity(code, language, expected, outputDiv, runBtn);
+      } else {
+        try {
+          const fd = new FormData();
+          fd.append('action','run_activity');
+          fd.append('activity_id', String(activity.id || activity.activity_id || ''));
+          fd.append('source', code);
+          fd.append('quick','1');
+          
+          const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          console.log('🚀 [CREDIT TRACK] Sending API request #' + requestId, {
+            activity_id: activity.id || activity.activity_id,
+            code_length: code.length,
+            language: language,
+            timestamp: new Date().toISOString(),
+            request_id: requestId,
+            handler: 'runHandler (bindPreviewHandlers)'
+          });
+          
+          fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+            .then(r => {
+              console.log('📡 API Response status:', r.status, r.statusText);
+              if (!r.ok) {
+                throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+              }
+              return r.json();
+            })
+            .then(res => {
+              console.log('✅ Run Code Response:', res);
+              const ok = !!(res && res.success);
+              if (!ok) {
+                const msg = res && res.message ? res.message : 'Run failed';
+                throw new Error(msg);
+              }
+              
+              const results = Array.isArray(res.results) ? res.results : [];
+              console.log('Results:', results);
+              
+              if (results.length === 0) {
+                outputDiv.innerHTML = '<div style="color:#ffc107;">⚠️ No test cases found. Code compiled successfully but no output to display.</div>';
+                return;
+              }
+              
+              // Extract output from JDoodle response structure
+              const outputs = results.map(r => {
+                const out = r.output || r.stdout || r.outputText || r.data?.output || '';
+                const err = r.error || r.stderr || r.data?.error || '';
+                const statusCode = r.statusCode || r.data?.statusCode || 0;
+                
+                if (err) return `Error: ${err}`;
+                if (statusCode && statusCode !== 200) return `Exit code ${statusCode}: ${out || '(no output)'}`;
+                return String(out || '').trim();
+              });
+              
+              const combined = outputs.filter(o => o).join('\n').trim();
+              const firstResult = results[0] || {};
+              const hasError = firstResult.error || (firstResult.statusCode !== 200 && firstResult.statusCode !== 0);
+              
+              let html = '';
+              if (hasError) {
+                html = `<div style="color:#dc3545;margin-bottom:8px;">❌ <strong>ERROR</strong></div>`;
+              } else {
+                html = `<div style="color:#28a745;margin-bottom:8px;">✅ <strong>COMPLETED</strong></div>`;
+              }
+              
+              html += `<div style="margin-bottom:6px;"><strong>Output:</strong></div>`;
+              const safeOutput = (combined || '(no output)').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+              html += `<pre style="background:#f1f3f4;padding:8px;border-radius:4px;white-space:pre-wrap;font-family:monospace;font-size:13px;">${safeOutput}</pre>`;
+              
+              if (firstResult.error) {
+                html += `<div style="margin-top:8px;"><strong>Error Details:</strong></div>`;
+                const safeError = String(firstResult.error).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+                html += `<pre style="background:#fee;padding:8px;border-radius:4px;white-space:pre-wrap;font-family:monospace;font-size:13px;color:#c33;">${safeError}</pre>`;
+              }
+              
+              outputDiv.innerHTML = html;
+            })
+            .catch(err => {
+              console.error('❌ Run Code Error:', err);
+              const safeErr = String(err && err.message ? err.message : err).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+              outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run failed: ${safeErr}</div>`;
+            })
+            .finally(() => { 
+              if (runBtn) {
+                runBtn.disabled = false; 
+                runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
+              }
+            });
+        } catch (err) {
+          console.error('❌ Run Code Exception:', err);
+          const safeErr = String(err && err.message ? err.message : err).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+          outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run error: ${safeErr}</div>`;
+          if (runBtn) {
+            runBtn.disabled = false; 
+            runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
+          }
+        }
+      }
+      return false;
+    };
+    
+    // Attach handler to Run button - MULTIPLE METHODS + GLOBAL EXPORT
+    if (runBtn) {
+      console.log('✅ Attaching onclick handler to Run button');
+      runBtn.onclick = runHandler;
+      runBtn.addEventListener('click', runHandler, true); // Capture phase
+      runBtn.addEventListener('click', runHandler, false); // Bubble phase
+      // Also expose globally for inline onclick fallback - REAL HANDLER
+      window.__previewRunHandlerReal = runHandler;
+      // DON'T replace window.__previewRunHandler - it's already set above in renderCodingPreview
+      // This prevents duplicate handler execution (which causes 2 API calls = 2 credits)
+      console.log('✅ Run handler attached (runHandler) - NOT replacing window.__previewRunHandler to prevent duplicate calls');
+      // Also add as data attribute for debugging
+      runBtn.setAttribute('data-handler-attached', 'true');
+      console.log('✅ Run button handlers attached (4 methods: onclick, addEventListener x2, inline fallback)');
+    } else {
+      console.error('❌ Run button not found during binding!');
+    }
+    
+    // Test button handler - COORDINATOR PREVIEW MODE (DISPLAY ONLY, NO DATABASE SAVE)
+    // IMPORTANT: This is for testing/preview only. Scores are calculated and displayed but NOT saved to database.
+    const testHandler = function() {
+      console.log('🔴 [PREVIEW MODE] Test button clicked!');
+      
+      const activity = window.__previewActivityData || {};
+      const testCases = activity.test_cases || activity.testCases || [];
+      console.log('📋 [PREVIEW MODE] Activity data:', {
+        activityId: activity.id || activity.activity_id,
+        testCasesCount: testCases.length,
+        hasTestCases: testCases.length > 0
+      });
+      
+      const code = getCode().trim();
+      console.log('📝 [PREVIEW MODE] Code extracted:', code ? `${code.length} chars` : 'EMPTY');
+      
         if (!code) {
+          console.warn('⚠️ [PREVIEW MODE] No code found!');
           if (testDiv) {
             testDiv.style.display = 'block';
             testDiv.innerHTML = '<div style="color:#dc3545;">❌ Please write some code first</div>';
@@ -5997,32 +8173,149 @@ function renderCodingPreview(activity){
 
         testBtn.disabled = true;
         testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
-        if (testDiv) {
-          testDiv.style.display = 'block';
-          testDiv.innerHTML = '<div style="color:#0ea5e9;">🔄 Running all test cases...</div>';
-        }
+        // Don't show "Running all test cases..." message - modal will show results directly
+        // if (testDiv) {
+        //   testDiv.style.display = 'block';
+        //   testDiv.innerHTML = '<div style="color:#0ea5e9;">🔄 Running all test cases... <span style="font-size:11px;color:#6b7280;">(Preview Mode - No Save)</span></div>';
+        // }
 
+        console.log('🚀 [PREVIEW MODE] Sending API request to run all test cases...');
         const fd = new FormData();
-        fd.append('action','test_activity');
+        fd.append('action','run_activity');
         fd.append('activity_id', String(activity.id || activity.activity_id || ''));
         fd.append('source', code);
+        // NOTE: Not appending 'quick' - this runs ALL test cases for full grading preview
         fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
-          .then(r => r.json())
+          .then(r => {
+            console.log('📡 [PREVIEW MODE] API Response status:', r.status);
+            if (!r.ok) {
+              throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+            }
+            return r.json();
+          })
           .then(res => {
-            if (!res || !res.success) throw new Error(res && res.message ? res.message : 'Test failed');
-            const sum = res.summary || { passed:0,total:0,score:0,timeMs:0 };
-            const cases = Array.isArray(res.cases) ? res.cases : [];
-            const header = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
-              <span style="background:#10b981;color:white;padding:4px 8px;border-radius:999px;font-weight:700;">${sum.passed}/${sum.total} passed</span>
-              <span style="background:#6366f1;color:white;padding:4px 8px;border-radius:999px;font-weight:700;">Score ${sum.score}%</span>
-              <span style="color:#6b7280;">${sum.timeMs} ms</span>
+            console.log('📊 [PREVIEW MODE] API Response:', {
+              success: res && res.success,
+              resultsCount: Array.isArray(res.results) ? res.results.length : 0,
+              message: res && res.message
+            });
+            
+            if (!res || !res.success) throw new Error(res && res.message ? res.message : 'Run failed');
+            const results = Array.isArray(res.results) ? res.results : [];
+            console.log('✅ [PREVIEW MODE] Test results received:', results.length, 'results');
+            // CRITICAL: Use EXACT same grading logic as student view for accurate preview
+            const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+            
+            // CRITICAL FIX: Check if test cases have points. If not, distribute evenly from max_score
+            const sumExistingPoints = (testCases || []).reduce((s, tc) => s + (parseInt(tc.points || 0, 10) || 0), 0);
+            const maxScoreFromActivity = activity.max_score || 0;
+            const needsPointDistribution = sumExistingPoints === 0 && maxScoreFromActivity > 0 && testCases.length > 0;
+            const pointsPerCase = needsPointDistribution ? Math.floor(maxScoreFromActivity / testCases.length) : 0;
+            
+            console.log('🔍 [PREVIEW MODE] Points check (bindPreviewHandlers):', {
+              sumExistingPoints,
+              maxScoreFromActivity,
+              testCasesCount: testCases.length,
+              needsPointDistribution,
+              pointsPerCase
+            });
+            
+            const cases = (testCases || []).map((tc, i) => {
+              const expected = norm(tc.expected_output || tc.expectedOutput || tc.expected_output_text || '');
+              const result = results[i] || {};
+              // Use same robust output extraction as student view
+              const out = norm(result.output || result.stdout || result.outputText || (result.data && result.data.output) || '');
+              const err = result.error || result.stderr || (result.data && result.data.error) || '';
+              const statusCode = result.statusCode || (result.data && result.data.statusCode) || 0;
+              
+              // EXACT same pass/fail logic as student view
+              const hasError = err || (statusCode !== 200 && statusCode !== 0);
+              const passed = !hasError && (expected === '' ? out !== '' : (out === expected));
+              
+              // CRITICAL FIX: Use distributed points if test case has no points
+              const tcPoints = parseInt(tc.points || 0, 10) || 0;
+              const actualPoints = tcPoints > 0 ? tcPoints : (needsPointDistribution ? pointsPerCase : 0);
+              const pts = passed ? actualPoints : 0;
+              
+              return {
+                name: `Test Case ${i + 1}`,
+                expected: expected,
+                stdout: out || (err ? `Error: ${err}` : ''),
+                status: passed ? 'AC' : (hasError ? 'RE' : 'WA'),
+                earned: pts,
+                points: actualPoints
+              };
+            });
+            // EXACT same score calculation as student view
+            const totalPts = cases.reduce((s, c) => s + c.earned, 0);
+            const totalMax = sumExistingPoints > 0 ? sumExistingPoints : (needsPointDistribution ? maxScoreFromActivity : maxScoreFromActivity);
+            const passedCount = cases.filter(c => c.status === 'AC').length;
+            const totalCount = cases.length;
+            
+            // PREVIEW MODE: Display score but DO NOT save to database
+            // CRITICAL: This calculation is IDENTICAL to student view for accurate preview
+            console.log('📊 [PREVIEW MODE] Grading calculated (IDENTICAL to student view):', {
+              score: totalPts,
+              maxScore: totalMax,
+              passed: passedCount,
+              total: totalCount,
+              cases: cases.map(c => ({ name: c.name, status: c.status, earned: c.earned, points: c.points })),
+              note: 'Score displayed for testing only - NOT saved to database. Calculation matches student view exactly.'
+            });
+            
+            // CRITICAL: Show results modal (like student view)
+            console.log('🎯 [PREVIEW MODE] About to show results modal:', {
+              cases: cases.length,
+              totalPts,
+              totalMax,
+              passedCount,
+              totalCount
+            });
+            
+            try {
+              // Show the same "Perfect!" modal as student view
+              showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalCount);
+              console.log('✅ [PREVIEW MODE] Results modal should be displayed');
+            } catch (modalErr) {
+              console.error('❌ [PREVIEW MODE] Error showing results modal:', modalErr);
+              // Fallback to inline display
+              if (testDiv) {
+                testDiv.innerHTML = '<div style="color:#dc3545;">Error showing results modal. Check console for details.</div>';
+              }
+            }
+            
+            // Update left score
+            const scoreEl = document.getElementById('previewScoreValue'); if (scoreEl) scoreEl.textContent = String(totalPts);
+            // Fill per-case panels
+            cases.forEach((c, i) => {
+              const your = document.getElementById(`tcYour-${i}`); if (your) your.textContent = c.stdout || '(no output)';
+              const diff = document.getElementById(`tcDiff-${i}`);
+              if (diff) {
+                diff.textContent = (c.status==='AC') ? 'No differences. Output matched expected.' : `Expected:\n${c.expected}\n\nActual:\n${c.stdout}`;
+              }
+            });
+            
+            // Also show inline results in testDiv (for reference)
+            const header = `<div style="margin-bottom:12px;">
+              <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+                <span style="background:#10b981;color:white;padding:4px 8px;border-radius:999px;font-weight:700;">${passedCount}/${totalCount} passed</span>
+                <span style="background:#6366f1;color:white;padding:4px 8px;border-radius:999px;font-weight:700;">Score ${totalPts}/${totalMax}</span>
+              </div>
+              <div style="background:#fef3c7;border:1px solid #fbbf24;color:#92400e;padding:8px 12px;border-radius:6px;font-size:12px;display:flex;align-items:center;gap:8px;">
+                <i class="fas fa-info-circle"></i>
+                <span><strong>Preview Mode:</strong> This score is for testing only and will NOT be saved to the database. <strong>Grading calculation is identical to student view.</strong></span>
+              </div>
             </div>`;
             const rows = cases.map(c => {
-              const color = c.status === 'AC' ? '#10b981' : '#ef4444';
+              // Use same color coding as student view: AC=green, RE=gray, WA=yellow
+              const color = c.status === 'AC' ? '#10b981' : (c.status === 'RE' ? '#6b7280' : '#f59e0b');
+              const icon = c.status === 'AC' ? '✅' : (c.status === 'RE' ? '❌' : '⚠️');
               return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-top:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <div style="font-weight:600;color:#374151;">${c.name || 'Case'}</div>
-                  <div style="color:${color};font-weight:700;">${c.status}</div>
+                  <div style="font-weight:600;color:#374151;">${c.name}</div>
+                  <div style="color:${color};font-weight:700;display:flex;align-items:center;gap:6px;">
+                    ${icon} ${c.status} ${c.earned ? `(+${c.earned} pts)` : ''}
+                  </div>
                 </div>
                 <div style="margin-top:6px;display:${c.status==='AC'?'none':'block'};">
                   <div style="font-size:12px;color:#374151;margin-bottom:4px;">Expected vs Actual</div>
@@ -6030,21 +8323,25 @@ function renderCodingPreview(activity){
                     <pre style="background:#f3f4f6;padding:8px;border-radius:6px;white-space:pre-wrap;">${(c.expected||'').replace(/</g,'&lt;')}</pre>
                     <pre style="background:#111827;color:#e5e7eb;padding:8px;border-radius:6px;white-space:pre-wrap;">${(c.stdout||'').replace(/</g,'&lt;')}</pre>
                   </div>
-                  ${c.stderr ? `<div style=\"margin-top:6px;color:#ef4444;\">stderr: ${String(c.stderr).replace(/</g,'&lt;')}</div>` : ''}
                 </div>
               </div>`;
             }).join('');
             testDiv.innerHTML = header + rows;
-            
-            // Also show in Results tab
             const resultsTab = document.getElementById('previewResultsTab');
-            if (resultsTab) {
-              resultsTab.innerHTML = header + rows;
-              // Switch to Results tab automatically
-              const resultsTabBtn = document.querySelector('.codestem-tab[onclick*="results"]');
-              if (resultsTabBtn) {
-                resultsTabBtn.click();
-              }
+            if (resultsTab) { resultsTab.innerHTML = header + rows; const btn = document.querySelector('.codestem-tab[onclick*="results"]'); if (btn) btn.click(); }
+            // Success modal
+            if (cases.every(c=>c.status==='AC')) {
+              try {
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:9999;';
+                modal.innerHTML = `<div style="background:#fff;padding:24px 28px;border-radius:12px;max-width:360px;width:90%;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+                  <div style="font-size:20px;font-weight:700;color:#10b981;margin-bottom:8px;">Perfect!</div>
+                  <div style="color:#374151;margin-bottom:16px;">Test Cases: ${cases.length}/${cases.length}<br/>Score: ${totalPts}/${totalMax}</div>
+                  <button id="pvOK" style="background:#10b981;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:600;cursor:pointer;">OK</button>
+                </div>`;
+                document.body.appendChild(modal);
+                modal.querySelector('#pvOK').onclick = ()=> document.body.removeChild(modal);
+              } catch(_){ }
             }
           })
           .catch(err => {
@@ -6055,14 +8352,30 @@ function renderCodingPreview(activity){
             }
           })
           .finally(() => { testBtn.disabled=false; testBtn.innerHTML='<i class="fas fa-vial"></i> Test (All Cases)'; });
-      };
+    };
+    
+    if (testBtn) {
+      testBtn.onclick = testHandler;
+      testBtn.addEventListener('click', testHandler, true);
+      testBtn.addEventListener('click', testHandler, false);
+      window.__previewTestHandlerReal = testHandler;
+      window.__previewTestHandler = testHandler; // Replace placeholder
+      testBtn.setAttribute('data-handler-attached', 'true');
+      console.log('✅ Test button handlers attached');
+    }
+    
+    // Check Test button handler (already defined in window.__previewCheckTestHandler)
+    if (checkTestBtn) {
+      checkTestBtn.setAttribute('data-handler-attached', 'true');
+      console.log('✅ Check Test button handler ready');
     }
 
-    if (resetBtn) {
-      resetBtn.onclick = function() {
-        const editor = window.__previewEditor;
-        const textarea = document.getElementById('previewCodeTextarea');
-        const originalCode = starterCode;
+    // Reset button handler
+    const resetHandler = function() {
+      const starterCode = window.__codingPreviewCtx?.starter || '';
+      const editor = window.__previewEditor;
+      const textarea = document.getElementById('previewCodeTextarea');
+      const originalCode = starterCode;
         
         if (editor) {
           editor.setValue(originalCode);
@@ -6084,9 +8397,155 @@ function renderCodingPreview(activity){
         if (indicator) {
           indicator.innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Ready';
         }
-      };
+    };
+    
+    if (resetBtn) {
+      resetBtn.onclick = resetHandler;
+      resetBtn.addEventListener('click', resetHandler, true);
+      resetBtn.addEventListener('click', resetHandler, false);
+      window.__previewResetHandlerReal = resetHandler;
+      window.__previewResetHandler = resetHandler; // Replace placeholder
+      resetBtn.setAttribute('data-handler-attached', 'true');
+      console.log('✅ Reset button handlers attached');
     }
-  }, 100);
+    
+    return true;
+  }
+  
+  // Call bindPreviewHandlers immediately and also in setTimeout as backup
+  console.log('🔧 Initializing preview handlers...');
+  
+  // Try immediate binding
+  let bound = false;
+  try {
+    bound = bindPreviewHandlers();
+    if (bound) {
+      console.log('✅ Initial binding successful!');
+    } else {
+      console.warn('⚠️ Initial binding returned false');
+    }
+  } catch(err) {
+    console.error('❌ Initial binding error:', err);
+  }
+  
+  // Retry with setTimeout as backup (faster)
+  setTimeout(() => {
+    try {
+      if (bindPreviewHandlers()) {
+        console.log('✅ Binding successful on retry (50ms)!');
+      }
+    } catch(err) {
+      console.error('❌ Retry binding error:', err);
+    }
+  }, 50);
+  
+  // Also try after a longer delay as final fallback
+  setTimeout(() => {
+    const runBtn = document.getElementById('previewRunBtn');
+    if (runBtn) {
+      const hasHandler = runBtn.getAttribute('data-handler-attached') === 'true' || 
+                        typeof runBtn.onclick === 'function' ||
+                        window.__previewRunHandler || 
+                        window.__previewRunHandlerReal;
+      if (!hasHandler) {
+        console.warn('⚠️ Button found but handler not attached after 500ms, final retry...');
+        try {
+          bindPreviewHandlers();
+        } catch(err) {
+          console.error('❌ Final retry error:', err);
+        }
+      } else {
+        console.log('✅ Handler confirmed attached after 500ms');
+      }
+    } else {
+      console.error('❌ Run button still not found after 500ms!');
+    }
+  }, 500);
+  
+  // Additional safety check after 1 second
+  setTimeout(() => {
+    const runBtn = document.getElementById('previewRunBtn');
+    if (runBtn && !window.__previewRunHandler && !window.__previewRunHandlerReal) {
+      console.error('❌ CRITICAL: Handler still not available after 1 second!');
+      console.log('Available handlers:', {
+        __previewRunHandler: !!window.__previewRunHandler,
+        __previewRunHandlerReal: !!window.__previewRunHandlerReal,
+        onclick: typeof runBtn.onclick,
+        hasAttribute: runBtn.getAttribute('data-handler-attached')
+      });
+    }
+  }, 1000);
+}
+
+// Global delegated handlers for preview footer buttons (capture-phase to avoid interference)
+// NOTE: This is a fallback - the buttons should have onclick handlers set directly
+// This delegation ensures clicks work even if handlers aren't set yet
+if (!window.__CODING_PREVIEW_BUTTONS_BOUND__) {
+  window.__CODING_PREVIEW_BUTTONS_BOUND__ = true;
+  document.addEventListener('click', function(e){
+    try {
+      const runBtn = e.target && (e.target.id==='previewRunBtn' ? e.target : e.target.closest && e.target.closest('#previewRunBtn'));
+      const checkTestBtn = e.target && (e.target.id==='previewCheckTestBtn' ? e.target : e.target.closest && e.target.closest('#previewCheckTestBtn'));
+      const testBtn = e.target && (e.target.id==='previewTestBtn' ? e.target : e.target.closest && e.target.closest('#previewTestBtn'));
+      const resetBtn = e.target && (e.target.id==='previewResetBtn' ? e.target : e.target.closest && e.target.closest('#previewResetBtn'));
+      if (runBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const btn = document.getElementById('previewRunBtn');
+        if (btn) {
+          // Try direct onclick first
+          if (typeof btn.onclick === 'function') { 
+            btn.onclick(e); 
+          } else {
+            // Fallback: trigger click event
+            btn.click();
+          }
+        }
+        return;
+      }
+      if (checkTestBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const btn = document.getElementById('previewCheckTestBtn');
+        if (btn) {
+          if (typeof btn.onclick === 'function') { 
+            btn.onclick(e); 
+          } else {
+            btn.click();
+          }
+        }
+        return;
+      }
+      if (testBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const btn = document.getElementById('previewTestBtn');
+        if (btn) {
+          if (typeof btn.onclick === 'function') { 
+            btn.onclick(e); 
+          } else {
+            btn.click();
+          }
+        }
+        return;
+      }
+      if (resetBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const btn = document.getElementById('previewResetBtn');
+        if (btn) {
+          if (typeof btn.onclick === 'function') { 
+            btn.onclick(e); 
+          } else {
+            btn.click();
+          }
+        }
+        return;
+      }
+    } catch(err){ 
+      console.error('Delegated button handler error:', err);
+    }
+  }, true);
 }
 
 // Test coding activity for coordinator preview
@@ -6231,7 +8690,7 @@ function renderQuestionInput(question, index, activityType) {
       </div>
     `;
   }
-
+  
   console.log('🔍 DEBUG: No matching activity type, returning default');
   return '<div style="color:#6c757d;font-size:14px;">Question type not supported</div>';
 }
@@ -6403,7 +8862,6 @@ function savePreviewProgress() {
   console.log('🔍 DEBUG: Autosaving preview progress:', window.previewState.answers);
   // No notification for preview mode - just silent tracking
 }
-
 // Bind keyboard shortcuts for coordinator preview (simplified for continuous scroll)
 function bindPreviewKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
@@ -6770,7 +9228,7 @@ function updateQuestion(index, property, value) {
     if (property === 'alternativeAnswers') {
       state.questions[index].alternativeAnswers = value ? value.split('\n').map(a => a.trim()).filter(a => a.length > 0) : [];
     } else {
-      state.questions[index][property] = value;
+    state.questions[index][property] = value;
     }
   }
   if (window.__cafScheduleSave) window.__cafScheduleSave();
@@ -6828,13 +9286,28 @@ function updateChoice(questionIndex, choiceIndex, property, value) {
 function addTestCase(){
   const state = window.createActivityState; if (!state) return;
   if (!Array.isArray(state.testCases)) state.testCases = [];
-  state.testCases.push({ input:'', output:'', isSample: state.testCases.length===0 });
+  // Auto-assign default points by difficulty order
+  const idx = state.testCases.length;
+  let points = 0; if (idx <= 1) points = 10; else if (idx <= 3) points = 20; else points = 40;
+  state.testCases.push({ input:'', output:'', isSample: state.testCases.length===0, points: points });
   renderTestCases();
   if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 function updateTestCase(index, field, value){
   const state = window.createActivityState; if (!state || !state.testCases || !state.testCases[index]) return;
-  if (field === 'isSample') state.testCases[index].isSample = !!value; else if (field === 'input') state.testCases[index].input = value; else if (field === 'output') state.testCases[index].output = value; else state.testCases[index][field] = value;
+  if (field === 'isSample') {
+    state.testCases[index].isSample = !!value;
+  } else if (field === 'input') {
+    state.testCases[index].input = value;
+  } else if (field === 'output') {
+    state.testCases[index].output = value;
+  } else if (field === 'points') {
+    // Ensure points is always a number
+    state.testCases[index].points = parseInt(value || 0, 10) || 0;
+    console.log('🔍 [TEST CASE] Updated points for TC', index + 1, 'to', state.testCases[index].points);
+  } else {
+    state.testCases[index][field] = value;
+  }
   if (window.__cafScheduleSave) window.__cafScheduleSave();
 }
 function deleteTestCase(index){
@@ -6848,6 +9321,17 @@ function renderTestCases(){
   const state = window.createActivityState; if (!state) return;
   const cont = document.getElementById('testCasesContainer');
   if (!cont) return;
+  console.log('🔍 [RENDER TEST CASES] Rendering', state.testCases ? state.testCases.length : 0, 'test cases');
+  if (state.testCases) {
+    console.log('🔍 [RENDER TEST CASES] Raw state.testCases:', JSON.stringify(state.testCases));
+    state.testCases.forEach((tc, i) => {
+      console.log(`🔍 [RENDER TEST CASES] TC ${i} raw object:`, tc);
+      console.log(`🔍 [RENDER TEST CASES] TC ${i} keys:`, Object.keys(tc));
+      console.log(`🔍 [RENDER TEST CASES] TC ${i}: points=${tc.points}, pointsType=${typeof tc.points}, isSample=${tc.isSample}, input="${tc.input}", output="${tc.output}"`);
+    });
+  } else {
+    console.warn('🔍 [RENDER TEST CASES] WARNING: state.testCases is null/undefined!');
+  }
   // Preserve active field and caret before update
   let active = document.activeElement;
   let preserve = null;
@@ -6862,7 +9346,28 @@ function renderTestCases(){
   } catch(_){}
 
   cont.innerHTML = (state.testCases || []).map(function(testCase, index){
-    return '\n      <div class="test-case" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;padding:12px;background:white;border-radius:6px;border:1px solid #e3e6ea;">\n        <div style="flex:1;">\n          <label style="display:block;margin-bottom:4px;font-size:12px;color:#666;font-weight:500;">Input:</label>\n          <input type="text" class="modal-input" data-tc-index="'+index+'" data-tc-field="input" value="'+(testCase.input||'').replace(/"/g,'&quot;')+'" placeholder="Test input..." oninput="updateTestCase('+index+', \'input\', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />\n        </div>\n        <div style="flex:1;">\n          <label style="display:block;margin-bottom:4px;font-size:12px;color:#666;font-weight:500;">Expected Output:</label>\n          <input type="text" class="modal-input" data-tc-index="'+index+'" data-tc-field="output" value="'+(testCase.output||'').replace(/"/g,'&quot;')+'" placeholder="Expected output..." oninput="updateTestCase('+index+', \'output\', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />\n        </div>\n        <div style="display:flex;align-items:center;gap:6px;">\n          <label style="font-size:12px;color:#666;">Sample</label>\n          <input type="checkbox" data-tc-index="'+index+'" data-tc-field="isSample" '+(testCase.isSample?'checked':'')+' onchange="updateTestCase('+index+', \'isSample\', this.checked)" />\n        </div>\n        <button class="action-btn btn-red" onclick="deleteTestCase('+index+')" style="padding:8px 12px;font-size:12px;">Delete</button>\n      </div>';
+    // CRITICAL: Log the EXACT testCase object BEFORE any processing
+    console.log(`🔍 [RENDER_TEST_CASES] ========== TC ${index} RAW OBJECT ==========`);
+    console.log(`🔍 [RENDER_TEST_CASES] TC ${index} full object:`, testCase);
+    console.log(`🔍 [RENDER_TEST_CASES] TC ${index} keys:`, Object.keys(testCase));
+    console.log(`🔍 [RENDER_TEST_CASES] TC ${index} hasOwnProperty('points'):`, testCase.hasOwnProperty('points'));
+    console.log(`🔍 [RENDER_TEST_CASES] TC ${index} 'points' in testCase:`, 'points' in testCase);
+    console.log(`🔍 [RENDER_TEST_CASES] TC ${index} testCase.points:`, testCase.points, 'type:', typeof testCase.points);
+    console.log(`🔍 [RENDER_TEST_CASES] TC ${index} JSON.stringify:`, JSON.stringify(testCase));
+    console.log(`🔍 [RENDER_TEST_CASES] ==========================================`);
+    
+    const safeIn = (testCase.input||'').replace(/"/g,'&quot;');
+    const safeOut = (testCase.output||'').replace(/"/g,'&quot;');
+    // CRITICAL: Handle points explicitly - check for undefined, null, or empty
+    let pts = 0;
+    if (testCase.points !== null && testCase.points !== undefined && testCase.points !== '') {
+      pts = parseInt(String(testCase.points), 10);
+      if (isNaN(pts)) pts = 0;
+    } else {
+      console.warn(`🔍 [RENDER_TEST_CASES] ⚠️ TC ${index} points is null/undefined/empty! Using 0 as fallback.`);
+    }
+    console.log(`🔍 [RENDER_TEST_CASES] TC ${index} FINAL parsed pts:`, pts);
+    return '\n      <div class="test-case" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;padding:12px;background:white;border-radius:6px;border:1px solid #e3e6ea;">\n        <div style="flex:1;">\n          <label style="display:block;margin-bottom:4px;font-size:12px;color:#666;font-weight:500;">Input:</label>\n          <input type="text" class="modal-input" data-tc-index="'+index+'" data-tc-field="input" value="'+safeIn+'" placeholder="Test input..." oninput="updateTestCase('+index+', \'input\', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />\n        </div>\n        <div style="flex:1;">\n          <label style="display:block;margin-bottom:4px;font-size:12px;color:#666;font-weight:500;">Expected Output:</label>\n          <input type="text" class="modal-input" data-tc-index="'+index+'" data-tc-field="output" value="'+safeOut+'" placeholder="Expected output..." oninput="updateTestCase('+index+', \'output\', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />\n        </div>\n        <div style="width:110px;">\n          <label style="display:block;margin-bottom:4px;font-size:12px;color:#666;font-weight:500;">Points</label>\n          <input type="number" min="0" step="1" class="modal-input" data-tc-index="'+index+'" data-tc-field="points" value="'+pts+'" oninput="updateTestCase('+index+', \'points\', this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />\n        </div>\n        <div style="display:flex;align-items:center;gap:6px;">\n          <label style="font-size:12px;color:#666;">Sample</label>\n          <input type="checkbox" data-tc-index="'+index+'" data-tc-field="isSample" '+(testCase.isSample?'checked':'')+' onchange="updateTestCase('+index+', \'isSample\', this.checked)" />\n        </div>\n        <button class="action-btn btn-red" onclick="deleteTestCase('+index+')" style="padding:8px 12px;font-size:12px;">Delete</button>\n      </div>';
   }).join('');
 
   // Initialize sortable if available
@@ -6899,7 +9404,6 @@ function renderTestCases(){
     } catch(_){}
   }
 }
-
 // Function to add matching pair
 function addMatchingPair(questionIndex) {
   const state = window.createActivityState;

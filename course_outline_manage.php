@@ -411,12 +411,34 @@ try {
                 break;
             }
             if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'activity.create', 'lesson_activity', (string)$id, ['lesson_id'=>$lessonId, 'title'=>$title, 'type'=>$type]); }
+            // Apply required_construct if provided
+            try {
+                $rc = isset($_POST['required_construct']) ? (string)$_POST['required_construct'] : null;
+                error_log("[ACTIVITY_CREATE] Required construct received: " . ($rc ?: 'NULL'));
+                if ($id > 0) { 
+                    $svc->updateActivity((int)$id, ['required_construct'=>$rc, 'type'=>$type, 'title'=>$title, 'instructions'=>$_POST['instructions'] ?? null, 'due_at'=>$_POST['due_at'] ?? null, 'max_score'=>(int)($_POST['max_score'] ?? 100)]);
+                    error_log("[ACTIVITY_CREATE] Updated activity $id with required_construct: " . ($rc ?: 'NULL'));
+                }
+            } catch (Throwable $e) {
+                error_log("[ACTIVITY_CREATE] Error setting required_construct: " . $e->getMessage());
+            }
+
             // Optionally seed coding test cases if provided as JSON
             if ($id > 0 && !empty($_POST['test_cases'])) {
                 $seed = json_decode($_POST['test_cases'], true);
+                error_log('[ACTIVITY_CREATE] Test cases received: ' . json_encode($seed));
                 if (is_array($seed)) {
                     foreach ($seed as $idx => $tc) {
-                        $svc->addTestCase((int)$id, !empty($tc['is_sample']), (string)($tc['input_text'] ?? ''), (string)($tc['expected_output_text'] ?? ''), (int)($tc['time_limit_ms'] ?? 2000));
+                        $points = (int)($tc['points'] ?? 0);
+                        error_log("[ACTIVITY_CREATE] Adding test case $idx: points=$points, is_sample=" . (!empty($tc['is_sample']) ? '1' : '0'));
+                        $svc->addTestCase(
+                            (int)$id, 
+                            !empty($tc['is_sample']), 
+                            (string)($tc['input_text'] ?? ''), 
+                            (string)($tc['expected_output_text'] ?? ''), 
+                            (int)($tc['time_limit_ms'] ?? 2000),
+                            $points
+                        );
                     }
                 }
             }
@@ -440,7 +462,8 @@ try {
                 'instructions' => $_POST['instructions'] ?? null,
                 'type' => $incomingType,
                 'due_at' => $_POST['due_at'] ?? null,
-                'max_score' => (int)($_POST['max_score'] ?? 100)
+                'max_score' => (int)($_POST['max_score'] ?? 100),
+                'required_construct' => isset($_POST['required_construct']) ? (string)$_POST['required_construct'] : null
             ]);
             if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'activity.update', 'lesson_activity', (string)($_POST['id'] ?? ''), ['keys'=>array_keys($_POST)]); }
             echo json_encode(['success' => (bool)$ok]);
@@ -453,7 +476,18 @@ try {
             break;
         case 'activity_get':
             if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
-            $act = $svc->getActivity((int)($_POST['id'] ?? 0));
+            $actId = (int)($_POST['id'] ?? 0);
+            error_log("[ACTIVITY_GET] Requested activity ID: $actId");
+            $act = $svc->getActivity($actId);
+            if ($act) {
+                error_log("[ACTIVITY_GET] Activity found - required_construct: " . ($act['required_construct'] ?? 'NULL'));
+                error_log("[ACTIVITY_GET] Test cases count: " . count($act['test_cases'] ?? []));
+                foreach (($act['test_cases'] ?? []) as $idx => $tc) {
+                    error_log("[ACTIVITY_GET] TC $idx: points=" . ($tc['points'] ?? 'NULL') . ", is_sample=" . ($tc['is_sample'] ?? 'NULL'));
+                }
+            } else {
+                error_log("[ACTIVITY_GET] Activity NOT found for ID: $actId");
+            }
             echo json_encode(['success'=> (bool)$act, 'data'=> $act]);
             break;
         case 'activity_duplicate':
@@ -486,10 +520,10 @@ try {
             // If coding: clone test cases
             if ($typeLower === 'coding') {
                 $tcSel = $db->prepare("SELECT * FROM activity_test_cases WHERE activity_id=? ORDER BY position ASC, id ASC");
-                $tcIns = $db->prepare("INSERT INTO activity_test_cases (activity_id, is_sample, input_text, expected_output_text, time_limit_ms, position) VALUES (?,?,?,?,?,?)");
+                $tcIns = $db->prepare("INSERT INTO activity_test_cases (activity_id, is_sample, input_text, expected_output_text, time_limit_ms, points, position) VALUES (?,?,?,?,?,?,?)");
                 $tcSel->execute([$srcId]);
                 foreach ($tcSel->fetchAll(PDO::FETCH_ASSOC) as $tc) {
-                    $tcIns->execute([$newId, (int)$tc['is_sample'], $tc['input_text'], $tc['expected_output_text'], (int)$tc['time_limit_ms'], (int)$tc['position']]);
+                    $tcIns->execute([$newId, (int)$tc['is_sample'], $tc['input_text'], $tc['expected_output_text'], (int)$tc['time_limit_ms'], (int)($tc['points'] ?? 0), (int)$tc['position']]);
                 }
             }
             echo json_encode(['success'=>true,'id'=>$newId]);
@@ -581,7 +615,15 @@ try {
                 $tests = $svc->listTestCases($activityId);
                 $sample = array_values(array_filter($tests, function($t){ return !empty($t['is_sample']); }));
                 $cases = $sample ?: $tests;
-                if ($quick && !empty($cases)) { $cases = [ $cases[0] ]; }
+                
+                // If user provided stdin (from interactive terminal), use it instead of test case input
+                $userStdin = (string)($_POST['stdin'] ?? '');
+                if ($userStdin !== '' && $quick && !empty($cases)) {
+                    // Override first test case input with user input
+                    $cases = [['input_text' => $userStdin, 'expected_output_text' => $cases[0]['expected_output_text'] ?? '', 'is_sample' => $cases[0]['is_sample'] ?? false]];
+                } else if ($quick && !empty($cases)) {
+                    $cases = [ $cases[0] ];
+                }
             $startTime = microtime(true);
             $result = $svc->runWithJDoodle($jdoodleLanguage, $source, $cases);
             $endTime = microtime(true);
@@ -745,8 +787,14 @@ try {
             try {
                 $db->beginTransaction();
                 $raw = $_POST['activity'] ?? $_POST['payload'] ?? '';
+                error_log('[ACTIVITY_SYNC] Raw POST data received (first 500 chars): ' . substr($raw, 0, 500));
+                error_log('[ACTIVITY_SYNC] POST keys: ' . implode(', ', array_keys($_POST)));
                 $data = is_array($raw) ? $raw : json_decode($raw, true);
-                if (!is_array($data)) { throw new Exception('Invalid payload'); }
+                if (!is_array($data)) { 
+                    error_log('[ACTIVITY_SYNC] ERROR: Failed to decode payload. Raw length: ' . strlen($raw));
+                    throw new Exception('Invalid payload'); 
+                }
+                error_log('[ACTIVITY_SYNC] Decoded data keys: ' . implode(', ', array_keys($data)));
                 $id = isset($data['id']) ? (int)$data['id'] : 0;
                 $lessonId = (int)($data['lesson_id'] ?? 0);
                 $type = (string)($data['type'] ?? 'multiple_choice');
@@ -763,6 +811,15 @@ try {
                     } catch (Throwable $e) {}
                 }
                 $maxScore = (int)($data['max_score'] ?? 100);
+                // CRITICAL: Check if required_construct exists in payload
+                error_log('[ACTIVITY_SYNC] Checking for required_construct in data...');
+                error_log('[ACTIVITY_SYNC] Data keys: ' . implode(', ', array_keys($data)));
+                error_log('[ACTIVITY_SYNC] isset(data[required_construct]): ' . (isset($data['required_construct']) ? 'YES' : 'NO'));
+                error_log('[ACTIVITY_SYNC] data[required_construct] value: ' . var_export($data['required_construct'] ?? 'NOT_SET', true));
+                $requiredConstruct = isset($data['required_construct']) ? (string)$data['required_construct'] : null;
+                if ($requiredConstruct === '') $requiredConstruct = null; // Empty string -> null
+                error_log('[ACTIVITY_SYNC] Required construct received: ' . ($requiredConstruct ?: 'NULL') . ' (raw: ' . var_export($data['required_construct'] ?? 'NOT_SET', true) . ')');
+                error_log('[ACTIVITY_SYNC] Test cases in data: ' . (isset($data['test_cases']) ? (is_array($data['test_cases']) ? count($data['test_cases']) . ' items' : 'NOT_ARRAY') : 'NOT_SET'));
 
                 if ($lessonId <= 0 || $title === '') { throw new Exception('Missing lesson_id or title'); }
 
@@ -782,28 +839,83 @@ try {
                         'type'=>$type,
                         'due_at'=>null,
                         'max_score'=>$maxScore,
+                        'required_construct'=>$requiredConstruct,
                     ]);
                     $activityId = $id;
                 } else {
                     $activityId = $svc->createActivity($lessonId, $title, $instructions, $type, null, $maxScore);
                     if ($activityId <= 0) { throw new Exception('Create failed'); }
+                    error_log("[ACTIVITY_SYNC] Created new activity ID: $activityId");
+                    // Set required_construct after create
+                    try { 
+                        $updateResult = $svc->updateActivity($activityId, [
+                            'required_construct'=>$requiredConstruct, 
+                            'type'=>$type, 
+                            'title'=>$title, 
+                            'instructions'=>$instructions, 
+                            'due_at'=>null, 
+                            'max_score'=>$maxScore
+                        ]);
+                        error_log("[ACTIVITY_SYNC] Update required_construct result: " . ($updateResult ? 'SUCCESS' : 'FAILED') . " for activity $activityId, value: " . ($requiredConstruct ?: 'NULL'));
+                        if (!$updateResult) {
+                            error_log("[ACTIVITY_SYNC] WARNING: Failed to update required_construct for activity $activityId");
+                        }
+                    } catch (Throwable $e) {
+                        error_log("[ACTIVITY_SYNC] ERROR updating required_construct: " . $e->getMessage());
+                    }
                 }
 
                 $lower = strtolower($type);
                 if ($lower === 'coding') {
                     // Replace test cases atomically
                     $tests = is_array($data['test_cases'] ?? null) ? $data['test_cases'] : [];
+                    error_log('[ACTIVITY_SYNC] Test cases received: ' . json_encode($tests));
+                    // If points are provided, override max_score to sum(points)
+                    try {
+                        $sumPts = 0; foreach ($tests as $t) { $sumPts += (int)($t['points'] ?? 0); }
+                        if ($sumPts > 0) { 
+                            $maxScore = $sumPts; 
+                            // CRITICAL: Include required_construct when updating max_score to prevent overwriting
+                            $svc->updateActivity($activityId, [
+                                'type'=>'coding',
+                                'title'=>$title,
+                                'instructions'=>$instructions,
+                                'due_at'=>null,
+                                'max_score'=>$maxScore,
+                                'required_construct'=>$requiredConstruct
+                            ]); 
+                        }
+                    } catch (Throwable $e) {
+                        error_log('[ACTIVITY_SYNC] Error calculating max_score: ' . $e->getMessage());
+                    }
                     $del = $db->prepare('DELETE FROM activity_test_cases WHERE activity_id=?');
                     $del->execute([$activityId]);
-                    foreach ($tests as $tc) {
+                    foreach ($tests as $idx => $tc) {
+                        $points = (int)($tc['points'] ?? 0);
+                        $isSample = !empty($tc['is_sample']);
+                        error_log("[ACTIVITY_SYNC] Adding test case $idx: points=$points, is_sample=" . ($isSample ? '1' : '0'));
                         $svc->addTestCase(
                             $activityId,
-                            !empty($tc['is_sample']),
+                            $isSample,
                             (string)($tc['input_text'] ?? $tc['input'] ?? ''),
                             (string)($tc['expected_output_text'] ?? $tc['output'] ?? ''),
-                            (int)($tc['time_limit_ms'] ?? 2000)
+                            (int)($tc['time_limit_ms'] ?? 2000),
+                            $points
                         );
                     }
+                    // Verify test cases were saved (BEFORE commit to see if transaction worked)
+                    $verifyStmt = $db->prepare("SELECT id, points, is_sample, input_text, expected_output_text FROM activity_test_cases WHERE activity_id=? ORDER BY position ASC, id ASC");
+                    $verifyStmt->execute([$activityId]);
+                    $verifyCases = $verifyStmt->fetchAll(PDO::FETCH_ASSOC);
+                    error_log("[ACTIVITY_SYNC] Verification (BEFORE commit): Saved " . count($verifyCases) . " test cases for activity $activityId");
+                    foreach ($verifyCases as $vIdx => $vc) {
+                        error_log("[ACTIVITY_SYNC] Verification TC $vIdx: id=" . ($vc['id'] ?? 'NULL') . ", points=" . ($vc['points'] ?? 'NULL') . ", is_sample=" . ($vc['is_sample'] ?? 'NULL') . ", input=" . substr($vc['input_text'] ?? '', 0, 20));
+                    }
+                    // Verify required_construct was saved (BEFORE commit)
+                    $rcVerify = $db->prepare("SELECT required_construct FROM lesson_activities WHERE id=?");
+                    $rcVerify->execute([$activityId]);
+                    $rcValue = $rcVerify->fetchColumn();
+                    error_log("[ACTIVITY_SYNC] Verification (BEFORE commit): required_construct in DB for activity $activityId: " . ($rcValue ?: 'NULL'));
                 } elseif ($lower === 'upload_based') {
                     // Handle upload-based activities - store tasks as questions
                     $qs = is_array($data['questions'] ?? null) ? $data['questions'] : [];
@@ -874,7 +986,34 @@ try {
                 }
 
                 $db->commit();
+                error_log("[ACTIVITY_SYNC] Transaction committed. Verifying data was saved to database...");
+                
+                // CRITICAL: Direct database query to verify required_construct was saved
+                $verifyRC = $db->prepare("SELECT required_construct FROM lesson_activities WHERE id=?");
+                $verifyRC->execute([$activityId]);
+                $savedRC = $verifyRC->fetchColumn();
+                error_log("[ACTIVITY_SYNC] VERIFICATION: required_construct in DB for activity $activityId: " . ($savedRC ?: 'NULL'));
+                
+                // CRITICAL: Direct database query to verify test case points were saved
+                $verifyTC = $db->prepare("SELECT id, points, is_sample FROM activity_test_cases WHERE activity_id=? ORDER BY position ASC, id ASC");
+                $verifyTC->execute([$activityId]);
+                $savedTCs = $verifyTC->fetchAll(PDO::FETCH_ASSOC);
+                error_log("[ACTIVITY_SYNC] VERIFICATION: Test cases in DB for activity $activityId: " . count($savedTCs));
+                foreach ($savedTCs as $vIdx => $vtc) {
+                    error_log("[ACTIVITY_SYNC] VERIFICATION TC $vIdx: id=" . ($vtc['id'] ?? 'NULL') . ", points=" . ($vtc['points'] ?? 'NULL') . ", is_sample=" . ($vtc['is_sample'] ?? 'NULL'));
+                }
+                
+                error_log("[ACTIVITY_SYNC] Fetching full activity data for response...");
                 $full = $svc->getActivity($activityId);
+                if ($full) {
+                    error_log("[ACTIVITY_SYNC] Response data - required_construct: " . ($full['required_construct'] ?? 'NULL'));
+                    error_log("[ACTIVITY_SYNC] Response data - test cases count: " . count($full['test_cases'] ?? []));
+                    foreach (($full['test_cases'] ?? []) as $rIdx => $rtc) {
+                        error_log("[ACTIVITY_SYNC] Response TC $rIdx: points=" . ($rtc['points'] ?? 'NULL') . ", is_sample=" . ($rtc['is_sample'] ?? 'NULL'));
+                    }
+                } else {
+                    error_log("[ACTIVITY_SYNC] WARNING: Failed to fetch activity data after commit!");
+                }
                 echo json_encode(['success'=>true,'id'=>$activityId,'data'=>$full]);
             } catch (Throwable $e) {
                 try { $db->rollBack(); } catch (Throwable $r) {}
