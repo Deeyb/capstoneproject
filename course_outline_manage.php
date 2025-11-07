@@ -655,7 +655,7 @@ try {
             echo json_encode(['success'=>(bool)$ok]);
             break;
         case 'run_activity':
-            if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            if (!$isCoordinator && !$isAdmin && !$isTeacher) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
             
             // Rate limiting for run_activity
             $rateLimiter = new RateLimiter($db);

@@ -73,6 +73,13 @@ function getUniversalActivity($db, $activityId) {
     
     $activity['questions'] = $questions;
     
+    // Step 5: Attach coding test cases when present
+    $testCases = getTestCasesForActivity($db, $activityId);
+    if (!empty($testCases)) {
+        $activity['test_cases'] = $testCases;
+        error_log("🔍 UNIVERSAL: Test cases attached: " . count($testCases));
+    }
+    
     error_log("✅ UNIVERSAL: Final activity data: " . json_encode($activity));
     
     return ['success'=>true, 'activity'=>$activity];
@@ -148,7 +155,11 @@ function findActivityInAnyTable($db, $activityId, $tables) {
                 'points' => 'max_score',
                 'instructions' => 'instructions',
                 'description' => 'instructions',
-                'content' => 'instructions'
+                'content' => 'instructions',
+                'problem' => 'problem',
+                'problem_statement' => 'problem',
+                'display_instructions' => 'problem',
+                'required_construct' => 'required_construct'
             ];
             
             foreach ($fieldMap as $dbColumn => $standardField) {
@@ -327,6 +338,128 @@ function detectQuestionTables($db) {
     }
     
     return $tables;
+}
+
+/**
+ * GET TEST CASES FOR CODING ACTIVITIES
+ */
+function getTestCasesForActivity($db, $activityId) {
+    $testCases = [];
+    $tables = detectTestCaseTables($db);
+    if (empty($tables)) {
+        return $testCases;
+    }
+
+    foreach ($tables as $table) {
+        try {
+            $stmt = $db->prepare("DESCRIBE `$table`");
+            $stmt->execute();
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $selectFields = [];
+            $fieldMap = [
+                'id' => 'id',
+                'input_text' => 'input_text',
+                'input' => 'input_text',
+                'stdin' => 'input_text',
+                'expected_output_text' => 'expected_output_text',
+                'expected_output' => 'expected_output_text',
+                'output' => 'expected_output_text',
+                'is_sample' => 'is_sample',
+                'sample' => 'is_sample',
+                'isSample' => 'is_sample',
+                'points' => 'points',
+                'score' => 'points',
+                'position' => 'position',
+                'order' => 'position',
+                'time_limit_ms' => 'time_limit_ms',
+                'time_limit' => 'time_limit_ms'
+            ];
+
+            foreach ($fieldMap as $dbColumn => $alias) {
+                if (in_array($dbColumn, $columns)) {
+                    $selectFields[] = "`$dbColumn` as `$alias`";
+                }
+            }
+
+            if (empty($selectFields)) {
+                continue;
+            }
+
+            // Determine activity reference column
+            $activityIdColumns = ['activity_id', 'lesson_activity_id', 'lesson_id', 'activity'];
+            $whereClause = '';
+            foreach ($activityIdColumns as $col) {
+                if (in_array($col, $columns)) {
+                    $whereClause = "WHERE `$col` = ?";
+                    break;
+                }
+            }
+
+            if (!$whereClause) {
+                continue;
+            }
+
+            $orderClause = 'ORDER BY ';
+            if (in_array('position', $columns) || in_array('order', $columns)) {
+                $orderClause .= (in_array('position', $columns) ? '`position`' : '`order`') . ' ASC, `id` ASC';
+            } else {
+                $orderClause .= '`id` ASC';
+            }
+
+            $query = "SELECT " . implode(', ', $selectFields) . " FROM `$table` $whereClause $orderClause";
+            $stmt = $db->prepare($query);
+            $stmt->execute([$activityId]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!empty($rows)) {
+                foreach ($rows as $row) {
+                    // Normalize boolean/scores
+                    if (isset($row['is_sample'])) {
+                        $row['is_sample'] = (int)$row['is_sample'] === 1;
+                    }
+                    if (isset($row['points'])) {
+                        $row['points'] = is_numeric($row['points']) ? (int)$row['points'] : 0;
+                    }
+                    $testCases[] = $row;
+                }
+            }
+        } catch (Exception $e) {
+            error_log("❌ UNIVERSAL: Test case lookup error in $table: " . $e->getMessage());
+            continue;
+        }
+    }
+
+    return $testCases;
+}
+
+/**
+ * DETECT TEST CASE TABLES
+ */
+function detectTestCaseTables($db) {
+    $tables = [];
+    $patterns = [
+        'activity_test_cases',
+        'test_cases',
+        'coding_test_cases',
+        'lesson_activity_test_cases',
+        'activity_cases',
+        'activity_inputs'
+    ];
+
+    foreach ($patterns as $pattern) {
+        try {
+            $stmt = $db->prepare("SHOW TABLES LIKE ?");
+            $stmt->execute([$pattern]);
+            if ($stmt->fetch()) {
+                $tables[] = $pattern;
+            }
+        } catch (Exception $e) {
+            continue;
+        }
+    }
+
+    return array_unique($tables);
 }
 
 /**

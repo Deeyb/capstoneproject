@@ -63,6 +63,47 @@ function loadStudentProgress() {
   // TODO: Implement student progress loading
 }
 
+// Shared helper: detect required construct usage (copied from coordinator toolkit)
+function detectConstructUsage(source, language, required) {
+  try {
+    const lang = String(language || '').toLowerCase();
+    let code = String(source || '');
+    try {
+      code = code
+        .replace(/\/\*[^]*?\*\//g, '')
+        .replace(/(^|\s)\/\/.*$/gm, '')
+        .replace(/(^|\s)#.*$/gm, '');
+    } catch (_){ }
+
+    const isPython = lang.includes('py');
+    const rx = {
+      while_c: /\bwhile\s*\(/,
+      for_c: /\bfor\s*\(/,
+      if_else_c: /\bif\s*\([^)]*\)[^]*?\belse\b/,
+      do_while_c: /\bdo\b[^]*?\bwhile\s*\(/,
+      switch_c: /\bswitch\s*\(/,
+
+      while_py: /\bwhile\s+.+:/,
+      for_py: /\bfor\s+.+\s+in\s+.+:/,
+      if_else_py: /\bif\s+.+:[^]*?\belse\s*:/
+    };
+
+    const used = {
+      while: isPython ? rx.while_py.test(code) : rx.while_c.test(code),
+      for: isPython ? rx.for_py.test(code) : rx.for_c.test(code),
+      if_else: isPython ? rx.if_else_py.test(code) : rx.if_else_c.test(code),
+      do_while: !isPython && rx.do_while_c.test(code),
+      switch: !isPython && rx.switch_c.test(code)
+    };
+
+    const needs = String(required || '').toLowerCase();
+    if (!needs) return { ok: true, used };
+    return { ok: !!used[needs], used };
+  } catch (_){
+    return { ok: true, used: {} };
+  }
+}
+
 // ======================== ACTIVITY MANAGER CLASS (OOP) ========================
 
 class ActivityManager {
@@ -489,6 +530,7 @@ class ActivityTester {
     this.answers = {};
     this.startTime = null;
     this.options = {}; // Store preview options
+    this.codingContext = null;
   }
 
   // Show try answering modal
@@ -535,6 +577,16 @@ class ActivityTester {
     this.modal = document.createElement('div');
     this.modal.className = 'modal';
     this.modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
+
+    const isCoding = this.isCodingActivity(this.currentActivity);
+    if (isCoding) {
+      // Redirect to full-page Codestem preview
+      const aid = this.currentActivity && (this.currentActivity.id || this.currentActivity.activity_id);
+      if (aid) {
+        window.location.assign('coding_preview_full.php?activity_id=' + encodeURIComponent(aid));
+        return;
+      }
+    }
     
     this.modal.innerHTML = `
       <div class="modal-card" style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;max-width:1400px;width:98%;max-height:95vh;display:flex;flex-direction:column;font-family:'Inter',sans-serif;">
@@ -617,6 +669,23 @@ class ActivityTester {
     });
   }
 
+  isCodingActivity(activity) {
+    if (!activity) return false;
+    const typeCandidates = [activity.type, activity.activity_type, activity.kind, activity.category];
+    for (const t of typeCandidates) {
+      if (t && String(t).toLowerCase().includes('coding')) {
+        return true;
+      }
+    }
+    if (activity.meta && typeof activity.meta === 'object') {
+      const metaType = activity.meta.type || activity.meta.kind;
+      if (metaType && String(metaType).toLowerCase().includes('coding')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Load questions for the activity
   async loadQuestions() {
     try {
@@ -668,8 +737,17 @@ class ActivityTester {
       this.updateActivityInfo(activityData.activity);
       console.log('🔍 DEBUG: Activity info updated successfully!');
       
+      const activityType = String(activityData.activity.type || '').toLowerCase();
+
+      if (activityType === 'coding') {
+        // Force coding preview (regardless of questions array)
+        this.questions = [];
+        this.displayActivityWithoutQuestions();
+        return;
+      }
+
       // For upload-based activities, show the upload interface
-      if (this.questions.length === 0 && (activityData.activity.type === 'upload_based' || !activityData.activity.type)) {
+      if (this.questions.length === 0 && (activityType === 'upload_based' || !activityType)) {
         console.log('🔍 DEBUG: Showing upload-based activity interface...');
         this.displayActivityWithoutQuestions();
       } else {
@@ -1142,6 +1220,10 @@ class ActivityTester {
     if (questionsContent) {
       questionsContent.innerHTML = activityHtml;
     }
+
+    if (activity && String(activity.type || '').toLowerCase() === 'coding') {
+      this.initializeCodingPreview(activity);
+    }
     
     // Hide question navigation for activities without questions
     if (questionNavigation) {
@@ -1247,35 +1329,237 @@ class ActivityTester {
 
   // Render coding activity
   renderCodingActivity(activity) {
+    const testCases = Array.isArray(activity.test_cases) ? activity.test_cases : (Array.isArray(activity.testCases) ? activity.testCases : []);
+    const meta = this.extractCodingMeta(activity);
+    const languageLabel = (meta.language || meta.lang || 'cpp').toString().toUpperCase();
+    const requiredConstruct = meta.requiredConstruct || meta.required_construct || '';
+    const totalPoints = this.computeCodingTotalPoints(activity, testCases);
+    const starterCode = this.answers['code'] || meta.starterCode || meta.starter_code || '';
+    const problemStatement = meta.problemStatement || meta.problem || activity.problem || activity.description || 'Complete the coding challenge.';
+    const moreInstructions = meta.instructions && typeof meta.instructions === 'string' ? meta.instructions : '';
+
+    const testCaseBlocks = testCases.length ? testCases.map((tc, idx) => {
+      const inputText = tc.input_text || tc.inputText || tc.input || '';
+      const expectedOutput = tc.expected_output || tc.expectedOutput || tc.expected_output_text || '';
+      const points = parseInt(tc.points || 0, 10) || 0;
+      const sampleBadge = tc.is_sample ? '<span style="margin-left:8px;background:#d1fae5;color:#047857;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;">Sample</span>' : '';
+      return `
+        <div class="coding-testcase" data-testcase-index="${idx}" style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:#1f2937;cursor:pointer;">
+              <input type="radio" name="coding-testcase" value="${idx}" ${idx === 0 ? 'checked' : ''}>
+              Test Case ${idx + 1} ${sampleBadge}
+              ${points ? `<span style="font-size:11px;color:#64748b;font-weight:500;">(${points} pts)</span>` : ''}
+            </label>
+            <span id="codingStatus-${idx}" style="font-size:12px;color:#6b7280;font-weight:600;">Not run</span>
+          </div>
+          <div style="display:grid;gap:10px;font-size:12px;color:#111827;">
+            <div>
+              <div style="font-weight:600;color:#6b7280;">Input</div>
+              <pre style="margin:4px 0 0 0;padding:8px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(inputText)}</pre>
+            </div>
+            <div>
+              <div style="font-weight:600;color:#6b7280;">Expected Output</div>
+              <pre style="margin:4px 0 0 0;padding:8px;background:#f3f4f6;border-radius:6px;border:1px solid #e5e7eb;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(expectedOutput)}</pre>
+            </div>
+            <div>
+              <div style="font-weight:600;color:#6b7280;">Your Output</div>
+              <pre id="codingOutput-${idx}" style="margin:4px 0 0 0;padding:8px;background:#0f172a;color:#e5e7eb;border-radius:6px;border:1px solid #1f2937;white-space:pre-wrap;font-family:'Courier New',monospace;">(not run)</pre>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') : '<div style="padding:12px;border:1px dashed #e5e7eb;border-radius:8px;color:#6b7280;font-size:13px;">No test cases configured for this activity.</div>';
+
     return `
-      <div class="coding-interface" style="border:1px solid #e5e7eb;border-radius:12px;padding:32px;background:#f8fafc;max-width:700px;margin:0 auto;">
-        <h4 style="margin:0 0 16px 0;color:#374151;font-size:18px;">Coding Challenge</h4>
-        
-        <div style="background:#1f2937;border-radius:8px;padding:20px;margin-bottom:24px;">
-          <h5 style="margin:0 0 12px 0;color:#f9fafb;font-size:16px;">Problem Statement:</h5>
-          <p style="margin:0;color:#d1d5db;font-size:14px;line-height:1.6;">${activity.problem || 'Complete the coding challenge.'}</p>
-        </div>
-        
-        <div class="code-editor" style="margin-bottom:24px;">
-          <textarea id="activityCode" 
-                    placeholder="Write your code here..." 
-                    style="width:100%;min-height:300px;padding:16px;border:1px solid #d1d5db;border-radius:8px;font-family:'Courier New',monospace;font-size:14px;background:#fff;resize:vertical;">${this.answers['code'] || ''}</textarea>
-        </div>
-        
-        <div style="display:flex;gap:16px;justify-content:center;">
-          <button onclick="window.activityTester.runActivityCode()" 
-                  style="background:#f59e0b;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
-            <i class="fas fa-play" style="margin-right:8px;"></i>
-            Run Code
-          </button>
-          <button onclick="window.activityTester.saveActivityCode()" 
-                  style="background:#1d9b3e;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
-            <i class="fas fa-save" style="margin-right:8px;"></i>
-            Save Code
-          </button>
+      <div class="teacher-coding-preview" style="display:flex;flex-direction:column;gap:24px;">
+        <div style="display:flex;flex-wrap:wrap;gap:24px;">
+          <div class="coding-main" style="flex:2 1 520px;background:#ffffff;border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(15,23,42,0.08);min-width:320px;">
+            <div style="margin-bottom:20px;">
+              <h4 style="margin:0 0 12px 0;font-size:20px;font-weight:700;color:#111827;">${escapeHtml(activity.title || 'Coding Challenge')}</h4>
+              <div style="font-size:14px;color:#374151;line-height:1.7;white-space:pre-wrap;">${escapeHtml(problemStatement)}</div>
+              ${moreInstructions ? `<div style="margin-top:12px;padding:12px;border-radius:8px;background:#f8fafc;color:#4b5563;line-height:1.6;">${escapeHtml(moreInstructions)}</div>` : ''}
+            </div>
+            <div>
+              <label for="activityCode" style="display:block;margin-bottom:8px;font-size:13px;font-weight:600;color:#1f2937;">Your Code</label>
+              <textarea id="activityCode" style="width:100%;min-height:260px;padding:16px;border:1px solid #d1d5db;border-radius:10px;font-family:'Courier New',monospace;font-size:14px;background:#0f172a;color:#e5e7eb;resize:vertical;">${escapeHtml(starterCode)}</textarea>
+            </div>
+            <div style="margin-top:16px;">
+              <label for="codingCustomInput" style="display:block;margin-bottom:6px;font-size:12px;font-weight:600;color:#6b7280;">Custom Input (used when running code)</label>
+              <textarea id="codingCustomInput" style="width:100%;min-height:60px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;resize:vertical;" placeholder="Optional input..."></textarea>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:18px;">
+              <button id="codingRunBtn" onclick="window.activityTester.runCodingQuick()" style="background:#16a34a;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-play"></i> Run Code
+              </button>
+              <button id="codingCheckBtn" onclick="window.activityTester.checkCodingTest()" style="background:#10b981;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-check-circle"></i> Check Test
+              </button>
+              <button id="codingTestAllBtn" onclick="window.activityTester.testCodingAll()" style="background:#fbbf24;color:#1f2937;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-vial"></i> Test (All Cases)
+              </button>
+              <button id="codingResetBtn" onclick="window.activityTester.resetCodingPreview()" style="background:#6b7280;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-undo"></i> Reset
+              </button>
+              <button onclick="window.activityTester.saveCodingDraft()" style="background:#1d9b3e;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-save"></i> Save Draft
+              </button>
+            </div>
+            <div id="codingStatusMessage" style="margin-top:16px;font-size:13px;font-weight:600;color:#2563eb;">Ready to run tests.</div>
+            <div id="codingTerminalOutput" style="display:none;margin-top:16px;padding:14px;border-radius:8px;background:#0f172a;color:#e5e7eb;font-family:'Courier New',monospace;white-space:pre-wrap;max-height:240px;overflow:auto;"></div>
+          </div>
+          <div class="coding-sidebar" style="flex:1 1 320px;background:#ffffff;border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(15,23,42,0.08);min-width:260px;max-height:80vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+              <div>
+                <div style="font-size:12px;color:#6b7280;">Language</div>
+                <div style="font-size:16px;font-weight:700;color:#111827;">${escapeHtml(languageLabel)}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:12px;color:#6b7280;">Total Points</div>
+                <div id="codingScoreValue" style="font-size:16px;font-weight:700;color:#111827;">0 / ${totalPoints}</div>
+              </div>
+            </div>
+            ${requiredConstruct ? `<div style="margin-bottom:16px;padding:12px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px;display:flex;gap:8px;align-items:center;"><i class=\"fas fa-lightbulb\"></i><span>Required construct: <strong>${escapeHtml(requiredConstruct)}</strong></span></div>` : ''}
+            <div>
+              <h5 style="margin:0 0 12px 0;font-size:14px;font-weight:600;color:#1f2937;">Test Cases</h5>
+              <div id="codingTestCasesList" style="display:flex;flex-direction:column;gap:12px;">
+                ${testCaseBlocks}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
+  }
+
+  renderCodingPreviewModal() {
+    const ctx = this.buildCodingContext(this.currentActivity);
+    const meta = ctx?.meta || {};
+    const languageLabel = (meta.language || meta.lang || 'cpp').toString().toUpperCase();
+    const requiredConstruct = meta.requiredConstruct || meta.required_construct || '';
+    const totalPoints = ctx ? ctx.totalPoints : 0;
+    const testCaseBlocks = this.buildCodingTestCaseBlocks(ctx);
+
+    const activity = this.currentActivity || {};
+    const problemStatement = meta.problemStatement || meta.problem || activity.problem || activity.description || '';
+    const instructions = meta.instructions && typeof meta.instructions === 'string' ? meta.instructions : (activity.description || 'Complete this activity as instructed.');
+    const sampleOutputs = (ctx?.testCases || []).filter(tc => tc.is_sample).map((tc, idx) => {
+      const expected = tc.expected_output || tc.expectedOutput || tc.expected_output_text || '';
+      return `
+        <div style="padding:12px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:600;color:#059669;margin-bottom:6px;">Sample Output ${idx + 1}</div>
+          <pre style="margin:0;font-size:12px;color:#111827;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(expected)}</pre>
+        </div>
+      `;
+    }).join('');
+
+    const sampleOutputsSection = sampleOutputs ? `
+      <div style="margin-top:20px;">
+        <h5 style="margin:0 0 12px 0;font-size:14px;font-weight:600;color:#1f2937;">Sample Outputs</h5>
+        ${sampleOutputs}
+      </div>
+    ` : '';
+
+    const starterCode = meta.starterCode || meta.starter_code || '';
+
+    return `
+      <div class="coding-preview-card" style="background:#ffffff;border-radius:16px;padding:28px;max-width:1200px;width:94%;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 24px 60px rgba(15,23,42,0.35);">
+        <button class="coding-preview-close" style="position:absolute;top:18px;right:18px;background:#0f172a;color:#fff;border:none;border-radius:999px;width:32px;height:32px;cursor:pointer;font-weight:700;font-size:16px;">✕</button>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+          <div>
+            <div style="font-size:24px;font-weight:700;color:#0f172a;">${escapeHtml(activity.title || 'Coding Challenge')}</div>
+            <div style="font-size:13px;color:#6b7280;margin-top:6px;">Coding Challenge · ${ctx?.testCases.length || 0} test case${(ctx?.testCases.length || 0) === 1 ? '' : 's'}</div>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:16px;">
+            <div style="text-align:right;">
+              <div style="font-size:12px;color:#6b7280;">Total Points</div>
+              <div id="codingScoreValue" style="font-size:20px;font-weight:700;color:#0f172a;">0 / ${totalPoints}</div>
+            </div>
+          </div>
+        </div>
+        ${requiredConstruct ? `<div style="margin-top:16px;padding:12px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px;display:flex;gap:8px;align-items:center;"><i class=\"fas fa-lightbulb\"></i><span>Required construct: <strong>${escapeHtml(requiredConstruct)}</strong></span></div>` : ''}
+        <div style="margin-top:24px;display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+          <div style="flex:0 0 320px;min-width:260px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:18px;">
+            <h5 style="margin:0 0 12px 0;font-size:15px;font-weight:700;color:#1f2937;">Problem Description</h5>
+            <div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap;">${escapeHtml(problemStatement)}</div>
+            ${instructions ? `<div style="margin-top:16px;font-size:13px;color:#4b5563;line-height:1.6;white-space:pre-wrap;">${escapeHtml(instructions)}</div>` : ''}
+            ${sampleOutputsSection}
+            <div style="margin-top:20px;padding:12px;border-radius:10px;background:#eef2ff;color:#312e81;font-size:12px;font-weight:600;">Language: ${escapeHtml(languageLabel)}</div>
+          </div>
+          <div style="flex:1 1 420px;min-width:360px;background:#0f172a;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px;">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#e5e7eb;margin-bottom:8px;">Your Code</div>
+              <textarea id="activityCode" style="width:100%;min-height:260px;padding:16px;border:none;border-radius:10px;font-family:'Courier New',monospace;font-size:14px;background:#111827;color:#f8fafc;resize:vertical;">${escapeHtml(this.answers['code'] || starterCode)}</textarea>
+            </div>
+            <div>
+              <label for="codingCustomInput" style="display:block;margin-bottom:6px;font-size:12px;font-weight:600;color:#93c5fd;">Custom Input (used when running code)</label>
+              <textarea id="codingCustomInput" style="width:100%;min-height:60px;padding:10px;border:none;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;background:#1f2937;color:#f8fafc;resize:vertical;" placeholder="Optional input..."></textarea>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;">
+              <button id="codingRunBtn" onclick="window.activityTester.runCodingQuick()" style="background:#10b981;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="fas fa-play"></i> Run Code</button>
+              <button id="codingCheckBtn" onclick="window.activityTester.checkCodingTest()" style="background:#22c55e;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="fas fa-check-circle"></i> Check Test</button>
+              <button id="codingTestAllBtn" onclick="window.activityTester.testCodingAll()" style="background:#facc15;color:#1f2937;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="fas fa-vial"></i> Test (All Cases)</button>
+              <button id="codingResetBtn" onclick="window.activityTester.resetCodingPreview()" style="background:#6b7280;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="fas fa-undo"></i> Reset</button>
+              <button onclick="window.activityTester.saveCodingDraft()" style="background:#2563eb;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="fas fa-save"></i> Save Draft</button>
+            </div>
+            <div id="codingStatusMessage" style="font-size:13px;font-weight:600;color:#60a5fa;">Ready to run tests.</div>
+            <div id="codingTerminalOutput" style="display:none;padding:14px;border-radius:10px;background:#111827;color:#f8fafc;font-family:'Courier New',monospace;white-space:pre-wrap;max-height:220px;overflow:auto;"></div>
+          </div>
+          <div style="flex:0 0 280px;min-width:260px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:16px;">
+            <div style="padding:12px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;">
+              <div style="font-size:12px;color:#6b7280;">Score</div>
+              <div style="font-size:18px;font-weight:700;color:#0f172a;" id="codingScoreSummary">0 / ${totalPoints}</div>
+            </div>
+            <div>
+              <h5 style="margin:0 0 10px 0;font-size:14px;font-weight:600;color:#1f2937;">Test Cases</h5>
+              <div id="codingTestCasesList" style="display:flex;flex-direction:column;gap:12px;max-height:55vh;overflow:auto;">
+                ${testCaseBlocks}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  buildCodingTestCaseBlocks(ctx) {
+    const testCases = ctx?.testCases || [];
+    if (!testCases.length) {
+      return '<div style="padding:12px;border:1px dashed #e5e7eb;border-radius:8px;color:#6b7280;font-size:13px;">No test cases configured for this activity.</div>';
+    }
+
+    return testCases.map((tc, idx) => {
+      const inputText = tc.input_text || tc.inputText || tc.input || '';
+      const expectedOutput = tc.expected_output || tc.expectedOutput || tc.expected_output_text || '';
+      const points = parseInt(tc.points || 0, 10) || 0;
+      const sampleBadge = tc.is_sample ? '<span style="margin-left:8px;background:#d1fae5;color:#047857;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;">Sample</span>' : '';
+      return `
+        <div class="coding-testcase" data-testcase-index="${idx}" style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:#1f2937;cursor:pointer;">
+              <input type="radio" name="coding-testcase" value="${idx}" ${idx === 0 ? 'checked' : ''}>
+              Test Case ${idx + 1} ${sampleBadge}
+              ${points ? `<span style="font-size:11px;color:#64748b;font-weight:500;">(${points} pts)</span>` : ''}
+            </label>
+            <span id="codingStatus-${idx}" style="font-size:12px;color:#6b7280;font-weight:600;">Not run</span>
+          </div>
+          <div style="display:grid;gap:10px;font-size:12px;color:#111827;">
+            <div>
+              <div style="font-weight:600;color:#6b7280;">Input</div>
+              <pre style="margin:4px 0 0 0;padding:8px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(inputText)}</pre>
+            </div>
+            <div>
+              <div style="font-weight:600;color:#6b7280;">Expected Output</div>
+              <pre style="margin:4px 0 0 0;padding:8px;background:#f3f4f6;border-radius:6px;border:1px solid #e5e7eb;white-space:pre-wrap;font-family:'Courier New',monospace;">${escapeHtml(expectedOutput)}</pre>
+            </div>
+            <div>
+              <div style="font-weight:600;color:#6b7280;">Your Output</div>
+              <pre id="codingOutput-${idx}" style="margin:4px 0 0 0;padding:8px;background:#0f172a;color:#e5e7eb;border-radius:6px;border:1px solid #1f2937;white-space:pre-wrap;font-family:'Courier New',monospace;">(not run)</pre>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   // Render generic activity
@@ -1311,17 +1595,481 @@ class ActivityTester {
     
     }
 
-  // Run activity code
+  // Backwards compatibility wrappers
   runActivityCode() {
-    const code = document.getElementById('activityCode').value;
-    this.showNotification('info', 'Code execution would happen here');
+    return this.runCodingQuick();
   }
 
-  // Save activity code
   saveActivityCode() {
-    const code = document.getElementById('activityCode').value;
+    return this.saveCodingDraft();
+  }
+
+  // === Coding preview helpers ===
+  runCodingQuick() {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return;
+
+    const code = this.getCodingCode();
+    if (!code) {
+      this.setCodingStatus('Please write some code before running a test.', 'error');
+      return;
+    }
+
+    const selectedIndex = this.getSelectedCodingTestIndex();
+    const manualInputEl = document.getElementById('codingCustomInput');
+    const stdin = manualInputEl ? manualInputEl.value : '';
+
+    this.setCodingStatus(`Running test case ${selectedIndex + 1}...`, 'info');
+    this.setCodingButtonsDisabled('run', true);
+
+    this.executeCodingRequest({ code, stdin, quick: true })
+      .then(res => {
+        this.applyCodingQuickResult(res, selectedIndex, code, stdin);
+        this.setCodingStatus(`Finished running test case ${selectedIndex + 1}.`, 'success');
+      })
+      .catch(err => {
+        console.error('❌ Run code error:', err);
+        this.setCodingStatus(`Run failed: ${err && err.message ? err.message : err}`, 'error');
+      })
+      .finally(() => {
+        this.setCodingButtonsDisabled('run', false);
+      });
+  }
+
+  checkCodingTest() {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return;
+    const code = this.getCodingCode();
+    if (!code) {
+      this.setCodingStatus('Please write some code before checking a test case.', 'error');
+      return;
+    }
+
+    const index = this.getSelectedCodingTestIndex();
+    const testCase = ctx.testCases[index];
+    if (!testCase) {
+      this.setCodingStatus('No test case selected.', 'error');
+      return;
+    }
+
+    const stdin = testCase.input_text || testCase.inputText || testCase.input || '';
+    this.setCodingStatus(`Checking test case ${index + 1}...`, 'info');
+    this.setCodingButtonsDisabled('check', true);
+
+    this.executeCodingRequest({ code, stdin, quick: true })
+      .then(res => {
+        this.applyCodingCheckResult(res, index, code, stdin);
+      })
+      .catch(err => {
+        console.error('❌ Check test error:', err);
+        this.setCodingStatus(`Check Test failed: ${err && err.message ? err.message : err}`, 'error');
+      })
+      .finally(() => {
+        this.setCodingButtonsDisabled('check', false);
+      });
+  }
+
+  testCodingAll() {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return;
+    const code = this.getCodingCode();
+    if (!code) {
+      this.setCodingStatus('Please write some code before running all test cases.', 'error');
+      return;
+    }
+
+    if (!ctx.testCases.length) {
+      this.setCodingStatus('No test cases available for this activity.', 'error');
+      return;
+    }
+
+    this.setCodingStatus('Running all test cases...', 'info');
+    this.setCodingButtonsDisabled('all', true);
+
+    this.executeCodingRequest({ code })
+      .then(res => {
+        this.applyCodingAllResult(res, code);
+      })
+      .catch(err => {
+        console.error('❌ Test all error:', err);
+        this.setCodingStatus(`Test (All Cases) failed: ${err && err.message ? err.message : err}`, 'error');
+      })
+      .finally(() => {
+        this.setCodingButtonsDisabled('all', false);
+      });
+  }
+
+  resetCodingPreview() {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return;
+
+    ctx.results = ctx.testCases.map(() => ({ status: 'not_run', earned: 0, output: '' }));
+    ctx.score = 0;
+
+    ctx.testCases.forEach((_, idx) => {
+      const outEl = document.getElementById(`codingOutput-${idx}`);
+      if (outEl) outEl.textContent = '(not run)';
+      const statusEl = document.getElementById(`codingStatus-${idx}`);
+      if (statusEl) {
+        statusEl.textContent = 'Not run';
+        statusEl.style.color = '#6b7280';
+      }
+    });
+
+    const customInputEl = document.getElementById('codingCustomInput');
+    if (customInputEl) {
+      const selectedIndex = this.getSelectedCodingTestIndex();
+      const selectedCase = ctx.testCases[selectedIndex];
+      const defaultInput = selectedCase ? (selectedCase.input_text || selectedCase.inputText || selectedCase.input || '') : '';
+      customInputEl.value = defaultInput;
+    }
+
+    const terminalEl = document.getElementById('codingTerminalOutput');
+    if (terminalEl) {
+      terminalEl.style.display = 'none';
+      terminalEl.textContent = '';
+    }
+
+    this.updateCodingScoreDisplay();
+    this.setCodingStatus('Ready to run tests.', 'info');
+  }
+
+  saveCodingDraft() {
+    const code = this.getCodingCode();
     this.answers['code'] = code;
-    this.showNotification('success', 'Code saved successfully!');
+    this.showNotification('success', 'Code saved locally for this preview.');
+  }
+
+  initializeCodingPreview(activity) {
+    const ctx = this.buildCodingContext(activity || this.currentActivity);
+    if (!ctx) return;
+
+    const codeTextarea = document.getElementById('activityCode');
+    if (codeTextarea && (!codeTextarea.value || !codeTextarea.value.trim())) {
+      codeTextarea.value = ctx.meta.starterCode || ctx.meta.starter_code || '';
+    }
+
+    const customInputEl = document.getElementById('codingCustomInput');
+    if (customInputEl) {
+      const firstCase = ctx.testCases[0];
+      customInputEl.value = firstCase ? (firstCase.input_text || firstCase.inputText || firstCase.input || '') : '';
+    }
+
+    // Bind radio change events
+    const radios = document.querySelectorAll('input[name="coding-testcase"]');
+    radios.forEach(radio => {
+      radio.addEventListener('change', () => this.handleCodingTestcaseChange());
+    });
+
+    this.resetCodingPreview();
+    this.handleCodingTestcaseChange();
+  }
+
+  buildCodingContext(activity) {
+    if (!activity) return null;
+    const testCases = Array.isArray(activity.test_cases) ? activity.test_cases : (Array.isArray(activity.testCases) ? activity.testCases : []);
+    const meta = this.extractCodingMeta(activity);
+
+    let points = testCases.map(tc => parseInt(tc.points || 0, 10) || 0);
+    let total = points.reduce((sum, v) => sum + v, 0);
+    if (total === 0) {
+      const maxScore = parseInt(activity.max_score || activity.maxScore || 0, 10) || (testCases.length * 10);
+      const perCase = testCases.length ? Math.max(1, Math.floor(maxScore / Math.max(testCases.length, 1))) : 0;
+      points = testCases.map(() => perCase);
+      total = points.reduce((sum, v) => sum + v, 0);
+    }
+
+    this.codingContext = {
+      activity,
+      activityId: activity.id || activity.activity_id,
+      meta,
+      testCases,
+      points,
+      totalPoints: total,
+      results: testCases.map(() => ({ status: 'not_run', earned: 0, output: '' })),
+      score: 0
+    };
+
+    return this.codingContext;
+  }
+
+  ensureCodingContext(activity) {
+    if (!this.currentActivity && activity) {
+      this.currentActivity = activity;
+    }
+    if (!this.codingContext || (activity && (activity.id || activity.activity_id) !== this.codingContext.activityId)) {
+      return this.buildCodingContext(activity || this.currentActivity);
+    }
+    return this.codingContext;
+  }
+
+  extractCodingMeta(activity) {
+    if (!activity) return {};
+    if (activity.__codingMeta) return activity.__codingMeta;
+    let meta = {};
+
+    if (activity.meta && typeof activity.meta === 'object') {
+      meta = { ...meta, ...activity.meta };
+    }
+    if (activity.settings && typeof activity.settings === 'object') {
+      meta = { ...meta, ...activity.settings };
+    }
+    if (activity.instructions && typeof activity.instructions === 'string') {
+      try {
+        const parsed = JSON.parse(activity.instructions);
+        if (parsed && typeof parsed === 'object') {
+          meta = { ...meta, ...parsed };
+        }
+      } catch (_){
+        // ignore plain string instructions
+      }
+    }
+
+    activity.__codingMeta = meta;
+    return meta;
+  }
+
+  computeCodingTotalPoints(activity, testCases) {
+    const ctx = this.ensureCodingContext(activity);
+    return ctx ? ctx.totalPoints : 0;
+  }
+
+  getCodingCode() {
+    const textarea = document.getElementById('activityCode');
+    const value = textarea ? textarea.value : '';
+    this.answers['code'] = value;
+    return value;
+  }
+
+  getSelectedCodingTestIndex() {
+    const radios = document.querySelectorAll('input[name="coding-testcase"]');
+    for (const radio of radios) {
+      if (radio.checked) {
+        const idx = parseInt(radio.value, 10);
+        return Number.isFinite(idx) ? idx : 0;
+      }
+    }
+    return 0;
+  }
+
+  setCodingButtonsDisabled(scope, disabled) {
+    const map = {
+      run: document.getElementById('codingRunBtn'),
+      check: document.getElementById('codingCheckBtn'),
+      all: document.getElementById('codingTestAllBtn')
+    };
+    if (scope === 'run') {
+      if (map.run) map.run.disabled = disabled;
+    } else if (scope === 'check') {
+      if (map.check) map.check.disabled = disabled;
+    } else if (scope === 'all') {
+      Object.values(map).forEach(btn => { if (btn) btn.disabled = disabled; });
+    } else {
+      Object.values(map).forEach(btn => { if (btn) btn.disabled = disabled; });
+    }
+  }
+
+  setCodingStatus(message, type = 'info') {
+    const statusEl = document.getElementById('codingStatusMessage');
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    let color = '#2563eb';
+    if (type === 'success') color = '#16a34a';
+    else if (type === 'error') color = '#dc2626';
+    statusEl.style.color = color;
+  }
+
+  updateCodingScoreDisplay() {
+    const ctx = this.codingContext;
+    const scoreEls = [document.getElementById('codingScoreValue'), document.getElementById('codingScoreSummary')];
+    if (ctx) {
+      scoreEls.forEach(el => {
+        if (el) el.textContent = `${ctx.score} / ${ctx.totalPoints}`;
+      });
+    }
+  }
+
+  executeCodingRequest({ code, stdin, quick }) {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return Promise.reject(new Error('Context not ready'));
+
+    const fd = new FormData();
+    fd.append('action', 'run_activity');
+    fd.append('activity_id', String(ctx.activity.id || ctx.activity.activity_id || ''));
+    fd.append('source', code);
+    if (quick) fd.append('quick', '1');
+    if (typeof stdin === 'string') {
+      fd.append('stdin', stdin);
+    }
+
+    return fetch('course_outline_manage.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+        return r.json();
+      })
+      .then(res => {
+        if (!res || !res.success) {
+          throw new Error(res && res.message ? res.message : 'Execution failed');
+        }
+        return res;
+      });
+  }
+
+  applyCodingQuickResult(res, index, code, stdin) {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return;
+    const results = Array.isArray(res.results) ? res.results : [];
+    const result = results[0] || {};
+    const output = this.extractCodingOutput(result);
+
+    this.updateCodingCaseOutput(index, output);
+
+    const terminalEl = document.getElementById('codingTerminalOutput');
+    if (terminalEl) {
+      terminalEl.style.display = 'block';
+      let terminalText = '';
+      if (stdin) {
+        terminalText += `> Input\n${stdin}\n\n`;
+      }
+      terminalText += output || '(no output)';
+      terminalEl.textContent = terminalText;
+    }
+  }
+
+  applyCodingCheckResult(res, index, code, stdin) {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return;
+    const result = (Array.isArray(res.results) ? res.results : [])[0] || {};
+    const output = this.extractCodingOutput(result);
+
+    const evaluation = this.evaluateCodingCase(index, output, code);
+    ctx.results[index] = {
+      status: evaluation.passed ? 'passed' : (evaluation.hasError ? 'error' : 'failed'),
+      earned: evaluation.earned,
+      output
+    };
+
+    ctx.score = ctx.results.reduce((sum, c) => sum + (c.earned || 0), 0);
+
+    this.updateCodingCaseOutput(index, output, evaluation);
+    this.updateCodingScoreDisplay();
+
+    if (evaluation.passed) {
+      this.setCodingStatus(`Great! Test case ${index + 1} passed.`, 'success');
+    } else if (evaluation.hasError) {
+      this.setCodingStatus(`Runtime error on test case ${index + 1}.`, 'error');
+    } else {
+      this.setCodingStatus(`Output did not match for test case ${index + 1}.`, 'error');
+    }
+  }
+
+  applyCodingAllResult(res, code) {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return;
+    const results = Array.isArray(res.results) ? res.results : [];
+    const constructCheck = this.evaluateConstructUsage(code);
+
+    ctx.results = ctx.testCases.map((tc, idx) => {
+      const result = results[idx] || {};
+      const output = this.extractCodingOutput(result);
+      const evaluation = this.evaluateCodingCase(idx, output, code, constructCheck);
+      this.updateCodingCaseOutput(idx, output, evaluation);
+      return {
+        status: evaluation.passed ? 'passed' : (evaluation.hasError ? 'error' : 'failed'),
+        earned: evaluation.earned,
+        output
+      };
+    });
+
+    ctx.score = ctx.results.reduce((sum, c) => sum + (c.earned || 0), 0);
+    this.updateCodingScoreDisplay();
+
+    const passedCount = ctx.results.filter(r => r.status === 'passed').length;
+    if (passedCount === ctx.results.length && ctx.results.length > 0) {
+      this.setCodingStatus(`Perfect! All ${ctx.results.length} test cases passed.`, 'success');
+    } else {
+      this.setCodingStatus(`Completed testing. Passed ${passedCount} of ${ctx.results.length} test cases.`, passedCount > 0 ? 'info' : 'error');
+    }
+  }
+
+  updateCodingCaseOutput(index, output, evaluation = null) {
+    const outEl = document.getElementById(`codingOutput-${index}`);
+    if (outEl) {
+      outEl.textContent = output || '(no output)';
+    }
+    const statusEl = document.getElementById(`codingStatus-${index}`);
+    if (!statusEl) return;
+
+    if (!evaluation) {
+      statusEl.textContent = 'Output ready';
+      statusEl.style.color = '#2563eb';
+      return;
+    }
+
+    if (evaluation.passed) {
+      statusEl.textContent = `Passed (+${evaluation.earned} pts)`;
+      statusEl.style.color = '#16a34a';
+    } else if (evaluation.hasError) {
+      statusEl.textContent = 'Runtime error';
+      statusEl.style.color = '#dc2626';
+    } else {
+      statusEl.textContent = 'Wrong answer';
+      statusEl.style.color = '#dc2626';
+    }
+  }
+
+  extractCodingOutput(result) {
+    if (!result) return '';
+    const err = result.error || result.stderr || (result.data && result.data.error);
+    if (err) {
+      return `Error: ${err}`;
+    }
+    return (result.output || result.stdout || result.outputText || (result.data && result.data.output) || '').toString();
+  }
+
+  evaluateConstructUsage(code) {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return { ok: true };
+    const required = ctx.meta.requiredConstruct || ctx.meta.required_construct;
+    if (!required) return { ok: true };
+    return detectConstructUsage(code, ctx.meta.language || 'cpp', required);
+  }
+
+  evaluateCodingCase(index, output, code, constructCheckOverride) {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return { passed: false, earned: 0, hasError: true };
+    const testCase = ctx.testCases[index];
+    const points = ctx.points[index] || 0;
+    const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    const expected = norm(testCase && (testCase.expected_output || testCase.expectedOutput || testCase.expected_output_text || ''));
+    const actual = norm(output || '');
+    const hasError = typeof output === 'string' && output.startsWith('Error:');
+    const passed = !hasError && (expected === '' ? actual !== '' : actual === expected);
+
+    let earned = passed ? points : 0;
+    const constructCheck = constructCheckOverride || this.evaluateConstructUsage(code);
+    const requiredConstruct = ctx.meta.requiredConstruct || ctx.meta.required_construct;
+    if (requiredConstruct && passed && constructCheck && constructCheck.ok === false && earned > 0) {
+      earned = Math.max(1, Math.round(points * 0.5));
+    }
+
+    return { passed, earned, hasError, expected, actual };
+  }
+
+  handleCodingTestcaseChange() {
+    const ctx = this.ensureCodingContext();
+    if (!ctx) return;
+    const selectedIndex = this.getSelectedCodingTestIndex();
+    const testCase = ctx.testCases[selectedIndex];
+    const inputValue = testCase ? (testCase.input_text || testCase.inputText || testCase.input || '') : '';
+    const customInputEl = document.getElementById('codingCustomInput');
+    if (customInputEl) {
+      customInputEl.value = inputValue;
+    }
   }
 
   // Update navigation for activities without questions
@@ -1973,6 +2721,9 @@ class ActivityTester {
 
   // Bind event listeners
   bindEvents() {
+    if (this.modal && this.modal.getAttribute('data-coding-preview') === '1') {
+      return;
+    }
     // Close modal
     const closeBtn = document.getElementById('closeTryAnsweringModal');
     if (closeBtn) {
@@ -2122,6 +2873,7 @@ class ActivityTester {
       this.questions = null;
       this.answers = {};
       this.currentQuestionIndex = 0;
+      this.codingContext = null;
     }
   }
 
@@ -2349,9 +3101,17 @@ function loadTopicsFromCourse() {
               console.log(`🎓 loadTopicsFromCourse: Activity ${activity.id} - isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
               
               // Format dates - show "-" if not set (like in the reference image)
+              // CRITICAL: Treat dates as Manila time (UTC+8) if no timezone info
               const formatDate = (dateStr) => {
                 if (!dateStr) return '-';
-                const d = new Date(dateStr);
+                // If date string has no timezone indicator, assume it's Manila time (UTC+8)
+                let dateStrFixed = dateStr;
+                // Check if it's MySQL DATETIME format (YYYY-MM-DD HH:MM:SS) without timezone
+                if (dateStr && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)) {
+                  // Convert to ISO format with Manila timezone: "2025-11-07 16:34:00" -> "2025-11-07T16:34:00+08:00"
+                  dateStrFixed = dateStr.replace(' ', 'T') + '+08:00';
+                }
+                const d = new Date(dateStrFixed);
                 return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) + ', ' + 
                        d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
               };
@@ -2416,9 +3176,17 @@ function loadTopicsFromCourse() {
               console.log('👨‍🏫 DEBUG - Will render Unlock button:', isLocked);
               
               // Format dates for teacher view
+              // CRITICAL: Treat dates as Manila time (UTC+8) if no timezone info
               const formatDate = (dateStr) => {
                 if (!dateStr) return 'Not set';
-                const d = new Date(dateStr);
+                // If date string has no timezone indicator, assume it's Manila time (UTC+8)
+                let dateStrFixed = dateStr;
+                // Check if it's MySQL DATETIME format (YYYY-MM-DD HH:MM:SS) without timezone
+                if (dateStr && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)) {
+                  // Convert to ISO format with Manila timezone: "2025-11-07 16:34:00" -> "2025-11-07T16:34:00+08:00"
+                  dateStrFixed = dateStr.replace(' ', 'T') + '+08:00';
+                }
+                const d = new Date(dateStrFixed);
                 return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + 
                        d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
               };
@@ -2792,9 +3560,17 @@ function loadTopicContent(item, lessonId) {
           console.log(`🔍 loadTopicContent: Activity start_at:`, activity.start_at, 'type:', typeof activity.start_at);
           
           // Format dates
+          // CRITICAL: Treat dates as Manila time (UTC+8) if no timezone info
           const formatDate = (dateStr) => {
             if (!dateStr) return 'Not set';
-            const d = new Date(dateStr);
+            // If date string has no timezone indicator, assume it's Manila time (UTC+8)
+            let dateStrFixed = dateStr;
+            // Check if it's MySQL DATETIME format (YYYY-MM-DD HH:MM:SS) without timezone
+            if (dateStr && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)) {
+              // Convert to ISO format with Manila timezone: "2025-11-07 16:34:00" -> "2025-11-07T16:34:00+08:00"
+              dateStrFixed = dateStr.replace(' ', 'T') + '+08:00';
+            }
+            const d = new Date(dateStrFixed);
             return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + 
                    d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
           };

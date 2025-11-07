@@ -46,12 +46,13 @@ async function getCSRFToken() {
   // Refresh token if missing or older than 5 minutes
   try {
     if (csrfToken && (Date.now() - csrfTokenTs) < 5 * 60 * 1000) {
+      console.log('🔐 [CSRF] Using cached token');
       return csrfToken;
     }
   } catch(_) {}
   
   try {
-    const fd = new FormData();
+    let fd = new FormData();
     fd.append('action','get_csrf_token');
     const response = await fetch('course_outline_manage.php', {
       method: 'POST',
@@ -62,10 +63,13 @@ async function getCSRFToken() {
     if (data.success && data.token) {
       csrfToken = data.token;
       csrfTokenTs = Date.now();
+      console.log('🔐 [CSRF] Fetched new token', csrfToken.substring(0, 12) + '...');
       return csrfToken;
     } else {
+      console.warn('⚠️ [CSRF] Token fetch response invalid', data);
     }
   } catch (e) {
+    console.error('❌ [CSRF] Token fetch failed', e);
   }
   return null;
 }
@@ -74,7 +78,9 @@ async function addCSRFToken(formData) {
   const token = await getCSRFToken();
   if (token) {
     formData.append('csrf_token', token);
+    console.log('🔐 [CSRF] Token appended to FormData');
   } else {
+    console.warn('⚠️ [CSRF] No token available to append');
   }
   return formData;
 }
@@ -323,7 +329,6 @@ function updateRecentLogins(logins) {
     container.innerHTML = '<div class="coordinator-empty-state">No recent logins</div>';
   }
 }
-
 // Initialize coordinator courses
 function initCoordinatorCourses() {
   // Set up create course button
@@ -663,7 +668,6 @@ function addModule() {
     if (newInput) newInput.focus();
   }
 }
-
 // Remove module input
 function removeModule(button) {
   const container = document.getElementById('initialModules');
@@ -1941,11 +1945,9 @@ function viewOutline(courseId) {
                     console.error('🔍 [EDIT LOAD] Failed to parse coding instructions:', e);
                   }
                 }
-                
                 // CRITICAL: For Test button, open in PREVIEW mode (not edit mode)
                 // This allows coordinator to test the activity as students would see it
                 preloadedState.viewMode = 'preview';
-                
                 // NOW open the form with pre-loaded data in PREVIEW mode
                 showCreateActivityForm(lessonId, { editActivityId: activityId, preloadedData: preloadedState });
                 
@@ -2069,7 +2071,7 @@ function viewOutline(courseId) {
                 else if (lang==='python3') defaultSource = 'print("OK")';
                 else defaultSource = '#include <iostream>\nint main(){ std::cout<<"OK"; return 0; }';
               }
-          const fd = new FormData();
+          let fd = new FormData();
           fd.append('action','run_activity');
           fd.append('activity_id', activityId);
               fd.append('source', defaultSource);
@@ -2629,7 +2631,6 @@ function deleteCourse(courseId) {
       .catch(()=>{ window.showNotification('error','Error','Network error'); });
   });
 }
-
 // Get role icon
 function getRoleIcon(role) {
   const roleIcons = {
@@ -4248,7 +4249,6 @@ function showCreateActivityForm(lessonId, opts){
     });
   }
   console.log('🔍 [SHOW_FORM] =====================================');
-  
   // === AUTOSAVE/RESTORE (localStorage) ===
   try {
     const key = 'cr_createActivityDraft_' + String(lessonId);
@@ -4558,7 +4558,6 @@ function showCreateActivityForm(lessonId, opts){
       } else {
         console.log('🔍 DEBUG: cleanActivitySystem not available, falling back to custom preview');
       }
-      
       // Fallback to custom preview if cleanActivitySystem not available
       body.innerHTML = `
         <div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;display:flex;flex-direction:column;min-height:60vh;">
@@ -5589,7 +5588,6 @@ function showCreateActivityForm(lessonId, opts){
         return mapped;
       });
       console.log('🔍 [PAYLOAD] Total test cases in payload:', payload.test_cases.length);
-      
       // CRITICAL: Get required_construct from dropdown FIRST (most up-to-date), then fallback to state
       const rcDropdown = modal.querySelector('#cafRequiredConstruct');
       let rcValue = '';
@@ -6087,7 +6085,7 @@ window.checkCodestemTests = async function() {
     const requiredConstruct = window.__CURRENT_ACTIVITY_REQUIRED_CONSTRUCT__ || (activityMeta.requiredConstruct || '');
     
     // Run code against ALL test cases (not quick mode)
-    const fd = new FormData();
+    let fd = new FormData();
     fd.append('action', 'run_activity');
     fd.append('activity_id', String(activityId));
     fd.append('source', code);
@@ -6261,7 +6259,6 @@ window.checkCodestemTests = async function() {
     if (savedIndicator) {
       savedIndicator.innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Saved';
     }
-    
   } catch (error) {
     console.error('Error checking tests:', error);
     alert('Error checking tests: ' + (error.message || 'Please try again.'));
@@ -6586,7 +6583,6 @@ window.resetPreviewCode = function() {
   const evt = new Event('click', { bubbles: true });
   resetBtn.dispatchEvent(evt);
 };
-
 // Submit handler for student coding test (runs JDoodle then saves attempt)
 document.addEventListener('click', function(e){
   const btn = e.target && e.target.id === 'codingSubmitBtn' ? e.target : null;
@@ -6603,7 +6599,7 @@ document.addEventListener('click', function(e){
   if (mount) mount.innerHTML = '<div class="loading-spinner">Running…</div>';
 
   // Quick run first against sample/all to get verdict
-  const fd = new FormData();
+  let fd = new FormData();
   fd.append('action','run_activity');
   fd.append('activity_id', String(activity.id||activity.activity_id||''));
   fd.append('source', source);
@@ -6894,7 +6890,6 @@ function renderProfessionalTestQuestions(activity, activityType) {
   console.log('🔍 DEBUG: Generated HTML:', html);
   return html;
 }
-
 // Coordinator preview for coding activities (Codestem-style layout)
 function renderCodingPreview(activity){
   let meta = {};
@@ -7179,7 +7174,7 @@ function renderCodingPreview(activity){
       
       // If no input needed, proceed with API call
       // Execute API call
-      const fd = new FormData();
+      let fd = new FormData();
       fd.append('action','run_activity');
       fd.append('activity_id', String(activity.id || activity.activity_id || ''));
       fd.append('source', code);
@@ -7196,7 +7191,24 @@ function renderCodingPreview(activity){
         language: language
       });
       
-      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+      // CRITICAL: Add CSRF token before sending (using proven pattern from line 3638)
+      (async function(){ 
+        try { 
+          fd = await addCSRFToken(fd); 
+        } catch(e){ 
+          console.warn('⚠️ [CSRF] addCSRFToken failed, trying manual fetch:', e);
+          try {
+            const token = await getCSRFToken();
+            if (token) {
+              fd.append('csrf_token', token);
+              console.log('✅ [CSRF] Manual token added');
+            }
+          } catch(e2) {
+            console.error('❌ [CSRF] Manual token fetch failed:', e2);
+          }
+        } 
+        return fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' }); 
+      })()
         .then(function(r) {
           console.log('📡 API Response status:', r.status, r.statusText);
           if (!r || !r.ok) {
@@ -7309,7 +7321,19 @@ function renderCodingPreview(activity){
       
       console.log('🚀 Running code with user input:', userInput);
       
-      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+      // CRITICAL: Add CSRF token before sending
+      ;(async function(){ 
+        try { 
+          fd = await addCSRFToken(fd); 
+        } catch(e){ 
+          console.warn('⚠️ [CSRF] addCSRFToken failed, trying manual fetch:', e);
+          try {
+            const token = await getCSRFToken();
+            if (token) fd.append('csrf_token', token);
+          } catch(e2) {}
+        } 
+        return fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' }); 
+      })()
         .then(function(r) {
           if (!r || !r.ok) {
             throw new Error('HTTP ' + (r ? r.status : 'unknown') + ': ' + (r ? r.statusText : 'No response'));
@@ -7444,6 +7468,9 @@ function renderCodingPreview(activity){
         return false;
       }
 
+      // Store test start time for duration calculation
+      window.__previewTestStartTime = Date.now();
+      
       if (testBtn) {
         testBtn.disabled = true;
         testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
@@ -7455,12 +7482,24 @@ function renderCodingPreview(activity){
       // }
 
       console.log('🚀 [PREVIEW MODE] Sending API request to run all test cases...');
-      const fd = new FormData();
+      let fd = new FormData();
       fd.append('action','run_activity');
       fd.append('activity_id', String(activity.id || activity.activity_id || ''));
       fd.append('source', code);
       
-      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+      // CRITICAL: Add CSRF token before sending
+      ;(async function(){ 
+        try { 
+          fd = await addCSRFToken(fd); 
+        } catch(e){ 
+          console.warn('⚠️ [CSRF] addCSRFToken failed, trying manual fetch:', e);
+          try {
+            const token = await getCSRFToken();
+            if (token) fd.append('csrf_token', token);
+          } catch(e2) {}
+        } 
+        return fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' }); 
+      })()
         .then(r => {
           console.log('📡 [PREVIEW MODE] API Response status:', r.status);
           if (!r.ok) {
@@ -7498,11 +7537,11 @@ function renderCodingPreview(activity){
           
           // CRITICAL: Check required construct usage (once per run, not per test case)
           const requiredConstruct = activity.required_construct || activity.requiredConstruct || (activity.meta && (activity.meta.requiredConstruct || activity.meta.required_construct)) || '';
-          const language = activity.language || (activity.meta && activity.meta.language) || 'cpp';
+          const testLanguage = activity.language || (activity.meta && activity.meta.language) || 'cpp';
           const constructCheck = (function(){
             try {
               if (!requiredConstruct) return { ok: true, required: '' };
-              return detectConstructUsage(code, language, requiredConstruct);
+              return detectConstructUsage(code, testLanguage, requiredConstruct);
             } catch(e){ 
               console.warn('⚠️ [PREVIEW MODE] Construct detection error:', e);
               return { ok: true, required: '' }; 
@@ -7515,7 +7554,6 @@ function renderCodingPreview(activity){
             constructOk: constructCheck.ok,
             constructRequired: constructCheck.required
           });
-          
           console.log('🔍 [PREVIEW MODE] Points check:', {
             sumExistingPoints,
             maxScoreFromActivity,
@@ -7661,6 +7699,104 @@ function renderCodingPreview(activity){
             points: c.points 
           })));
           console.log('📊 [PREVIEW MODE] ============================================');
+          
+          // Determine verdict
+          let verdict = 'AC';
+          if (passedCount === 0) {
+            verdict = 'WA'; // All wrong
+          } else if (passedCount < totalCount) {
+            verdict = 'PA'; // Partially accepted
+          }
+          
+          // CRITICAL: Save submission to database
+          // Note: Duration is calculated from when the test started (stored in closure)
+          const testStartTime = window.__previewTestStartTime || Date.now();
+          const durationMs = Date.now() - testStartTime;
+          const activityId = activity.id || activity.activity_id || 0;
+          const meta = window.__codingPreviewCtx && window.__codingPreviewCtx.meta ? window.__codingPreviewCtx.meta : {};
+          const submissionLanguage = (meta && meta.language) ? String(meta.language).toLowerCase() : testLanguage || 'cpp';
+          
+          // Save attempt asynchronously (don't block UI)
+          (async function saveSubmission() {
+            try {
+              console.log('💾 [PREVIEW MODE] Saving submission to database...');
+              
+              // Get CSRF token
+              let csrfToken = null;
+              try {
+                const tokenRes = await fetch('course_outline_manage.php', {
+                  method: 'POST',
+                  body: (() => {
+                    const fd = new FormData();
+                    fd.append('action', 'get_csrf_token');
+                    return fd;
+                  })(),
+                  credentials: 'same-origin'
+                });
+                const tokenData = await tokenRes.json();
+                if (tokenData && tokenData.token) {
+                  csrfToken = tokenData.token;
+                }
+              } catch(e) {
+                console.warn('⚠️ [PREVIEW MODE] Failed to get CSRF token:', e);
+              }
+              
+              // Prepare submission data
+              const submitFd = new FormData();
+              submitFd.append('action', 'submit_attempt');
+              submitFd.append('activity_id', String(activityId));
+              submitFd.append('language', submissionLanguage);
+              submitFd.append('source', code);
+              submitFd.append('results', JSON.stringify(results));
+              submitFd.append('verdict', verdict);
+              submitFd.append('score', String(totalPts));
+              submitFd.append('duration_ms', String(durationMs));
+              
+              if (csrfToken) {
+                submitFd.append('csrf_token', csrfToken);
+              }
+              
+              // Save to submissions API
+              const submitRes = await fetch('submissions_api.php?action=submit_attempt', {
+                method: 'POST',
+                body: submitFd,
+                credentials: 'same-origin'
+              });
+              
+              const submitData = await submitRes.json();
+              if (submitData && submitData.success) {
+                console.log('✅ [PREVIEW MODE] Submission saved successfully! ID:', submitData.id);
+                
+                // Also update activity progress with the score
+                try {
+                  // Get user ID from session (will be set by PHP in the page)
+                  const userId = window.__USER_ID__ || (typeof __USER_ID__ !== 'undefined' ? __USER_ID__ : null);
+                  if (userId && activityId) {
+                    await fetch('save_activity_progress.php', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'same-origin',
+                      body: JSON.stringify({
+                        activity_id: activityId,
+                        user_id: userId,
+                        answers: { code: code },
+                        score: totalPts,
+                        completed: (verdict === 'AC' && passedCount === totalCount)
+                      })
+                    });
+                    console.log('✅ [PREVIEW MODE] Activity progress updated');
+                  }
+                } catch(progressErr) {
+                  console.warn('⚠️ [PREVIEW MODE] Failed to update progress:', progressErr);
+                }
+              } else {
+                console.warn('⚠️ [PREVIEW MODE] Submission save failed:', submitData.message || 'Unknown error');
+              }
+            } catch (submitErr) {
+              console.warn('⚠️ [PREVIEW MODE] Error saving submission:', submitErr);
+              // Don't block UI - submission save failure is non-critical
+            }
+          })();
           
           // CRITICAL: Show results modal
           console.log('🎯 [PREVIEW MODE] About to show results modal');
@@ -7852,7 +7988,6 @@ function renderCodingPreview(activity){
               }
             });
             console.log('✅ [PREVIEW MODE] ========== ALL TEST CASE OUTPUTS UPDATED ==========');
-            
             // CRITICAL: Verify all outputs were updated correctly
             console.log('🔍 [PREVIEW MODE] ========== VERIFYING OUTPUTS ==========');
             cases.forEach((c, i) => {
@@ -7977,7 +8112,7 @@ function renderCodingPreview(activity){
       console.log('🔍 [CHECK TEST DEBUG] Code length:', code.length);
       console.log('🔍 [CHECK TEST DEBUG] Activity ID:', activity.id || activity.activity_id);
       
-      const fd = new FormData();
+      let fd = new FormData();
       fd.append('action','run_activity');
       fd.append('activity_id', String(activity.id || activity.activity_id || ''));
       fd.append('source', code);
@@ -7986,7 +8121,19 @@ function renderCodingPreview(activity){
       
       console.log('🔍 [CHECK TEST DEBUG] FormData prepared, sending API request...');
       
-      fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' })
+      // CRITICAL: Add CSRF token before sending
+      ;(async function(){ 
+        try { 
+          fd = await addCSRFToken(fd); 
+        } catch(e){ 
+          console.warn('⚠️ [CSRF] addCSRFToken failed, trying manual fetch:', e);
+          try {
+            const token = await getCSRFToken();
+            if (token) fd.append('csrf_token', token);
+          } catch(e2) {}
+        } 
+        return fetch('course_outline_manage.php', { method:'POST', body: fd, credentials:'same-origin' }); 
+      })()
         .then(r => {
           if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
           return r.json();
@@ -8187,7 +8334,6 @@ function renderCodingPreview(activity){
                     <div style="font-weight:600;color:#374151;margin-bottom:8px;font-size:14px;">Expected Output:</div>
                     <pre style="margin:0;padding:8px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-family:monospace;font-size:13px;color:#1f2937;white-space:pre-wrap;word-wrap:break-word;">${escapeHtml(expectedOutput || '(no expected output)')}</pre>
                   </div>
-                  
                   ${!passed && normalizedExpected !== '' ? `
                   <div style="padding:12px;background:#fef3c7;border-radius:8px;border-left:4px solid #f59e0b;">
                     <div style="font-weight:600;color:#92400e;margin-bottom:8px;font-size:14px;">Difference:</div>
@@ -8539,7 +8685,6 @@ function renderCodingPreview(activity){
       
       return '';
     };
-    
     // CRITICAL: Define the run handler function - COMPLETE VERSION
     // CREDIT FIX: Check if window.__previewRunHandler already executed
     const runHandler = function(e) {
@@ -8600,7 +8745,7 @@ function renderCodingPreview(activity){
         testCodingActivity(code, language, expected, outputDiv, runBtn);
       } else {
         try {
-          const fd = new FormData();
+          let fd = new FormData();
           fd.append('action','run_activity');
           fd.append('activity_id', String(activity.id || activity.activity_id || ''));
           fd.append('source', code);
@@ -8750,7 +8895,7 @@ function renderCodingPreview(activity){
         // }
 
         console.log('🚀 [PREVIEW MODE] Sending API request to run all test cases...');
-        const fd = new FormData();
+        let fd = new FormData();
         fd.append('action','run_activity');
         fd.append('activity_id', String(activity.id || activity.activity_id || ''));
         fd.append('source', code);
@@ -9180,8 +9325,6 @@ function testCodingActivity(code, language, expectedOutput, outputDiv, runBtn) {
     }
   }
 }
-
-
 // Function to render question input based on activity type
 function renderQuestionInput(question, index, activityType) {
   console.log('🔍 DEBUG: renderQuestionInput called with:', { question, index, activityType });
@@ -9530,7 +9673,6 @@ function setupPreviewChoiceClickHandlers() {
     }
   });
 }
-
 // Update progress for coordinator preview
 function updatePreviewProgress() {
   const progressCounter = document.getElementById('progress-counter');
@@ -10223,7 +10365,6 @@ function updateInstructions(value) {
   if (!window.cafState) return;
   window.cafState.instructions = value;
 }
-
 // ===== Upload-based Activity Question Management Functions =====
 function updateQuestionFileTypes(questionIndex, fileType, isChecked) {
   const state = window.createActivityState;
