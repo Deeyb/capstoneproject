@@ -1776,6 +1776,8 @@ function viewOutline(courseId) {
                     questionType: activityData.type,
                     instructionsText: activityData.instructions || '',
                     max_score: activityData.max_score || 0,
+                    startAt: activityData.start_at || '',
+                    dueAt: activityData.due_at || '',
                     requiredConstruct: '',
                     testCases: [],
                     editActivityId: aId,
@@ -1940,30 +1942,46 @@ function viewOutline(courseId) {
                   }
                 }
                 
-                // NOW open the form with pre-loaded data
+                // CRITICAL: For Test button, open in PREVIEW mode (not edit mode)
+                // This allows coordinator to test the activity as students would see it
+                preloadedState.viewMode = 'preview';
+                
+                // NOW open the form with pre-loaded data in PREVIEW mode
                 showCreateActivityForm(lessonId, { editActivityId: activityId, preloadedData: preloadedState });
                 
                 // CRITICAL: Wait for form to be fully initialized before applying pre-loaded data
                 const loadDataIntoForm = () => {
                   try {
                     if (!window.createActivityState) {
-                      console.warn('🔍 [EDIT LOAD] State not ready, retrying...');
+                      console.warn('🔍 [TEST LOAD] State not ready, retrying...');
                       setTimeout(loadDataIntoForm, 50);
                       return;
                     }
                     
-                    console.log('🔍 [EDIT LOAD] Data already pre-loaded, just verifying state...');
-                    console.log('🔍 [EDIT LOAD] Current state:', {
+                    console.log('🔍 [TEST LOAD] Data already pre-loaded, just verifying state...');
+                    console.log('🔍 [TEST LOAD] Current state:', {
                       requiredConstruct: window.createActivityState.requiredConstruct,
                       testCases: window.createActivityState.testCases,
-                      testCasesCount: window.createActivityState.testCases ? window.createActivityState.testCases.length : 0
+                      testCasesCount: window.createActivityState.testCases ? window.createActivityState.testCases.length : 0,
+                      viewMode: window.createActivityState.viewMode
                     });
                     
-                    // Set to edit mode so form fields are visible
-                    window.createActivityState.viewMode = 'edit';
+                    // CRITICAL: Set to PREVIEW mode so coordinator can test the activity
+                    window.createActivityState.viewMode = 'preview';
                     try { 
                       const formModal = document.getElementById('createActivityForm')||document.querySelector('#createActivityModal');
-                      if (formModal) formModal.classList.remove('is-preview'); 
+                      if (formModal) {
+                        formModal.classList.add('is-preview'); // Add preview class for preview mode
+                        const footer = formModal.querySelector('#cafFooter');
+                        if (footer) footer.style.display = 'none'; // Hide footer in preview mode
+                        const editBtn = formModal.querySelector('#cafEditMode');
+                        const previewBtn = formModal.querySelector('#cafPreviewMode');
+                        if (previewBtn) previewBtn.classList.add('active');
+                        if (editBtn) editBtn.classList.remove('active');
+                        // Update modal title
+                        const titleEl = formModal.querySelector('#cafTitle');
+                        if (titleEl) titleEl.textContent = `Preview: ${preloadedState.name || 'Activity'}`;
+                      }
                     } catch(_){ }
                     
                     // CRITICAL: Trigger render immediately since data is already in state
@@ -4097,7 +4115,9 @@ function showCreateActivityForm(lessonId, opts){
     name:'', 
     language:'', 
     instructionsText:'', 
-    maxScore:100, 
+    maxScore:100,
+    startAt: '',
+    dueAt: '', 
     requiredConstruct: '',
     questions:[{
       text: '',
@@ -4416,9 +4436,28 @@ function showCreateActivityForm(lessonId, opts){
           max_score: state.max_score || 0
         };
       if (activityType === 'coding') {
-        const meta = { language: state.language || 'cpp', starterCode: state.starterCode || '', instructions: state.instructionsText || '' };
+        const meta = { 
+          language: state.language || 'cpp', 
+          starterCode: state.starterCode || '', 
+          instructions: state.instructionsText || '',
+          problemStatement: state.problemStatement || '',
+          expectedOutput: state.expectedOutput || '',
+          additionalRequirements: state.additionalRequirements || '',
+          hints: state.hints || '',
+          requiredConstruct: state.requiredConstruct || ''
+        };
         activity.instructions = JSON.stringify(meta);
-        activity.testCases = Array.isArray(state.testCases) ? state.testCases : [];
+        // CRITICAL: Map test cases to the format expected by renderCodingPreview
+        activity.testCases = Array.isArray(state.testCases) ? state.testCases.map(tc => ({
+          input_text: tc.input || '',
+          expected_output_text: tc.output || '',
+          is_sample: !!tc.isSample,
+          points: tc.points || 0,
+          time_limit_ms: tc.timeLimitMs || 2000
+        })) : [];
+        activity.test_cases = activity.testCases; // Also set test_cases for compatibility
+        activity.required_construct = state.requiredConstruct || '';
+        activity.max_score = state.max_score || 0;
       } else if (activityType === 'upload_based') {
         const meta = { kind: 'upload_based', instructions: state.instructionsText || '' };
         activity.instructions = JSON.stringify(meta);
@@ -5063,6 +5102,23 @@ function showCreateActivityForm(lessonId, opts){
                 <div style="margin-top:4px;font-size:12px;color:#666;">💡 For coding activities, this will be auto-calculated from the sum of test case points when you save.</div>
               </div>
               
+              <!-- Activity Schedule -->
+              <div style="margin-bottom:20px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Activity Schedule</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div>
+                    <label style="display:block;margin-bottom:4px;font-size:13px;color:#555;">Start Date & Time (When activity opens)</label>
+                    <input type="datetime-local" id="cafStartAt" class="modal-input" value="${state.startAt || ''}" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;" />
+                    <div style="margin-top:4px;font-size:11px;color:#999;">Leave empty to keep activity locked</div>
+                  </div>
+                  <div>
+                    <label style="display:block;margin-bottom:4px;font-size:13px;color:#555;">End Date & Time (Deadline)</label>
+                    <input type="datetime-local" id="cafDueAt" class="modal-input" value="${state.dueAt || ''}" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;" />
+                    <div style="margin-top:4px;font-size:11px;color:#999;">Leave empty for no deadline</div>
+                  </div>
+                </div>
+              </div>
+              
               <!-- Additional Requirements -->
               <div style="margin-bottom:20px;">
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Additional Requirements (Optional)</label>
@@ -5281,8 +5337,56 @@ function showCreateActivityForm(lessonId, opts){
           const updateState = window.createActivityState || currentState;
           updateState.maxScore=n; 
           if (window.__cafScheduleSave) window.__cafScheduleSave(); 
-        } 
-      }; 
+        }
+      };
+    }
+    
+    // Start date handler
+    const startAt = body.querySelector('#cafStartAt'); if (startAt) {
+      const startAtValue = currentState.startAt || currentState.start_at || '';
+      // Convert datetime-local format
+      if (startAtValue && startAt.value !== startAtValue) {
+        // If value is in ISO format, convert to datetime-local format (YYYY-MM-DDTHH:mm)
+        let dateValue = startAtValue;
+        if (startAtValue.includes('T')) {
+          const parts = startAtValue.split('T');
+          dateValue = parts[0] + 'T' + (parts[1] || '').substring(0,5);
+        } else if (startAtValue.includes(' ')) {
+          const parts = startAtValue.split(' ');
+          dateValue = parts[0] + 'T' + (parts[1] || '').substring(0,5);
+        }
+        startAt.value = dateValue;
+        console.log('🔍 [RENDER] Set start date to:', dateValue);
+      }
+      startAt.onchange=function(){ 
+        const updateState = window.createActivityState || currentState;
+        updateState.startAt=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave();
+      };
+    }
+    
+    // Due date handler
+    const dueAt = body.querySelector('#cafDueAt'); if (dueAt) {
+      const dueAtValue = currentState.dueAt || currentState.due_at || '';
+      // Convert datetime-local format
+      if (dueAtValue && dueAt.value !== dueAtValue) {
+        // If value is in ISO format, convert to datetime-local format (YYYY-MM-DDTHH:mm)
+        let dateValue = dueAtValue;
+        if (dueAtValue.includes('T')) {
+          const parts = dueAtValue.split('T');
+          dateValue = parts[0] + 'T' + (parts[1] || '').substring(0,5);
+        } else if (dueAtValue.includes(' ')) {
+          const parts = dueAtValue.split(' ');
+          dateValue = parts[0] + 'T' + (parts[1] || '').substring(0,5);
+        }
+        dueAt.value = dateValue;
+        console.log('🔍 [RENDER] Set due date to:', dateValue);
+      }
+      dueAt.onchange=function(){ 
+        const updateState = window.createActivityState || currentState;
+        updateState.dueAt=this.value; 
+        if (window.__cafScheduleSave) window.__cafScheduleSave();
+      };
     }
     const addReq = body.querySelector('#cafAdditionalReq'); if (addReq) { 
       // CRITICAL: Set value from currentState FIRST
@@ -5433,7 +5537,9 @@ function showCreateActivityForm(lessonId, opts){
         const kind = (qt==='multiple_choice' ? 'multiple_choice' : (qt==='true_false' ? 'true_false' : (qt==='identification' ? 'identification' : (qt==='essay' ? 'essay' : 'quiz'))));
         return JSON.stringify({ kind: kind, instructions: state.instructionsText||'' });
       })(),
-      max_score: Number(state.maxScore||100)
+      max_score: Number(state.maxScore||100),
+      start_at: state.startAt || null,
+      due_at: state.dueAt || null
     };
     if (isCoding) {
       // CRITICAL: Read test case data from DOM inputs FIRST (most up-to-date), then fallback to state
@@ -6264,6 +6370,23 @@ function showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalC
     console.error('❌ [MODAL] Modal NOT found in DOM after append!');
   }
   
+  // CRITICAL: Update score BEFORE showing modal (in case modal interferes)
+  console.log('🔍 [MODAL] Updating score before showing modal:', totalPts, '/', totalMax);
+  const scoreElBeforeModal = document.getElementById('previewScoreValue');
+  if (scoreElBeforeModal) {
+    scoreElBeforeModal.textContent = String(totalPts);
+    console.log('✅ [MODAL] Score updated before modal:', totalPts);
+    // Also update parent
+    const scoreParentBeforeModal = scoreElBeforeModal.parentElement;
+    if (scoreParentBeforeModal && scoreParentBeforeModal.textContent.includes('Score:')) {
+      const maxScoreText = scoreParentBeforeModal.textContent.match(/\/(\d+)/);
+      if (maxScoreText) {
+        const maxScore = maxScoreText[1];
+        scoreParentBeforeModal.innerHTML = `Score: <span id="previewScoreValue">${totalPts}</span>/${maxScore}`;
+      }
+    }
+  }
+  
   // Get activity title if available
   const activityTitleEl = modal.querySelector('#codestemActivityTitle');
   if (activityTitleEl) {
@@ -6272,6 +6395,30 @@ function showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalC
     console.log('📋 [MODAL] Activity title set:', activityTitle);
   }
   
+  // CRITICAL: Function to update score after modal closes
+  const updateScoreAfterModal = function() {
+    setTimeout(() => {
+      console.log('🔍 [MODAL] Updating score after modal closed:', totalPts, '/', totalMax);
+      const scoreElAfterModal = document.getElementById('previewScoreValue');
+      if (scoreElAfterModal) {
+        scoreElAfterModal.textContent = String(totalPts);
+        console.log('✅ [MODAL] Score updated after modal:', totalPts);
+        // Also update parent
+        const scoreParentAfterModal = scoreElAfterModal.parentElement;
+        if (scoreParentAfterModal && scoreParentAfterModal.textContent.includes('Score:')) {
+          const maxScoreText = scoreParentAfterModal.textContent.match(/\/(\d+)/);
+          if (maxScoreText) {
+            const maxScore = maxScoreText[1];
+            scoreParentAfterModal.innerHTML = `Score: <span id="previewScoreValue">${totalPts}</span>/${maxScore}`;
+            console.log('✅ [MODAL] Score parent updated after modal');
+          }
+        }
+      } else {
+        console.warn('⚠️ [MODAL] Score element not found after modal closed');
+      }
+    }, 100);
+  };
+  
   // Button handlers
   const proceedBtn = modal.querySelector('#codestemProceedBtn');
   if (proceedBtn) {
@@ -6279,6 +6426,7 @@ function showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalC
     proceedBtn.onmouseout = function() { this.style.background = '#10b981'; };
     proceedBtn.onclick = function() {
       modal.remove();
+      updateScoreAfterModal(); // CRITICAL: Update score after modal closes
       // Optionally redirect or show next activity
     };
   }
@@ -6289,6 +6437,7 @@ function showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalC
     resolveBtn.onmouseout = function() { this.style.background = '#f3f4f6'; };
     resolveBtn.onclick = function() {
       modal.remove();
+      updateScoreAfterModal(); // CRITICAL: Update score after modal closes
       // Reset code editor if needed
       if (window.__codestemEditor && typeof window.__codestemEditor.setValue === 'function') {
         const starterCode = window.__CURRENT_ACTIVITY_STARTER_CODE__ || '';
@@ -6299,7 +6448,10 @@ function showCodestemResultsModal(cases, totalPts, totalMax, passedCount, totalC
   
   // Close on background click
   modal.addEventListener('click', function(e) {
-    if (e.target === modal) modal.remove();
+    if (e.target === modal) {
+      modal.remove();
+      updateScoreAfterModal(); // CRITICAL: Update score after modal closes
+    }
   });
 }
 
@@ -6924,7 +7076,7 @@ function renderCodingPreview(activity){
       if (needsInput && promptsAndInputs.length > 0) {
         firstPromptText = promptsAndInputs[0].prompt || 'Enter value:';
         bodyInitial = '<span style="color:#e5e7eb;">' + escapeHtml(firstPromptText) + '</span> ' +
-                      '<input type="text" id="previewTerminalInputField" style="background:transparent;border:none;color:#e5e7eb;outline:none;font-family:inherit;font-size:inherit;padding:2px 4px;width:200px;" autocomplete="off" spellcheck="false" />';
+                      '<input type="text" id="previewTerminalInputField" style="background:transparent;border:none !important;outline:none !important;box-shadow:none !important;color:#e5e7eb;font-family:inherit;font-size:inherit;padding:2px 4px;width:200px;" autocomplete="off" spellcheck="false" />';
       }
       
       terminalModal = document.createElement('div');
@@ -6943,20 +7095,61 @@ function renderCodingPreview(activity){
       if (closeBtn) closeBtn.onclick = function(){ 
         // Ensure output is recorded before closing terminal
         console.log('🔴 Terminal closed - output already recorded in test case panel');
+        // CRITICAL: Reset execution flag so user can run code again
+        window.__previewRunHandlerExecuting = false;
         terminalModal.remove(); 
       };
       terminalModal.addEventListener('click', function(e){ 
         if (e.target === terminalModal) {
           // Ensure output is recorded before closing terminal
           console.log('🔴 Terminal closed (clicked outside) - output already recorded in test case panel');
+          // CRITICAL: Reset execution flag so user can run code again
+          window.__previewRunHandlerExecuting = false;
           terminalModal.remove(); 
         }
       });
+      
+      // CRITICAL: Check which test case is selected (radio button) to determine which test case to run
+      const selectedRadio = document.querySelector('input[name="preview-tc"]:checked');
+      let selectedTestIndex = 0;
+      
+      if (selectedRadio && selectedRadio.value !== undefined) {
+        selectedTestIndex = parseInt(selectedRadio.value, 10) || 0;
+        console.log('🔍 [RUN CODE] Selected test case:', selectedTestIndex + 1);
+      } else {
+        // If no radio selected, use first test case (default)
+        selectedTestIndex = 0;
+        console.log('ℹ️ [RUN CODE] No test case selected, using first test case');
+      }
+      
+      // Get the selected test case for input
+      const testCases = activity.testCases || activity.test_cases || [];
+      const selectedTestCase = testCases[selectedTestIndex] || {};
+      const selectedInput = selectedTestCase.input_text || selectedTestCase.inputText || selectedTestCase.input || '';
+      
+      console.log('🔍 [RUN CODE] Using test case', selectedTestIndex + 1, 'with input:', selectedInput);
       
       // Setup input field handler if needed (BEFORE API call)
       if (needsInput && promptsAndInputs.length > 0) {
         var inputField = terminalModal.querySelector('#previewTerminalInputField');
         if (inputField) {
+          // CRITICAL: Remove any green border/outline on focus
+          inputField.style.border = 'none';
+          inputField.style.outline = 'none';
+          inputField.style.boxShadow = 'none';
+          
+          // CRITICAL: Ensure no border on focus
+          inputField.addEventListener('focus', function() {
+            this.style.border = 'none';
+            this.style.outline = 'none';
+            this.style.boxShadow = 'none';
+          });
+          
+          // CRITICAL: DO NOT pre-fill - let user type manually for interactivity
+          // User should type the input themselves to make it interactive
+          inputField.value = ''; // Always start empty
+          console.log('🔍 [RUN CODE] Input field left empty for user to type manually');
+          
           setTimeout(function(){ inputField.focus(); }, 50);
           inputField.addEventListener('keydown', function(e){
             if (e.key === 'Enter'){
@@ -6973,9 +7166,10 @@ function renderCodingPreview(activity){
               // Store input value for API call
               window.__previewTerminalInputValue = val;
               window.playTerminalPromptText = firstPromptText;
+              window.__previewSelectedTestIndex = selectedTestIndex; // Store selected test index
               
               // Run code with user input
-              runCodeWithInput(code, val, activity, meta, language, terminalBodyId, runBtn);
+              runCodeWithInput(code, val, activity, meta, language, terminalBodyId, runBtn, selectedTestIndex);
             }
           });
         }
@@ -6990,6 +7184,11 @@ function renderCodingPreview(activity){
       fd.append('activity_id', String(activity.id || activity.activity_id || ''));
       fd.append('source', code);
       fd.append('quick','1');
+      // CRITICAL: Use selected test case input if available
+      if (selectedInput) {
+        fd.append('stdin', selectedInput);
+        console.log('🔍 [RUN CODE] Using selected test case input:', selectedInput);
+      }
       
       console.log('🚀 Sending API request...', {
         activity_id: activity.id || activity.activity_id,
@@ -7022,8 +7221,6 @@ function renderCodingPreview(activity){
           // Get test cases for input display
           const activity = window.__previewActivityData || {};
           const testCases = activity.testCases || activity.test_cases || [];
-          const sampleCases = testCases.filter(function(tc) { return tc.is_sample; });
-          const casesToUse = sampleCases.length > 0 ? sampleCases : testCases;
           
           if (results.length === 0) {
             var terminalBody = document.getElementById(terminalBodyId);
@@ -7033,10 +7230,17 @@ function renderCodingPreview(activity){
             return;
           }
           
-          // Process first result (Run Code uses quick mode - first test case only)
+          // CRITICAL: Get the selected test case index (from radio button or stored value)
+          let targetTestIndex = selectedTestIndex;
+          if (window.__previewSelectedTestIndex !== undefined) {
+            targetTestIndex = window.__previewSelectedTestIndex;
+            delete window.__previewSelectedTestIndex; // Clean up
+          }
+          
+          // Process first result (Run Code uses quick mode - selected test case only)
           const firstResult = results[0] || {};
-          const firstTestCase = casesToUse[0] || {};
-          const inputText = firstTestCase.inputText || firstTestCase.input_text || '';
+          const targetTestCase = testCases[targetTestIndex] || {};
+          const inputText = targetTestCase.input_text || targetTestCase.inputText || targetTestCase.input || '';
           const out = firstResult.output || firstResult.stdout || firstResult.outputText || (firstResult.data && firstResult.data.output) || '';
           const err = firstResult.error || firstResult.stderr || (firstResult.data && firstResult.data.error) || '';
           const statusCode = firstResult.statusCode || (firstResult.data && firstResult.data.statusCode) || 0;
@@ -7044,11 +7248,16 @@ function renderCodingPreview(activity){
           const hasError = err || (statusCode !== 200 && statusCode !== 0);
           const outputText = err ? ('Error: ' + err) : String(out || '').trim();
           
-          // Update Test Case 1 "Your Output" field
+          console.log('🔍 [RUN CODE] Updating test case', targetTestIndex + 1, 'with output:', outputText);
+          
+          // CRITICAL: Update the SELECTED test case's "Your Output" field (not always Test Case 1)
           try {
-            const yourOutputEl = document.getElementById('tcYour-0');
+            const yourOutputEl = document.getElementById(`tcYour-${targetTestIndex}`);
             if (yourOutputEl) {
               yourOutputEl.textContent = outputText || '(no output)';
+              console.log('✅ [RUN CODE] Updated test case', targetTestIndex + 1, 'output field');
+            } else {
+              console.warn('⚠️ [RUN CODE] Output element not found for test case', targetTestIndex + 1, '(`tcYour-${targetTestIndex}`)');
             }
           } catch(e) {
             console.warn('Could not update test case output:', e);
@@ -7090,7 +7299,7 @@ function renderCodingPreview(activity){
     };
     
     // Helper function to run code with user input
-    function runCodeWithInput(code, userInput, activity, meta, language, terminalBodyId, runBtn) {
+    function runCodeWithInput(code, userInput, activity, meta, language, terminalBodyId, runBtn, selectedTestIndex) {
       var fd = new FormData();
       fd.append('action','run_activity');
       fd.append('activity_id', String(activity.id || activity.activity_id || ''));
@@ -7126,11 +7335,23 @@ function renderCodingPreview(activity){
           var err = firstResult.error || firstResult.stderr || (firstResult.data && firstResult.data.error) || '';
           var outputText = err ? ('Error: ' + err) : String(out || '').trim();
           
-          // Update Test Case 1 "Your Output" field
+          // CRITICAL: Get the selected test case index (from parameter or stored value)
+          let targetTestIndex = selectedTestIndex !== undefined ? selectedTestIndex : 0;
+          if (window.__previewSelectedTestIndex !== undefined) {
+            targetTestIndex = window.__previewSelectedTestIndex;
+            delete window.__previewSelectedTestIndex; // Clean up
+          }
+          
+          console.log('🔍 [RUN CODE WITH INPUT] Updating test case', targetTestIndex + 1, 'with output:', outputText);
+          
+          // CRITICAL: Update the SELECTED test case's "Your Output" field (not always Test Case 1)
           try {
-            var yourOutputEl = document.getElementById('tcYour-0');
+            var yourOutputEl = document.getElementById(`tcYour-${targetTestIndex}`);
             if (yourOutputEl) {
               yourOutputEl.textContent = outputText || '(no output)';
+              console.log('✅ [RUN CODE WITH INPUT] Updated test case', targetTestIndex + 1, 'output field');
+            } else {
+              console.warn('⚠️ [RUN CODE WITH INPUT] Output element not found for test case', targetTestIndex + 1, '(`tcYour-${targetTestIndex}`)');
             }
           } catch(e) {
             console.warn('Could not update test case output:', e);
@@ -7157,6 +7378,8 @@ function renderCodingPreview(activity){
           }
         })
         .finally(function() {
+          // CRITICAL: Reset execution flag so user can run code again
+          window.__previewRunHandlerExecuting = false;
           if (runBtn) {
             runBtn.disabled = false;
             runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
@@ -7255,6 +7478,14 @@ function renderCodingPreview(activity){
           if (!res || !res.success) throw new Error(res && res.message ? res.message : 'Run failed');
           const results = Array.isArray(res.results) ? res.results : [];
           console.log('✅ [PREVIEW MODE] Test results received:', results.length, 'results');
+          console.log('🔍 [PREVIEW MODE] Test cases count:', testCases.length);
+          console.log('🔍 [PREVIEW MODE] Results array:', results.map((r, idx) => ({
+            index: idx,
+            hasOutput: !!(r.output || r.stdout || r.outputText || (r.data && r.data.output)),
+            output: r.output || r.stdout || r.outputText || (r.data && r.data.output) || '(no output)',
+            hasError: !!(r.error || r.stderr || (r.data && r.data.error)),
+            statusCode: r.statusCode || (r.data && r.data.statusCode) || 0
+          })));
           
           // CRITICAL: Use EXACT same grading logic as student view
           const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
@@ -7264,6 +7495,26 @@ function renderCodingPreview(activity){
           const maxScoreFromActivity = activity.max_score || 0;
           const needsPointDistribution = sumExistingPoints === 0 && maxScoreFromActivity > 0 && testCases.length > 0;
           const pointsPerCase = needsPointDistribution ? Math.floor(maxScoreFromActivity / testCases.length) : 0;
+          
+          // CRITICAL: Check required construct usage (once per run, not per test case)
+          const requiredConstruct = activity.required_construct || activity.requiredConstruct || (activity.meta && (activity.meta.requiredConstruct || activity.meta.required_construct)) || '';
+          const language = activity.language || (activity.meta && activity.meta.language) || 'cpp';
+          const constructCheck = (function(){
+            try {
+              if (!requiredConstruct) return { ok: true, required: '' };
+              return detectConstructUsage(code, language, requiredConstruct);
+            } catch(e){ 
+              console.warn('⚠️ [PREVIEW MODE] Construct detection error:', e);
+              return { ok: true, required: '' }; 
+            }
+          })();
+          
+          console.log('🔍 [PREVIEW MODE] Required construct check:', {
+            requiredConstruct,
+            language,
+            constructOk: constructCheck.ok,
+            constructRequired: constructCheck.required
+          });
           
           console.log('🔍 [PREVIEW MODE] Points check:', {
             sumExistingPoints,
@@ -7278,22 +7529,83 @@ function renderCodingPreview(activity){
             }))
           });
           
+          // CRITICAL: Ensure results array matches test cases array length
+          console.log('🔍 [PREVIEW MODE] Mapping test cases to results...');
+          console.log('🔍 [PREVIEW MODE] Test cases length:', testCases.length);
+          console.log('🔍 [PREVIEW MODE] Results length:', results.length);
+          
+          if (results.length < testCases.length) {
+            console.warn(`⚠️ [PREVIEW MODE] WARNING: Results array (${results.length}) is shorter than test cases (${testCases.length})!`);
+            console.warn(`⚠️ [PREVIEW MODE] This might cause some test cases to not have outputs.`);
+          }
+          
           const cases = (testCases || []).map((tc, i) => {
             const expected = norm(tc.expected_output || tc.expectedOutput || tc.expected_output_text || '');
             const result = results[i] || {};
+            
+            // CRITICAL: Log the RAW result object to see what we're getting
+            console.log(`🔍 [PREVIEW MODE] TC ${i + 1} RAW result object:`, {
+              resultExists: !!result,
+              resultKeys: result ? Object.keys(result) : [],
+              resultOutput: result.output,
+              resultStdout: result.stdout,
+              resultOutputText: result.outputText,
+              resultData: result.data,
+              resultError: result.error,
+              resultStderr: result.stderr,
+              resultStatusCode: result.statusCode,
+              fullResult: JSON.stringify(result)
+            });
+            
             const out = norm(result.output || result.stdout || result.outputText || (result.data && result.data.output) || '');
             const err = result.error || result.stderr || (result.data && result.data.error) || '';
             const statusCode = result.statusCode || (result.data && result.data.statusCode) || 0;
             
+            console.log(`🔍 [PREVIEW MODE] TC ${i + 1} mapping:`, {
+              hasResult: !!result,
+              resultIndex: i,
+              output: out || '(no output)',
+              outputLength: out ? out.length : 0,
+              expected: expected,
+              expectedLength: expected ? expected.length : 0,
+              hasError: !!(err || (statusCode !== 200 && statusCode !== 0)),
+              error: err || 'none',
+              statusCode: statusCode
+            });
+            
             const hasError = err || (statusCode !== 200 && statusCode !== 0);
             const passed = !hasError && (expected === '' ? out !== '' : (out === expected));
+            
+            // CRITICAL: Log pass/fail status for debugging
+            console.log(`🔍 [PREVIEW MODE] TC ${i + 1} pass check:`, {
+              hasError,
+              output: out || '(no output)',
+              expected: expected,
+              passed,
+              outputMatches: (expected === '' ? out !== '' : (out === expected))
+            });
             
             // CRITICAL FIX: Use distributed points if test case has no points
             const tcPoints = parseInt(tc.points || 0, 10) || 0;
             const actualPoints = tcPoints > 0 ? tcPoints : (needsPointDistribution ? pointsPerCase : 0);
-            const pts = passed ? actualPoints : 0;
+            // CRITICAL: Apply required construct deduction (50% if construct not used)
+            let pts = passed ? actualPoints : 0;
+            if (passed && requiredConstruct && constructCheck && constructCheck.ok === false && pts > 0) {
+              pts = Math.max(1, Math.round(actualPoints * 0.5));
+              console.log(`⚠️ [PREVIEW MODE] TC ${i + 1}: Required construct "${requiredConstruct}" not found! Deducting 50%: ${actualPoints} → ${pts}`);
+            }
             
-            return {
+            // CRITICAL: Log points calculation for debugging
+            console.log(`🔍 [PREVIEW MODE] TC ${i + 1} points:`, {
+              tcPoints,
+              actualPoints,
+              passed,
+              earned: pts,
+              constructOk: constructCheck.ok,
+              requiredConstruct: requiredConstruct || 'none'
+            });
+            
+            const caseResult = {
               name: `Test Case ${i + 1}`,
               expected: expected,
               stdout: out || (err ? `Error: ${err}` : ''),
@@ -7301,21 +7613,54 @@ function renderCodingPreview(activity){
               earned: pts,
               points: actualPoints
             };
+            
+            // CRITICAL: Log the final case result to verify stdout is set correctly
+            console.log(`🔍 [PREVIEW MODE] TC ${i + 1} final case result:`, {
+              name: caseResult.name,
+              stdout: caseResult.stdout,
+              stdoutLength: caseResult.stdout ? caseResult.stdout.length : 0,
+              status: caseResult.status,
+              earned: caseResult.earned,
+              points: caseResult.points
+            });
+            
+            return caseResult;
           });
           
-          const totalPts = cases.reduce((s, c) => s + c.earned, 0);
+          // CRITICAL: Calculate total points with detailed logging
+          console.log('🔍 [PREVIEW MODE] ========== CALCULATING SCORE ==========');
+          console.log('🔍 [PREVIEW MODE] Cases array:', cases.map((c, idx) => ({
+            index: idx + 1,
+            name: c.name,
+            status: c.status,
+            earned: c.earned,
+            points: c.points,
+            stdout: c.stdout || '(no output)',
+            expected: c.expected
+          })));
+          
+          const totalPts = cases.reduce((s, c) => {
+            const sum = s + c.earned;
+            console.log(`🔍 [PREVIEW MODE] Adding ${c.earned} points from ${c.name} (status: ${c.status}), running total: ${sum}`);
+            return sum;
+          }, 0);
+          
           const totalMax = sumExistingPoints > 0 ? sumExistingPoints : (needsPointDistribution ? maxScoreFromActivity : maxScoreFromActivity);
           const passedCount = cases.filter(c => c.status === 'AC').length;
           const totalCount = cases.length;
           
-          console.log('📊 [PREVIEW MODE] Grading calculated:', {
-            score: totalPts,
-            maxScore: totalMax,
-            passed: passedCount,
-            total: totalCount,
-            usedDistributedPoints: needsPointDistribution,
-            cases: cases.map(c => ({ name: c.name, status: c.status, earned: c.earned, points: c.points }))
-          });
+          console.log('📊 [PREVIEW MODE] ========== FINAL SCORE CALCULATION ==========');
+          console.log('📊 [PREVIEW MODE] Total Points (earned):', totalPts);
+          console.log('📊 [PREVIEW MODE] Total Max Score:', totalMax);
+          console.log('📊 [PREVIEW MODE] Passed Count:', passedCount, '/', totalCount);
+          console.log('📊 [PREVIEW MODE] Used Distributed Points:', needsPointDistribution);
+          console.log('📊 [PREVIEW MODE] Individual Case Details:', cases.map(c => ({ 
+            name: c.name, 
+            status: c.status, 
+            earned: c.earned, 
+            points: c.points 
+          })));
+          console.log('📊 [PREVIEW MODE] ============================================');
           
           // CRITICAL: Show results modal
           console.log('🎯 [PREVIEW MODE] About to show results modal');
@@ -7329,18 +7674,202 @@ function renderCodingPreview(activity){
             }
           }
           
-          // Update score and test case outputs
-          const scoreEl = document.getElementById('previewScoreValue');
-          if (scoreEl) scoreEl.textContent = String(totalPts);
+          // CRITICAL: Update score and test case outputs
+          console.log('🔍 [PREVIEW MODE] ========== UPDATING SCORE DISPLAY ==========');
+          console.log('🔍 [PREVIEW MODE] Score to display:', totalPts, '/', totalMax);
           
-          cases.forEach((c, i) => {
-            const your = document.getElementById(`tcYour-${i}`);
-            if (your) your.textContent = c.stdout || '(no output)';
-            const diff = document.getElementById(`tcDiff-${i}`);
-            if (diff) {
-              diff.textContent = (c.status==='AC') ? 'No differences. Output matched expected.' : `Expected:\n${c.expected}\n\nActual:\n${c.stdout}`;
+          // CRITICAL: Use setTimeout to ensure DOM is ready and modal is not interfering
+          setTimeout(() => {
+            const scoreEl = document.getElementById('previewScoreValue');
+            console.log('🔍 [PREVIEW MODE] Score element lookup:', scoreEl ? 'FOUND' : 'NOT FOUND');
+            
+            if (scoreEl) {
+              const oldValue = scoreEl.textContent;
+              scoreEl.textContent = String(totalPts);
+              console.log(`✅ [PREVIEW MODE] Score element updated: "${oldValue}" → "${totalPts}"`);
+              console.log(`✅ [PREVIEW MODE] Score element ID:`, scoreEl.id);
+              console.log(`✅ [PREVIEW MODE] Score element parent:`, scoreEl.parentElement ? scoreEl.parentElement.textContent : 'NO PARENT');
+              
+              // CRITICAL: Also update parent if it shows "Score: X/Y" format
+              const scoreParent = scoreEl.parentElement;
+              if (scoreParent && scoreParent.textContent.includes('Score:')) {
+                const maxScoreText = scoreParent.textContent.match(/\/(\d+)/);
+                if (maxScoreText) {
+                  const maxScore = maxScoreText[1];
+                  scoreParent.innerHTML = `Score: <span id="previewScoreValue">${totalPts}</span>/${maxScore}`;
+                  console.log('✅ [PREVIEW MODE] Updated score parent element:', scoreParent.textContent);
+                  
+                  // CRITICAL: Verify the update worked
+                  const verifyEl = document.getElementById('previewScoreValue');
+                  if (verifyEl && verifyEl.textContent === String(totalPts)) {
+                    console.log('✅ [PREVIEW MODE] Score update verified successfully!');
+                  } else {
+                    console.error('❌ [PREVIEW MODE] Score update verification FAILED!', {
+                      expected: totalPts,
+                      actual: verifyEl ? verifyEl.textContent : 'ELEMENT NOT FOUND'
+                    });
+                  }
+                } else {
+                  console.warn('⚠️ [PREVIEW MODE] Could not extract max score from parent text:', scoreParent.textContent);
+                }
+              } else {
+                console.warn('⚠️ [PREVIEW MODE] Score parent does not contain "Score:" or has no parent');
+              }
+            } else {
+              console.error('❌ [PREVIEW MODE] Score element NOT FOUND! Searching for alternatives...');
+              // Try alternative selectors
+              const altScoreEl = document.querySelector('[id*="Score"]') || 
+                                document.querySelector('[id*="score"]') ||
+                                document.querySelector('span[id*="Score"]') ||
+                                document.querySelector('span[id*="score"]');
+              if (altScoreEl) {
+                console.log('✅ [PREVIEW MODE] Found alternative score element:', altScoreEl.id);
+                altScoreEl.textContent = String(totalPts);
+              } else {
+                console.error('❌ [PREVIEW MODE] Could not find score element with any selector!');
+                // Try to find all elements that might be the score
+                const allScoreElements = document.querySelectorAll('[id*="score"], [id*="Score"]');
+                console.error(`❌ [PREVIEW MODE] Found ${allScoreElements.length} potential score elements:`, 
+                  Array.from(allScoreElements).map(el => ({ id: el.id, text: el.textContent, tag: el.tagName })));
+              }
             }
-          });
+            console.log('✅ [PREVIEW MODE] ========== SCORE UPDATE COMPLETE ==========');
+          }, 200); // Increased delay to ensure modal and DOM are ready
+          
+          // CRITICAL: Update all test case outputs AND expand test case details
+          console.log('🔍 [PREVIEW MODE] ========== UPDATING TEST CASE OUTPUTS ==========');
+          console.log('🔍 [PREVIEW MODE] Total cases to update:', cases.length);
+          console.log('🔍 [PREVIEW MODE] Cases data:', cases.map((c, idx) => ({
+            index: idx,
+            name: c.name,
+            stdout: c.stdout,
+            stdoutLength: c.stdout ? c.stdout.length : 0,
+            stdoutIsEmpty: !c.stdout || c.stdout === '',
+            status: c.status,
+            expected: c.expected
+          })));
+          
+          // CRITICAL: Use setTimeout to ensure DOM is ready, but use a longer delay to ensure modal doesn't interfere
+          // Use a longer delay (500ms) to ensure modal is fully rendered and doesn't block DOM updates
+          setTimeout(() => {
+            console.log('🔍 [PREVIEW MODE] Starting test case output updates (after modal delay)...');
+            cases.forEach((c, i) => {
+              console.log(`🔍 [PREVIEW MODE] ========== Processing TC ${i + 1} ==========`);
+              console.log(`🔍 [PREVIEW MODE] TC ${i + 1} case data:`, {
+                name: c.name,
+                stdout: c.stdout,
+                stdoutLength: c.stdout ? c.stdout.length : 0,
+                stdoutIsEmpty: !c.stdout || c.stdout === '',
+                status: c.status,
+                expected: c.expected
+              });
+              
+              // CRITICAL: Find and update "Your Output" field - try multiple selectors
+              let your = document.getElementById(`tcYour-${i}`);
+              console.log(`🔍 [PREVIEW MODE] TC ${i + 1} element lookup (tcYour-${i}):`, your ? 'FOUND' : 'NOT FOUND');
+              
+              if (!your) {
+                console.warn(`⚠️ [PREVIEW MODE] Element tcYour-${i} not found, trying alternatives...`);
+                // Try alternative selectors
+                your = document.querySelector(`pre[id="tcYour-${i}"]`) || 
+                       document.querySelector(`#tcYour-${i}`) ||
+                       document.querySelector(`[id*="tcYour"][id*="${i}"]`) ||
+                       document.querySelector(`pre[id*="tcYour"][id*="${i}"]`);
+                console.log(`🔍 [PREVIEW MODE] TC ${i + 1} alternative lookup:`, your ? 'FOUND' : 'STILL NOT FOUND');
+              }
+              
+              if (your) {
+                // CRITICAL: Get the output text - use the case's stdout, but preserve existing if stdout is empty
+                const existingOutput = your.textContent.trim();
+                const outputText = (c.stdout && c.stdout !== '' && c.stdout !== '(no output)') ? c.stdout : 
+                                  (existingOutput && existingOutput !== '(not run)' && existingOutput !== '(no output)') ? existingOutput : 
+                                  c.stdout || '(no output)';
+                
+                console.log(`🔍 [PREVIEW MODE] TC ${i + 1} output decision:`, {
+                  caseStdout: c.stdout,
+                  caseStdoutLength: c.stdout ? c.stdout.length : 0,
+                  existingOutput: existingOutput,
+                  finalOutput: outputText
+                });
+                
+                // CRITICAL: Only update if we have actual output, don't overwrite with empty
+                if (c.stdout && c.stdout !== '' && c.stdout !== '(no output)') {
+                  your.textContent = c.stdout;
+                  console.log(`✅ [PREVIEW MODE] TC ${i + 1} output updated:`, c.stdout);
+                } else if (existingOutput && existingOutput !== '(not run)' && existingOutput !== '(no output)') {
+                  // Keep existing output if case stdout is empty
+                  console.log(`⚠️ [PREVIEW MODE] TC ${i + 1} keeping existing output:`, existingOutput);
+                } else {
+                  your.textContent = outputText;
+                  console.log(`⚠️ [PREVIEW MODE] TC ${i + 1} output set to:`, outputText, '(no valid output found)');
+                }
+                
+                console.log(`✅ [PREVIEW MODE] TC ${i + 1} element found:`, your.id, 'tag:', your.tagName, 'final text:', your.textContent);
+                
+                // CRITICAL: Auto-expand test case details if output matches expected (smart detection)
+                const expectedEl = document.getElementById(`tcExpected-${i}`);
+                const expectedText = expectedEl ? expectedEl.textContent.trim() : '';
+                const normalizedOutput = norm(outputText);
+                const normalizedExpected = norm(expectedText);
+                const matches = normalizedOutput === normalizedExpected && normalizedOutput !== '';
+                
+                if (matches) {
+                  // CRITICAL: Auto-expand this test case to show the match
+                  const tcDetails = document.getElementById(`tcDetails-${i}`);
+                  if (tcDetails) {
+                    tcDetails.style.display = 'block';
+                    console.log(`✅ [PREVIEW MODE] Auto-expanded TC ${i + 1} because output matches expected`);
+                  }
+                  // Also check the radio button to show it's selected
+                  const radioBtn = document.querySelector(`input[name="preview-tc"][value="${i}"]`);
+                  if (radioBtn) {
+                    radioBtn.checked = true;
+                  }
+                }
+              } else {
+                console.error(`❌ [PREVIEW MODE] CRITICAL: Output element NOT FOUND for TC ${i + 1} (tcYour-${i})`);
+                // Try to find all elements with "tcYour" in their ID
+                const allYourElements = document.querySelectorAll('[id*="tcYour"]');
+                console.error(`❌ [PREVIEW MODE] Found ${allYourElements.length} elements with "tcYour" in ID:`, 
+                  Array.from(allYourElements).map(el => ({ id: el.id, tag: el.tagName })));
+              }
+              
+              // CRITICAL: Update differences field
+              const diff = document.getElementById(`tcDiff-${i}`);
+              if (diff) {
+                if (c.status === 'AC') {
+                  diff.textContent = 'No differences. Output matched expected.';
+                  diff.style.background = '#f0fdf4';
+                  diff.style.borderColor = '#86efac';
+                } else {
+                  diff.textContent = `Expected:\n${c.expected}\n\nActual:\n${c.stdout}`;
+                  diff.style.background = '#fff7ed';
+                  diff.style.borderColor = '#fed7aa';
+                }
+                console.log(`✅ [PREVIEW MODE] TC ${i + 1} differences field updated`);
+              } else {
+                console.warn(`⚠️ [PREVIEW MODE] Differences element not found for TC ${i + 1} (tcDiff-${i})`);
+              }
+            });
+            console.log('✅ [PREVIEW MODE] ========== ALL TEST CASE OUTPUTS UPDATED ==========');
+            
+            // CRITICAL: Verify all outputs were updated correctly
+            console.log('🔍 [PREVIEW MODE] ========== VERIFYING OUTPUTS ==========');
+            cases.forEach((c, i) => {
+              const verifyEl = document.getElementById(`tcYour-${i}`);
+              if (verifyEl) {
+                console.log(`🔍 [PREVIEW MODE] TC ${i + 1} verification:`, {
+                  elementFound: true,
+                  elementText: verifyEl.textContent,
+                  expectedStdout: c.stdout,
+                  matches: verifyEl.textContent === c.stdout
+                });
+              } else {
+                console.error(`❌ [PREVIEW MODE] TC ${i + 1} verification FAILED: Element not found!`);
+              }
+            });
+            console.log('✅ [PREVIEW MODE] ========== VERIFICATION COMPLETE ==========');
+          }, 500); // Longer delay to ensure modal doesn't interfere with DOM updates
         })
         .catch(err => {
           console.error('❌ [PREVIEW MODE] Test failed:', err);
@@ -7548,7 +8077,48 @@ function renderCodingPreview(activity){
           console.log('🔍 [CHECK TEST DEBUG] Earned points:', earnedPoints);
           console.log('🔍 [CHECK TEST DEBUG] Passed:', passed);
           
-          // Show result in modal
+          // CRITICAL: If smart detection found ALL test cases match, show "Perfect!" modal like Test (All Cases)
+          const totalTestCases = allTestCases.length;
+          const allMatch = !isError && matchingTestCases.length === totalTestCases && totalTestCases > 0;
+          
+          if (allMatch) {
+            console.log('🎉 [CHECK TEST] All test cases match! Showing Perfect! modal...');
+            
+            // Calculate total score
+            const totalMax = allTestCases.reduce((sum, tc) => sum + (parseInt(tc.points || 0, 10) || 0), 0);
+            const totalEarned = allMatch ? (constructOk ? totalMax : Math.max(1, Math.round(totalMax * 0.5))) : 0;
+            
+            // Create cases array for the modal (similar to Test All Cases)
+            const cases = allTestCases.map((tc, idx) => {
+              const tcExpected = tc.expected_output_text || tc.expected_output || tc.expectedOutput || '';
+              const normalizedTcExpected = norm(tcExpected);
+              const tcPassed = normalizedTcExpected === '' ? normalizedActual !== '' : (normalizedActual === normalizedTcExpected);
+              const tcPoints = parseInt(tc.points || 0, 10) || 0;
+              const tcEarned = tcPassed ? (constructOk ? tcPoints : Math.max(1, Math.round(tcPoints * 0.5))) : 0;
+              
+              return {
+                name: `Test Case ${idx + 1}${tc.is_sample ? ' (Sample)' : ''}`,
+                expected: normalizedTcExpected,
+                stdout: normalizedActual,
+                status: tcPassed ? 'AC' : 'WA',
+                earned: tcEarned,
+                points: tcPoints
+              };
+            });
+            
+            // Show the same "Perfect!" modal as Test (All Cases)
+            showCodestemResultsModal(cases, totalEarned, totalMax, totalTestCases, totalTestCases);
+            
+            // Reset button state
+            if (checkBtn) {
+              checkBtn.disabled = false;
+              checkBtn.innerHTML = '<i class="fas fa-check"></i> Check Test';
+            }
+            window.__previewCheckExecuting = false;
+            return false;
+          }
+          
+          // Show result in modal (only if not all match)
           const modalHtml = `
             <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;">
               <div style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">

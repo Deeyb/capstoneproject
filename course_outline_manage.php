@@ -150,6 +150,7 @@ try {
     $role = $stmt->fetchColumn() ?: '';
     $isCoordinator = $role === 'coordinator';
     $isAdmin = $role === 'admin';
+    $isTeacher = $role === 'teacher';
 } catch (Exception $e) {
     echo json_encode(['success'=>false,'message'=>'Authentication error']);
     exit;
@@ -405,7 +406,7 @@ try {
                 break;
             }
             try {
-                $id = $svc->createActivity($lessonId, $title, $_POST['instructions'] ?? null, $type, $_POST['due_at'] ?? null, (int)($_POST['max_score'] ?? 100));
+                $id = $svc->createActivity($lessonId, $title, $_POST['instructions'] ?? null, $type, $_POST['due_at'] ?? null, (int)($_POST['max_score'] ?? 100), $_POST['start_at'] ?? null);
             } catch (Throwable $e) {
                 echo json_encode(['success'=>false,'message'=>'Create failed','error'=>$e->getMessage(),'debug'=>['lesson_id'=>$lessonId,'type'=>$type,'title'=>$title]]);
                 break;
@@ -445,9 +446,45 @@ try {
             echo json_encode(['success' => $id > 0, 'id' => $id, 'message' => $id>0 ? 'OK' : 'Insert failed']);
             break;
         case 'activity_update':
-            if (!$isCoordinator && !$isAdmin) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
-            // Preserve existing type if not explicitly provided to avoid coercion to lecture/coding
+            // Allow coordinators, admins, and teachers
+            // Teachers can only update start_at and due_at (for unlocking/scheduling)
+            // Coordinators and admins can update all fields
+            if (!$isCoordinator && !$isAdmin && !$isTeacher) { 
+                echo json_encode(['success'=>false,'message'=>'Forbidden']); 
+                break; 
+            }
+            
             $actId = (int)($_POST['id'] ?? 0);
+            if ($actId <= 0) {
+                echo json_encode(['success'=>false,'message'=>'Invalid activity ID']);
+                break;
+            }
+            
+            // If teacher, verify they own the class that contains this activity
+            if ($isTeacher && !$isCoordinator && !$isAdmin) {
+                try {
+                    $checkStmt = $db->prepare("
+                        SELECT c.id 
+                        FROM classes c
+                        INNER JOIN course_modules cm ON cm.course_id = c.course_id
+                        INNER JOIN course_lessons cl ON cl.module_id = cm.id
+                        INNER JOIN lesson_activities la ON la.lesson_id = cl.id
+                        WHERE la.id = ? AND c.owner_user_id = ? AND c.status = 'active'
+                        LIMIT 1
+                    ");
+                    $checkStmt->execute([$actId, $_SESSION['user_id']]);
+                    if (!$checkStmt->fetch()) {
+                        echo json_encode(['success'=>false,'message'=>'You do not have permission to update this activity']);
+                        break;
+                    }
+                } catch (Throwable $e) {
+                    error_log("Error checking teacher permission: " . $e->getMessage());
+                    echo json_encode(['success'=>false,'message'=>'Permission check failed']);
+                    break;
+                }
+            }
+            
+            // Preserve existing type if not explicitly provided to avoid coercion to lecture/coding
             $incomingType = isset($_POST['type']) ? trim((string)$_POST['type']) : '';
             if ($incomingType === '' && $actId > 0) {
                 try {
@@ -457,15 +494,57 @@ try {
                     $incomingType = $existingType !== '' ? $existingType : 'multiple_choice';
                 } catch (Throwable $e) { $incomingType = 'multiple_choice'; }
             }
-            $ok = $svc->updateActivity($actId, [
-                'title' => $_POST['title'] ?? '',
-                'instructions' => $_POST['instructions'] ?? null,
-                'type' => $incomingType,
-                'due_at' => $_POST['due_at'] ?? null,
-                'max_score' => (int)($_POST['max_score'] ?? 100),
-                'required_construct' => isset($_POST['required_construct']) ? (string)$_POST['required_construct'] : null
-            ]);
-            if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'activity.update', 'lesson_activity', (string)($_POST['id'] ?? ''), ['keys'=>array_keys($_POST)]); }
+            
+            // Build update data - teachers can only update start_at and due_at
+            $updateData = [];
+            
+            // Handle empty string for start_at (lock activity) - applies to all roles
+            $startAt = isset($_POST['start_at']) ? trim($_POST['start_at']) : null;
+            if ($startAt === '') {
+                $startAt = null; // Empty string = NULL (lock activity)
+            }
+            
+            if ($isCoordinator || $isAdmin) {
+                // Full access for coordinators and admins
+                $updateData = [
+                    'title' => $_POST['title'] ?? '',
+                    'instructions' => $_POST['instructions'] ?? null,
+                    'type' => $incomingType,
+                    'start_at' => $startAt,
+                    'due_at' => $_POST['due_at'] ?? null,
+                    'max_score' => (int)($_POST['max_score'] ?? 100),
+                    'required_construct' => isset($_POST['required_construct']) ? (string)$_POST['required_construct'] : null
+                ];
+            } else {
+                // Teachers can only update start_at and due_at (for unlocking/scheduling)
+                // Preserve other fields by fetching current values
+                try {
+                    $currentStmt = $db->prepare('SELECT title, instructions, type, max_score, required_construct FROM lesson_activities WHERE id=?');
+                    $currentStmt->execute([$actId]);
+                    $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($current) {
+                        $updateData = [
+                            'title' => $current['title'],
+                            'instructions' => $current['instructions'],
+                            'type' => $current['type'],
+                            'start_at' => $startAt, // Already handled above
+                            'due_at' => $_POST['due_at'] ?? null,
+                            'max_score' => (int)($current['max_score'] ?? 100),
+                            'required_construct' => $current['required_construct'] ?? null
+                        ];
+                    } else {
+                        echo json_encode(['success'=>false,'message'=>'Activity not found']);
+                        break;
+                    }
+                } catch (Throwable $e) {
+                    error_log("Error fetching current activity data: " . $e->getMessage());
+                    echo json_encode(['success'=>false,'message'=>'Failed to fetch activity data']);
+                    break;
+                }
+            }
+            
+            $ok = $svc->updateActivity($actId, $updateData);
+            if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'activity.update', 'lesson_activity', (string)$actId, ['keys'=>array_keys($_POST), 'role'=>$role]); }
             echo json_encode(['success' => (bool)$ok]);
             break;
         case 'activity_delete':

@@ -1,4 +1,4 @@
- // class_dashboard.js - Activity management system
+// class_dashboard.js - Activity management system
 
 // ======================== ROLE-AWARE INITIALIZATION ========================
 
@@ -2152,6 +2152,7 @@ window.activityTester = new ActivityTester();
 document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', (e) => {
     if (e.target.textContent && e.target.textContent.includes('Try answering')) {
+      // Handler for "Try answering" clicks
       }
   });
   
@@ -2308,10 +2309,13 @@ function loadTopicsFromCourse() {
           const title = escapeHtml(lesson.title || 'Untitled');
           const lessonNum = lessonIdx + 1;
           const activities = Array.isArray(lesson.activities) ? lesson.activities : [];
+          console.log('🔍 [LOAD TOPICS] Lesson "' + title + '" has ' + activities.length + ' activities');
           
           // Generate activity cards for each real activity
           
           const activitiesHtml = activities.map((activity, activityIdx) => {
+            console.log('🔍 [LOAD TOPICS] Processing activity:', activity.title || 'Untitled', 'ID:', activity.id);
+            console.log('🔍 [LOAD TOPICS] Full activity object:', JSON.stringify(activity, null, 2));
             const activityTitle = escapeHtml(activity.title || 'Untitled Activity');
             const activityType = activity.type || 'upload_based';
             const maxScore = activity.max_score || 10;
@@ -2329,69 +2333,141 @@ function loadTopicsFromCourse() {
             
             if (isStudent) {
               console.log('🎓 SUPER DEBUG - GENERATING STUDENT FORMAT for:', activityTitle);
-              // STUDENT FORMAT - Clean interface
+              
+              // Check availability - CRITICAL: Ensure availability object is properly structured
+              const availability = activity.availability || { 
+                available: false, 
+                status: 'locked', 
+                reason: 'Activity is locked. Teacher will open it soon.' 
+              };
+              // Double-check: If availability object exists but missing properties, fill them
+              const isAvailable = availability.available === true;
+              const isLocked = availability.status === 'locked' || !isAvailable;
+              const isClosed = availability.status === 'closed';
+              
+              console.log(`🎓 loadTopicsFromCourse: Activity ${activity.id} - availability:`, availability);
+              console.log(`🎓 loadTopicsFromCourse: Activity ${activity.id} - isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
+              
+              // Format dates - show "-" if not set (like in the reference image)
+              const formatDate = (dateStr) => {
+                if (!dateStr) return '-';
+                const d = new Date(dateStr);
+                return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) + ', ' + 
+                       d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              };
+              
+              const startDate = formatDate(activity.start_at);
+              const dueDate = formatDate(activity.due_at);
+              
+              // STUDENT FORMAT - Clean interface with locked state
               return `
-                <div class="activity-card student-format" data-activity-id="${activity.id}">
-                  <div class="activity-left-border"></div>
+                <div class="activity-card student-format ${isLocked ? 'activity-locked' : isClosed ? 'activity-closed' : ''}" data-activity-id="${activity.id}">
+                  <div class="activity-left-border ${isLocked ? 'border-locked' : isClosed ? 'border-closed' : ''}"></div>
                   <div class="activity-content">
-                    <div class="activity-title">${activityTitle}</div>
+                    <div class="activity-title">
+                      ${isLocked ? '<i class="fas fa-lock" style="margin-right: 8px; color: #dc2626;"></i>' : ''}
+                      ${isClosed ? '<i class="fas fa-clock" style="margin-right: 8px; color: #dc2626;"></i>' : ''}
+                      ${activityTitle}
+                    </div>
                     <div class="activity-dates">
                       <div class="activity-date start">
                         <i class="fas fa-calendar-check"></i>
-                        Open Date: 05/03/2025, 06:24PM
+                        Open Date: ${startDate}
                       </div>
                       <div class="activity-date end">
                         <i class="fas fa-calendar-times"></i>
-                        Due Date: 05/04/2025, 12:00AM
+                        Due Date: ${dueDate}
                       </div>
                     </div>
+                    ${!isAvailable ? `<div class="activity-status-message" style="margin-top: 8px; padding: 8px; background: #fee2e2; border-radius: 4px; color: #dc2626; font-size: 12px;">
+                      <i class="fas fa-info-circle"></i> ${availability.reason || 'Activity not available'}
+                    </div>` : ''}
                   </div>
-                  <div class="activity-stats">
+                    <div class="activity-stats">
                     <div class="student-score">
-                      <div class="score-value">0/${maxScore}</div>
+                      <div class="score-value">${isLocked ? '-' : '0'}/${maxScore}</div>
                       <div class="score-label">Score</div>
                     </div>
-                    <button class="start-activity-btn" onclick="startActivity(${activity.id})">
-                      <i class="fas fa-play"></i> Start
-                    </button>
+                    ${isAvailable ? 
+                      `<button class="start-activity-btn" onclick="startStudentActivity(${activity.id})" style="background: #1d9b3e; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2);">
+                        <i class="fas fa-play"></i> Start
+                      </button>` :
+                      `<button class="start-activity-btn" disabled style="background: #9ca3af; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: not-allowed; opacity: 0.6; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
+                      </button>`
+                    }
                   </div>
                 </div>
               `;
             } else {
               console.log('👨‍🏫 SUPER DEBUG - GENERATING TEACHER FORMAT for:', activityTitle);
-              // TEACHER FORMAT - Management interface
+              console.log('👨‍🏫 DEBUG - Activity data:', {
+                id: activity.id,
+                start_at: activity.start_at,
+                due_at: activity.due_at,
+                hasStartAt: !!activity.start_at,
+                startAtType: typeof activity.start_at,
+                startAtValue: activity.start_at
+              });
+              
+              // Check if activity is locked (no start_at)
+              const isLocked = !activity.start_at;
+              console.log('👨‍🏫 DEBUG - isLocked:', isLocked, 'start_at:', activity.start_at);
+              console.log('👨‍🏫 DEBUG - Will render Unlock button:', isLocked);
+              
+              // Format dates for teacher view
+              const formatDate = (dateStr) => {
+                if (!dateStr) return 'Not set';
+                const d = new Date(dateStr);
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + 
+                       d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              };
+              
+              const startDate = formatDate(activity.start_at);
+              const dueDate = formatDate(activity.due_at);
+              
+              // TEACHER FORMAT - Management interface with Unlock button
+              console.log('👨‍🏫 DEBUG - Rendering teacher format, isLocked:', isLocked, 'Button will be:', isLocked ? 'Unlock...' : 'Dropdown menu');
               return `
                 <div class="activity-card teacher-format" data-activity-id="${activity.id}">
-                  <div class="activity-left-border"></div>
+                  <div class="activity-left-border ${isLocked ? 'border-locked' : ''}"></div>
                   <div class="activity-content">
                     <div class="activity-title">${activityTitle}</div>
-                    <div class="activity-dates">
+                    ${activity.type === 'coding' ? `<div style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-top: 4px;">${activityType.toUpperCase()}</div>` : ''}
+                    <div class="activity-dates" style="margin-top: 8px;">
                       <div class="activity-date start">
                         <i class="fas fa-calendar-check"></i>
-                        03 May 2025 06:24PM
+                        ${startDate}
                       </div>
                       <div class="activity-date end">
                         <i class="fas fa-calendar-times"></i>
-                        04 May 2025 12:00AM
+                        ${dueDate}
                       </div>
                     </div>
                   </div>
-                  <div class="activity-stats">
-                    <div class="stat-circle">
-                      <div class="stat-value">0/${maxScore}</div>
-                      <div class="stat-label">Avg. overall s</div>
-                    </div>
-                    <div class="stat-circle">
-                      <div class="stat-value">00:00</div>
-                      <div class="stat-label">Activity Actions</div>
-                    </div>
-                    <div class="activity-menu">
-                      <i class="fas fa-ellipsis-v"></i>
-                      <div class="activity-dropdown">
-                        <div class="dropdown-item"><i class="fas fa-calendar"></i> Reschedule/Set retakers</div>
-                        <div class="dropdown-item"><i class="fas fa-play"></i> Try answering</div>
-                      </div>
-                    </div>
+                  <div class="activity-stats" style="display: flex; align-items: center; gap: 12px;">
+                    <button class="btn-view-items" onclick="viewActivityItems(${activity.id})" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                      View items
+                    </button>
+                    ${isLocked ? 
+                      `<button class="btn-unlock" onclick="unlockActivity(${activity.id}, '${escapeHtml(activityTitle)}')" style="background: #1d9b3e !important; color: white !important; border: none !important; border-radius: 6px !important; padding: 10px 20px !important; font-size: 14px !important; font-weight: 600 !important; cursor: pointer !important; display: flex !important; align-items: center !important; gap: 8px !important; transition: all 0.2s !important; box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2) !important; min-width: 120px !important; justify-content: center !important;">
+                        <i class="fas fa-unlock"></i> Unlock...
+                      </button>` :
+                      `<div class="activity-menu" style="position: relative;">
+                        <i class="fas fa-ellipsis-v" style="cursor: pointer; padding: 8px; color: #6b7280; font-family: 'Font Awesome 5 Free' !important; font-weight: 900 !important; font-style: normal !important;"></i>
+                        <div class="activity-dropdown" style="display: none;">
+                          <div class="dropdown-item" onclick="lockActivity(${activity.id}, '${escapeHtml(activityTitle)}')" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #f59e0b; display: flex; align-items: center; gap: 8px; transition: background 0.2s;">
+                            <i class="fas fa-lock"></i> Lock Activity
+                          </div>
+                          <div class="dropdown-item" onclick="handleReschedule(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
+                            <i class="fas fa-calendar"></i> Reschedule/Set retakers
+                          </div>
+                          <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
+                            <i class="fas fa-play"></i> Try answering
+                          </div>
+                        </div>
+                      </div>`
+                    }
                   </div>
                 </div>
               `;
@@ -2412,13 +2488,13 @@ function loadTopicsFromCourse() {
                     console.log('🔍 JS Debug - User Role:', window.__USER_ROLE__);
                     console.log('🔍 JS Debug - Is Student:', window.__USER_ROLE__.toLowerCase() === 'student');
                     return window.__USER_ROLE__.toLowerCase() !== 'student' ? 
-                      '<div class="topic-status">Students currently here</div>' +
+                  '<div class="topic-status">Students currently here</div>' +
                       '<div class="topic-count">N/A</div>' : 
                       '';
                   })() +
                 '</div>' +
               '</div>' +
-              '<div class="topic-body" style="display: none;">' +
+              '<div class="topic-body">' +
                 '<div class="topic-content-row">' +
                   '<div class="topic-doc-icon"><i class="fas fa-file-alt"></i></div>' +
                   '<div class="topic-content-link">Topic Content</div>' +
@@ -2452,48 +2528,129 @@ function loadTopicsFromCourse() {
         });
       });
       
-      // Bind event listeners for main dashboard activity menus
-      const mainActivityMenus = document.querySelectorAll('.activity-menu');
-      mainActivityMenus.forEach((menu, index) => {
-        // Bind dropdown toggle
-        menu.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const dropdown = menu.querySelector('.activity-dropdown');
-          if (dropdown) {
-            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-          }
-        });
+      // Bind event listeners for main dashboard activity menus using event delegation
+      // IMMEDIATE binding - no setTimeout delay for instant response
+      (function bindActivityMenus() {
+        // Remove any existing handlers to prevent duplicates
+        const existingHandler = window.__activityMenuClickHandler;
+        if (existingHandler) {
+          document.removeEventListener('click', existingHandler, true);
+        }
         
-        // Bind dropdown items
-        const dropdownItems = menu.querySelectorAll('.dropdown-item');
-        dropdownItems.forEach((dropdownItem, itemIndex) => {
-          console.log(`🔍 Binding dropdown item ${itemIndex}:`, dropdownItem.textContent.trim());
-          dropdownItem.addEventListener('click', (e) => {
+        // Create a single delegated event handler for all activity menus
+        const activityMenuClickHandler = (e) => {
+          // Check if click is on ellipsis icon or menu
+          const icon = e.target.closest('.fa-ellipsis-v');
+          const menu = e.target.closest('.activity-menu');
+          
+          if (!menu) return;
+          
+          // CRITICAL: Check if dropdown exists BEFORE handling click
+          const dropdown = menu.querySelector('.activity-dropdown');
+          if (!dropdown) {
+            // Silently return - this menu doesn't have a dropdown (might be student view or different state)
+            return;
+          }
+          
+          // Only handle clicks on icon or menu container itself (not on dropdown items)
+          const clickedDropdownItem = e.target.closest('.dropdown-item');
+          if (clickedDropdownItem) {
+            // Let dropdown item handler deal with it - don't toggle here
+            return;
+          }
+          
+          if (icon || e.target === menu) {
             e.stopPropagation();
-            const text = dropdownItem.textContent.trim();
-            if (text.includes('Reschedule/Set retakers')) {
-              // CLEAN: Use the clean activity system
-              const activityCard = menu.closest('.activity-card');
-              const activityId = activityCard?.getAttribute('data-activity-id');
-              if (!activityId) {
-                console.error('❌ No data-activity-id found on activity card:', activityCard);
-                return;
+            e.preventDefault();
+            
+            const isOpen = dropdown.classList.contains('dropdown-open');
+            
+            // Close all other dropdowns first
+            document.querySelectorAll('.activity-dropdown.dropdown-open').forEach(d => {
+              if (d !== dropdown) {
+                d.classList.remove('dropdown-open');
+                d.style.display = 'none';
               }
-              const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
-              const dueDate = activityCard?.querySelector('.due-date')?.textContent || 'Not set';
-              
+            });
+            
+            if (isOpen) {
+              dropdown.classList.remove('dropdown-open');
+              dropdown.style.display = 'none';
+            } else {
+              dropdown.classList.add('dropdown-open');
+              dropdown.style.display = 'block';
+            }
+          }
+        };
+        
+        // Store handler reference for cleanup
+        window.__activityMenuClickHandler = activityMenuClickHandler;
+        
+        // Use capture phase to ensure we catch the event early
+        document.addEventListener('click', activityMenuClickHandler, true);
+        
+        console.log('✅ Activity menu event delegation bound (IMMEDIATE)');
+      })();
+      
+      // Bind dropdown items using event delegation
+      setTimeout(() => {
+        // Remove any existing handlers to prevent duplicates
+        const existingItemHandler = window.__dropdownItemClickHandler;
+        if (existingItemHandler) {
+          document.removeEventListener('click', existingItemHandler, true);
+        }
+        
+        // Create a single delegated event handler for all dropdown items
+        const dropdownItemClickHandler = (e) => {
+          const dropdownItem = e.target.closest('.dropdown-item');
+          if (!dropdownItem) return;
+          
+          e.stopPropagation();
+          const text = dropdownItem.textContent.trim();
+          const dropdown = dropdownItem.closest('.activity-dropdown');
+          const menu = dropdownItem.closest('.activity-menu');
+          
+          console.log('🔍 Dropdown item clicked:', text);
+          
+          if (dropdown) {
+            closeActivityDropdown(dropdown);
+          }
+          
+          // Handle different menu items
+          let activityCard = dropdownItem.closest('.activity-card');
+          
+          if (!activityCard && menu) {
+            activityCard = menu.closest('.activity-card');
+          }
+          
+          if (!activityCard) {
+            console.error('❌ No activity card found for dropdown item:', dropdownItem);
+            return;
+          }
+          
+          const activityId = activityCard.getAttribute('data-activity-id');
+          if (!activityId) {
+            console.error('❌ No data-activity-id found on activity card:', activityCard);
+            return;
+          }
+          
+          const activityTitle = activityCard.querySelector('.activity-title')?.textContent || 'Activity';
+          
+          if (text.includes('Lock Activity')) {
+            if (typeof lockActivity === 'function') {
+              lockActivity(activityId, activityTitle);
+            } else {
+              alert('Lock Activity function not available. Please refresh the page.');
+            }
+          } else if (text.includes('Reschedule/Set retakers')) {
+            const dueDate = activityCard.querySelector('.due-date')?.textContent || 'Not set';
+            if (window.cleanActivitySystem && window.cleanActivitySystem.showReschedule) {
               window.cleanActivitySystem.showReschedule(activityId, activityTitle, dueDate);
-            } else if (text.includes('Try answering') || text.includes('Start Activity')) {
-              // CLEAN: Use the clean activity system
-              const activityCard = menu.closest('.activity-card');
-              const activityId = activityCard?.getAttribute('data-activity-id');
-              if (!activityId) {
-                console.error('❌ No data-activity-id found on activity card:', activityCard);
-                return;
-              }
-              const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
-              
-        console.log('🔍 Main dashboard Try Answering clicked for activity:', {
+            } else {
+              alert('Reschedule function not available. Please refresh the page.');
+            }
+          } else if (text.includes('Try answering') || text.includes('Start Activity')) {
+            console.log('🔍 Try Answering clicked for activity:', {
           activityId: activityId,
           activityTitle: activityTitle,
           element: activityCard
@@ -2506,27 +2663,47 @@ function loadTopicsFromCourse() {
           return;
         }
         
+            if (window.cleanActivitySystem && window.cleanActivitySystem.showTryAnswering) {
         window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
+            } else {
+              alert('Try Answering function not available. Please refresh the page.');
             }
-            
-            // Close dropdown after action
-            const dropdown = menu.querySelector('.activity-dropdown');
-            if (dropdown) {
-              dropdown.style.display = 'none';
-            }
-          });
-        });
-      });
-      
-      // Close dropdowns when clicking outside
-      document.addEventListener('click', () => {
-        mainActivityMenus.forEach(menu => {
-          const dropdown = menu.querySelector('.activity-dropdown');
-          if (dropdown) {
-            dropdown.style.display = 'none';
           }
-        });
-      });
+        };
+        
+        // Store handler reference for cleanup
+        window.__dropdownItemClickHandler = dropdownItemClickHandler;
+        
+        // Use capture phase to ensure we catch the event early
+        document.addEventListener('click', dropdownItemClickHandler, true);
+        
+        console.log('✅ Dropdown item event delegation bound (IMMEDIATE)');
+      })();
+      
+      // Close dropdowns when clicking outside (use event delegation)
+      // Remove old handler if exists
+      if (window.__closeDropdownsHandler) {
+        document.removeEventListener('click', window.__closeDropdownsHandler, true);
+      }
+      
+      const closeDropdownsHandler = (e) => {
+        // Check if click is outside all activity menus and dropdowns
+        const clickedMenu = e.target.closest('.activity-menu');
+        const clickedDropdown = e.target.closest('.activity-dropdown');
+        const clickedIcon = e.target.closest('.fa-ellipsis-v');
+        const clickedDropdownItem = e.target.closest('.dropdown-item');
+        
+        // Only close if clicking outside menu, dropdown, dropdown items, and not on icon
+        if (!clickedMenu && !clickedDropdown && !clickedIcon && !clickedDropdownItem) {
+          document.querySelectorAll('.activity-dropdown').forEach(dropdown => {
+            closeActivityDropdown(dropdown);
+          });
+        }
+      };
+      
+      // Store handler reference for cleanup
+      window.__closeDropdownsHandler = closeDropdownsHandler;
+      document.addEventListener('click', closeDropdownsHandler, true);
     }).catch(error => {
       });
 }
@@ -2559,67 +2736,15 @@ function toggleTopic(item) {
     // Only load content if not already loaded
     if (!body.hasAttribute('data-loaded')) {
       const lessonId = item.getAttribute('data-lesson-id') ? parseInt(item.getAttribute('data-lesson-id'),10) : 0;
+      if (!lessonId) { 
+        body.innerHTML = '<div style="color:#64748b;">No details available.</div>'; 
+        body.setAttribute('data-loaded', 'true');
+        return; 
+      }
       loadTopicContent(item, lessonId);
       body.setAttribute('data-loaded', 'true');
-    } else {
-      }
-  } else {
     }
-  if (!lessonId) { body.innerHTML = '<div style="color:#64748b;">No details available.</div>'; return; }
-  fetch('class_view_api.php?action=get_lesson_details&lesson_id=' + encodeURIComponent(lessonId), { credentials: 'same-origin' })
-    .then(r=>r.json()).then(res => {
-      if (!res || !res.success) { body.innerHTML = '<div style="color:#ef4444;">Failed to load lesson details.</div>'; return; }
-      const materials = Array.isArray(res.materials) ? res.materials : [];
-      const activities = Array.isArray(res.activities) ? res.activities : [];
-      const matRow = '<div class="topic-content-row">' +
-        '<div class="topic-doc-badge"><i class="fas fa-file-alt"></i></div>' +
-        '<div class="topic-content-badge">Lesson Content</div>' +
-      '</div>';
-
-      let actCards = '';
-      if (activities.length) {
-        actCards = activities.map((a, i) => {
-          const title = escapeHtml(a.title || 'Activity');
-          return (
-            '<div class="activity-card-lite" data-activity-index="' + i + '">' +
-              '<div style="flex:1 1 auto; min-width:0;">' +
-                '<div class="topic-activity-title">' + title + '</div>' +
-                '<div class="meta-chips">' +
-                  '<span class="chip">Activity</span>' +
-                  '<span class="chip chip-muted">Static preview</span>' +
-                '</div>' +
-              '</div>' +
-            '</div>'
-          );
-        }).join('');
-      } else {
-        actCards = '<div class="activity-card-lite"><div class="topic-activity-title">No activities</div><div class="meta-chips"><span class="chip chip-muted">Static preview</span></div></div>';
-      }
-
-      body.innerHTML = matRow + actCards;
-      const badge = item.querySelector('.topic-content-badge');
-      if (badge) {
-        badge.style.cursor = 'pointer';
-        badge.addEventListener('click', () => {
-          if (!Array.isArray(materials) || materials.length === 0) { openMaterialsModal(materials); return; }
-          const first = materials[0] || {};
-          if (materials.length > 1 && typeof window.showInfo === 'function') {
-            window.showInfo('Opening material', 'Multiple materials found; opening the first one.');
-          }
-          openMaterialViewer(first);
-        });
-      }
-      body.querySelectorAll('.activity-card-lite').forEach(card => {
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', () => {
-          const idx = parseInt(card.getAttribute('data-activity-index')||'0',10);
-          const act = activities[idx];
-          if (!act) return;
-          if (act.launch_url) { window.open(act.launch_url, '_blank'); return; }
-          openActivityModal(act);
-        });
-      });
-    }).catch(()=>{ body.innerHTML = '<div style="color:#ef4444;">Network error.</div>'; });
+  }
 }
 
 function loadTopicContent(item, lessonId) {
@@ -2657,44 +2782,123 @@ function loadTopicContent(item, lessonId) {
         '</div>';
       }
       
-      // Activity cards
-      activities.forEach((activity, idx) => {
-        });
-      
+      // Activity cards - Use same logic as loadTopicsFromCourse for teacher view
       if (activities.length > 0) {
+        const isStudent = window.__USER_ROLE__.toLowerCase() === 'student';
+        
         activities.forEach((activity, i) => {
           const title = escapeHtml(activity.title || 'Activity');
           console.log(`🔍 loadTopicContent: Generating activity card for: ${title} (ID: ${activity.id}, Type: ${activity.type})`);
-          contentHtml += '<div class="activity-card" data-activity-id="' + activity.id + '">' +
-            '<div class="activity-left-border"></div>' +
-            '<div class="activity-content">' +
-              '<div class="activity-title">' + title + '</div>' +
-              '<div class="activity-dates">' +
-                '<div class="activity-date start"><i class="fas fa-calendar-check"></i> 03 May 2025 06:24PM</div>' +
-                '<div class="activity-date end"><i class="fas fa-calendar-times"></i> 04 May 2025 12:00AM</div>' +
-              '</div>' +
-            '</div>' +
-            '<div class="activity-stats">' +
-              '<div class="stat-circle">' +
-                '<div class="stat-value">0/10</div>' +
-                '<div class="stat-label">Avg. overall s</div>' +
-              '</div>' +
-              '<div class="stat-circle">' +
-                '<div class="stat-value">00:00</div>' +
-                '<div class="stat-label">Activity Actions</div>' +
-              '</div>' +
-              '<div class="activity-menu">' +
-                '<i class="fas fa-ellipsis-v"></i>' +
-                '<div class="activity-dropdown">' +
-                  (window.__USER_ROLE__.toLowerCase() !== 'student' ? 
-                    '<div class="dropdown-item"><i class="fas fa-calendar"></i> Reschedule/Set retakers</div>' +
-                    '<div class="dropdown-item"><i class="fas fa-play"></i> Try answering</div>' :
-                    '<div class="dropdown-item"><i class="fas fa-play"></i> Start Activity</div>'
-                  ) +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-          '</div>';
+          console.log(`🔍 loadTopicContent: Activity start_at:`, activity.start_at, 'type:', typeof activity.start_at);
+          
+          // Format dates
+          const formatDate = (dateStr) => {
+            if (!dateStr) return 'Not set';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + 
+                   d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          };
+          
+          const startDate = formatDate(activity.start_at);
+          const dueDate = formatDate(activity.due_at);
+          
+          if (isStudent) {
+            // Student format - same as loadTopicsFromCourse
+            // CRITICAL: Ensure availability object exists and is properly structured
+            const availability = activity.availability || { 
+              available: false, 
+              status: 'locked', 
+              reason: 'Activity is locked. Teacher will open it soon.' 
+            };
+            // Double-check: If availability object exists but missing properties, fill them
+            const isAvailable = availability.available === true;
+            const isLocked = availability.status === 'locked' || !isAvailable;
+            const isClosed = availability.status === 'closed';
+            
+            console.log(`🎓 loadTopicContent: Activity ${activity.id} - availability:`, availability);
+            console.log(`🎓 loadTopicContent: Activity ${activity.id} - isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
+            
+            contentHtml += `
+              <div class="activity-card student-format ${isLocked ? 'activity-locked' : ''} ${isClosed ? 'activity-closed' : ''}" data-activity-id="${activity.id}">
+                <div class="activity-left-border ${isLocked ? 'border-locked' : ''} ${isClosed ? 'border-closed' : ''}"></div>
+                <div class="activity-content">
+                  <div class="activity-title">
+                    ${isLocked ? '<i class="fas fa-lock" style="margin-right: 8px; color: #f59e0b;"></i>' : ''}
+                    ${isClosed ? '<i class="fas fa-clock" style="margin-right: 8px; color: #ef4444;"></i>' : ''}
+                    ${title}
+                  </div>
+                  <div class="activity-dates" style="margin-top: 8px;">
+                    <div class="activity-date start">
+                      <i class="fas fa-calendar-check"></i>
+                      ${startDate}
+                    </div>
+                    <div class="activity-date end">
+                      <i class="fas fa-calendar-times"></i>
+                      ${dueDate}
+                    </div>
+                  </div>
+                  ${availability.reason ? `<div style="margin-top: 8px; color: #f59e0b; font-size: 12px;">${escapeHtml(availability.reason)}</div>` : ''}
+                </div>
+                <div class="activity-stats">
+                  <div class="student-score">
+                    <div class="score-value">${isLocked ? '-' : '0'}/${activity.max_score || 0}</div>
+                    <div class="score-label">Score</div>
+                  </div>
+                  <button class="btn-start" ${isLocked || isClosed ? 'disabled' : ''} onclick="startStudentActivity(${activity.id})" style="background: ${isLocked || isClosed ? '#9ca3af' : '#1d9b3e'}; color: white; border: none; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: ${isLocked || isClosed ? 'not-allowed' : 'pointer'};">
+                    <i class="fas ${isLocked ? 'fa-lock' : isClosed ? 'fa-clock' : 'fa-play'}"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Start'}
+                  </button>
+                </div>
+              </div>
+            `;
+          } else {
+            // Teacher format - check for locked state
+            const isLocked = !activity.start_at || activity.start_at === 'null' || activity.start_at === '' || activity.start_at === null || activity.start_at === undefined;
+            console.log(`👨‍🏫 loadTopicContent: Activity ${activity.id} isLocked:`, isLocked, 'start_at:', activity.start_at);
+            
+            contentHtml += `
+              <div class="activity-card teacher-format" data-activity-id="${activity.id}">
+                <div class="activity-left-border ${isLocked ? 'border-locked' : ''}"></div>
+                <div class="activity-content">
+                  <div class="activity-title">${title}</div>
+                  ${activity.type === 'coding' ? `<div style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-top: 4px;">CODING</div>` : ''}
+                  <div class="activity-dates" style="margin-top: 8px;">
+                    <div class="activity-date start">
+                      <i class="fas fa-calendar-check"></i>
+                      ${startDate}
+                    </div>
+                    <div class="activity-date end">
+                      <i class="fas fa-calendar-times"></i>
+                      ${dueDate}
+                    </div>
+                  </div>
+                </div>
+                <div class="activity-stats" style="display: flex; align-items: center; gap: 12px;">
+                  <button class="btn-view-items" onclick="viewActivityItems(${activity.id})" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    View items
+                  </button>
+                  ${isLocked ? 
+                    `<button class="btn-unlock" onclick="unlockActivity(${activity.id}, '${escapeHtml(title)}')" style="background: #1d9b3e !important; color: white !important; border: none !important; border-radius: 6px !important; padding: 10px 20px !important; font-size: 14px !important; font-weight: 600 !important; cursor: pointer !important; display: flex !important; align-items: center !important; gap: 8px !important; transition: all 0.2s !important; box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2) !important; min-width: 120px !important; justify-content: center !important;">
+                      <i class="fas fa-unlock"></i> Unlock...
+                    </button>` :
+                    `<div class="activity-menu" style="position: relative;">
+                      <i class="fas fa-ellipsis-v" style="cursor: pointer; padding: 8px; color: #6b7280; font-family: 'Font Awesome 5 Free' !important; font-weight: 900 !important; font-style: normal !important;"></i>
+                      <div class="activity-dropdown" style="display: none;">
+                        <div class="dropdown-item" onclick="lockActivity(${activity.id}, '${escapeHtml(title)}')" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #f59e0b; display: flex; align-items: center; gap: 8px; transition: background 0.2s;">
+                          <i class="fas fa-lock"></i> Lock Activity
+                        </div>
+                        <div class="dropdown-item" onclick="handleReschedule(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
+                          <i class="fas fa-calendar"></i> Reschedule/Set retakers
+                        </div>
+                        <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
+                          <i class="fas fa-play"></i> Try answering
+                        </div>
+                      </div>
+                    </div>`
+                  }
+                </div>
+              </div>
+            `;
+          }
         });
       }
       
@@ -2727,16 +2931,21 @@ function bindTopicContentEvents(item, materials, activities) {
     });
   }
   
-  // Bind activity menu dropdowns
-  item.querySelectorAll('.activity-menu').forEach((menu, idx) => {
-    menu.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const dropdown = menu.querySelector('.activity-dropdown');
-      if (dropdown) {
-        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+  // Bind activity menu dropdowns using event delegation (same handler as main view)
+  // The global event delegation handler will handle these too
+  // Ensure menus have IDs for proper restoration
+  setTimeout(() => {
+    const menus = item.querySelectorAll('.activity-menu');
+    menus.forEach(menu => {
+      // Ensure each menu has a unique ID
+      if (!menu.getAttribute('data-menu-id')) {
+        menu.setAttribute('data-menu-id', 'menu_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
       }
+      // Verify dropdown exists (silent check - no console spam)
+      const dropdown = menu.querySelector('.activity-dropdown');
+      // No warning needed - some menus legitimately don't have dropdowns
     });
-  });
+  }, 50);
   
   // Add click handlers for dropdown items
   const dropdownItems = item.querySelectorAll('.dropdown-item');
@@ -2745,20 +2954,68 @@ function bindTopicContentEvents(item, materials, activities) {
     dropdownItem.addEventListener('click', (e) => {
       e.stopPropagation();
       const text = dropdownItem.textContent.trim();
-      if (text.includes('Reschedule/Set retakers')) {
-        // Find the activity card that contains this dropdown
-        const activityCard = dropdownItem.closest('.activity-card');
+      // Helper function to find activity card with multiple fallback methods
+      const findActivityCard = () => {
+        let activityCard = dropdownItem.closest('.activity-card');
+        let activityId = null;
+        
+        // Method 1: Try closest (works if dropdown is still in original parent)
         if (!activityCard) {
-          console.error('❌ No activity card found for dropdown item:', dropdownItem);
-          return;
+          // Method 2: Try finding via dropdown's stored activity ID
+          const dropdown = dropdownItem.closest('.activity-dropdown');
+          if (dropdown) {
+            const storedActivityId = dropdown.getAttribute('data-activity-id');
+            if (storedActivityId) {
+              activityCard = document.querySelector(`[data-activity-id="${storedActivityId}"]`);
+              activityId = storedActivityId;
+              console.log('✅ Found activity card via stored ID:', storedActivityId);
+            }
+          }
         }
         
-        const activityId = activityCard.getAttribute('data-activity-id');
+        // Method 3: Try finding via onclick attribute (fallback)
+        if (!activityCard) {
+          const onclickAttr = dropdownItem.getAttribute('onclick');
+          if (onclickAttr) {
+            const match = onclickAttr.match(/\((\d+)/);
+            if (match && match[1]) {
+              activityId = match[1];
+              activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
+              console.log('✅ Found activity card via onclick attribute:', activityId);
+            }
+          }
+        }
+        
+        if (!activityCard) {
+          console.error('❌ No activity card found for dropdown item:', dropdownItem);
+          return null;
+        }
+        
+        if (!activityId) {
+          activityId = activityCard.getAttribute('data-activity-id');
+        }
+        
         if (!activityId) {
           console.error('❌ No data-activity-id found on activity card:', activityCard);
-          return;
+          return null;
         }
-        const activityTitle = activityCard.querySelector('.activity-title')?.textContent || 'Activity';
+        
+        return { activityCard, activityId };
+      };
+      
+      const result = findActivityCard();
+      if (!result) return;
+      
+      const { activityCard, activityId } = result;
+      const activityTitle = activityCard.querySelector('.activity-title')?.textContent || 'Activity';
+      
+      if (text.includes('Lock Activity')) {
+        if (typeof lockActivity === 'function') {
+          lockActivity(activityId, activityTitle);
+        } else {
+          alert('Lock Activity function not available. Please refresh the page.');
+        }
+      } else if (text.includes('Reschedule/Set retakers')) {
         const dueDate = activityCard.querySelector('.due-date')?.textContent || 'Not set';
         
         // Show reschedule modal
@@ -2767,19 +3024,6 @@ function bindTopicContentEvents(item, materials, activities) {
           dueDate: dueDate
         });
       } else if (text.includes('Try answering') || text.includes('Start Activity')) {
-        // Find the activity card that contains this dropdown
-        const activityCard = dropdownItem.closest('.activity-card');
-        if (!activityCard) {
-          console.error('❌ No activity card found for dropdown item:', dropdownItem);
-          return;
-        }
-        
-        const activityId = activityCard.getAttribute('data-activity-id');
-        if (!activityId) {
-          console.error('❌ No data-activity-id found on activity card:', activityCard);
-          return;
-        }
-        const activityTitle = activityCard.querySelector('.activity-title')?.textContent || 'Activity';
         
         console.log('🔍 Try Answering clicked for activity:', {
           activityId: activityId,
@@ -2798,19 +3042,15 @@ function bindTopicContentEvents(item, materials, activities) {
         window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
       }
       
-      // Close dropdown after action
+      // SIMPLE CLOSE - Like old working version
       item.querySelectorAll('.activity-dropdown').forEach(dropdown => {
-        dropdown.style.display = 'none';
+        closeActivityDropdown(dropdown);
       });
     });
   });
   
-  // Close dropdowns when clicking outside
-  document.addEventListener('click', () => {
-    item.querySelectorAll('.activity-dropdown').forEach(dropdown => {
-      dropdown.style.display = 'none';
-    });
-  });
+  // Close dropdowns handler is already set up globally in loadTopicsFromCourse
+  // No need to add another one here
 }
 
 function showModal(title, innerHtml) {
@@ -2868,7 +3108,7 @@ function openMaterialViewer(material) {
       url = new URL(url, window.location.href).toString();
     } catch (_) {}
 
-  const overlay = document.createElement('div');
+    const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;';
     const wrap = document.createElement('div');
     wrap.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.25);width:96%;height:90vh;display:flex;flex-direction:column;overflow:hidden;';
@@ -2892,7 +3132,7 @@ function openMaterialViewer(material) {
         '</div>'+
       '</div>'+
       '<div id="matViewerBody" style="flex:1;background:#f8fafc;"></div>';
-  overlay.appendChild(wrap);
+    overlay.appendChild(wrap);
     document.body.appendChild(overlay);
 
   // If viewing our markdown page viewer, expand to true fullscreen for a reading experience
@@ -3397,56 +3637,158 @@ function initializeStudentView() {
 // Transform a single activity card for student view, idempotent
 function transformActivityCard(card) {
   try {
+    // CRITICAL: Skip if already enhanced OR if already in student format (from loadTopicsFromCourse)
     if (!card || card.getAttribute('data-student-enhanced') === '1') return;
+    if (card.classList.contains('student-format')) {
+      console.log('🎓 transformActivityCard: Card already in student format, skipping transformation');
+      card.setAttribute('data-student-enhanced','1');
+      return;
+    }
+    
     const activityId = card.getAttribute('data-activity-id');
     if (!activityId) return;
 
-    // Remove teacher stats/menu if present
-    const statCircles = card.querySelectorAll('.stat-circle');
-    const activityMenu = card.querySelector('.activity-menu');
-    statCircles.forEach(function(c){ c.remove(); });
-    if (activityMenu) activityMenu.remove();
+    // CRITICAL: Check availability BEFORE transforming
+    fetch(`class_view_api.php?action=get_activity&id=${activityId}`, { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(res => {
+        if (!res || !res.success || !res.data) {
+          console.error('❌ transformActivityCard: Failed to get activity data');
+          return;
+        }
+        
+        const activity = res.data;
+        
+        // Get availability status
+        fetch(`class_view_api.php?action=list_topics&id=${window.__CLASS_ID__}`, { credentials: 'same-origin' })
+          .then(r => r.json())
+          .then(topicsRes => {
+            let availability = { available: false, status: 'locked', reason: 'Activity is locked. Teacher will open it soon.' };
+            
+            // Find activity in topics response to get availability
+            if (topicsRes && topicsRes.success && topicsRes.modules) {
+              for (const module of topicsRes.modules || []) {
+                for (const lesson of module.lessons || []) {
+                  const foundAct = (lesson.activities || []).find(a => a.id == activityId);
+                  if (foundAct && foundAct.availability) {
+                    availability = foundAct.availability;
+                    break;
+                  }
+                }
+                if (availability.status !== 'locked') break;
+              }
+            }
+            
+            // Fallback: Check availability directly
+            if (availability.status === 'locked' && !activity.start_at) {
+              availability = { available: false, status: 'locked', reason: 'Activity is locked. Teacher will open it soon.' };
+            } else if (activity.start_at) {
+              const now = new Date();
+              const startAt = new Date(activity.start_at);
+              const dueAt = activity.due_at ? new Date(activity.due_at) : null;
+              
+              if (now < startAt) {
+                availability = { available: false, status: 'locked', reason: `Activity opens on ${startAt.toLocaleString()}` };
+              } else if (dueAt && now > dueAt) {
+                availability = { available: false, status: 'closed', reason: `Deadline passed on ${dueAt.toLocaleString()}` };
+              } else {
+                availability = { available: true, status: 'open', reason: 'Activity is available' };
+              }
+            }
+            
+            const isAvailable = availability.available === true;
+            const isLocked = availability.status === 'locked' || !isAvailable;
+            const isClosed = availability.status === 'closed';
+            
+            console.log(`🎓 transformActivityCard: Activity ${activityId} - availability:`, availability);
+            console.log(`🎓 transformActivityCard: isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
 
-    // Ensure stats container exists
-    let activityStats = card.querySelector('.activity-stats');
-    if (!activityStats) {
-      activityStats = document.createElement('div');
-      activityStats.className = 'activity-stats';
-      card.appendChild(activityStats);
-    }
+            // Remove teacher stats/menu if present
+            const statCircles = card.querySelectorAll('.stat-circle');
+            const activityMenu = card.querySelector('.activity-menu');
+            statCircles.forEach(function(c){ c.remove(); });
+            if (activityMenu) activityMenu.remove();
 
-    // Populate score + Start
-    Promise.all([
-      getActivityMaxPoints(activityId),
-      getStudentScore(activityId)
-    ]).then(function([maxPoints, studentScore]){
-      const safeMax = Number(maxPoints) > 0 ? Number(maxPoints) : 0;
-      const safeScore = Math.max(0, Math.min(Number(studentScore) || 0, safeMax || Infinity));
-      activityStats.innerHTML = `
-        <div class="student-score">
-          <div class="score-value">${safeScore}/${safeMax || 0}</div>
-          <div class="score-label">Score</div>
-        </div>
-        <button class="start-activity-btn" onclick="startStudentActivity(${activityId})">
-          <i class="fas fa-play"></i> Start
-        </button>`;
-      card.setAttribute('data-student-enhanced','1');
-    }).catch(function(err){
-      console.error('Error enhancing activity card', err);
-      activityStats.innerHTML = `
-        <div class="student-score">
-          <div class="score-value">0/0</div>
-          <div class="score-label">Score</div>
-        </div>
-        <button class="start-activity-btn" onclick="startStudentActivity(${activityId})">
-          <i class="fas fa-play"></i> Start
-        </button>`;
-      card.setAttribute('data-student-enhanced','1');
-    });
+            // Ensure stats container exists
+            let activityStats = card.querySelector('.activity-stats');
+            if (!activityStats) {
+              activityStats = document.createElement('div');
+              activityStats.className = 'activity-stats';
+              card.appendChild(activityStats);
+            }
+
+            // Add locked/closed classes
+            if (isLocked) {
+              card.classList.add('activity-locked');
+              const leftBorder = card.querySelector('.activity-left-border');
+              if (leftBorder) leftBorder.classList.add('border-locked');
+            }
+            if (isClosed) {
+              card.classList.add('activity-closed');
+              const leftBorder = card.querySelector('.activity-left-border');
+              if (leftBorder) leftBorder.classList.add('border-closed');
+            }
+
+            // Populate score + Start button (with availability check)
+            Promise.all([
+              getActivityMaxPoints(activityId),
+              getStudentScore(activityId)
+            ]).then(function([maxPoints, studentScore]){
+              const safeMax = Number(maxPoints) > 0 ? Number(maxPoints) : 0;
+              const safeScore = Math.max(0, Math.min(Number(studentScore) || 0, safeMax || Infinity));
+              
+              activityStats.innerHTML = `
+                <div class="student-score">
+                  <div class="score-value">${isLocked ? '-' : safeScore}/${safeMax || 0}</div>
+                  <div class="score-label">Score</div>
+                </div>
+                ${isAvailable ? 
+                  `<button class="start-activity-btn" onclick="startStudentActivity(${activityId})" style="background: #1d9b3e; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2);">
+                    <i class="fas fa-play"></i> Start
+                  </button>` :
+                  `<button class="start-activity-btn" disabled style="background: #9ca3af; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: not-allowed; opacity: 0.6; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
+                  </button>`
+                }`;
+              
+              // Add status message if not available
+              if (!isAvailable) {
+                const content = card.querySelector('.activity-content');
+                if (content) {
+                  const existingMsg = content.querySelector('.activity-status-message');
+                  if (!existingMsg) {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'activity-status-message';
+                    msgDiv.style.cssText = 'margin-top: 8px; padding: 8px; background: #fee2e2; border-radius: 4px; color: #dc2626; font-size: 12px;';
+                    msgDiv.innerHTML = `<i class="fas fa-info-circle"></i> ${availability.reason || 'Activity not available'}`;
+                    content.appendChild(msgDiv);
+                  }
+                }
+              }
+              
+              card.setAttribute('data-student-enhanced','1');
+            }).catch(function(err){
+              console.error('Error enhancing activity card', err);
+              activityStats.innerHTML = `
+                <div class="student-score">
+                  <div class="score-value">${isLocked ? '-' : '0'}/0</div>
+                  <div class="score-label">Score</div>
+                </div>
+                <button class="start-activity-btn" disabled style="background: #9ca3af; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: not-allowed; opacity: 0.6; display: flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
+                </button>`;
+              card.setAttribute('data-student-enhanced','1');
+            });
+          }).catch(err => {
+            console.error('❌ transformActivityCard: Error getting topics:', err);
+          });
+      }).catch(err => {
+        console.error('❌ transformActivityCard: Error getting activity:', err);
+      });
   } catch(e) { console.error('transformActivityCard error', e); }
 }
 
-function startStudentActivity(activityId) {
+async function startStudentActivity(activityId) {
   console.log('🎯 Student starting activity:', activityId);
   
   // Check if activity exists and is available
@@ -3455,18 +3797,84 @@ function startStudentActivity(activityId) {
     return;
   }
   
-  // Use the same function that teachers use for "Try answering"
-  const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
-  const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
-  
-  console.log('🎯 Using cleanActivitySystem.showTryAnswering for:', { activityId, activityTitle });
-  
-  // Call the same function teachers use
-  if (window.cleanActivitySystem && window.cleanActivitySystem.showTryAnswering) {
-    window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
-  } else {
-    console.error('❌ cleanActivitySystem not available');
-    alert('Activity system not available. Please try again.');
+  // CRITICAL: Check availability before allowing start
+  try {
+    const classId = window.__CLASS_ID__;
+    if (!classId) {
+      alert('Error: Class ID not found');
+      return;
+    }
+    
+    // Fetch activity availability
+    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+    const topicsData = await topicsRes.json();
+    
+    let availability = { available: false, status: 'locked', reason: 'Activity is locked. Teacher will open it soon.' };
+    
+    // Find activity in topics response to get availability
+    if (topicsData && topicsData.success && topicsData.modules) {
+      for (const module of topicsData.modules || []) {
+        for (const lesson of module.lessons || []) {
+          const foundAct = (lesson.activities || []).find(a => a.id == activityId);
+          if (foundAct && foundAct.availability) {
+            availability = foundAct.availability;
+            break;
+          }
+        }
+        if (availability.status !== 'locked') break;
+      }
+    }
+    
+    // If still locked, check activity directly
+    if (availability.status === 'locked') {
+      const actRes = await fetch(`class_view_api.php?action=get_activity&id=${activityId}`, { credentials: 'same-origin' });
+      const actData = await actRes.json();
+      
+      if (actData && actData.success && actData.data) {
+        const activity = actData.data;
+        if (!activity.start_at) {
+          alert('This activity is locked. The teacher will open it soon.');
+          return;
+        }
+        
+        const now = new Date();
+        const startAt = new Date(activity.start_at);
+        const dueAt = activity.due_at ? new Date(activity.due_at) : null;
+        
+        if (now < startAt) {
+          alert(`This activity opens on ${startAt.toLocaleString()}`);
+          return;
+        }
+        
+        if (dueAt && now > dueAt) {
+          alert(`The deadline for this activity has passed (${dueAt.toLocaleString()}).`);
+          return;
+        }
+      }
+    }
+    
+    // Check if activity is available
+    if (!availability.available && availability.status !== 'open') {
+      alert(availability.reason || 'This activity is not available.');
+      return;
+    }
+    
+    // Use the same function that teachers use for "Try answering"
+    const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
+    const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
+    
+    console.log('🎯 Using cleanActivitySystem.showTryAnswering for:', { activityId, activityTitle });
+    
+    // Call the same function teachers use
+    if (window.cleanActivitySystem && window.cleanActivitySystem.showTryAnswering) {
+      window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
+    } else {
+      console.error('❌ cleanActivitySystem not available');
+      alert('Activity system not available. Please try again.');
+    }
+  } catch (error) {
+    console.error('❌ Error checking activity availability:', error);
+    alert('Error checking activity availability. Please try again.');
   }
 }
 
@@ -3579,5 +3987,477 @@ window.initializeStudentView = initializeStudentView;
 window.startStudentActivity = startStudentActivity;
 window.getStudentScore = getStudentScore;
 window.getActivityMaxPoints = getActivityMaxPoints;
+
+// Lock activity function - sets start_at to NULL
+async function lockActivity(activityId, activityTitle) {
+  if (!confirm(`Lock "${activityTitle}"?\n\nThis will close the activity for students. They will not be able to access it until you unlock it again.`)) {
+    return;
+  }
+  
+  // Get CSRF token
+  const csrfToken = await getCSRFToken();
+  if (!csrfToken) {
+    alert('Error: Failed to get security token. Please refresh the page and try again.');
+    return;
+  }
+  
+  const formData = new FormData();
+  formData.append('action', 'activity_update');
+  formData.append('id', activityId);
+  formData.append('start_at', ''); // Empty string = NULL in database
+  formData.append('csrf_token', csrfToken); // Add CSRF token
+  
+  fetch('course_outline_manage.php', {
+    method: 'POST',
+    credentials: 'same-origin',
+    body: formData
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res && res.success) {
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('success', 'Activity Locked', `"${activityTitle}" is now locked and unavailable for students.`);
+      } else {
+        alert(`Activity "${activityTitle}" locked successfully!`);
+      }
+      // Reload activities
+      if (typeof loadTopicsFromCourse === 'function') {
+        loadTopicsFromCourse();
+      } else {
+        location.reload();
+      }
+    } else {
+      alert(`Failed to lock activity: ${res?.message || 'Unknown error'}`);
+    }
+  })
+  .catch(err => {
+    console.error('Error locking activity:', err);
+    alert('Error locking activity. Please try again.');
+  });
+}
+
+// Unlock activity function - sets start_at to current time
+async function unlockActivity(activityId, activityTitle) {
+  if (!confirm(`Unlock "${activityTitle}"?\n\nThis will open the activity for students immediately.`)) {
+    return;
+  }
+  
+  // Set start_at to current time
+  const now = new Date();
+  const startAt = now.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+  
+  // Get CSRF token
+  const csrfToken = await getCSRFToken();
+  if (!csrfToken) {
+    alert('Error: Failed to get security token. Please refresh the page and try again.');
+    return;
+  }
+  
+  const formData = new FormData();
+  formData.append('action', 'activity_update');
+  formData.append('id', activityId);
+  formData.append('start_at', startAt);
+  formData.append('csrf_token', csrfToken); // Add CSRF token
+  
+  fetch('course_outline_manage.php', {
+    method: 'POST',
+    credentials: 'same-origin',
+    body: formData
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res && res.success) {
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('success', 'Activity Unlocked', `"${activityTitle}" is now available for students.`);
+      } else {
+        alert(`Activity "${activityTitle}" unlocked successfully!`);
+      }
+      // Reload activities
+      if (typeof loadTopicsFromCourse === 'function') {
+        loadTopicsFromCourse();
+      } else {
+        location.reload();
+      }
+    } else {
+      alert(`Failed to unlock activity: ${res?.message || 'Unknown error'}`);
+    }
+  })
+  .catch(err => {
+    console.error('Error unlocking activity:', err);
+    alert('Error unlocking activity. Please try again.');
+  });
+}
+
+// View activity items
+function viewActivityItems(activityId) {
+  // Redirect to activity view or open modal
+  if (typeof window.cleanActivitySystem !== 'undefined' && window.cleanActivitySystem.showTryAnswering) {
+    window.cleanActivitySystem.showTryAnswering(activityId, 'Activity');
+  } else {
+    console.log('View items for activity:', activityId);
+  }
+}
+
+// Handle reschedule
+function handleReschedule(activityId) {
+  const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
+  if (!activityCard) return;
+  const activityTitle = activityCard.querySelector('.activity-title')?.textContent || 'Activity';
+  
+  if (window.activityManager && typeof window.activityManager.showRescheduleModal === 'function') {
+    window.activityManager.showRescheduleModal(activityId, { title: activityTitle });
+  } else {
+    console.log('Reschedule activity:', activityId);
+  }
+}
+
+// Handle try answering
+function handleTryAnswering(activityId) {
+  if (typeof window.cleanActivitySystem !== 'undefined' && window.cleanActivitySystem.showTryAnswering) {
+    const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
+    const activityTitle = activityCard?.querySelector('.activity-title')?.textContent || 'Activity';
+    window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
+  } else {
+    console.log('Try answering activity:', activityId);
+  }
+}
+
+// Toggle activity menu dropdown - DEPRECATED: Use event delegation instead
+// This function is kept for backward compatibility but should not be used
+function toggleActivityMenu(icon) {
+  console.warn('⚠️ toggleActivityMenu is deprecated. Use event delegation instead.');
+  // Do nothing - let event delegation handle it
+  return;
+}
+
+// CSRF token helper functions
+async function getCSRFToken() {
+  try {
+    const fd = new FormData();
+    fd.append('action', 'get_csrf_token');
+    const response = await fetch('course_outline_manage.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    });
+    const data = await response.json();
+    if (data.success && data.token) {
+      return data.token;
+    }
+  } catch (e) {
+    console.error('Error fetching CSRF token:', e);
+  }
+  return null;
+}
+
+async function addCSRFToken(formData) {
+  const token = await getCSRFToken();
+  if (token) {
+    formData.append('csrf_token', token);
+    console.log('✅ CSRF token added to FormData');
+  } else {
+    console.warn('⚠️ Failed to get CSRF token');
+  }
+  return formData;
+}
+
+// Lock all activities for the current class
+async function lockAllActivities() {
+  if (!confirm('Lock ALL activities in this class?\n\nThis will close all unlocked activities for students immediately.\n\nStudents will not be able to access them until you unlock them again.')) {
+    return;
+  }
+  
+  const classId = window.__CLASS_ID__;
+  if (!classId) {
+    alert('Error: Class ID not found');
+    return;
+  }
+  
+  // Show loading notification
+  if (typeof window.showNotification === 'function') {
+    window.showNotification('info', 'Locking Activities', 'Please wait while we lock all activities...');
+  }
+  
+  try {
+    // Get all activities for this class
+    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+    const res = await topicsRes.json();
+    
+    if (!res || !res.success || !res.modules) {
+      alert('Failed to load activities. Please try again.');
+      return;
+    }
+    
+    // Collect all unlocked activities (have start_at)
+    const unlockedActivities = [];
+    res.modules.forEach(module => {
+      (module.lessons || []).forEach(lesson => {
+        (lesson.activities || []).forEach(activity => {
+          // Check if activity is unlocked (has start_at)
+          if (activity.start_at && activity.start_at !== null && activity.start_at !== 'null' && activity.start_at !== '') {
+            unlockedActivities.push({
+              id: activity.id,
+              title: activity.title || 'Untitled Activity'
+            });
+          }
+        });
+      });
+    });
+    
+    if (unlockedActivities.length === 0) {
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('info', 'No Unlocked Activities', 'All activities are already locked.');
+      } else {
+        alert('All activities are already locked.');
+      }
+      return;
+    }
+    
+    // Get CSRF token once for all requests
+    console.log('🔐 Fetching CSRF token...');
+    const csrfToken = await getCSRFToken();
+    if (!csrfToken) {
+      alert('Error: Failed to get security token. Please refresh the page and try again.');
+      return;
+    }
+    console.log('✅ CSRF token obtained');
+    
+    // Lock all activities
+    const lockPromises = unlockedActivities.map(async activity => {
+      const formData = new FormData();
+      formData.append('action', 'activity_update');
+      formData.append('id', activity.id);
+      formData.append('start_at', ''); // Empty string = NULL in database
+      formData.append('csrf_token', csrfToken); // Add CSRF token
+      
+      console.log(`🔒 Locking activity ${activity.id}: "${activity.title}"`);
+      
+      try {
+        const r = await fetch('course_outline_manage.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: formData
+        });
+        
+        if (!r.ok) {
+          console.error(`❌ HTTP error for activity ${activity.id}:`, r.status, r.statusText);
+          return { success: false, activity, error: `HTTP ${r.status}: ${r.statusText}` };
+        }
+        
+        const response = await r.json();
+        if (!response || !response.success) {
+          console.error(`❌ Failed to lock activity ${activity.id}:`, response);
+          return { success: false, activity, error: response?.message || 'Unknown error' };
+        }
+        
+        console.log(`✅ Successfully locked activity ${activity.id}: "${activity.title}"`);
+        return { success: true, activity };
+      } catch (err) {
+        console.error(`❌ Exception locking activity ${activity.id}:`, err);
+        return { success: false, activity, error: err.message || 'Network error' };
+      }
+    });
+    
+    // Wait for all locks to complete
+    const results = await Promise.all(lockPromises);
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success);
+    
+    // Log detailed error information
+    if (failed.length > 0) {
+      console.error('❌ Failed locks:', failed);
+      failed.forEach(f => {
+        console.error(`  - Activity ${f.activity.id} ("${f.activity.title}"): ${f.error || 'Unknown error'}`);
+      });
+    }
+    
+    if (typeof window.showNotification === 'function') {
+      if (failed.length === 0) {
+        window.showNotification('success', 'All Activities Locked', `Successfully locked ${successful} ${successful === 1 ? 'activity' : 'activities'}.`);
+      } else {
+        window.showNotification('warning', 'Partial Success', 
+          `Locked ${successful} ${successful === 1 ? 'activity' : 'activities'}, but ${failed.length} ${failed.length === 1 ? 'failed' : 'failed'}.\n\nCheck console for details.`);
+      }
+    } else {
+      alert(`Locked ${successful} ${successful === 1 ? 'activity' : 'activities'}${failed.length > 0 ? ` (${failed.length} failed - check console for details)` : ''}.`);
+    }
+    
+    // Reload activities
+    if (typeof loadTopicsFromCourse === 'function') {
+      loadTopicsFromCourse();
+    } else {
+      location.reload();
+    }
+  } catch (err) {
+    console.error('❌ Error in lockAllActivities:', err);
+    if (typeof window.showNotification === 'function') {
+      window.showNotification('error', 'Lock Failed', 'An error occurred while locking activities. Please try again.');
+    } else {
+      alert('Error locking activities. Please try again.');
+    }
+  }
+}
+
+// Unlock all activities for the current class (for testing purposes)
+async function unlockAllActivities() {
+  if (!confirm('Unlock ALL activities in this class?\n\nThis will open all locked activities for students immediately.\n\nThis is useful for testing purposes.')) {
+    return;
+  }
+  
+  const classId = window.__CLASS_ID__;
+  if (!classId) {
+    alert('Error: Class ID not found');
+    return;
+  }
+  
+  // Show loading notification
+  if (typeof window.showNotification === 'function') {
+    window.showNotification('info', 'Unlocking Activities', 'Please wait while we unlock all activities...');
+  }
+  
+  try {
+    // Get all activities for this class
+    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+    const res = await topicsRes.json();
+    
+    if (!res || !res.success || !res.modules) {
+      alert('Failed to load activities. Please try again.');
+      return;
+    }
+    
+    // Collect all locked activities
+    const lockedActivities = [];
+    res.modules.forEach(module => {
+      (module.lessons || []).forEach(lesson => {
+        (lesson.activities || []).forEach(activity => {
+          // Check if activity is locked (no start_at)
+          if (!activity.start_at || activity.start_at === null || activity.start_at === 'null' || activity.start_at === '') {
+            lockedActivities.push({
+              id: activity.id,
+              title: activity.title || 'Untitled Activity'
+            });
+          }
+        });
+      });
+    });
+    
+    if (lockedActivities.length === 0) {
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('info', 'No Locked Activities', 'All activities are already unlocked.');
+      } else {
+        alert('All activities are already unlocked.');
+      }
+      return;
+    }
+    
+    // Set start_at to current time
+    const now = new Date();
+    const startAt = now.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+    
+    // Get CSRF token once for all requests
+    console.log('🔐 Fetching CSRF token...');
+    const csrfToken = await getCSRFToken();
+    if (!csrfToken) {
+      alert('Error: Failed to get security token. Please refresh the page and try again.');
+      return;
+    }
+    console.log('✅ CSRF token obtained');
+    
+    // Unlock all activities
+    const unlockPromises = lockedActivities.map(async activity => {
+      const formData = new FormData();
+      formData.append('action', 'activity_update');
+      formData.append('id', activity.id);
+      formData.append('start_at', startAt);
+      formData.append('csrf_token', csrfToken); // Add CSRF token
+      
+      console.log(`🔓 Unlocking activity ${activity.id}: "${activity.title}"`);
+      
+      try {
+        const r = await fetch('course_outline_manage.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: formData
+        });
+        
+        if (!r.ok) {
+          console.error(`❌ HTTP error for activity ${activity.id}:`, r.status, r.statusText);
+          return { success: false, activity, error: `HTTP ${r.status}: ${r.statusText}` };
+        }
+        
+        const response = await r.json();
+        if (!response || !response.success) {
+          console.error(`❌ Failed to unlock activity ${activity.id}:`, response);
+          return { success: false, activity, error: response?.message || 'Unknown error' };
+        }
+        
+        console.log(`✅ Successfully unlocked activity ${activity.id}: "${activity.title}"`);
+        return { success: true, activity };
+      } catch (err) {
+        console.error(`❌ Exception unlocking activity ${activity.id}:`, err);
+        return { success: false, activity, error: err.message || 'Network error' };
+      }
+    });
+    
+    // Wait for all unlocks to complete
+    const results = await Promise.all(unlockPromises);
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success);
+    
+    // Log detailed error information
+    if (failed.length > 0) {
+      console.error('❌ Failed unlocks:', failed);
+      failed.forEach(f => {
+        console.error(`  - Activity ${f.activity.id} ("${f.activity.title}"): ${f.error || 'Unknown error'}`);
+      });
+    }
+    
+    if (typeof window.showNotification === 'function') {
+      if (failed.length === 0) {
+        window.showNotification('success', 'All Activities Unlocked', `Successfully unlocked ${successful} ${successful === 1 ? 'activity' : 'activities'}.`);
+      } else {
+        const errorDetails = failed.length <= 3 
+          ? failed.map(f => `"${f.activity.title}"`).join(', ')
+          : `${failed.length} activities`;
+        window.showNotification('warning', 'Partial Success', 
+          `Unlocked ${successful} ${successful === 1 ? 'activity' : 'activities'}, but ${failed.length} ${failed.length === 1 ? 'failed' : 'failed'}.\n\nCheck console for details.`);
+      }
+    } else {
+      alert(`Unlocked ${successful} ${successful === 1 ? 'activity' : 'activities'}${failed.length > 0 ? ` (${failed.length} failed - check console for details)` : ''}.`);
+    }
+    
+    // Reload activities
+    if (typeof loadTopicsFromCourse === 'function') {
+      loadTopicsFromCourse();
+    } else {
+      location.reload();
+    }
+  } catch (err) {
+    console.error('❌ Error in unlockAllActivities:', err);
+    if (typeof window.showNotification === 'function') {
+      window.showNotification('error', 'Unlock Failed', 'An error occurred while unlocking activities. Please try again.');
+    } else {
+      alert('Error unlocking activities. Please try again.');
+    }
+  }
+}
+
+// Make functions globally available
+window.lockActivity = lockActivity;
+window.unlockActivity = unlockActivity;
+window.lockAllActivities = lockAllActivities;
+window.unlockAllActivities = unlockAllActivities;
+window.viewActivityItems = viewActivityItems;
+window.handleReschedule = handleReschedule;
+window.handleTryAnswering = handleTryAnswering;
+window.toggleActivityMenu = toggleActivityMenu;
+
+function closeActivityDropdown(dropdown) {
+  if (!dropdown) return;
+  dropdown.classList.remove('dropdown-open');
+  dropdown.style.display = 'none';
+}
+
+
 
 

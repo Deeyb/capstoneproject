@@ -65,9 +65,18 @@ try {
                     
                     // For each lesson, get its activities
                     foreach ($lessons as &$lesson) {
-                        $aStmt = $db->prepare("SELECT id, title, type, max_score, instructions FROM lesson_activities WHERE lesson_id=? ORDER BY id ASC");
+                        $aStmt = $db->prepare("SELECT id, title, type, max_score, instructions, start_at, due_at FROM lesson_activities WHERE lesson_id=? ORDER BY id ASC");
                         $aStmt->execute([$lesson['id']]);
-                        $lesson['activities'] = $aStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                        $activities = $aStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                        error_log("🔍 [API] Lesson {$lesson['id']} has " . count($activities) . " activities");
+                        // Add availability status for each activity (but DON'T filter them out - show all activities)
+                        $courseSvc = new CourseService($db);
+                        foreach ($activities as &$act) {
+                            $availability = $courseSvc->checkActivityAvailability($act['id']);
+                            $act['availability'] = $availability;
+                            error_log("🔍 [API] Activity {$act['id']} ({$act['title']}) - status: {$availability['status']}, available: " . ($availability['available'] ? 'true' : 'false'));
+                        }
+                        $lesson['activities'] = $activities; // CRITICAL: Always include all activities, even if locked
                     }
                     
                     $modulesWithLessons[] = [
@@ -103,6 +112,12 @@ try {
             try { 
                 $activities = $courseSvc->listActivities($lessonId); 
                 error_log("✅ Activities found: " . count($activities));
+                // CRITICAL: Add availability status for each activity (same as in get_details)
+                foreach ($activities as &$act) {
+                    $availability = $courseSvc->checkActivityAvailability($act['id']);
+                    $act['availability'] = $availability;
+                    error_log("🔍 [get_lesson_details] Activity {$act['id']} ({$act['title']}) - status: {$availability['status']}, available: " . ($availability['available'] ? 'true' : 'false'));
+                }
             } catch (Throwable $e) { 
                 error_log("❌ Error getting activities: " . $e->getMessage());
                 $activities = []; 

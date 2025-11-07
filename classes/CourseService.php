@@ -131,6 +131,7 @@ class CourseService {
                 type ENUM('lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based') NOT NULL DEFAULT 'lecture',
                 title VARCHAR(255) NOT NULL,
                 instructions MEDIUMTEXT NULL,
+                start_at DATETIME NULL,
                 due_at DATETIME NULL,
                 max_score INT DEFAULT 100,
                 position INT NOT NULL DEFAULT 1,
@@ -144,6 +145,17 @@ class CourseService {
                     $this->db->exec("ALTER TABLE lesson_activities MODIFY COLUMN type ENUM('lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based') NOT NULL DEFAULT 'lecture'");
                 }
             } catch (Throwable $e) {}
+
+            // Ensure start_at column exists for activity availability
+            try { 
+                $this->db->exec("ALTER TABLE lesson_activities ADD COLUMN start_at DATETIME NULL AFTER instructions");
+                error_log("[DB_SETUP] Added start_at column to lesson_activities");
+            } catch (Throwable $e) {
+                // Column might already exist, which is fine
+                if (strpos($e->getMessage(), 'Duplicate column') === false) {
+                    error_log("[DB_SETUP] Warning checking start_at column: " . $e->getMessage());
+                }
+            }
 
             // Ensure required_construct column exists for construct gating in coding activities
             try { 
@@ -624,6 +636,10 @@ class CourseService {
         $stmt = $this->db->prepare("SELECT * FROM lesson_activities WHERE lesson_id=? ORDER BY position ASC, id ASC");
         $stmt->execute([$lessonId]);
         $activities = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        error_log("🔍 [listActivities] Lesson $lessonId - Found " . count($activities) . " activities");
+        foreach ($activities as $idx => $act) {
+            error_log("🔍 [listActivities] Activity $idx: id={$act['id']}, title={$act['title']}, start_at=" . ($act['start_at'] ?? 'NULL') . ", due_at=" . ($act['due_at'] ?? 'NULL'));
+        }
         if (!$activities) return [];
         $caseStmt = $this->db->prepare("SELECT * FROM activity_test_cases WHERE activity_id=? ORDER BY position ASC, id ASC");
         $qStmt = $this->db->prepare("SELECT * FROM activity_questions WHERE activity_id=? ORDER BY position ASC, id ASC");
@@ -642,6 +658,57 @@ class CourseService {
             }
         }
         return $activities;
+    }
+
+    /**
+     * Check if activity is available for students based on start_at and due_at dates
+     * Returns: ['available' => bool, 'reason' => string, 'status' => 'locked'|'open'|'closed']
+     */
+    public function checkActivityAvailability(int $activityId): array {
+        $stmt = $this->db->prepare("SELECT start_at, due_at FROM lesson_activities WHERE id=?");
+        $stmt->execute([$activityId]);
+        $a = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$a) {
+            return ['available' => false, 'reason' => 'Activity not found', 'status' => 'locked'];
+        }
+        
+        $now = new DateTime();
+        $startAt = $a['start_at'] ? new DateTime($a['start_at']) : null;
+        $dueAt = $a['due_at'] ? new DateTime($a['due_at']) : null;
+        
+        // CRITICAL: If start_at is NULL, activity is LOCKED by default (teacher hasn't opened it yet)
+        if (!$startAt) {
+            return [
+                'available' => false,
+                'reason' => 'Activity is locked. Teacher will open it soon.',
+                'status' => 'locked'
+            ];
+        }
+        
+        // If start_at is set and current time is before start_at, activity is locked
+        if ($now < $startAt) {
+            return [
+                'available' => false,
+                'reason' => 'Activity opens on ' . $startAt->format('M d, Y h:i A'),
+                'status' => 'locked'
+            ];
+        }
+        
+        // If due_at is set and current time is after due_at, activity is closed
+        if ($dueAt && $now > $dueAt) {
+            return [
+                'available' => false,
+                'reason' => 'Deadline passed on ' . $dueAt->format('M d, Y h:i A'),
+                'status' => 'closed'
+            ];
+        }
+        
+        // Activity is open (start_at is set and current time >= start_at, and (due_at is NULL or current time <= due_at))
+        return [
+            'available' => true,
+            'reason' => 'Activity is available',
+            'status' => 'open'
+        ];
     }
 
     public function getActivity(int $id): ?array {
@@ -677,12 +744,12 @@ class CourseService {
         return $a;
     }
 
-    public function createActivity(int $lessonId, string $title, string $instructions = null, string $type = 'lecture', $dueAt = null, int $maxScore = 100): int {
+    public function createActivity(int $lessonId, string $title, string $instructions = null, string $type = 'lecture', $dueAt = null, int $maxScore = 100, $startAt = null): int {
         $pos = (int)$this->db->query("SELECT COALESCE(MAX(position),0)+1 FROM lesson_activities WHERE lesson_id=" . (int)$lessonId)->fetchColumn();
         $allowedTypes = ['lecture','laboratory','quiz','assignment','coding','multiple_choice','true_false','matching','identification','upload_based','essay'];
         if (!in_array($type, $allowedTypes, true)) { $type = 'lecture'; }
-        $stmt = $this->db->prepare("INSERT INTO lesson_activities (lesson_id, type, title, instructions, due_at, max_score, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $ok = $stmt->execute([$lessonId, $type, $title, $instructions, $dueAt, $maxScore, $pos]);
+        $stmt = $this->db->prepare("INSERT INTO lesson_activities (lesson_id, type, title, instructions, start_at, due_at, max_score, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $ok = $stmt->execute([$lessonId, $type, $title, $instructions, $startAt, $dueAt, $maxScore, $pos]);
         return $ok ? (int)$this->db->lastInsertId() : 0;
     }
 
@@ -692,11 +759,12 @@ class CourseService {
         $requiredConstruct = isset($data['required_construct']) ? (string)$data['required_construct'] : null;
         if ($requiredConstruct === '') $requiredConstruct = null; // Empty string -> null
         error_log("[UPDATE_ACTIVITY] Updating activity $id with required_construct: " . ($requiredConstruct ?: 'NULL'));
-        $stmt = $this->db->prepare("UPDATE lesson_activities SET type=?, title=?, instructions=?, due_at=?, max_score=?, required_construct=? WHERE id=?");
+        $stmt = $this->db->prepare("UPDATE lesson_activities SET type=?, title=?, instructions=?, start_at=?, due_at=?, max_score=?, required_construct=? WHERE id=?");
         $result = $stmt->execute([
             $type,
             $data['title'] ?? '',
             $data['instructions'] ?? null,
+            $data['start_at'] ?? null,
             $data['due_at'] ?? null,
             (int)($data['max_score'] ?? 100),
             $requiredConstruct,

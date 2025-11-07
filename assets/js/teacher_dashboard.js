@@ -80,23 +80,37 @@
 
 	// Ensure Create Class tile exists on empty state
 	function ensureCreateTile(){
+		console.log('[ensureCreateTile] Checking for Create Class tile...');
 		var grid = qs('.classes-grid');
-		if (!grid) return;
+		if (!grid) {
+			console.warn('[ensureCreateTile] ⚠️ Grid not found, will be created in renderActiveClasses');
+			return;
+		}
+		
+		// CRITICAL: Remove any student-style empty state (fallback from student side)
+		var emptyStates = grid.querySelectorAll('.empty-state');
+		emptyStates.forEach(function(el) {
+			// Remove if it's the student-style "No Classes Yet" message
+			var text = el.textContent || '';
+			if (text.includes('No Classes Yet') || text.includes('Join a class') || text.includes('learning journey')) {
+				console.log('[ensureCreateTile] 🗑️ Removing student-style empty state:', text.substring(0, 50));
+				el.remove();
+			}
+		});
+		
 		var hasCreate = grid.querySelector('.create-tile');
 		var hasAnyCard = grid.children && grid.children.length > 0;
+		console.log('[ensureCreateTile] hasCreate:', !!hasCreate, 'hasAnyCard:', hasAnyCard);
+		
 		if (!hasCreate && !hasAnyCard) {
-			var div = document.createElement('div');
-			div.className = 'create-tile';
-			div.innerHTML = `
-				<div class="create-tile-content">
-					<i class="fas fa-plus create-tile-icon"></i>
-					<h3 class="create-tile-title">Create New Class</h3>
-					<p class="create-tile-subtitle">Start a new learning journey</p>
-					<button class="create-tile-button">Click to begin</button>
-				</div>
-			`;
-			div.addEventListener('click', function(){ if (typeof openForm === 'function') openForm(); });
-			grid.appendChild(div);
+			console.log('[ensureCreateTile] No Create tile found, creating one...');
+			renderCreateTile(grid);
+		} else if (!hasCreate) {
+			// Even if there are cards, ensure Create tile exists
+			console.log('[ensureCreateTile] Cards exist but no Create tile, adding one...');
+			renderCreateTile(grid);
+		} else {
+			console.log('[ensureCreateTile] ✅ Create tile already exists');
 		}
 	}
 
@@ -150,6 +164,26 @@
 
 	// ===== Existing Active Classes logic =====
 	function renderCreateTile(grid){
+		console.log('[renderCreateTile] Rendering Create Class tile...');
+		if (!grid) {
+			console.error('[renderCreateTile] ❌ Grid not provided!');
+			return;
+		}
+		
+		// CRITICAL: Remove any student-style empty state that might exist
+		var emptyStates = grid.querySelectorAll('.empty-state');
+		emptyStates.forEach(function(el) {
+			console.log('[renderCreateTile] Removing student-style empty state:', el);
+			el.remove();
+		});
+		
+		// CRITICAL: Check if Create tile already exists
+		var existingTile = grid.querySelector('.create-tile');
+		if (existingTile) {
+			console.log('[renderCreateTile] Create tile already exists, skipping...');
+			return;
+		}
+		
 		var tile = document.createElement('div');
 		tile.className = 'create-tile';
 		tile.innerHTML = `
@@ -161,20 +195,79 @@
 			</div>
 		`;
 		
-		tile.addEventListener('click', function(){ if (typeof openForm === 'function') openForm(); });
+		tile.addEventListener('click', function(){ 
+			console.log('[renderCreateTile] Create tile clicked');
+			if (typeof openForm === 'function') {
+				openForm(); 
+			} else {
+				console.error('[renderCreateTile] ❌ openForm function not available!');
+			}
+		});
 		grid.appendChild(tile);
+		console.log('[renderCreateTile] ✅ Create Class tile added to grid');
 	}
 
 	function renderActiveClasses(classes){
+		console.log('[renderActiveClasses] Called with classes:', classes ? classes.length : 0);
 		var grid = qs('.classes-grid');
-		if (!grid) return;
+		if (!grid) {
+			console.error('[renderActiveClasses] ❌ .classes-grid not found!');
+			// CRITICAL: Try to find or create the grid
+			var myClassesSection = qs('#my-classes');
+			if (myClassesSection) {
+				var existingGrid = myClassesSection.querySelector('.classes-grid');
+				if (!existingGrid) {
+					console.log('[renderActiveClasses] Creating .classes-grid element...');
+					var newGrid = document.createElement('div');
+					newGrid.className = 'classes-grid';
+					var activeHeader = myClassesSection.querySelector('.active-classes-header');
+					if (activeHeader && activeHeader.nextElementSibling) {
+						activeHeader.nextElementSibling.insertAdjacentElement('afterend', newGrid);
+					} else {
+						myClassesSection.appendChild(newGrid);
+					}
+					grid = newGrid;
+					console.log('[renderActiveClasses] ✅ Created .classes-grid element');
+				} else {
+					grid = existingGrid;
+					console.log('[renderActiveClasses] ✅ Found existing .classes-grid element');
+				}
+			} else {
+				console.error('[renderActiveClasses] ❌ #my-classes section not found!');
+				return;
+			}
+		}
+		
+		console.log('[renderActiveClasses] Grid found, clearing and rendering...');
+		
+		// CRITICAL: Remove any student-style empty state BEFORE clearing
+		var emptyStates = grid.querySelectorAll('.empty-state');
+		emptyStates.forEach(function(el) {
+			var text = el.textContent || '';
+			if (text.includes('No Classes Yet') || text.includes('Join a class') || text.includes('learning journey')) {
+				console.log('[renderActiveClasses] 🗑️ Removing student-style empty state before rendering:', text.substring(0, 50));
+				el.remove();
+			}
+		});
+		
 		grid.innerHTML = '';
-		if (!classes || classes.length === 0) {
+		
+		// CRITICAL: Always render Create Class tile FIRST (even if there are classes)
+		console.log('[renderActiveClasses] Rendering Create Class tile...');
+		try {
 			renderCreateTile(grid);
-    return; 
-  }
-		// Optional: show Create tile first
-		renderCreateTile(grid);
+			console.log('[renderActiveClasses] ✅ Create Class tile rendered');
+		} catch (e) {
+			console.error('[renderActiveClasses] ❌ Error rendering Create Class tile:', e);
+		}
+		
+		if (!classes || classes.length === 0) {
+			console.log('[renderActiveClasses] No classes, only showing Create Class tile');
+			return; 
+		}
+		
+		// Render existing classes
+		console.log('[renderActiveClasses] Rendering', classes.length, 'classes...');
         classes.forEach(function(cls){
 			var card = document.createElement('div');
 			card.className = 'class-item';
@@ -278,8 +371,23 @@
 			});
 	}
 
+	// CRITICAL: Ensure my-classes section is visible on load
+	function ensureMyClassesVisible() {
+		var myClassesSection = qs('#my-classes');
+		if (myClassesSection) {
+			// Ensure section is visible
+			myClassesSection.style.display = 'block';
+			myClassesSection.classList.add('active');
+			console.log('[ensureMyClassesVisible] ✅ my-classes section is visible');
+		} else {
+			console.error('[ensureMyClassesVisible] ❌ #my-classes section not found!');
+		}
+	}
+	
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', function(){
+			console.log('[initTeacherDashboardMain] DOMContentLoaded - Initializing My Classes section...');
+			ensureMyClassesVisible();
 			loadActiveClasses();
 			ensureCreateTile();
 			bindCreateClassControls();
@@ -287,7 +395,9 @@
 			bindMyClassesNavExit();
 		});
 	} else {
-  loadActiveClasses();
+		console.log('[initTeacherDashboardMain] Document already loaded - Initializing My Classes section...');
+		ensureMyClassesVisible();
+		loadActiveClasses();
 		ensureCreateTile();
 		bindCreateClassControls();
 		loadPublishedCoursesForCreate();

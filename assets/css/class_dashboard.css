@@ -37,9 +37,11 @@
   background: #ffffff; 
   border: 1px solid #e9eef5; 
   border-radius: 12px; 
-  margin-bottom: 14px; 
+  margin-bottom: 16px; /* Consistent spacing - slightly increased */
   overflow: visible; /* Changed from hidden to visible to allow dropdowns */
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: box-shadow 0.2s ease; /* Smooth shadow transition only - no transform */
+  position: relative; /* Ensure stable positioning */
 }
 .topic-header { 
   display: flex; 
@@ -100,6 +102,11 @@
   padding: 0 20px 20px 20px;
   border-top: 1px solid #f1f5f9;
   background: #fafbfc;
+  display: none;
+}
+
+.topic-item.expanded .topic-body {
+  display: block;
 }
 
 .topic-content-row {
@@ -143,6 +150,7 @@
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   position: relative;
+  overflow: visible; /* Allow dropdown to overflow card boundaries */
 }
 
 .activity-left-border {
@@ -245,23 +253,26 @@
 .activity-menu i {
   color: #64748b;
   font-size: 16px;
+  font-family: "Font Awesome 5 Free" !important;
+  font-weight: 900 !important;
+  font-style: normal !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .activity-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
+  position: absolute; /* SIMPLE: Use absolute positioning like old working version */
+  top: 100%; /* Position directly below menu */
+  right: 0; /* Align to right edge of menu */
   background: #ffffff;
   border: 1px solid #e9eef5;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   padding: 8px 0;
   min-width: 200px;
-  z-index: 9999;
+  z-index: 9999; /* High but not maximum - simpler */
   display: none;
-  /* Ensure dropdown is not clipped by parent containers */
-  transform: translateY(0);
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
@@ -690,35 +701,7 @@
   gap: 16px;
 }
 
-.topic-item {
-  background: #ffffff;
-  border: 1px solid #e9eef5;
-  border-radius: 12px;
-  overflow: visible; /* Changed from hidden to visible to allow dropdowns */
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-  position: relative;
-}
-
-.topic-item::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: #1d9b3e;
-  border-radius: 12px 12px 0 0;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.topic-item:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(0,0,0,0.06);
-}
-
-.topic-item:hover::before {
-  opacity: 1;
-}
+/* Removed duplicate .topic-item styles - using the one above */
 
 .topic-header {
   display: flex;
@@ -803,7 +786,7 @@
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,.06);
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* Allow dropdown menus to extend outside module */
 }
 
 .module-section::before {
@@ -1284,4 +1267,39 @@ body.student-view .start-activity-btn:hover {
   background: #16a34a !important;
   transform: translateY(-1px) !important;
   box-shadow: 0 4px 12px rgba(29, 155, 62, 0.3) !important;
+}
+
+/* Locked Activity Styles */
+.activity-locked {
+  opacity: 0.85;
+}
+
+.border-locked {
+  background: #fbbf24 !important; /* Yellow/orange for locked */
+  width: 4px !important;
+}
+
+.activity-closed {
+  opacity: 0.75;
+}
+
+.border-closed {
+  background: #dc2626 !important; /* Red for closed */
+  width: 4px !important;
+}
+
+/* Student view locked state */
+body.student-view .activity-locked .activity-left-border {
+  background: #fbbf24 !important;
+  width: 4px !important;
+}
+
+body.student-view .activity-closed .activity-left-border {
+  background: #dc2626 !important;
+  width: 4px !important;
+}
+
+/* Teacher view locked state */
+.teacher-format.border-locked {
+  border-left: 4px solid #fbbf24 !important;
 }

@@ -193,6 +193,12 @@ if ($userRole === 'student') {
               <i class="fas fa-copy" style="margin-right:8px;"></i> Copy Class Code
             </button>
             <?php if (strtolower($userRole) === 'teacher'): ?>
+            <button id="unlockAllActivitiesMenu" style="width:100%; background:none; border:none; padding:10px 12px; text-align:left; cursor:pointer; font-size:14px; color:#374151; border-top:1px solid #e5e7eb;">
+              <i class="fas fa-unlock-alt" style="margin-right:8px;color:#1d9b3e;"></i> Unlock All Activities
+            </button>
+            <button id="lockAllActivitiesMenu" style="width:100%; background:none; border:none; padding:10px 12px; text-align:left; cursor:pointer; font-size:14px; color:#374151; border-top:1px solid #e5e7eb;">
+              <i class="fas fa-lock" style="margin-right:8px;color:#f59e0b;"></i> Lock All Activities
+            </button>
             <button id="archiveClassMenu" style="width:100%; background:none; border:none; padding:10px 12px; text-align:left; cursor:pointer; font-size:14px; color:#374151; border-top:1px solid #e5e7eb;">
               <i class="fas fa-archive" style="margin-right:8px;color:#6b7280;"></i> Archive Class
             </button>
@@ -446,6 +452,32 @@ if ($userRole === 'student') {
         }
         var copyBtn = document.getElementById('copyClassCodeMenu');
         if (copyBtn){ copyBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); menu.style.display='none'; try { navigator.clipboard.writeText(document.getElementById('courseCode').textContent || ''); } catch(_){} }); }
+        var unlockAllBtn = document.getElementById('unlockAllActivitiesMenu');
+        if (unlockAllBtn){
+          unlockAllBtn.addEventListener('click', function(e){ 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            menu.style.display='none';
+            if (typeof unlockAllActivities === 'function') {
+              unlockAllActivities();
+            } else {
+              alert('Unlock All Activities function not available. Please refresh the page.');
+            }
+          });
+        }
+        var lockAllBtn = document.getElementById('lockAllActivitiesMenu');
+        if (lockAllBtn){
+          lockAllBtn.addEventListener('click', function(e){ 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            menu.style.display='none';
+            if (typeof lockAllActivities === 'function') {
+              lockAllActivities();
+            } else {
+              alert('Lock All Activities function not available. Please refresh the page.');
+            }
+          });
+        }
         var archiveBtn = document.getElementById('archiveClassMenu');
         if (archiveBtn){
           archiveBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); menu.style.display='none';
