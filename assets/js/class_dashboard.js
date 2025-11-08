@@ -715,16 +715,52 @@ class ActivityTester {
       }
 
       // Use the activity data that was passed from the dropdown click
+      // CRITICAL: Ensure questions are properly extracted from activity object
+      let questions = this.currentActivity.questions || this.currentActivity.question || [];
+      
+      console.log('🔍 DEBUG: Initial questions check:', {
+        'this.currentActivity.questions': this.currentActivity.questions,
+        'this.currentActivity.question': this.currentActivity.question,
+        'questions length': questions.length,
+        'activity type': this.currentActivity.type,
+        'activity id': this.currentActivity.id
+      });
+      
+      // If no questions found and it's not a coding/upload activity, try fetching from API
+      if (questions.length === 0 && this.currentActivity.id) {
+        const activityType = String(this.currentActivity.type || '').toLowerCase();
+        if (activityType !== 'coding' && activityType !== 'upload_based' && activityType !== 'laboratory') {
+          console.log('🔍 DEBUG: No questions found, attempting to fetch from API...');
+          try {
+            const apiData = await this.getActivityQuestions(this.currentActivity.id);
+            if (apiData && apiData.questions && apiData.questions.length > 0) {
+              questions = apiData.questions;
+              console.log('🔍 DEBUG: Successfully fetched questions from API:', questions.length);
+              // Update currentActivity with fetched questions
+              this.currentActivity.questions = questions;
+            }
+          } catch (apiError) {
+            console.error('🔍 DEBUG: Failed to fetch questions from API:', apiError);
+          }
+        }
+      }
+      
+      console.log('🔍 DEBUG: Final questions array:', {
+        'questions length': questions.length,
+        'first question': questions[0] || null
+      });
+      
       const activityData = {
         activity: this.currentActivity,
-        questions: this.currentActivity.questions || [],
+        questions: questions,
         settings: this.currentActivity.settings || {}
       };
       
       console.log('🔍 DEBUG: Activity data prepared:', {
         activity: activityData.activity,
         questionsCount: activityData.questions.length,
-        settings: activityData.settings
+        settings: activityData.settings,
+        activityType: activityData.activity.type
       });
       
       // Store the complete activity data
@@ -750,8 +786,24 @@ class ActivityTester {
       if (this.questions.length === 0 && (activityType === 'upload_based' || !activityType)) {
         console.log('🔍 DEBUG: Showing upload-based activity interface...');
         this.displayActivityWithoutQuestions();
+      } else if (this.questions.length === 0) {
+        // If no questions but not upload-based, show error
+        console.error('🔍 DEBUG: No questions found for activity type:', activityType);
+        const questionsContent = document.getElementById('questionsContent');
+        if (questionsContent) {
+          questionsContent.innerHTML = `
+            <div style="text-align:center;padding:40px;color:#ef4444;">
+              <i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>
+              <h3 style="margin:0 0 8px 0;">No Questions Found</h3>
+              <p style="margin:0;color:#6b7280;">This activity doesn't have any questions configured yet.</p>
+            </div>
+          `;
+        }
       } else {
-        console.log('🔍 DEBUG: Showing all questions at once...');
+        console.log('🔍 DEBUG: Showing all questions at once...', {
+          questionsCount: this.questions.length,
+          firstQuestion: this.questions[0]
+        });
         this.displayAllQuestions();
       }
       
@@ -846,9 +898,10 @@ class ActivityTester {
   // Get real activity data from API (same as student test interface)
   async getActivityQuestions(activityId) {
     try {
-      // Make real API call to get activity data (same endpoint as student test)
-      const response = await fetch(`/api/activities/${activityId}`, {
+      // Try using the universal activity API first
+      const response = await fetch(`universal_activity_api.php?action=get_activity&id=${activityId}`, {
         method: 'GET',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
@@ -859,9 +912,23 @@ class ActivityTester {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('🔍 DEBUG: Failed to parse API response:', parseError);
+        throw new Error('Invalid response from server');
+      }
       
       if (data.success && data.activity) {
+        console.log('🔍 DEBUG: Activity data from API:', {
+          activityId: data.activity.id,
+          type: data.activity.type,
+          questionsCount: data.activity.questions ? data.activity.questions.length : 0,
+          questions: data.activity.questions
+        });
+        
         // Return the activity data in the same format as student test
         return {
           activity: data.activity,
@@ -872,8 +939,11 @@ class ActivityTester {
         throw new Error(data.message || 'Failed to load activity');
       }
     } catch (error) {
+      console.error('🔍 DEBUG: Error in getActivityQuestions:', error);
+      
       // Fallback: Try to get activity data from the current activity object
       if (this.currentActivity && this.currentActivity.questions) {
+        console.log('🔍 DEBUG: Using fallback - current activity questions:', this.currentActivity.questions);
         return {
           activity: this.currentActivity,
           questions: this.currentActivity.questions,
@@ -1033,10 +1103,33 @@ class ActivityTester {
   // Render multiple choice input
   renderMultipleChoiceInput(question, questionIndex) {
     const choices = question.choices || [];
+    console.log('🔍 [TEACHER] renderMultipleChoiceInput called:', {
+      questionIndex: questionIndex,
+      question: question,
+      choices: choices,
+      choicesCount: choices.length
+    });
+    
     let choicesHtml = '';
     
     choices.forEach((choice, index) => {
       const choiceLabel = String.fromCharCode(65 + index); // A, B, C, D, E, etc.
+      
+      // Handle multiple possible field names for choice text
+      const rawText = choice.choice_text || choice.text || choice.content || choice.option || '';
+      const choiceText = (rawText && String(rawText).trim()) ? String(rawText).trim() : `Choice ${index + 1}`;
+      
+      console.log('🔍 [TEACHER] Rendering choice', index, ':', {
+        choice_object: choice,
+        has_choice_text: !!choice.choice_text,
+        has_text: !!choice.text,
+        choice_text_value: choice.choice_text,
+        text_value: choice.text,
+        rawText: rawText,
+        final_choiceText: choiceText,
+        choiceId: choice.id
+      });
+      
       choicesHtml += `
         <div class="choice-container" data-question="${questionIndex}" data-choice="${choice.id}" 
              style="margin-bottom:16px;padding:16px;border:1px solid #e9ecef;border-radius:8px;background:#f8f9fa;cursor:pointer;transition:all 0.2s ease;">
@@ -1044,7 +1137,7 @@ class ActivityTester {
             <input type="radio" name="question_${questionIndex}" value="${choice.id}" 
                    style="margin-right:16px;transform:scale(1.3);">
             <span style="flex:1;font-size:15px;line-height:1.6;">
-              <strong>${choiceLabel}.</strong> ${choice.choice_text || choice.text || 'Choice ' + (index + 1)}
+              <strong>${choiceLabel}.</strong> ${choiceText}
             </span>
           </label>
         </div>

@@ -692,16 +692,26 @@ try {
                 }
 
                 $tests = $svc->listTestCases($activityId);
-                $sample = array_values(array_filter($tests, function($t){ return !empty($t['is_sample']); }));
-                $cases = $sample ?: $tests;
                 
-                // If user provided stdin (from interactive terminal), use it instead of test case input
-                $userStdin = (string)($_POST['stdin'] ?? '');
-                if ($userStdin !== '' && $quick && !empty($cases)) {
-                    // Override first test case input with user input
-                    $cases = [['input_text' => $userStdin, 'expected_output_text' => $cases[0]['expected_output_text'] ?? '', 'is_sample' => $cases[0]['is_sample'] ?? false]];
-                } else if ($quick && !empty($cases)) {
-                    $cases = [ $cases[0] ];
+                // CRITICAL: For "Test All Cases" (quick=false), use ALL test cases
+                // For "Run Code" (quick=true), use sample test cases if available, otherwise first test case
+                if ($quick) {
+                    // Quick mode: Use sample test cases if available, otherwise first test case
+                    $sample = array_values(array_filter($tests, function($t){ return !empty($t['is_sample']); }));
+                    $cases = $sample ?: ($tests ? [ $tests[0] ] : []);
+                    
+                    // If user provided stdin (from interactive terminal), use it instead of test case input
+                    $userStdin = (string)($_POST['stdin'] ?? '');
+                    if ($userStdin !== '' && !empty($cases)) {
+                        // Override first test case input with user input
+                        $cases = [['input_text' => $userStdin, 'expected_output_text' => $cases[0]['expected_output_text'] ?? '', 'is_sample' => $cases[0]['is_sample'] ?? false]];
+                    } else if (!empty($cases)) {
+                        // Use only first test case for quick mode
+                        $cases = [ $cases[0] ];
+                    }
+                } else {
+                    // Test All Cases mode: Use ALL test cases (not just samples)
+                    $cases = $tests;
                 }
             $startTime = microtime(true);
             $result = $svc->runWithJDoodle($jdoodleLanguage, $source, $cases);

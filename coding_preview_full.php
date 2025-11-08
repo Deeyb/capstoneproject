@@ -8,6 +8,7 @@ $activityId = isset($_GET['activity_id']) ? (int)$_GET['activity_id'] : 0;
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CodeRegal Coding Preview</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <style>
     html, body { height:100%; margin:0; background:#0f172a; overflow:hidden; }
     .preview-wrap { position:fixed; inset:0; overflow:auto; }

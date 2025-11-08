@@ -1656,9 +1656,48 @@ function viewOutline(courseId) {
                   st.questions = qs.map(function(q){
                     const base = { _id: q.id, text: q.question_text||'', points: q.points||1, explanation: q.explanation||'', answer: q.answer||'' };
                     const choices = Array.isArray(q.choices) ? q.choices : [];
+                    console.log('🔍 [LOAD DATA] Question choices from DB:', {
+                      questionId: q.id,
+                      choicesCount: choices.length,
+                      rawChoices: choices
+                    });
                     if (subtype === 'multiple_choice') {
                       base._originalChoiceIds = choices.map(function(c){ return c.id; });
-                      base.choices = choices.map(function(c){ return { _id: c.id, text: c.choice_text||'', correct: !!c.is_correct }; });
+                      base.choices = choices.map(function(c){ 
+                        // CRITICAL: Get the raw choice_text from database
+                        const rawChoiceText = c.choice_text || '';
+                        const choiceText = String(rawChoiceText).trim();
+                        
+                        console.log('🔍 [LOAD DATA] Mapping choice from DB:', {
+                          id: c.id,
+                          raw_choice_text: c.choice_text,
+                          raw_choice_text_type: typeof c.choice_text,
+                          raw_choice_text_is_null: c.choice_text === null,
+                          raw_choice_text_is_undefined: c.choice_text === undefined,
+                          raw_choice_text_is_empty_string: c.choice_text === '',
+                          raw_choice_text_length: c.choice_text ? String(c.choice_text).length : 0,
+                          final_text: choiceText,
+                          final_text_length: choiceText.length,
+                          final_text_is_empty: choiceText === '',
+                          is_correct: c.is_correct,
+                          full_choice_object: c
+                        });
+                        
+                        // CRITICAL: If choice_text is empty from DB, log a warning
+                        if (!choiceText || choiceText === '') {
+                          console.warn('🔍 [LOAD DATA] ⚠️ WARNING: Empty choice_text for choice ID', c.id, 'from database!');
+                        }
+                        
+                        // CRITICAL: Store BOTH text and choice_text to ensure compatibility
+                        // Use the trimmed value, but preserve original if needed
+                        return { 
+                          _id: c.id, 
+                          text: choiceText, // Store trimmed value
+                          choice_text: choiceText, // Also store as choice_text for compatibility (SAME AS TEACHER SIDE)
+                          correct: !!c.is_correct 
+                        }; 
+                      });
+                      console.log('🔍 [LOAD DATA] Final mapped choices for question:', base.choices);
                     } else if (subtype === 'true_false') {
                       // Prefer q.answer; fallback to choices
                       if (!base.answer) {
@@ -1864,16 +1903,58 @@ function viewOutline(courseId) {
             return;
           }
           
-          // First, fetch the actual activity data from database
-          const fd = new FormData();
-          fd.append('action', 'activity_get');
-          fd.append('id', activityId);
-          
-          fetch('course_outline_manage.php', { method: 'POST', body: fd, credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(res => {
-              if (res && res.success && res.data) {
-                const activityData = res.data;
+          // CRITICAL: Fetch from universal_activity_api.php FIRST (same as Teacher side)
+          // This ensures we get questions with choices in the correct format (choice_text property)
+          console.log('🔍 [TEST BUTTON] Fetching activity data from universal_activity_api.php...');
+          fetch(`universal_activity_api.php?action=get_activity&id=${activityId}`, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          })
+            .then(r => r.text())
+            .then(responseText => {
+              let activityData = null;
+              try {
+                const apiData = JSON.parse(responseText);
+                if (apiData.success && apiData.activity) {
+                  console.log('🔍 [TEST BUTTON] ✅ Successfully fetched from universal_activity_api.php');
+                  activityData = apiData.activity;
+                  console.log('🔍 [TEST BUTTON] Activity data from API:', {
+                    id: activityData.id,
+                    type: activityData.type,
+                    questionsCount: activityData.questions ? activityData.questions.length : 0,
+                    firstQuestionChoices: activityData.questions && activityData.questions[0] ? activityData.questions[0].choices : null
+                  });
+                } else {
+                  throw new Error('API returned failure');
+                }
+              } catch (e) {
+                console.warn('🔍 [TEST BUTTON] Failed to fetch from universal_activity_api.php, falling back to activity_get:', e);
+                // Fallback to activity_get
+                const fd = new FormData();
+                fd.append('action', 'activity_get');
+                fd.append('id', activityId);
+                return fetch('course_outline_manage.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+                  .then(r => r.json())
+                  .then(res => {
+                    if (res && res.success && res.data) {
+                      return res.data;
+                    }
+                    throw new Error('Failed to load activity data');
+                  });
+              }
+              
+              if (!activityData) {
+                throw new Error('No activity data loaded');
+              }
+              
+              return activityData;
+            })
+            .then(activityData => {
+              if (activityData) {
                 console.log('🔍 [EDIT LOAD] Raw activity data from backend:', activityData);
                 console.log('🔍 [EDIT LOAD] All keys in activityData:', Object.keys(activityData));
                 console.log('🔍 [EDIT LOAD] required_construct:', activityData.required_construct, 'type:', typeof activityData.required_construct, 'isset:', activityData.hasOwnProperty('required_construct'));
@@ -1945,6 +2026,46 @@ function viewOutline(courseId) {
                     console.error('🔍 [EDIT LOAD] Failed to parse coding instructions:', e);
                   }
                 }
+                // CRITICAL: Map questions from API format to state format
+                // API returns questions with choices having 'choice_text' property (same as Teacher side)
+                if (activityData.questions && Array.isArray(activityData.questions)) {
+                  console.log('🔍 [TEST BUTTON] Mapping questions from API format to state format...');
+                  preloadedState.questions = activityData.questions.map(function(q) {
+                    const base = {
+                      _id: q.id,
+                      text: q.question_text || q.text || '',
+                      points: q.points || 1,
+                      explanation: q.explanation || '',
+                      answer: q.answer || ''
+                    };
+                    
+                    // Map choices - API format has 'choice_text', state format needs both 'text' and 'choice_text'
+                    if (q.choices && Array.isArray(q.choices)) {
+                      base.choices = q.choices.map(function(c) {
+                        const choiceText = c.choice_text || c.text || '';
+                        console.log('🔍 [TEST BUTTON] Mapping choice:', {
+                          id: c.id,
+                          choice_text: c.choice_text,
+                          text: c.text,
+                          final: choiceText
+                        });
+                        return {
+                          _id: c.id,
+                          text: choiceText, // State format
+                          choice_text: choiceText, // Also keep choice_text for compatibility
+                          correct: !!c.is_correct
+                        };
+                      });
+                    }
+                    
+                    return base;
+                  });
+                  console.log('🔍 [TEST BUTTON] Mapped questions:', preloadedState.questions);
+                } else {
+                  console.warn('🔍 [TEST BUTTON] No questions found in API response');
+                  preloadedState.questions = [];
+                }
+                
                 // CRITICAL: For Test button, open in PREVIEW mode (not edit mode)
                 // This allows coordinator to test the activity as students would see it
                 preloadedState.viewMode = 'preview';
@@ -1993,37 +2114,47 @@ function viewOutline(courseId) {
                     // CRITICAL: Also explicitly set dropdown and render test cases after render completes
                     setTimeout(() => {
                       try {
-                        console.log('🔍 [EDIT LOAD] Attempting to set dropdown value...');
-                        console.log('🔍 [EDIT LOAD] State requiredConstruct:', window.createActivityState.requiredConstruct);
-                        console.log('🔍 [EDIT LOAD] State questionType:', window.createActivityState.questionType);
-                        // Set required construct dropdown value
-                        const rcDropdown = document.getElementById('cafRequiredConstruct');
-                        console.log('🔍 [EDIT LOAD] Dropdown found:', !!rcDropdown);
-                        if (rcDropdown) {
-                          console.log('🔍 [EDIT LOAD] Dropdown current value:', rcDropdown.value);
-                          console.log('🔍 [EDIT LOAD] State requiredConstruct value:', window.createActivityState.requiredConstruct);
-                          if (window.createActivityState.requiredConstruct) {
-                            rcDropdown.value = window.createActivityState.requiredConstruct;
-                            console.log('🔍 [EDIT LOAD] Set dropdown value to:', window.createActivityState.requiredConstruct, 'new value:', rcDropdown.value);
+                        const activityType = window.createActivityState.type || '';
+                        const isCodingActivity = activityType === 'coding' || activityType === 'laboratory';
+                        
+                        console.log('🔍 [EDIT LOAD] Activity type:', activityType, 'isCoding:', isCodingActivity);
+                        
+                        // Only set required construct dropdown and render test cases for coding activities
+                        if (isCodingActivity) {
+                          console.log('🔍 [EDIT LOAD] Attempting to set dropdown value...');
+                          console.log('🔍 [EDIT LOAD] State requiredConstruct:', window.createActivityState.requiredConstruct);
+                          console.log('🔍 [EDIT LOAD] State questionType:', window.createActivityState.questionType);
+                          // Set required construct dropdown value
+                          const rcDropdown = document.getElementById('cafRequiredConstruct');
+                          console.log('🔍 [EDIT LOAD] Dropdown found:', !!rcDropdown);
+                          if (rcDropdown) {
+                            console.log('🔍 [EDIT LOAD] Dropdown current value:', rcDropdown.value);
+                            console.log('🔍 [EDIT LOAD] State requiredConstruct value:', window.createActivityState.requiredConstruct);
+                            if (window.createActivityState.requiredConstruct) {
+                              rcDropdown.value = window.createActivityState.requiredConstruct;
+                              console.log('🔍 [EDIT LOAD] Set dropdown value to:', window.createActivityState.requiredConstruct, 'new value:', rcDropdown.value);
+                            } else {
+                              console.warn('🔍 [EDIT LOAD] WARNING: State requiredConstruct is empty!');
+                            }
                           } else {
-                            console.warn('🔍 [EDIT LOAD] WARNING: State requiredConstruct is empty!');
+                            console.error('🔍 [EDIT LOAD] ERROR: Required Construct dropdown not found in DOM!');
+                            console.error('🔍 [EDIT LOAD] Searching for all selects in body...');
+                            const allSelects = document.querySelectorAll('#cafBody select');
+                            console.error('🔍 [EDIT LOAD] Found', allSelects.length, 'select elements');
+                            allSelects.forEach((sel, i) => {
+                              console.error('🔍 [EDIT LOAD] Select', i, 'id:', sel.id, 'name:', sel.name);
+                            });
+                          }
+                          
+                          // Render test cases (only for coding activities)
+                          if (typeof renderTestCases === 'function') {
+                            console.log('🔍 [EDIT LOAD] Calling renderTestCases() explicitly');
+                            renderTestCases();
+                          } else {
+                            console.warn('🔍 [EDIT LOAD] renderTestCases function not found!');
                           }
                         } else {
-                          console.error('🔍 [EDIT LOAD] ERROR: Required Construct dropdown not found in DOM!');
-                          console.error('🔍 [EDIT LOAD] Searching for all selects in body...');
-                          const allSelects = document.querySelectorAll('#cafBody select');
-                          console.error('🔍 [EDIT LOAD] Found', allSelects.length, 'select elements');
-                          allSelects.forEach((sel, i) => {
-                            console.error('🔍 [EDIT LOAD] Select', i, 'id:', sel.id, 'name:', sel.name);
-                          });
-                        }
-                        
-                        // Render test cases
-                        if (typeof renderTestCases === 'function') {
-                          console.log('🔍 [EDIT LOAD] Calling renderTestCases() explicitly');
-                          renderTestCases();
-                        } else {
-                          console.warn('🔍 [EDIT LOAD] renderTestCases function not found!');
+                          console.log('🔍 [EDIT LOAD] Skipping Required Construct dropdown and test cases (not a coding activity)');
                         }
                       } catch(e) {
                         console.error('🔍 [EDIT LOAD] Error setting form values:', e);
@@ -4415,7 +4546,11 @@ function showCreateActivityForm(lessonId, opts){
         const firstQuestion = state.questions[0];
         console.log('🔍 DEBUG: Checking quiz type, first question:', firstQuestion);
         if (firstQuestion.choices && firstQuestion.choices.length === 2) {
-          const choiceTexts = firstQuestion.choices.map(c => c.text.toLowerCase());
+          // CRITICAL: Check both 'text' and 'choice_text' properties (API format uses choice_text)
+          const choiceTexts = firstQuestion.choices.map(c => {
+            const text = c.choice_text || c.text || '';
+            return String(text).toLowerCase().trim();
+          });
           console.log('🔍 DEBUG: Choice texts:', choiceTexts);
           if (choiceTexts.includes('true') && choiceTexts.includes('false')) {
             activityType = 'true_false';
@@ -4467,20 +4602,91 @@ function showCreateActivityForm(lessonId, opts){
       } else {
         const meta = { kind: activityType, instructions: state.instructionsText || '' };
         activity.instructions = JSON.stringify(meta);
-        const qs = Array.isArray(state.questions) ? state.questions : [];
+        
+        // CRITICAL: For preview mode, try to fetch fresh data from universal_activity_api.php
+        // This ensures we get the same data structure as Teacher side (with choice_text property)
+        const activityId = state.editActivityId || activity.id || 0;
+        let qs = Array.isArray(state.questions) ? state.questions : [];
+        
+        console.log('🔍 [PREVIEW] ========== STARTING PREVIEW RENDER ==========');
+        console.log('🔍 [PREVIEW] Activity ID:', activityId);
+        console.log('🔍 [PREVIEW] State.questions from state:', state.questions);
+        console.log('🔍 [PREVIEW] Questions count from state:', qs.length);
+        
+        // CRITICAL: Check if choices from state have 'text' property instead of 'choice_text'
+        // If so, we need to use the data as-is but ensure proper mapping
+        const needsApiFetch = activityId > 0 && qs.length > 0 && qs[0] && qs[0].choices && qs[0].choices.length > 0 && 
+                              qs[0].choices[0] && !qs[0].choices[0].choice_text && qs[0].choices[0].text;
+        
+        if (needsApiFetch) {
+          console.log('🔍 [PREVIEW] ⚠️ State has choices with "text" property, will map to "choice_text"');
+        }
+        
+        console.log('🔍 [PREVIEW] Processing questions for preview:', {
+          questionsCount: qs.length,
+          firstQuestion: qs[0] || null,
+          firstQuestionChoices: qs[0] ? qs[0].choices : null,
+          activityType: activityType
+        });
+        console.log('🔍 [PREVIEW] Full first question JSON:', JSON.stringify(qs[0] || null, null, 2));
+        
         activity.questions = qs.map(function(q, idx){
           // Handle both editor format (q.text) and database format (q.question_text)
           const questionText = q.question_text || q.text || ('Question ' + (idx+1));
           const base = { question_text: questionText, points: parseInt(q.points||1,10) };
+          
+          console.log('🔍 [PREVIEW] Processing question', idx, ':', {
+            question: q,
+            hasChoices: !!(q.choices && Array.isArray(q.choices)),
+            choicesCount: q.choices ? q.choices.length : 0,
+            choices: q.choices
+          });
+          
           if (activityType === 'multiple_choice') { 
-            base.choices = (q.choices||[]).map(function(c, ci){ 
-              // Handle both editor format (c.text) and database format (c.choice_text)
-              const choiceText = c.choice_text || c.text || ('Choice ' + (ci+1));
-              return { id: ci+1, choice_text: choiceText, is_correct: !!c.is_correct || !!c.correct }; 
+            const choicesArray = q.choices || [];
+            console.log('🔍 [PREVIEW] Question', idx, 'RAW choices array:', JSON.stringify(choicesArray, null, 2));
+            console.log('🔍 [PREVIEW] Question', idx, 'choices array type:', typeof choicesArray, 'isArray:', Array.isArray(choicesArray), 'length:', choicesArray.length);
+            
+            if (choicesArray.length === 0) {
+              console.error('🔍 [PREVIEW] ⚠️ WARNING: No choices found for question', idx, '! Question object:', q);
+            }
+            
+            base.choices = choicesArray.map(function(c, ci){ 
+              // CRITICAL: Handle both formats - API format (choice_text) and state format (text)
+              // API format (from universal_activity_api.php): has 'choice_text' property directly from DB
+              // State format (from activity_get): has 'text' property (mapped from choice_text in line 1661)
+              // Check choice_text FIRST (API format), then text (state format) - SAME AS TEACHER SIDE
+              const rawText = c.choice_text || c.text || c.content || c.option || '';
+              const choiceText = (rawText && String(rawText).trim()) ? String(rawText).trim() : ('Choice ' + (ci+1));
+              
+              console.log('🔍 [PREVIEW] Mapping choice', ci, ':', { 
+                original: c,
+                has_text: !!c.text,
+                has_choice_text: !!c.choice_text,
+                has_content: !!c.content,
+                has_option: !!c.option,
+                raw_text_value: c.text,
+                raw_choice_text_value: c.choice_text,
+                rawText: rawText,
+                final: choiceText,
+                is_correct: !!c.is_correct || !!c.correct
+              });
+              
+              // CRITICAL: Always return with choice_text property (same format as API and Teacher side)
+              // This ensures renderQuestionInput receives the correct format
+              return { 
+                id: c.id || c._id || (ci+1), 
+                choice_text: choiceText, 
+                is_correct: !!c.is_correct || !!c.correct 
+              }; 
             }); 
+            
+            console.log('🔍 [PREVIEW] Question', idx, 'FINAL mapped choices:', JSON.stringify(base.choices, null, 2));
           }
           return base;
         });
+        
+        console.log('🔍 [PREVIEW] Final activity.questions:', activity.questions);
       }
       
           // Calculate total points - use max_score for upload_based and coding activities
@@ -4578,12 +4784,27 @@ function showCreateActivityForm(lessonId, opts){
           </div>
           
           <!-- Instructions (match student modal) -->
-          ${state.displayInstructions || state.instructionsText ? `
+          ${(() => {
+            // CRITICAL: Parse instructions JSON to extract actual instructions text
+            let instructionsText = state.displayInstructions || state.instructionsText || '';
+            if (instructionsText && typeof instructionsText === 'string') {
+              try {
+                // Try to parse as JSON (e.g., {"kind":"multiple_choice","instructions":"..."})
+                const parsed = JSON.parse(instructionsText);
+                if (parsed && typeof parsed === 'object' && parsed.instructions) {
+                  instructionsText = parsed.instructions;
+                }
+              } catch (e) {
+                // Not JSON, use as-is
+              }
+            }
+            return instructionsText ? `
             <div style="padding:20px;border-bottom:1px solid #e9ecef;background:#f8f9fa;">
               <h3 style="margin:0 0 12px 0;color:#333;font-size:16px;">📋 Instructions</h3>
-              <p style="margin:0;color:#555;line-height:1.6;">${state.displayInstructions || state.instructionsText}</p>
+              <p style="margin:0;color:#555;line-height:1.6;">${instructionsText}</p>
             </div>
-          ` : ''}
+          ` : '';
+          })()}
           
           <!-- Progress Bar (hidden for upload-based activities like teacher side) -->
           ${activityType !== 'upload_based' ? `
@@ -5551,12 +5772,13 @@ function showCreateActivityForm(lessonId, opts){
           const inputEl = tcEl.querySelector('input[data-tc-field="input"]');
           const outputEl = tcEl.querySelector('input[data-tc-field="output"]');
           const pointsEl = tcEl.querySelector('input[data-tc-field="points"]');
-          const sampleEl = tcEl.querySelector('input[data-tc-field="isSample"]');
+          // CRITICAL: Use more specific selector for checkbox to ensure we get the correct element
+          const sampleEl = tcEl.querySelector('input[type="checkbox"][data-tc-field="isSample"]') || tcEl.querySelector('input[data-tc-field="isSample"]');
           const input = inputEl ? inputEl.value : '';
           const output = outputEl ? outputEl.value : '';
           const points = pointsEl ? parseInt(pointsEl.value || 0, 10) : 0;
           const isSample = sampleEl ? sampleEl.checked : false;
-          console.log('🔍 [PAYLOAD] DOM TC', idx, 'input:', input, 'output:', output, 'points:', points, 'isSample:', isSample);
+          console.log('🔍 [PAYLOAD] DOM TC', idx, 'input:', input, 'output:', output, 'points:', points, 'isSample:', isSample, 'checkbox found:', !!sampleEl, 'checkbox checked:', isSample);
           testCasesFromDOM.push({ input, output, points, isSample });
         });
       }
@@ -6235,9 +6457,10 @@ window.checkCodestemTests = async function() {
     let noteHtml = '';
     if (requiredConstruct) {
       const ok = constructCheck && constructCheck.ok !== false ? true : false;
+      const constructDisplayName = window.getConstructDisplayName ? window.getConstructDisplayName(requiredConstruct) : requiredConstruct.replace('_',' / ');
       noteHtml = `<div style="margin-top:8px;padding:10px;background:${ok ? '#ecfdf5' : '#fffbeb'};border-left:3px solid ${ok ? '#10b981' : '#f59e0b'};border-radius:6px;">
         <strong style="font-size:12px;color:${ok ? '#065f46' : '#991b1b'};">Construct Required:</strong>
-        <span style="font-size:12px;color:${ok ? '#065f46' : '#991b1b'};"> ${requiredConstruct.replace('_',' / ')} — ${ok ? 'used ✔' : 'missing ✖ (50% deduction applied)'} </span>
+        <span style="font-size:12px;color:${ok ? '#065f46' : '#991b1b'};"> ${constructDisplayName} — ${ok ? 'used ✔' : 'missing ✖ (50% deduction applied)'} </span>
       </div>`;
     }
 
@@ -6474,63 +6697,292 @@ window.switchCodestemTab = function(tab, evt) {
   // Show/hide tab content (handle both student and preview tabs)
   const testCasesTab = container.querySelector('#codestemTestCasesTab') || container.querySelector('#previewTestCasesTab');
   const executionsTab = container.querySelector('#codestemExecutionsTab') || container.querySelector('#previewExecutionsTab');
-  const resultsTab = container.querySelector('#previewResultsTab');
   
   if (testCasesTab) testCasesTab.style.display = 'none';
   if (executionsTab) executionsTab.style.display = 'none';
-  if (resultsTab) resultsTab.style.display = 'none';
   
   if (tab === 'testcases' && testCasesTab) {
     testCasesTab.style.display = 'block';
   } else if (tab === 'executions' && executionsTab) {
     executionsTab.style.display = 'block';
-  } else if (tab === 'results' && resultsTab) {
-    resultsTab.style.display = 'block';
   }
 };
 
 window.toggleTestCaseDetails = function(idx, evt) {
-  // Find the test case element by ID or index
-  const testCaseEl = document.querySelector(`#tcDetails-${idx}`) ? 
-    document.querySelector(`[id="tcDetails-${idx}"]`).closest('.codestem-test-case') :
-    (evt && evt.currentTarget ? evt.currentTarget : (typeof event !== 'undefined' && event.currentTarget ? event.currentTarget : null));
+  if (evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+  }
   
-  if (!testCaseEl) {
-    // Fallback: find by data attribute
-    const allCases = document.querySelectorAll('.codestem-test-case');
-    if (allCases[idx]) {
-      const details = allCases[idx].querySelector(`#tcDetails-${idx}`);
-      const chevron = allCases[idx].querySelector('.fa-chevron-down');
-      if (details) {
-        const isHidden = details.style.display === 'none' || !details.style.display;
-        details.style.display = isHidden ? 'block' : 'none';
-        if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-      }
-    }
+  // CRITICAL: Store last clicked test case for smart detection in "Run Code" and "Check Test"
+  window.__previewLastClickedTestIndex = idx;
+  console.log('🔍 [SMART DETECTION] Test case', idx + 1, 'clicked - stored for Run Code & Check Test');
+  
+  // Find test case container by index
+  const allCases = document.querySelectorAll('.codestem-test-case');
+  if (!allCases || allCases.length <= idx) {
+    console.warn('Test case not found at index:', idx);
     return;
   }
   
-  const details = testCaseEl.querySelector(`#tcDetails-${idx}`) || testCaseEl.querySelector('.test-case-details');
-  const chevron = testCaseEl.querySelector('.fa-chevron-down');
+  const testCaseEl = allCases[idx];
+  const details = testCaseEl.querySelector(`#tcDetails-${idx}`);
+  const chevronBtn = testCaseEl.querySelector('button[onclick*="toggleTestCaseDetails"]');
+  const chevronIcon = chevronBtn ? chevronBtn.querySelector('i') : null;
+  const radio = testCaseEl.querySelector(`input[name="preview-tc"][value="${idx}"]`);
   
-  if (details) {
-    const isHidden = details.style.display === 'none' || !details.style.display;
-    details.style.display = isHidden ? 'block' : 'none';
-    if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+  if (!details) {
+    console.warn('Test case details not found for index:', idx);
+    return;
   }
   
-  // Also handle radio selection
-  const radio = document.querySelector(`input[name="preview-tc"][value="${idx}"]`);
-  if (radio && !radio.checked) {
-    radio.checked = true;
-    // Hide other details, show this one
-    document.querySelectorAll('.test-case-details').forEach((d, i) => {
-      if (i !== idx) {
-        d.style.display = 'none';
-        const otherChevron = d.closest('.codestem-test-case')?.querySelector('.fa-chevron-down');
-        if (otherChevron) otherChevron.style.transform = 'rotate(0deg)';
-      }
-    });
+  // Determine current state
+  const isCurrentlyExpanded = details.style.display !== 'none' && details.style.display !== '';
+  const shouldExpand = !isCurrentlyExpanded;
+  
+  // Toggle this test case
+  details.style.display = shouldExpand ? 'block' : 'none';
+  
+  // Update chevron icon (rotate and change class)
+  if (chevronIcon) {
+    if (shouldExpand) {
+      chevronIcon.classList.remove('fa-chevron-down');
+      chevronIcon.classList.add('fa-chevron-up');
+      chevronIcon.style.transform = 'rotate(0deg)';
+    } else {
+      chevronIcon.classList.remove('fa-chevron-up');
+      chevronIcon.classList.add('fa-chevron-down');
+      chevronIcon.style.transform = 'rotate(0deg)';
+    }
+  }
+  
+  // Visual highlighting: Remove highlight from all, add to clicked one
+  allCases.forEach((otherCase, otherIdx) => {
+    if (otherIdx === idx) {
+      // Highlight selected test case
+      otherCase.style.borderColor = '#10b981';
+      otherCase.style.borderWidth = '2px';
+      otherCase.style.background = '#f0fdf4';
+    } else {
+      // Remove highlight from others
+      otherCase.style.borderColor = '#e5e7eb';
+      otherCase.style.borderWidth = '1px';
+      otherCase.style.background = '#f9fafb';
+    }
+  });
+  
+  // Handle radio selection (if clicking on radio button OR chevron button) - keep for fallback
+  const isRadioClick = radio && evt && evt.target === radio;
+  const isChevronClick = evt && evt.target && (evt.target.closest('button[onclick*="toggleTestCaseDetails"]') || evt.target.closest('i'));
+  
+  if (isRadioClick || isChevronClick) {
+    if (radio) {
+      radio.checked = true;
+    }
+    
+    // If expanding this test case, optionally collapse others (only if clicking radio)
+    if (isRadioClick && shouldExpand) {
+      allCases.forEach((otherCase, otherIdx) => {
+        if (otherIdx !== idx) {
+          const otherDetails = otherCase.querySelector(`#tcDetails-${otherIdx}`);
+          const otherChevronBtn = otherCase.querySelector('button[onclick*="toggleTestCaseDetails"]');
+          const otherChevronIcon = otherChevronBtn ? otherChevronBtn.querySelector('i') : null;
+          const otherRadio = otherCase.querySelector(`input[name="preview-tc"][value="${otherIdx}"]`);
+          
+          if (otherDetails) {
+            otherDetails.style.display = 'none';
+          }
+          if (otherChevronIcon) {
+            otherChevronIcon.classList.remove('fa-chevron-up');
+            otherChevronIcon.classList.add('fa-chevron-down');
+            otherChevronIcon.style.transform = 'rotate(0deg)';
+          }
+          if (otherRadio) {
+            otherRadio.checked = false;
+          }
+        }
+      });
+    }
+  }
+};
+
+// Helper function to parse and format error messages
+window.formatErrorMessage = function(errorText, language) {
+  if (!errorText || typeof errorText !== 'string') {
+    return { type: 'unknown', message: 'An error occurred', lineNumber: null };
+  }
+  
+  const err = errorText.trim();
+  const lang = (language || 'cpp').toLowerCase();
+  
+  // Timeout errors
+  if (err.includes('timeout') || err.includes('Time limit exceeded') || err.includes('execution timeout')) {
+    return {
+      type: 'timeout',
+      message: '⏱️ Time Limit Exceeded\nYour code took too long to execute. Try optimizing your algorithm or checking for infinite loops.',
+      lineNumber: null,
+      icon: '⏱️',
+      color: '#f59e0b'
+    };
+  }
+  
+  // Syntax/Compilation errors (C++/C)
+  if (lang === 'cpp' || lang === 'c') {
+    // Match patterns like: "error: ..." or "filename.cpp:line:column: error: ..."
+    const syntaxMatch = err.match(/(?:error|Error)[:\s]+(.+?)(?:\n|$)/i) || err.match(/(.+?):(\d+):(\d+):\s*(?:error|warning):\s*(.+)/);
+    if (syntaxMatch) {
+      const lineNum = syntaxMatch[2] ? parseInt(syntaxMatch[2], 10) : null;
+      const errorMsg = syntaxMatch[4] || syntaxMatch[1] || err;
+      return {
+        type: 'syntax',
+        message: `❌ Syntax Error\n${errorMsg}${lineNum ? `\n\n📍 Line ${lineNum}` : ''}`,
+        lineNumber: lineNum,
+        icon: '❌',
+        color: '#ef4444'
+      };
+    }
+    
+    // Segmentation fault
+    if (err.includes('Segmentation fault') || err.includes('segfault')) {
+      return {
+        type: 'runtime',
+        message: '💥 Segmentation Fault\nYour code tried to access memory it doesn\'t have permission to access. Check for:\n• Array out of bounds\n• Null pointer dereference\n• Uninitialized variables',
+        lineNumber: null,
+        icon: '💥',
+        color: '#ef4444'
+      };
+    }
+  }
+  
+  // Python errors
+  if (lang === 'python' || lang === 'python3') {
+    // Match patterns like: "File \"<stdin>\", line X, in ..." or "SyntaxError: ..."
+    const pythonMatch = err.match(/(?:File\s+[^,]+,\s+line\s+(\d+)|SyntaxError|IndentationError|NameError|TypeError|ValueError|RuntimeError)[:\s]+(.+?)(?:\n|$)/i);
+    if (pythonMatch) {
+      const lineNum = pythonMatch[1] ? parseInt(pythonMatch[1], 10) : null;
+      const errorMsg = pythonMatch[2] || err;
+      return {
+        type: 'syntax',
+        message: `❌ Python Error\n${errorMsg}${lineNum ? `\n\n📍 Line ${lineNum}` : ''}`,
+        lineNumber: lineNum,
+        icon: '❌',
+        color: '#ef4444'
+      };
+    }
+  }
+  
+  // Java errors
+  if (lang === 'java') {
+    const javaMatch = err.match(/(?:error|Error)[:\s]+(.+?)(?:\n|$)/i) || err.match(/(.+?)\.java:(\d+):\s*(.+)/);
+    if (javaMatch) {
+      const lineNum = javaMatch[2] ? parseInt(javaMatch[2], 10) : null;
+      const errorMsg = javaMatch[3] || javaMatch[1] || err;
+      return {
+        type: 'syntax',
+        message: `❌ Compilation Error\n${errorMsg}${lineNum ? `\n\n📍 Line ${lineNum}` : ''}`,
+        lineNumber: lineNum,
+        icon: '❌',
+        color: '#ef4444'
+      };
+    }
+  }
+  
+  // Runtime errors (generic)
+  if (err.includes('Runtime Error') || err.includes('runtime error') || err.includes('Exception')) {
+    return {
+      type: 'runtime',
+      message: `⚠️ Runtime Error\n${err}\n\nCheck for:\n• Division by zero\n• Array index out of bounds\n• Null pointer access\n• Invalid input handling`,
+      lineNumber: null,
+      icon: '⚠️',
+      color: '#f59e0b'
+    };
+  }
+  
+  // Generic error fallback
+  return {
+    type: 'error',
+    message: `❌ Error\n${err}`,
+    lineNumber: null,
+    icon: '❌',
+    color: '#ef4444'
+  };
+};
+
+// Helper function to update test case visual status
+window.updateTestCaseStatus = function(testCaseIndex, status, earned, points) {
+  const container = document.getElementById(`tcContainer-${testCaseIndex}`);
+  const statusIcon = document.getElementById(`tcStatusIcon-${testCaseIndex}`);
+  const statusBadge = document.getElementById(`tcStatusBadge-${testCaseIndex}`);
+  
+  if (!container) return;
+  
+  // Determine status colors and icons
+  let iconClass, iconColor, badgeText, badgeBg, badgeColor, borderColor, bgColor;
+  
+  if (status === 'AC' || status === 'PASSED') {
+    // Passed - Green
+    iconClass = 'fa-check-circle';
+    iconColor = '#10b981';
+    badgeText = 'PASSED';
+    badgeBg = '#d1fae5';
+    badgeColor = '#047857';
+    borderColor = '#10b981';
+    bgColor = '#f0fdf4';
+  } else if (status === 'WA' || status === 'FAILED') {
+    // Wrong Answer - Red
+    iconClass = 'fa-times-circle';
+    iconColor = '#ef4444';
+    badgeText = 'FAILED';
+    badgeBg = '#fee2e2';
+    badgeColor = '#991b1b';
+    borderColor = '#ef4444';
+    bgColor = '#fef2f2';
+  } else if (status === 'RE' || status === 'ERROR') {
+    // Runtime Error - Orange
+    iconClass = 'fa-exclamation-triangle';
+    iconColor = '#f59e0b';
+    badgeText = 'ERROR';
+    badgeBg = '#fef3c7';
+    badgeColor = '#92400e';
+    borderColor = '#f59e0b';
+    bgColor = '#fffbeb';
+  } else {
+    // Not run - Gray
+    iconClass = 'fa-circle';
+    iconColor = '#9ca3af';
+    badgeText = '';
+    badgeBg = '';
+    badgeColor = '';
+    borderColor = container.dataset.testIndex === '0' ? '#10b981' : '#e5e7eb';
+    bgColor = container.dataset.testIndex === '0' ? '#f0fdf4' : '#f9fafb';
+  }
+  
+  // Update icon
+  if (statusIcon) {
+    statusIcon.innerHTML = `<i class="fas ${iconClass}" style="color:${iconColor};font-size:14px;"></i>`;
+    statusIcon.title = badgeText || 'Not run';
+  }
+  
+  // Update badge
+  if (statusBadge) {
+    if (badgeText) {
+      statusBadge.textContent = badgeText;
+      statusBadge.style.background = badgeBg;
+      statusBadge.style.color = badgeColor;
+      statusBadge.style.display = 'inline-block';
+    } else {
+      statusBadge.style.display = 'none';
+    }
+  }
+  
+  // Update container styling
+  container.style.borderColor = borderColor;
+  container.style.borderWidth = status === 'AC' || status === 'WA' || status === 'RE' ? '2px' : (container.dataset.testIndex === '0' ? '2px' : '1px');
+  container.style.background = bgColor;
+  
+  // Add points info if available
+  if (earned !== undefined && points !== undefined && statusBadge && badgeText) {
+    statusBadge.textContent = `${badgeText} (${earned}/${points} pts)`;
   }
 };
 
@@ -6558,6 +7010,21 @@ if (typeof escapeHtml === 'undefined') {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  };
+}
+
+// Helper function to get proper display name for required construct
+if (typeof getConstructDisplayName === 'undefined') {
+  window.getConstructDisplayName = function(construct) {
+    if (!construct) return '';
+    const constructMap = {
+      'if_else': 'If-Else Statement',
+      'while': 'While Loop',
+      'for': 'For Loop',
+      'do_while': 'Do-While Loop',
+      'switch': 'Switch Statement'
+    };
+    return constructMap[construct.toLowerCase()] || construct.replace(/_/g, ' / ').replace(/\b\w/g, l => l.toUpperCase());
   };
 }
 
@@ -6879,7 +7346,7 @@ function renderProfessionalTestQuestions(activity, activityType) {
         </div>
         
         <div style="margin-bottom:20px;">
-          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;">${question.text || question.question_text || 'Question text not available'}</p>
+          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;">${question.question_text || question.text || 'Question text not available'}</p>
         </div>
         ${activityType === 'multiple_choice' ? '<div style="font-size:14px;color:#495057;margin:0 0 8px 0;">Select your answer:</div>' : ''}
         ${renderQuestionInput(question, index, activityType)}
@@ -6928,6 +7395,19 @@ function renderCodingPreview(activity){
   let requiredConstruct = '';
   try { const metaRC = (meta && meta.requiredConstruct) ? String(meta.requiredConstruct) : ''; requiredConstruct = activity.required_construct || metaRC || ''; } catch(_){}
   window.__CURRENT_ACTIVITY_REQUIRED_CONSTRUCT__ = requiredConstruct;
+  
+  // Use global helper function for construct display name
+  const getConstructDisplayName = window.getConstructDisplayName || function(construct) {
+    if (!construct) return '';
+    const constructMap = {
+      'if_else': 'If-Else Statement',
+      'while': 'While Loop',
+      'for': 'For Loop',
+      'do_while': 'Do-While Loop',
+      'switch': 'Switch Statement'
+    };
+    return constructMap[construct.toLowerCase()] || construct.replace(/_/g, ' / ').replace(/\b\w/g, l => l.toUpperCase());
+  };
   
   // CRITICAL: Create handlers IMMEDIATELY before returning HTML
   // This ensures handlers are available as soon as HTML is rendered
@@ -7001,7 +7481,10 @@ function renderCodingPreview(activity){
         return false;
       }
       
-      if (runBtn) {
+      // Set loading state using helper
+      if (window.setPreviewButtonLoading) {
+        window.setPreviewButtonLoading('previewRunBtn', true, 'Running...');
+      } else if (runBtn) {
         runBtn.disabled = true;
         runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
       }
@@ -7092,6 +7575,21 @@ function renderCodingPreview(activity){
         console.log('🔴 Terminal closed - output already recorded in test case panel');
         // CRITICAL: Reset execution flag so user can run code again
         window.__previewRunHandlerExecuting = false;
+        // CRITICAL: Reset button loading state when terminal is closed
+        if (window.setPreviewButtonLoading) {
+          window.setPreviewButtonLoading('previewRunBtn', false);
+        } else {
+          const runBtnEl = document.getElementById('previewRunBtn');
+          if (runBtnEl) {
+            runBtnEl.disabled = false;
+            const btnText = runBtnEl.querySelector('.btn-text');
+            if (btnText) {
+              btnText.textContent = 'Run Code';
+            } else {
+              runBtnEl.innerHTML = '<i class="fas fa-play"></i> Run Code';
+            }
+          }
+        }
         terminalModal.remove(); 
       };
       terminalModal.addEventListener('click', function(e){ 
@@ -7100,21 +7598,44 @@ function renderCodingPreview(activity){
           console.log('🔴 Terminal closed (clicked outside) - output already recorded in test case panel');
           // CRITICAL: Reset execution flag so user can run code again
           window.__previewRunHandlerExecuting = false;
+          // CRITICAL: Reset button loading state when terminal is closed
+          if (window.setPreviewButtonLoading) {
+            window.setPreviewButtonLoading('previewRunBtn', false);
+          } else {
+            const runBtnEl = document.getElementById('previewRunBtn');
+            if (runBtnEl) {
+              runBtnEl.disabled = false;
+              const btnText = runBtnEl.querySelector('.btn-text');
+              if (btnText) {
+                btnText.textContent = 'Run Code';
+              } else {
+                runBtnEl.innerHTML = '<i class="fas fa-play"></i> Run Code';
+              }
+            }
+          }
           terminalModal.remove(); 
         }
       });
       
-      // CRITICAL: Check which test case is selected (radio button) to determine which test case to run
-      const selectedRadio = document.querySelector('input[name="preview-tc"]:checked');
+      // CRITICAL: Smart detection - use last clicked test case OR selected radio button
+      // Priority: 1) Last clicked test case (stored in window), 2) Selected radio button, 3) First test case
       let selectedTestIndex = 0;
       
-      if (selectedRadio && selectedRadio.value !== undefined) {
-        selectedTestIndex = parseInt(selectedRadio.value, 10) || 0;
-        console.log('🔍 [RUN CODE] Selected test case:', selectedTestIndex + 1);
+      // Check if there's a last clicked test case (smart detection)
+      if (window.__previewLastClickedTestIndex !== undefined) {
+        selectedTestIndex = parseInt(window.__previewLastClickedTestIndex, 10) || 0;
+        console.log('🔍 [RUN CODE] Using last clicked test case (smart detection):', selectedTestIndex + 1);
       } else {
-        // If no radio selected, use first test case (default)
-        selectedTestIndex = 0;
-        console.log('ℹ️ [RUN CODE] No test case selected, using first test case');
+        // Fallback to radio button selection
+        const selectedRadio = document.querySelector('input[name="preview-tc"]:checked');
+        if (selectedRadio && selectedRadio.value !== undefined) {
+          selectedTestIndex = parseInt(selectedRadio.value, 10) || 0;
+          console.log('🔍 [RUN CODE] Using selected radio button test case:', selectedTestIndex + 1);
+        } else {
+          // If no radio selected, use first test case (default)
+          selectedTestIndex = 0;
+          console.log('ℹ️ [RUN CODE] No test case selected, using first test case');
+        }
       }
       
       // Get the selected test case for input
@@ -7234,6 +7755,15 @@ function renderCodingPreview(activity){
           const activity = window.__previewActivityData || {};
           const testCases = activity.testCases || activity.test_cases || [];
           
+          // Get language from activity metadata
+          let language = 'cpp';
+          try {
+            const meta = activity.instructions ? (typeof activity.instructions === 'string' ? JSON.parse(activity.instructions || '{}') : activity.instructions) : {};
+            language = (meta.language || 'cpp').toLowerCase();
+          } catch(_) {
+            language = 'cpp';
+          }
+          
           if (results.length === 0) {
             var terminalBody = document.getElementById(terminalBodyId);
             if (terminalBody) {
@@ -7258,18 +7788,94 @@ function renderCodingPreview(activity){
           const statusCode = firstResult.statusCode || (firstResult.data && firstResult.data.statusCode) || 0;
           
           const hasError = err || (statusCode !== 200 && statusCode !== 0);
-          const outputText = err ? ('Error: ' + err) : String(out || '').trim();
           
-          console.log('🔍 [RUN CODE] Updating test case', targetTestIndex + 1, 'with output:', outputText);
+          // Format error message if there's an error
+          let outputText = '';
+          if (hasError && err) {
+            const errorInfo = window.formatErrorMessage ? window.formatErrorMessage(err, language) : null;
+            if (errorInfo) {
+              outputText = errorInfo.message;
+            } else {
+              outputText = 'Error: ' + err;
+            }
+          } else {
+            outputText = String(out || '').trim();
+          }
           
-          // CRITICAL: Update the SELECTED test case's "Your Output" field (not always Test Case 1)
+          // CRITICAL: Smart output matching - check if output matches any test case's expected output
+          const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+          const normalizedOutput = norm(outputText);
+          
+          let finalTargetIndex = targetTestIndex; // Default to selected test case
+          let matchedTestCase = null;
+          
+          if (!hasError && normalizedOutput !== '') {
+            // Check all test cases to see if output matches any expected output
+            for (let i = 0; i < testCases.length; i++) {
+              const tc = testCases[i] || {};
+              const expected = norm(tc.expected_output || tc.expectedOutput || tc.expected_output_text || '');
+              
+              if (expected !== '' && normalizedOutput === expected) {
+                finalTargetIndex = i;
+                matchedTestCase = i + 1;
+                console.log(`🎯 [SMART MATCH] Output "${normalizedOutput}" matches Test Case ${i + 1} expected output! Auto-detected.`);
+                break; // Use first match
+              }
+            }
+            
+            if (matchedTestCase) {
+              console.log(`✅ [SMART MATCH] Output will be recorded to Test Case ${matchedTestCase} (matched expected output)`);
+            } else {
+              console.log(`ℹ️ [RUN CODE] Output "${normalizedOutput}" doesn't match any expected output, using selected Test Case ${targetTestIndex + 1}`);
+            }
+          }
+          
+          console.log('🔍 [RUN CODE] Updating test case', finalTargetIndex + 1, 'with output:', outputText);
+          
+          // CRITICAL: Update the MATCHED or SELECTED test case's "Your Output" field
           try {
-            const yourOutputEl = document.getElementById(`tcYour-${targetTestIndex}`);
+            const yourOutputEl = document.getElementById(`tcYour-${finalTargetIndex}`);
             if (yourOutputEl) {
               yourOutputEl.textContent = outputText || '(no output)';
-              console.log('✅ [RUN CODE] Updated test case', targetTestIndex + 1, 'output field');
+              console.log('✅ [RUN CODE] Updated test case', finalTargetIndex + 1, 'output field');
+              
+              // Update visual status based on output match
+              if (window.updateTestCaseStatus) {
+                const expectedEl = document.getElementById(`tcExpected-${finalTargetIndex}`);
+                const expectedText = expectedEl ? expectedEl.textContent.trim() : '';
+                const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+                const normalizedOutput = norm(outputText);
+                const normalizedExpected = norm(expectedText);
+                const matches = !hasError && normalizedOutput !== '' && normalizedExpected !== '' && normalizedOutput === normalizedExpected;
+                const status = hasError ? 'RE' : (matches ? 'AC' : (normalizedOutput !== '' ? 'WA' : ''));
+                window.updateTestCaseStatus(finalTargetIndex, status);
+                console.log(`✅ [RUN CODE] TC ${finalTargetIndex + 1} visual status updated: ${status}`);
+              }
+              
+              // If smart matched, also update the visual selection
+              if (matchedTestCase && finalTargetIndex !== targetTestIndex) {
+                // Update visual highlight to matched test case
+                const allCases = document.querySelectorAll('.codestem-test-case');
+                allCases.forEach((testCaseEl, idx) => {
+                  if (idx === finalTargetIndex) {
+                    testCaseEl.style.borderColor = '#10b981';
+                    testCaseEl.style.borderWidth = '2px';
+                    testCaseEl.style.background = '#f0fdf4';
+                    // Also update radio button for consistency
+                    const radio = testCaseEl.querySelector(`input[name="preview-tc"][value="${finalTargetIndex}"]`);
+                    if (radio) radio.checked = true;
+                    window.__previewLastClickedTestIndex = finalTargetIndex;
+                  } else if (idx === targetTestIndex) {
+                    // Remove highlight from originally selected
+                    testCaseEl.style.borderColor = '#e5e7eb';
+                    testCaseEl.style.borderWidth = '1px';
+                    testCaseEl.style.background = '#f9fafb';
+                  }
+                });
+                console.log(`🎯 [SMART MATCH] Visual selection updated to Test Case ${finalTargetIndex + 1}`);
+              }
             } else {
-              console.warn('⚠️ [RUN CODE] Output element not found for test case', targetTestIndex + 1, '(`tcYour-${targetTestIndex}`)');
+              console.warn('⚠️ [RUN CODE] Output element not found for test case', finalTargetIndex + 1, '(`tcYour-${finalTargetIndex}`)');
             }
           } catch(e) {
             console.warn('Could not update test case output:', e);
@@ -7290,18 +7896,30 @@ function renderCodingPreview(activity){
         })
         .catch(function(err) {
           console.error('❌ Run Code Error:', err);
-          const safeErr = String(err && err.message ? err.message : err).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+          
+          // Format error message
+          const activity = window.__previewActivityData || {};
+          const meta = activity.instructions ? (typeof activity.instructions === 'string' ? JSON.parse(activity.instructions || '{}') : activity.instructions) : {};
+          const language = (meta.language || 'cpp').toLowerCase();
+          const errorText = String(err && err.message ? err.message : err);
+          const errorInfo = window.formatErrorMessage ? window.formatErrorMessage(errorText, language) : null;
+          
+          const safeErr = errorText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+          const formattedErr = errorInfo ? errorInfo.message.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;') : safeErr;
           
           // Show error in terminal modal (not outputDiv)
           var terminalBody = document.getElementById(terminalBodyId);
           if (terminalBody) {
-            terminalBody.textContent = '❌ Error: ' + safeErr + '\n\n>>> Program Terminated';
+            terminalBody.textContent = formattedErr + '\n\n>>> Program Terminated';
           }
         })
         .finally(function() { 
           // CREDIT FIX: Reset execution flag
           window.__previewRunHandlerExecuting = false;
-          if (runBtn) {
+          // Reset loading state using helper
+          if (window.setPreviewButtonLoading) {
+            window.setPreviewButtonLoading('previewRunBtn', false);
+          } else if (runBtn) {
             runBtn.disabled = false; 
             runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
           }
@@ -7357,7 +7975,21 @@ function renderCodingPreview(activity){
           var firstResult = results[0] || {};
           var out = firstResult.output || firstResult.stdout || firstResult.outputText || (firstResult.data && firstResult.data.output) || '';
           var err = firstResult.error || firstResult.stderr || (firstResult.data && firstResult.data.error) || '';
-          var outputText = err ? ('Error: ' + err) : String(out || '').trim();
+          // Format error message if there's an error
+          let outputText = '';
+          if (err) {
+            const activity = window.__previewActivityData || {};
+            const meta = activity.instructions ? (typeof activity.instructions === 'string' ? JSON.parse(activity.instructions || '{}') : activity.instructions) : {};
+            const language = (meta.language || 'cpp').toLowerCase();
+            const errorInfo = window.formatErrorMessage ? window.formatErrorMessage(err, language) : null;
+            if (errorInfo) {
+              outputText = errorInfo.message;
+            } else {
+              outputText = 'Error: ' + err;
+            }
+          } else {
+            outputText = String(out || '').trim();
+          }
           
           // CRITICAL: Get the selected test case index (from parameter or stored value)
           let targetTestIndex = selectedTestIndex !== undefined ? selectedTestIndex : 0;
@@ -7366,16 +7998,81 @@ function renderCodingPreview(activity){
             delete window.__previewSelectedTestIndex; // Clean up
           }
           
-          console.log('🔍 [RUN CODE WITH INPUT] Updating test case', targetTestIndex + 1, 'with output:', outputText);
+          // CRITICAL: Smart output matching - check if output matches any test case's expected output
+          const activity = window.__previewActivityData || {};
+          const testCases = activity.testCases || activity.test_cases || [];
+          const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+          const normalizedOutput = norm(outputText);
           
-          // CRITICAL: Update the SELECTED test case's "Your Output" field (not always Test Case 1)
+          let finalTargetIndex = targetTestIndex; // Default to selected test case
+          let matchedTestCase = null;
+          
+          if (!err && normalizedOutput !== '') {
+            // Check all test cases to see if output matches any expected output
+            for (let i = 0; i < testCases.length; i++) {
+              const tc = testCases[i] || {};
+              const expected = norm(tc.expected_output || tc.expectedOutput || tc.expected_output_text || '');
+              
+              if (expected !== '' && normalizedOutput === expected) {
+                finalTargetIndex = i;
+                matchedTestCase = i + 1;
+                console.log(`🎯 [SMART MATCH] Output "${normalizedOutput}" matches Test Case ${i + 1} expected output! Auto-detected.`);
+                break; // Use first match
+              }
+            }
+            
+            if (matchedTestCase) {
+              console.log(`✅ [SMART MATCH] Output will be recorded to Test Case ${matchedTestCase} (matched expected output)`);
+            } else {
+              console.log(`ℹ️ [RUN CODE WITH INPUT] Output "${normalizedOutput}" doesn't match any expected output, using selected Test Case ${targetTestIndex + 1}`);
+            }
+          }
+          
+          console.log('🔍 [RUN CODE WITH INPUT] Updating test case', finalTargetIndex + 1, 'with output:', outputText);
+          
+          // CRITICAL: Update the MATCHED or SELECTED test case's "Your Output" field
           try {
-            var yourOutputEl = document.getElementById(`tcYour-${targetTestIndex}`);
+            var yourOutputEl = document.getElementById(`tcYour-${finalTargetIndex}`);
             if (yourOutputEl) {
               yourOutputEl.textContent = outputText || '(no output)';
-              console.log('✅ [RUN CODE WITH INPUT] Updated test case', targetTestIndex + 1, 'output field');
+              console.log('✅ [RUN CODE WITH INPUT] Updated test case', finalTargetIndex + 1, 'output field');
+              
+              // Update visual status based on output match
+              if (window.updateTestCaseStatus) {
+                const expectedEl = document.getElementById(`tcExpected-${finalTargetIndex}`);
+                const expectedText = expectedEl ? expectedEl.textContent.trim() : '';
+                const normalizedOutput = norm(outputText);
+                const normalizedExpected = norm(expectedText);
+                const matches = !err && normalizedOutput !== '' && normalizedExpected !== '' && normalizedOutput === normalizedExpected;
+                const status = err ? 'RE' : (matches ? 'AC' : (normalizedOutput !== '' ? 'WA' : ''));
+                window.updateTestCaseStatus(finalTargetIndex, status);
+                console.log(`✅ [RUN CODE WITH INPUT] TC ${finalTargetIndex + 1} visual status updated: ${status}`);
+              }
+              
+              // If smart matched, also update the visual selection
+              if (matchedTestCase && finalTargetIndex !== targetTestIndex) {
+                // Update visual highlight to matched test case
+                const allCases = document.querySelectorAll('.codestem-test-case');
+                allCases.forEach((testCaseEl, idx) => {
+                  if (idx === finalTargetIndex) {
+                    testCaseEl.style.borderColor = '#10b981';
+                    testCaseEl.style.borderWidth = '2px';
+                    testCaseEl.style.background = '#f0fdf4';
+                    // Also update radio button for consistency
+                    const radio = testCaseEl.querySelector(`input[name="preview-tc"][value="${finalTargetIndex}"]`);
+                    if (radio) radio.checked = true;
+                    window.__previewLastClickedTestIndex = finalTargetIndex;
+                  } else if (idx === targetTestIndex) {
+                    // Remove highlight from originally selected
+                    testCaseEl.style.borderColor = '#e5e7eb';
+                    testCaseEl.style.borderWidth = '1px';
+                    testCaseEl.style.background = '#f9fafb';
+                  }
+                });
+                console.log(`🎯 [SMART MATCH] Visual selection updated to Test Case ${finalTargetIndex + 1}`);
+              }
             } else {
-              console.warn('⚠️ [RUN CODE WITH INPUT] Output element not found for test case', targetTestIndex + 1, '(`tcYour-${targetTestIndex}`)');
+              console.warn('⚠️ [RUN CODE WITH INPUT] Output element not found for test case', finalTargetIndex + 1, '(`tcYour-${finalTargetIndex}`)');
             }
           } catch(e) {
             console.warn('Could not update test case output:', e);
@@ -7404,7 +8101,10 @@ function renderCodingPreview(activity){
         .finally(function() {
           // CRITICAL: Reset execution flag so user can run code again
           window.__previewRunHandlerExecuting = false;
-          if (runBtn) {
+          // Reset loading state using helper
+          if (window.setPreviewButtonLoading) {
+            window.setPreviewButtonLoading('previewRunBtn', false);
+          } else if (runBtn) {
             runBtn.disabled = false;
             runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
           }
@@ -7471,7 +8171,10 @@ function renderCodingPreview(activity){
       // Store test start time for duration calculation
       window.__previewTestStartTime = Date.now();
       
-      if (testBtn) {
+      // Set loading state using helper
+      if (window.setPreviewButtonLoading) {
+        window.setPreviewButtonLoading('previewTestBtn', true, 'Testing...');
+      } else if (testBtn) {
         testBtn.disabled = true;
         testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
       }
@@ -7518,6 +8221,14 @@ function renderCodingPreview(activity){
           const results = Array.isArray(res.results) ? res.results : [];
           console.log('✅ [PREVIEW MODE] Test results received:', results.length, 'results');
           console.log('🔍 [PREVIEW MODE] Test cases count:', testCases.length);
+          
+          // CRITICAL: Validate that we received results for all test cases
+          if (results.length !== testCases.length) {
+            console.warn(`⚠️ [PREVIEW MODE] MISMATCH: Expected ${testCases.length} results but got ${results.length}!`);
+            console.warn(`⚠️ [PREVIEW MODE] This might indicate the backend only ran some test cases.`);
+            console.warn(`⚠️ [PREVIEW MODE] Missing results will be treated as empty/failed.`);
+          }
+          
           console.log('🔍 [PREVIEW MODE] Results array:', results.map((r, idx) => ({
             index: idx,
             hasOutput: !!(r.output || r.stdout || r.outputText || (r.data && r.data.output)),
@@ -7577,6 +8288,12 @@ function renderCodingPreview(activity){
             console.warn(`⚠️ [PREVIEW MODE] This might cause some test cases to not have outputs.`);
           }
           
+          // CRITICAL: Ensure we have results for all test cases
+          if (results.length < testCases.length) {
+            console.warn(`⚠️ [PREVIEW MODE] WARNING: Only ${results.length} results for ${testCases.length} test cases!`);
+            console.warn(`⚠️ [PREVIEW MODE] Missing results will be treated as failed test cases.`);
+          }
+          
           const cases = (testCases || []).map((tc, i) => {
             const expected = norm(tc.expected_output || tc.expectedOutput || tc.expected_output_text || '');
             const result = results[i] || {};
@@ -7584,6 +8301,8 @@ function renderCodingPreview(activity){
             // CRITICAL: Log the RAW result object to see what we're getting
             console.log(`🔍 [PREVIEW MODE] TC ${i + 1} RAW result object:`, {
               resultExists: !!result,
+              resultIndex: i,
+              hasResult: i < results.length,
               resultKeys: result ? Object.keys(result) : [],
               resultOutput: result.output,
               resultStdout: result.stdout,
@@ -7594,6 +8313,11 @@ function renderCodingPreview(activity){
               resultStatusCode: result.statusCode,
               fullResult: JSON.stringify(result)
             });
+            
+            // CRITICAL: If no result for this test case, mark as failed
+            if (i >= results.length) {
+              console.warn(`⚠️ [PREVIEW MODE] TC ${i + 1}: No result found (index ${i} >= results.length ${results.length})`);
+            }
             
             const out = norm(result.output || result.stdout || result.outputText || (result.data && result.data.output) || '');
             const err = result.error || result.stderr || (result.data && result.data.error) || '';
@@ -7643,10 +8367,21 @@ function renderCodingPreview(activity){
               requiredConstruct: requiredConstruct || 'none'
             });
             
+            // Format error message if there's an error
+            let formattedStdout = out || '';
+            if (hasError && err) {
+              const errorInfo = window.formatErrorMessage ? window.formatErrorMessage(err, testLanguage) : null;
+              if (errorInfo) {
+                formattedStdout = errorInfo.message;
+              } else {
+                formattedStdout = `Error: ${err}`;
+              }
+            }
+            
             const caseResult = {
               name: `Test Case ${i + 1}`,
               expected: expected,
-              stdout: out || (err ? `Error: ${err}` : ''),
+              stdout: formattedStdout,
               status: passed ? 'AC' : (hasError ? 'RE' : 'WA'),
               earned: pts,
               points: actualPoints
@@ -7915,32 +8650,29 @@ function renderCodingPreview(activity){
               }
               
               if (your) {
-                // CRITICAL: Get the output text - use the case's stdout, but preserve existing if stdout is empty
-                const existingOutput = your.textContent.trim();
-                const outputText = (c.stdout && c.stdout !== '' && c.stdout !== '(no output)') ? c.stdout : 
-                                  (existingOutput && existingOutput !== '(not run)' && existingOutput !== '(no output)') ? existingOutput : 
-                                  c.stdout || '(no output)';
+                // CRITICAL: ALWAYS update with the result from "Test All Cases" - don't preserve old outputs
+                // This ensures all test cases show their results after "Test All Cases" is run
+                // Use formatted error message if available, otherwise use stdout or default
+                const outputText = c.stdout || (c.status === 'RE' ? 'Error: Runtime Error' : '(no output)');
                 
                 console.log(`🔍 [PREVIEW MODE] TC ${i + 1} output decision:`, {
                   caseStdout: c.stdout,
                   caseStdoutLength: c.stdout ? c.stdout.length : 0,
-                  existingOutput: existingOutput,
+                  status: c.status,
                   finalOutput: outputText
                 });
                 
-                // CRITICAL: Only update if we have actual output, don't overwrite with empty
-                if (c.stdout && c.stdout !== '' && c.stdout !== '(no output)') {
-                  your.textContent = c.stdout;
-                  console.log(`✅ [PREVIEW MODE] TC ${i + 1} output updated:`, c.stdout);
-                } else if (existingOutput && existingOutput !== '(not run)' && existingOutput !== '(no output)') {
-                  // Keep existing output if case stdout is empty
-                  console.log(`⚠️ [PREVIEW MODE] TC ${i + 1} keeping existing output:`, existingOutput);
-                } else {
-                  your.textContent = outputText;
-                  console.log(`⚠️ [PREVIEW MODE] TC ${i + 1} output set to:`, outputText, '(no valid output found)');
-                }
+                // CRITICAL: ALWAYS update the output - this is from "Test All Cases" so it's the authoritative result
+                your.textContent = outputText;
+                console.log(`✅ [PREVIEW MODE] TC ${i + 1} output updated to:`, outputText);
                 
                 console.log(`✅ [PREVIEW MODE] TC ${i + 1} element found:`, your.id, 'tag:', your.tagName, 'final text:', your.textContent);
+                
+                // CRITICAL: Update visual status based on test case result
+                if (window.updateTestCaseStatus) {
+                  window.updateTestCaseStatus(i, c.status, c.earned, c.points);
+                  console.log(`✅ [PREVIEW MODE] TC ${i + 1} visual status updated: ${c.status}`);
+                }
                 
                 // CRITICAL: Auto-expand test case details if output matches expected (smart detection)
                 const expectedEl = document.getElementById(`tcExpected-${i}`);
@@ -8013,7 +8745,10 @@ function renderCodingPreview(activity){
           }
         })
         .finally(() => {
-          if (testBtn) {
+          // Reset loading state using helper
+          if (window.setPreviewButtonLoading) {
+            window.setPreviewButtonLoading('previewTestBtn', false);
+          } else if (testBtn) {
             testBtn.disabled = false;
             testBtn.innerHTML = '<i class="fas fa-vial"></i> Test (All Cases)';
           }
@@ -8040,17 +8775,25 @@ function renderCodingPreview(activity){
       const activity = window.__previewActivityData || {};
       const testCases = activity.test_cases || activity.testCases || [];
       
-      // Check which test case is selected (radio button)
-      const selectedRadio = document.querySelector('input[name="preview-tc"]:checked');
+      // CRITICAL: Smart detection - use last clicked test case OR selected radio button
+      // Priority: 1) Last clicked test case (stored in window), 2) Selected radio button, 3) Last test case
       let selectedIndex = 0;
       
-      if (selectedRadio && selectedRadio.value !== undefined) {
-        selectedIndex = parseInt(selectedRadio.value, 10) || 0;
-        console.log('✅ [CHECK TEST] Selected test case:', selectedIndex + 1);
+      // Check if there's a last clicked test case (smart detection)
+      if (window.__previewLastClickedTestIndex !== undefined) {
+        selectedIndex = parseInt(window.__previewLastClickedTestIndex, 10) || 0;
+        console.log('✅ [CHECK TEST] Using last clicked test case (smart detection):', selectedIndex + 1);
       } else {
-        // If no radio selected, use the LAST test case (as user requested)
-        selectedIndex = testCases.length > 0 ? testCases.length - 1 : 0;
-        console.log('ℹ️ [CHECK TEST] No test case selected, using LAST test case:', selectedIndex + 1);
+        // Fallback to radio button selection
+        const selectedRadio = document.querySelector('input[name="preview-tc"]:checked');
+        if (selectedRadio && selectedRadio.value !== undefined) {
+          selectedIndex = parseInt(selectedRadio.value, 10) || 0;
+          console.log('✅ [CHECK TEST] Using selected radio button test case:', selectedIndex + 1);
+        } else {
+          // If no radio selected, use the LAST test case (as user requested)
+          selectedIndex = testCases.length > 0 ? testCases.length - 1 : 0;
+          console.log('ℹ️ [CHECK TEST] No test case selected, using LAST test case:', selectedIndex + 1);
+        }
       }
       
       // Get the selected test case
@@ -8094,7 +8837,10 @@ function renderCodingPreview(activity){
         return false;
       }
       
-      if (checkBtn) {
+      // Set loading state using helper
+      if (window.setPreviewButtonLoading) {
+        window.setPreviewButtonLoading('previewCheckTestBtn', true, 'Checking...');
+      } else if (checkBtn) {
         checkBtn.disabled = true;
         checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
       }
@@ -8306,7 +9052,7 @@ function renderCodingPreview(activity){
                   ${reqConstruct ? `
                   <div style="padding:10px;background:${constructOk ? '#ecfdf5' : '#fffbeb'};border-radius:6px;border-left:3px solid ${constructOk ? '#10b981' : '#f59e0b'};margin-bottom:12px;">
                     <div style="font-size:12px;font-weight:600;color:${constructOk ? '#065f46' : '#991b1b'};">Construct Required:</div>
-                    <div style="font-size:11px;color:${constructOk ? '#065f46' : '#991b1b'};">${reqConstruct.replace('_',' / ')} — ${constructOk ? 'used ✔' : 'missing ✖ (50% deduction applied)'}
+                    <div style="font-size:11px;color:${constructOk ? '#065f46' : '#991b1b'};">${window.getConstructDisplayName ? window.getConstructDisplayName(reqConstruct) : reqConstruct.replace('_',' / ')} — ${constructOk ? 'used ✔' : 'missing ✖ (50% deduction applied)'}
                     </div>
                   </div>
                   ` : ''}
@@ -8389,7 +9135,10 @@ function renderCodingPreview(activity){
           alert('Check Test failed: ' + (err && err.message ? err.message : err));
         })
         .finally(() => {
-          if (checkBtn) {
+          // Reset loading state using helper
+          if (window.setPreviewButtonLoading) {
+            window.setPreviewButtonLoading('previewCheckTestBtn', false);
+          } else if (checkBtn) {
             checkBtn.disabled = false;
             checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check Test';
           }
@@ -8421,6 +9170,18 @@ function renderCodingPreview(activity){
         </div>
         <div style="padding:24px;flex:1;">
           <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#374151;">Problem Description</h4>
+          ${requiredConstruct ? `
+            <div style="margin-bottom:16px;padding:12px;background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);border-left:4px solid #f59e0b;border-radius:8px;box-shadow:0 2px 4px rgba(245,158,11,0.1);">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <i class="fas fa-exclamation-circle" style="color:#d97706;font-size:16px;"></i>
+                <div style="flex:1;">
+                  <div style="font-weight:600;color:#92400e;font-size:13px;margin-bottom:4px;">Required Construct</div>
+                  <div style="color:#78350f;font-size:14px;font-weight:700;">${escapeHtml(getConstructDisplayName(requiredConstruct))}</div>
+                  <div style="color:#92400e;font-size:11px;margin-top:4px;font-style:italic;">You must use this construct in your solution (50% deduction if missing)</div>
+                </div>
+              </div>
+            </div>
+          ` : ''}
           <div style="color:#4b5563;line-height:1.7;font-size:14px;white-space:pre-wrap;">${escapeHtml(problemDescription)}</div>
           
           ${testCases.length > 0 ? `
@@ -8463,23 +9224,21 @@ function renderCodingPreview(activity){
         <div style="padding:16px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;gap:12px;align-items:center;">
           <button id="previewRunBtn" 
                   onclick="if(window.__previewRunHandler){window.__previewRunHandler(event||window.event);return false;}else{console.error('Handler not ready');return false;}"
-                  style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
-            <i class="fas fa-play"></i> Run Code
-          </button>
-          <button id="previewCheckTestBtn" 
-                  onclick="if(window.__previewCheckTestHandler){window.__previewCheckTestHandler(event||window.event);return false;}else{console.error('Check Test handler not ready');return false;}"
-                  style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
-            <i class="fas fa-check-circle"></i> Check Test
+                  style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;position:relative;"
+                  title="Run Code (Ctrl/Cmd + Enter)">
+            <i class="fas fa-play"></i> <span class="btn-text">Run Code</span>
           </button>
           <button id="previewTestBtn" 
                   onclick="if(window.__previewTestHandler){window.__previewTestHandler(event||window.event);return false;}else{console.error('Test handler not ready');return false;}"
-                  style="background:#f59e0b;color:#1f2937;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;">
-            <i class="fas fa-vial"></i> Test (All Cases)
+                  style="background:#f59e0b;color:#1f2937;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;"
+                  title="Test All Cases (Ctrl/Cmd + Shift + Enter)">
+            <i class="fas fa-vial"></i> <span class="btn-text">Test (All Cases)</span>
           </button>
           <button id="previewResetBtn" 
                   onclick="(function(){try{const h=window.__previewResetHandler||window.__previewResetHandlerReal;if(h){h(event||window.event);}else{console.error('Reset handler not found!');}}catch(e){console.error('Reset handler error:',e);}})();return false;"
-                  style="background:#6b7280;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
-            <i class="fas fa-undo"></i> Reset
+                  style="background:#6b7280;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;"
+                  title="Reset Code to Starter">
+            <i class="fas fa-undo"></i> <span class="btn-text">Reset</span>
           </button>
           <div style="margin-left:auto;color:#374151;font-weight:600;">Score: <span id="previewScoreValue">0</span>/${maxScore}</div>
         </div>
@@ -8491,20 +9250,26 @@ function renderCodingPreview(activity){
       <div class="codestem-right-panel" style="width:320px;background:#fff;border-left:1px solid #e5e7eb;display:flex;flex-direction:column;">
         <!-- Test Cases Section -->
         <div style="flex:1;overflow-y:auto;padding:16px;">
-          <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #e5e7eb;padding-bottom:12px;">
-            <button class="codestem-tab active" onclick="switchCodestemTab('testcases', event)" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#10b981;cursor:pointer;border-bottom:2px solid #10b981;">Test Cases</button>
-            <button class="codestem-tab" onclick="switchCodestemTab('results', event)" style="background:none;border:none;padding:6px 12px;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer;">Results</button>
+          <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e5e7eb;">
+            <h4 style="margin:0;font-size:14px;font-weight:600;color:#374151;">Test Cases</h4>
           </div>
           
           <div id="previewTestCasesTab" class="codestem-tab-content">
             ${testCases.length > 0 ? testCases.map((tc, idx) => `
-              <div class="codestem-test-case" data-test-id="${tc.id || idx}" style="margin-bottom:12px;padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;">
+              <div class="codestem-test-case" id="tcContainer-${idx}" data-test-id="${tc.id || idx}" data-test-index="${idx}" onclick="if(event.target.closest('input') || event.target.closest('button')) return; window.__previewLastClickedTestIndex = ${idx}; toggleTestCaseDetails(${idx}, event);" style="margin-bottom:12px;padding:12px;background:${idx===0?'#f0fdf4':'#f9fafb'};border-radius:6px;border:${idx===0?'2px solid #10b981':'1px solid #e5e7eb'};cursor:pointer;transition:all 0.2s;">
                 <div style="display:flex;align-items:center;justify-content:space-between;">
-                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                    <input type="radio" name="preview-tc" value="${idx}" ${idx===0?'checked':''} onchange="toggleTestCaseDetails(${idx}, event)" style="margin:0;">
-                    <span style="font-size:13px;font-weight:600;color:#374151;">Test Case ${idx + 1} ${tc.is_sample ? '(Sample)' : ''} ${tc.points?`- ${tc.points} pts`:''}</span>
-                  </label>
-                  <button type="button" onclick="toggleTestCaseDetails(${idx}, event)" style="background:none;border:none;color:#6b7280;cursor:pointer;"><i class="fas fa-chevron-down"></i></button>
+                  <div style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="radio" name="preview-tc" value="${idx}" ${idx===0?'checked':''} onchange="toggleTestCaseDetails(${idx}, event)" onclick="window.__previewLastClickedTestIndex = ${idx};" style="margin:0;opacity:0;position:absolute;pointer-events:none;" tabindex="-1" aria-hidden="true">
+                    <span id="tcStatusIcon-${idx}" style="font-size:14px;width:20px;display:flex;align-items:center;justify-content:center;" title="Not run">
+                      <i class="fas fa-circle" style="color:#9ca3af;font-size:10px;"></i>
+                    </span>
+                    <span style="font-size:13px;font-weight:600;color:#374151;">
+                      Test Case ${idx + 1}
+                      ${tc.points ? `<span style="color:#6b7280;font-weight:500;margin-left:6px;">${tc.points} pts</span>` : ''}
+                    </span>
+                    <span id="tcStatusBadge-${idx}" style="margin-left:8px;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;display:none;"></span>
+                  </div>
+                  <button type="button" onclick="toggleTestCaseDetails(${idx}, event)" style="background:none;border:none;color:#6b7280;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;transition:transform 0.2s;"><i class="fas fa-chevron-${idx===0?'up':'down'}" style="transition:transform 0.2s;"></i></button>
                 </div>
                 <div class="test-case-details" id="tcDetails-${idx}" style="display:${idx===0?'block':'none'};margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
                   ${tc.inputText || tc.input_text ? `<div style=\"margin-bottom:8px;\"><span style=\"font-size:11px;color:#6b7280;\">Input:</span><pre style=\"margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;\">${escapeHtml(tc.inputText || tc.input_text || '')}</pre></div>` : ''}
@@ -8518,16 +9283,11 @@ function renderCodingPreview(activity){
                       <pre id="tcExpected-${idx}" style="margin:4px 0 0 0;font-size:12px;color:#1f2937;white-space:pre-wrap;background:#f3f4f6;padding:8px;border-radius:6px;">${escapeHtml(tc.expected_output || tc.expectedOutput || '')}</pre>
         </div>
       </div>
-                  <div style="margin-top:6px;"><a href="#" onclick="event.preventDefault(); const el=document.getElementById('tcDiff-${idx}'); el.style.display=(el.style.display==='none'?'block':'none');">Show Differences</a></div>
-                  <pre id="tcDiff-${idx}" style="display:none;margin-top:6px;background:#fff7ed;border:1px solid #fed7aa;padding:8px;border-radius:6px;font-size:12px;white-space:pre-wrap;">Run tests to see differences here.</pre>
           </div>
         </div>
             `).join('') : '<div style="color:#9ca3af;font-size:13px;">No test cases available</div>'}
         </div>
           
-          <div id="previewResultsTab" class="codestem-tab-content" style="display:none;">
-            <div style="color:#9ca3af;font-size:13px;">Test results will appear here after running tests</div>
-      </div>
     </div>
       </div>
     </div>
@@ -8618,6 +9378,128 @@ function renderCodingPreview(activity){
           textarea.style.display = 'block';
         });
       })();
+      
+      // ===== KEYBOARD SHORTCUTS =====
+      (function() {
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const ctrlKey = isMac ? '⌘' : 'Ctrl';
+        
+        // Keyboard shortcuts handler
+        document.addEventListener('keydown', function(e) {
+          // Don't trigger if user is typing in input/textarea
+          const activeEl = document.activeElement;
+          if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+            // Allow shortcuts in Monaco editor
+            if (activeEl.id !== 'previewCodeTextarea' && !activeEl.closest('#previewMonacoContainer')) {
+              return;
+            }
+          }
+          
+          // Ctrl/Cmd + Enter → Run Code
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            const runBtn = document.getElementById('previewRunBtn');
+            if (runBtn && !runBtn.disabled) {
+              console.log('⌨️ Keyboard shortcut: Run Code');
+              runBtn.click();
+            }
+            return false;
+          }
+          
+          // Ctrl/Cmd + Shift + Enter → Test (All Cases)
+          if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            const testBtn = document.getElementById('previewTestBtn');
+            if (testBtn && !testBtn.disabled) {
+              console.log('⌨️ Keyboard shortcut: Test All Cases');
+              testBtn.click();
+            }
+            return false;
+          }
+          
+          // Ctrl/Cmd + S → Save Draft (prevent default browser save)
+          if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+            // Only prevent if we're in the coding interface
+            const codingInterface = document.querySelector('.codestem-coding-interface');
+            if (codingInterface) {
+              e.preventDefault();
+              e.stopPropagation();
+              // Trigger auto-save indicator update
+              const indicator = document.getElementById('previewSavedIndicator');
+              if (indicator) {
+                indicator.innerHTML = '<i class="fas fa-save" style="color:#3b82f6;margin-right:4px;"></i>Saving...';
+                setTimeout(function() {
+                  if (indicator) {
+                    indicator.innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Saved';
+                    setTimeout(function() {
+                      if (indicator) {
+                        indicator.innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>Ready';
+                      }
+                    }, 1000);
+                  }
+                }, 500);
+              }
+              console.log('⌨️ Keyboard shortcut: Save Draft');
+            }
+            return false;
+          }
+        });
+        
+        console.log('✅ Keyboard shortcuts initialized');
+      })();
+      
+      // ===== LOADING STATE HELPERS =====
+      window.setPreviewButtonLoading = function(buttonId, isLoading, loadingText) {
+        const btn = document.getElementById(buttonId);
+        if (!btn) return;
+        
+        if (isLoading) {
+          btn.disabled = true;
+          btn.style.opacity = '0.7';
+          btn.style.cursor = 'not-allowed';
+          const btnText = btn.querySelector('.btn-text');
+          if (btnText) {
+            btnText.textContent = loadingText || 'Loading...';
+          } else {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (loadingText || 'Loading...');
+          }
+        } else {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          btn.style.cursor = 'pointer';
+          // Restore original text
+          if (buttonId === 'previewRunBtn') {
+            const btnText = btn.querySelector('.btn-text');
+            if (btnText) {
+              btnText.textContent = 'Run Code';
+            } else {
+              btn.innerHTML = '<i class="fas fa-play"></i> Run Code';
+            }
+          } else if (buttonId === 'previewTestBtn') {
+            const btnText = btn.querySelector('.btn-text');
+            if (btnText) {
+              btnText.textContent = 'Test (All Cases)';
+            } else {
+              btn.innerHTML = '<i class="fas fa-vial"></i> Test (All Cases)';
+            }
+          } else if (buttonId === 'previewResetBtn') {
+            const btnText = btn.querySelector('.btn-text');
+            if (btnText) {
+              btnText.textContent = 'Reset';
+            } else {
+              btn.innerHTML = '<i class="fas fa-undo"></i> Reset';
+            }
+          }
+        }
+      };
+      
+      window.setAllPreviewButtonsLoading = function(isLoading) {
+        ['previewRunBtn', 'previewTestBtn', 'previewResetBtn'].forEach(function(btnId) {
+          window.setPreviewButtonLoading(btnId, isLoading);
+        });
+      };
     </script>
   `;
   // expose preview context for delegated handlers - ALREADY SET IN SCRIPT TAG ABOVE
@@ -8725,7 +9607,10 @@ function renderCodingPreview(activity){
         return false;
       }
       
-      if (runBtn) {
+      // Set loading state using helper
+      if (window.setPreviewButtonLoading) {
+        window.setPreviewButtonLoading('previewRunBtn', true, 'Running...');
+      } else if (runBtn) {
         runBtn.disabled = true;
         runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
       }
@@ -8825,7 +9710,10 @@ function renderCodingPreview(activity){
               outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run failed: ${safeErr}</div>`;
             })
             .finally(() => { 
-              if (runBtn) {
+              // Reset loading state using helper
+              if (window.setPreviewButtonLoading) {
+                window.setPreviewButtonLoading('previewRunBtn', false);
+              } else if (runBtn) {
                 runBtn.disabled = false; 
                 runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
               }
@@ -8834,7 +9722,10 @@ function renderCodingPreview(activity){
           console.error('❌ Run Code Exception:', err);
           const safeErr = String(err && err.message ? err.message : err).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
           outputDiv.innerHTML = `<div style="color:#dc3545;">❌ Run error: ${safeErr}</div>`;
-          if (runBtn) {
+          // Reset loading state using helper
+          if (window.setPreviewButtonLoading) {
+            window.setPreviewButtonLoading('previewRunBtn', false);
+          } else if (runBtn) {
             runBtn.disabled = false; 
             runBtn.innerHTML = '<i class="fas fa-play"></i> Run Code';
           }
@@ -8886,8 +9777,13 @@ function renderCodingPreview(activity){
           return;
         }
 
-        testBtn.disabled = true;
-        testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+        // Set loading state using helper
+        if (window.setPreviewButtonLoading) {
+          window.setPreviewButtonLoading('previewTestBtn', true, 'Testing...');
+        } else {
+          testBtn.disabled = true;
+          testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+        }
         // Don't show "Running all test cases..." message - modal will show results directly
         // if (testDiv) {
         //   testDiv.style.display = 'block';
@@ -9042,8 +9938,6 @@ function renderCodingPreview(activity){
               </div>`;
             }).join('');
             testDiv.innerHTML = header + rows;
-            const resultsTab = document.getElementById('previewResultsTab');
-            if (resultsTab) { resultsTab.innerHTML = header + rows; const btn = document.querySelector('.codestem-tab[onclick*="results"]'); if (btn) btn.click(); }
             // Success modal
             if (cases.every(c=>c.status==='AC')) {
               try {
@@ -9061,12 +9955,16 @@ function renderCodingPreview(activity){
           })
           .catch(err => {
             testDiv.innerHTML = `<div style="color:#dc3545;">❌ Test failed: ${err && err.message ? err.message : err}</div>`;
-            const resultsTab = document.getElementById('previewResultsTab');
-            if (resultsTab) {
-              resultsTab.innerHTML = `<div style="color:#dc3545;">❌ Test failed: ${err && err.message ? err.message : err}</div>`;
-            }
           })
-          .finally(() => { testBtn.disabled=false; testBtn.innerHTML='<i class="fas fa-vial"></i> Test (All Cases)'; });
+          .finally(() => { 
+            // Reset loading state using helper
+            if (window.setPreviewButtonLoading) {
+              window.setPreviewButtonLoading('previewTestBtn', false);
+            } else {
+              testBtn.disabled=false; 
+              testBtn.innerHTML='<i class="fas fa-vial"></i> Test (All Cases)'; 
+            }
+          });
     };
     
     if (testBtn) {
@@ -9079,11 +9977,6 @@ function renderCodingPreview(activity){
       console.log('✅ Test button handlers attached');
     }
     
-    // Check Test button handler (already defined in window.__previewCheckTestHandler)
-    if (checkTestBtn) {
-      checkTestBtn.setAttribute('data-handler-attached', 'true');
-      console.log('✅ Check Test button handler ready');
-    }
 
     // Reset button handler
     const resetHandler = function() {
@@ -9091,6 +9984,22 @@ function renderCodingPreview(activity){
       const editor = window.__previewEditor;
       const textarea = document.getElementById('previewCodeTextarea');
       const originalCode = starterCode;
+      
+      // Reset all test case statuses to "not run"
+      const activity = window.__previewActivityData || {};
+      const testCases = activity.testCases || activity.test_cases || [];
+      for (let i = 0; i < testCases.length; i++) {
+        // Reset output
+        const yourOutputEl = document.getElementById(`tcYour-${i}`);
+        if (yourOutputEl) {
+          yourOutputEl.textContent = '(not run)';
+        }
+        // Reset visual status
+        if (window.updateTestCaseStatus) {
+          window.updateTestCaseStatus(i, '');
+        }
+      }
+      console.log('✅ [RESET] All test case statuses reset');
         
         if (editor) {
           editor.setValue(originalCode);
@@ -9200,7 +10109,6 @@ if (!window.__CODING_PREVIEW_BUTTONS_BOUND__) {
   document.addEventListener('click', function(e){
     try {
       const runBtn = e.target && (e.target.id==='previewRunBtn' ? e.target : e.target.closest && e.target.closest('#previewRunBtn'));
-      const checkTestBtn = e.target && (e.target.id==='previewCheckTestBtn' ? e.target : e.target.closest && e.target.closest('#previewCheckTestBtn'));
       const testBtn = e.target && (e.target.id==='previewTestBtn' ? e.target : e.target.closest && e.target.closest('#previewTestBtn'));
       const resetBtn = e.target && (e.target.id==='previewResetBtn' ? e.target : e.target.closest && e.target.closest('#previewResetBtn'));
       if (runBtn) {
@@ -9213,19 +10121,6 @@ if (!window.__CODING_PREVIEW_BUTTONS_BOUND__) {
             btn.onclick(e); 
           } else {
             // Fallback: trigger click event
-            btn.click();
-          }
-        }
-        return;
-      }
-      if (checkTestBtn) {
-        e.stopPropagation();
-        e.preventDefault();
-        const btn = document.getElementById('previewCheckTestBtn');
-        if (btn) {
-          if (typeof btn.onclick === 'function') { 
-            btn.onclick(e); 
-          } else {
             btn.click();
           }
         }
@@ -9335,14 +10230,42 @@ function renderQuestionInput(question, index, activityType) {
       return '<div style="color:#dc3545;font-size:14px;">No choices available</div>';
     }
     
+    console.log('🔍 [RENDER INPUT] Rendering multiple choice, question object:', question);
+    console.log('🔍 [RENDER INPUT] Choices array:', question.choices);
+    console.log('🔍 [RENDER INPUT] Choices type:', typeof question.choices, 'isArray:', Array.isArray(question.choices), 'length:', question.choices ? question.choices.length : 0);
+    
+    if (!question.choices || question.choices.length === 0) {
+      console.error('🔍 [RENDER INPUT] ⚠️ ERROR: No choices array or empty choices!');
+      return '<div style="color:#dc3545;font-size:14px;">No choices available</div>';
+    }
+    
     return `
       <div style="space-y:12px;">
-        ${question.choices.map((choice, choiceIndex) => `
+        ${question.choices.map((choice, choiceIndex) => {
+          // Handle multiple possible field names for choice text
+          // CRITICAL: The activity.questions mapping creates choices with 'choice_text' property
+          const rawText = choice.choice_text || choice.text || choice.content || choice.option || '';
+          const choiceText = (rawText && String(rawText).trim()) ? String(rawText).trim() : `Choice ${choiceIndex + 1}`;
+          const choiceId = choice.id || choice.choice_id || choiceIndex;
+          
+          console.log('🔍 [RENDER INPUT] Rendering choice', choiceIndex, ':', { 
+            choice_object: choice,
+            has_choice_text: !!choice.choice_text,
+            has_text: !!choice.text,
+            choice_text_value: choice.choice_text,
+            text_value: choice.text,
+            rawText: rawText,
+            final_choiceText: choiceText,
+            choiceId: choiceId
+          });
+          
+          return `
           <label style="display:flex;align-items:center;gap:12px;padding:16px;border:2px solid #e9ecef;border-radius:8px;cursor:pointer;background:white;transition:all 0.2s;hover:border-color:#28a745;hover:background:#f8fff9;">
-            <input type="radio" name="preview-q${index + 1}" value="${choice.id}" style="margin:0;width:18px;height:18px;accent-color:#28a745;">
-            <span style="flex:1;font-size:15px;color:#333;">${choice.choice_text || 'Choice not available'}</span>
+            <input type="radio" name="preview-q${index + 1}" value="${choiceId}" style="margin:0;width:18px;height:18px;accent-color:#28a745;">
+            <span style="flex:1;font-size:15px;color:#333;">${choiceText}</span>
           </label>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     `;
   } else if (activityType === 'identification') {
