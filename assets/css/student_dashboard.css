@@ -73,6 +73,12 @@ li.nav-item.active {
   transition: margin-left 0.3s ease;
 }
 
+/* Adjust main content when sidebar is collapsed */
+.sidebar.collapsed ~ .student-main-content,
+.sidebar.collapsed ~ #mainContent {
+  margin-left: 70px;
+}
+
 /* Profile section inherits all styles from admin_panel.css - no overrides needed */
 
 /* Ensure profile section displays correctly - Higher specificity */

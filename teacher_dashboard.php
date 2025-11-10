@@ -73,6 +73,9 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
 
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
+    <button class="sidebar-toggle-btn" onclick="toggleSidebarMinimize()" title="Minimize sidebar">
+      <i class="fas fa-chevron-left"></i>
+    </button>
     <div class="user-profile">
       <div class="user-avatar">
         <?php if ($profilePhotoUrl): ?>
@@ -96,10 +99,11 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
           <i class="fas fa-chart-bar"></i>
           <span>Reports</span>
         </li>
-        <li class="nav-item" onclick="showSection('leaderboards', this)">
+        <!-- Hidden until implementation -->
+        <!-- <li class="nav-item" onclick="showSection('leaderboards', this)">
           <i class="fas fa-trophy"></i>
           <span>Leaderboards</span>
-        </li>
+        </li> -->
         <li class="nav-item" onclick="showSection('play-area', this)">
           <i class="fas fa-terminal"></i>
           <span>Play Area</span>
@@ -351,9 +355,10 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <!-- Scripts -->
   <!-- Load shared system first (like Coordinator) -->
   <script src="assets/js/app_ui.js"></script>
+  <!-- Unified Notification System - Load BEFORE other scripts -->
+  <script src="assets/js/notification_system.js?v=<?php echo time(); ?>"></script>
   <!-- Reusable Activity Creator System -->
         <link rel="stylesheet" href="assets/css/reusable_activity_creator.css">
-        <!-- notification_system.js removed - using admin_panel.css notifications instead -->
         <script src="assets/js/reusable_activity_creator.js"></script>
         <script src="assets/js/teacher_activity_integration.js"></script>
         <!-- Load scripts in correct order -->

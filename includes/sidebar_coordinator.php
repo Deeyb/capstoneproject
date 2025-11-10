@@ -7,7 +7,10 @@ $profileService = new ProfileService($db);
 $userProfile = $profileService->getUserProfile($_SESSION['user_id']);
 $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
 ?>
-<div class="sidebar">
+<div class="sidebar" id="coordinatorSidebar">
+  <button class="sidebar-toggle-btn" onclick="toggleSidebarMinimize()" title="Minimize sidebar">
+    <i class="fas fa-chevron-left"></i>
+  </button>
   <div class="user-profile">
     <div class="user-avatar">
       <?php if ($profilePhotoUrl): ?>

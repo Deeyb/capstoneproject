@@ -238,7 +238,10 @@ function getQuestionsForActivity($db, $activityId, $activityType) {
                 'position' => 'position',
                 'order' => 'position',
                 'type' => 'type',
-                'question_type' => 'type'
+                'question_type' => 'type',
+                // CRITICAL: Include answer and explanation fields for Identification/Essay activities
+                'answer' => 'answer',
+                'explanation' => 'explanation'
             ];
             
             foreach ($fieldMap as $dbColumn => $standardField) {

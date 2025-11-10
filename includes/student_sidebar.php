@@ -9,6 +9,9 @@ $userProfile = $profileService->getUserProfile($_SESSION['user_id']);
 $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
 ?>
 <div class="sidebar" id="sidebar">
+  <button class="sidebar-toggle-btn" onclick="toggleSidebarMinimize()" title="Minimize sidebar">
+    <i class="fas fa-chevron-left"></i>
+  </button>
   <div class="user-profile">
     <div class="user-avatar">
       <?php if ($profilePhotoUrl): ?>
@@ -30,12 +33,13 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
     <li class="<?php echo ($current_section ?? 'myclasses') === 'myclasses' ? 'active' : ''; ?>" data-section="myclasses">
       <i class="fas fa-chalkboard"></i> My Classes
     </li>
-    <li class="<?php echo ($current_section ?? 'myclasses') === 'newsfeed' ? 'active' : ''; ?>" data-section="newsfeed">
+    <!-- Hidden until implementation -->
+    <!-- <li class="<?php echo ($current_section ?? 'myclasses') === 'newsfeed' ? 'active' : ''; ?>" data-section="newsfeed">
       <i class="fas fa-newspaper"></i> Newsfeed
     </li>
     <li class="<?php echo ($current_section ?? 'myclasses') === 'leaderboards' ? 'active' : ''; ?>" data-section="leaderboards">
       <i class="fas fa-trophy"></i> Leaderboards
-    </li>
+    </li> -->
     <li class="<?php echo ($current_section ?? 'myclasses') === 'certification' ? 'active' : ''; ?>" data-section="certification">
       <i class="fas fa-certificate"></i> Certification
     </li>

@@ -74,11 +74,96 @@ body {
   top: 0; 
   bottom: 0; 
   z-index: 998;
-  transition: left 0.3s ease;
+  transition: width 0.3s ease, left 0.3s ease;
+  overflow: hidden;
 }
 
 .sidebar.closed {
   left: -250px;
+}
+
+/* Sidebar Minimize/Collapse */
+.sidebar.collapsed {
+  width: 70px;
+  width: 70px !important;
+}
+
+.sidebar.collapsed .user-name,
+.sidebar.collapsed .sidebar-nav span,
+.sidebar.collapsed ul li span {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  display: none;
+}
+
+.sidebar.collapsed .user-profile {
+  padding: 20px 10px;
+}
+
+.sidebar.collapsed ul li {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar.collapsed ul li i {
+  margin-right: 0;
+}
+
+/* Toggle Button - Bottom Position (Recommended) */
+.sidebar-toggle-btn {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffff;
+  border: 2px solid #1d9b3e;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.2s ease;
+  color: #1d9b3e;
+  box-shadow: 0 2px 6px rgba(29,155,62,0.2);
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body.dark-mode .sidebar-toggle-btn {
+  background: #2d2d2d;
+  border-color: #1d9b3e;
+  color: #1d9b3e;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #1d9b3e;
+  color: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(29,155,62,0.3);
+}
+
+.sidebar-toggle-btn i {
+  font-size: 14px;
+  color: inherit;
+}
+
+.sidebar-toggle-btn:hover i {
+  color: #ffffff;
+}
+
+.sidebar.collapsed .sidebar-toggle-btn {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.sidebar.collapsed .sidebar-toggle-btn i {
+  transform: rotate(180deg);
 }
 
 /* logo image size is defined inline in header before revert */
@@ -472,6 +557,13 @@ body.dark-mode .confirmation-cancel:hover {
 
 .main-content.full {
   margin-left: 0;
+}
+
+/* Adjust main content when sidebar is collapsed */
+.sidebar.collapsed ~ .main-content,
+.sidebar.collapsed ~ .student-main-content,
+.sidebar.collapsed ~ #mainContent {
+  margin-left: 70px;
 }
 
 @media (max-width: 900px) {

@@ -20,6 +20,58 @@ function toggleSidebar() {
   }
 }
 
+// Global sidebar minimize/collapse function
+function toggleSidebarMinimize() {
+  const sidebar = document.querySelector('.sidebar');
+  if (!sidebar) return;
+  
+  sidebar.classList.toggle('collapsed');
+  
+  // Save state to localStorage
+  const isCollapsed = sidebar.classList.contains('collapsed');
+  try {
+    localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+  } catch (e) {
+    console.warn('Could not save sidebar state to localStorage');
+  }
+  
+  // Update main content margin
+  updateMainContentMargin();
+}
+
+// Update main content margin based on sidebar state
+function updateMainContentMargin() {
+  const sidebar = document.querySelector('.sidebar');
+  if (!sidebar) return;
+  
+  const isCollapsed = sidebar.classList.contains('collapsed');
+  const mainContent = document.querySelector('.main-content, .student-main-content, #mainContent');
+  
+  if (mainContent) {
+    if (isCollapsed) {
+      mainContent.style.marginLeft = '70px';
+    } else {
+      mainContent.style.marginLeft = '250px';
+    }
+  }
+}
+
+// Restore sidebar state on page load
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (savedState === 'true') {
+      const sidebar = document.querySelector('.sidebar');
+      if (sidebar) {
+        sidebar.classList.add('collapsed');
+        updateMainContentMargin();
+      }
+    }
+  } catch (e) {
+    console.warn('Could not restore sidebar state from localStorage');
+  }
+});
+
 // Section navigation
 function showSection(sectionName, clickedElement = null) {
   console.log('🔄 Switching to section:', sectionName);
@@ -143,7 +195,11 @@ function handleJoinClass() {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      showNotification('success', 'Success', `Successfully joined ${data.class ? data.class.name : 'the class'}!`);
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('success', 'Success', `Successfully joined ${data.class ? data.class.name : 'the class'}!`);
+      } else {
+        alert(`Successfully joined ${data.class ? data.class.name : 'the class'}!`);
+      }
       closeJoinClassModal();
       // Reload page to show new class
       setTimeout(() => {
@@ -354,10 +410,13 @@ window.exitEmbeddedClass = exitEmbeddedClass;
 
 // ===== NOTIFICATION SYSTEM =====
 
-function showNotification(type, title, message) {
-  // Simple notification using alert for now
-  // Can be enhanced with a proper notification system later
-  alert(`${title}: ${message}`);
+// Use unified notification system from notification_system.js
+// If notification_system.js is not loaded, fallback to simple alert
+if (typeof window.showNotification === 'undefined') {
+    window.showNotification = function(type, title, message, duration) {
+        console.warn('⚠️ notification_system.js not loaded, using alert fallback');
+        alert(`${title}: ${message}`);
+    };
 }
 
 // ===== GLOBAL FUNCTIONS =====

@@ -168,40 +168,42 @@ class ActivityManager {
     this.modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
     
     const isRetakerMode = mode === 'retakers';
-    const modalTitle = isRetakerMode ? 'Reschedule Activity & Set Retakers' : 'Reschedule Activity';
-    const modalIcon = isRetakerMode ? 'fa-calendar-alt' : 'fa-clock';
+    const modalTitle = isRetakerMode ? 'Set Due Date & Retakers' : 'Set Due Date';
+    const modalIcon = isRetakerMode ? 'fa-calendar-alt' : 'fa-calendar';
+    
+    const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
     
     this.modal.innerHTML = `
-      <div class="modal-card" style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.15);">
+      <div class="modal-card" style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.15);font-family:${fontStack};">
         <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #e5e7eb;">
-          <h3 style="margin:0;color:#1f2937;font-size:20px;font-weight:700;">
+          <h3 style="margin:0;color:#1f2937;font-size:20px;font-weight:700;font-family:${fontStack};">
             <i class="fas ${modalIcon}" style="color:#1d9b3e;margin-right:8px;"></i>
             ${modalTitle}
           </h3>
-          <button id="closeRescheduleModal" style="background:none;border:none;font-size:20px;color:#6b7280;cursor:pointer;padding:4px;">&times;</button>
+          <button id="closeRescheduleModal" style="background:none;border:none;font-size:20px;color:#6b7280;cursor:pointer;padding:4px;font-family:${fontStack};">&times;</button>
         </div>
         
-        <div class="modal-body">
+        <div class="modal-body" style="font-family:${fontStack};">
           <div class="activity-info" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
-            <h4 style="margin:0 0 8px 0;color:#374151;font-size:16px;">Activity: ${this.currentActivity.title || 'Untitled Activity'}</h4>
-            <p style="margin:0;color:#6b7280;font-size:14px;">Current due date: ${this.currentActivity.dueDate || 'Not set'}</p>
-            ${isRetakerMode ? '' : '<div style="margin-top:8px;padding:8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;color:#92400e;font-size:13px;"><i class="fas fa-info-circle" style="margin-right:4px;"></i>No students have taken this activity yet. This will reschedule for all students.</div>'}
+            <h4 style="margin:0 0 8px 0;color:#374151;font-size:16px;font-weight:600;font-family:${fontStack};">Activity: ${this.currentActivity.title || 'Untitled Activity'}</h4>
+            <p style="margin:0;color:#6b7280;font-size:14px;font-family:${fontStack};">Current due date: ${this.currentActivity.dueDate || 'Not set'}</p>
+            ${isRetakerMode ? '' : `<div style="margin-top:8px;padding:8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;color:#92400e;font-size:13px;font-family:${fontStack};"><i class="fas fa-info-circle" style="margin-right:4px;"></i>No students have taken this activity yet. This will reschedule for all students.</div>`}
           </div>
 
           <div class="reschedule-section" style="margin-bottom:24px;">
-            <label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;font-size:14px;">
+            <label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;font-size:14px;font-family:${fontStack};">
               <i class="fas fa-clock" style="color:#1d9b3e;margin-right:6px;"></i>
               New Due Date & Time
             </label>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-              <input type="date" id="newDueDate" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;focus:border-1d9b3e;">
-              <input type="time" id="newDueTime" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;focus:border-1d9b3e;">
+              <input type="date" id="newDueDate" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;font-family:${fontStack};">
+              <input type="time" id="newDueTime" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;font-family:${fontStack};">
             </div>
           </div>
 
           ${isRetakerMode ? `
           <div class="retakers-section" style="margin-bottom:24px;">
-            <label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;font-size:14px;">
+            <label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;font-size:14px;font-family:${fontStack};">
               <i class="fas fa-users" style="color:#1d9b3e;margin-right:6px;"></i>
               Select Students for Retake
             </label>
@@ -211,14 +213,14 @@ class ActivityManager {
               </div>
             </div>
             <div style="margin-top:8px;">
-              <button id="selectAllStudents" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;margin-right:8px;">Select All</button>
-              <button id="clearAllStudents" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;">Clear All</button>
+              <button id="selectAllStudents" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;margin-right:8px;font-family:${fontStack};font-weight:500;">Select All</button>
+              <button id="clearAllStudents" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-family:${fontStack};font-weight:500;">Clear All</button>
             </div>
           </div>
           ` : ''}
 
           <div class="notification-section" style="margin-bottom:24px;">
-            <label style="display:flex;align-items:center;gap:8px;color:#374151;font-weight:600;font-size:14px;cursor:pointer;">
+            <label style="display:flex;align-items:center;gap:8px;color:#374151;font-weight:600;font-size:14px;cursor:pointer;font-family:${fontStack};">
               <input type="checkbox" id="sendNotification" checked style="transform:scale(1.1);">
               <i class="fas fa-bell" style="color:#1d9b3e;"></i>
               Send notification to ${isRetakerMode ? 'selected students' : 'all students'}
@@ -227,8 +229,8 @@ class ActivityManager {
         </div>
 
         <div class="modal-footer" style="display:flex;gap:12px;justify-content:flex-end;padding-top:16px;border-top:1px solid #e5e7eb;">
-          <button id="cancelReschedule" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>
-          <button id="saveReschedule" style="background:#1d9b3e;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">
+          <button id="cancelReschedule" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:${fontStack};">Cancel</button>
+          <button id="saveReschedule" style="background:#1d9b3e;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:${fontStack};">
             <i class="fas fa-save" style="margin-right:6px;"></i>
             Save Changes
           </button>
@@ -256,20 +258,22 @@ class ActivityManager {
         { id: 4, name: 'Sarah Wilson', email: 'sarah@example.com', selected: false }
       ];
 
+      const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
       const studentList = document.getElementById('studentList');
       studentList.innerHTML = students.map(student => `
-        <label style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:4px;cursor:pointer;transition:background-color 0.2s;" 
+        <label style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:4px;cursor:pointer;transition:background-color 0.2s;font-family:${fontStack};" 
                onmouseover="this.style.backgroundColor='#f3f4f6'" 
                onmouseout="this.style.backgroundColor='transparent'">
           <input type="checkbox" class="student-checkbox" data-student-id="${student.id}" style="transform:scale(1.1);">
           <div style="flex:1;">
-            <div style="font-weight:600;color:#374151;font-size:14px;">${student.name}</div>
-            <div style="color:#6b7280;font-size:12px;">${student.email}</div>
+            <div style="font-weight:600;color:#374151;font-size:14px;font-family:${fontStack};">${student.name}</div>
+            <div style="color:#6b7280;font-size:12px;font-family:${fontStack};">${student.email}</div>
           </div>
         </label>
       `).join('');
     } catch (error) {
-      document.getElementById('studentList').innerHTML = '<p style="color:#ef4444;text-align:center;">Error loading students</p>';
+      const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+      document.getElementById('studentList').innerHTML = `<p style="color:#ef4444;text-align:center;font-family:${fontStack};">Error loading students</p>`;
     }
   }
 
@@ -341,19 +345,63 @@ class ActivityManager {
       saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>Saving...';
       saveBtn.disabled = true;
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Combine date and time into proper format (YYYY-MM-DD HH:MM:SS)
+      const dueDateTime = dueTime 
+        ? `${dueDate} ${dueTime}:00`
+        : `${dueDate} 23:59:59`; // Default to end of day if no time specified
 
-      // Here you would make the actual API call
-      const successMessage = isRetakerMode 
-        ? `Activity rescheduled for ${selectedStudents.length} student(s)!`
-        : 'Activity rescheduled for all students!';
-      
-      this.showNotification('success', successMessage);
-      this.closeModal();
+      // Get CSRF token
+      let csrfToken;
+      if (typeof window.getCSRFToken === 'function') {
+        csrfToken = await window.getCSRFToken();
+      } else {
+        const res = await fetch('course_outline_manage.php?action=get_csrf_token', { credentials: 'same-origin' });
+        const data = await res.json();
+        csrfToken = data.token || null;
+      }
+      if (!csrfToken) {
+        this.showNotification('error', 'Failed to get security token. Please refresh the page and try again.');
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+        return;
+      }
+
+      // Make actual API call to update activity due date
+      const formData = new FormData();
+      formData.append('action', 'activity_update');
+      formData.append('id', this.currentActivity.id);
+      formData.append('due_at', dueDateTime);
+      formData.append('csrf_token', csrfToken);
+
+      const response = await fetch('course_outline_manage.php', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result && result.success) {
+        const successMessage = isRetakerMode 
+          ? `Due date set for ${selectedStudents.length} student(s)!`
+          : 'Due date set successfully!';
+        
+        this.showNotification('success', successMessage);
+        this.closeModal();
+        
+        // Reload activities to show updated due date
+        if (typeof loadTopicsFromCourse === 'function') {
+          loadTopicsFromCourse();
+        } else {
+          location.reload();
+        }
+      } else {
+        throw new Error(result?.message || 'Failed to save due date');
+      }
 
     } catch (error) {
-      this.showNotification('error', 'Failed to save changes. Please try again.');
+      console.error('Error saving due date:', error);
+      this.showNotification('error', error.message || 'Failed to save changes. Please try again.');
       
       // Reset button
       const saveBtn = document.getElementById('saveReschedule');
@@ -371,25 +419,16 @@ class ActivityManager {
     }
   }
 
-  // Show notification
+  // Show notification using unified notification system
   showNotification(type, message) {
-    // You can integrate with your existing notification system
-    console.log(`${type.toUpperCase()}: ${message}`);
-    
-    // Simple notification display
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed; top: 20px; right: 20px; z-index: 10000;
-      padding: 12px 20px; border-radius: 6px; color: white; font-weight: 600;
-      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#f59e0b'};
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    `;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      notification.remove();
-    }, 3000);
+    if (typeof window.showNotification === 'function') {
+      // Use unified notification system
+      const title = type === 'success' ? 'Success' : type === 'error' ? 'Error' : type === 'warning' ? 'Warning' : 'Info';
+      window.showNotification(type, title, message);
+    } else {
+      // Fallback to console if notification system not available
+      console.log(`${type.toUpperCase()}: ${message}`);
+    }
   }
 }
 
@@ -535,7 +574,7 @@ class ActivityTester {
 
   // Show try answering modal
   showTryAnsweringModal(activityId, activityData, options = {}) {
-    console.log('🔍 DEBUG: showTryAnsweringModal() called with:', { activityId, activityData, options });
+    console.log('🔍 [TEACHER PREVIEW] showTryAnsweringModal() called with:', { activityId, activityData, options });
     
     // Validate that we have proper activity data
     if (!activityData || !activityData.id) {
@@ -548,7 +587,10 @@ class ActivityTester {
       // Show Try Answering modal
       this.currentActivity = { id: activityId, ...activityData };
       this.options = options; // Store options for preview mode
-      console.log('🔍 DEBUG: Current activity set:', this.currentActivity);
+      console.log('🔍 [TEACHER PREVIEW] Current activity set:', this.currentActivity);
+      console.log('🔍 [TEACHER PREVIEW] Options:', this.options);
+      console.log('🔍 [TEACHER PREVIEW] options.preview:', this.options?.preview);
+      console.log('🔍 [TEACHER PREVIEW] Activity type:', this.currentActivity?.type || this.currentActivity?.activity_type);
       
       this.currentQuestionIndex = 0;
       this.answers = {};
@@ -643,9 +685,48 @@ class ActivityTester {
               <div style="font-size:14px;color:#6c757d;margin-bottom:4px;font-family:'Inter',sans-serif;">Ready to submit?</div>
               <div style="font-size:12px;color:#6c757d;font-family:'Inter',sans-serif;">Make sure you've answered all questions</div>
             </div>
-            <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);font-family:'Inter',sans-serif;">
-              ${this.options && this.options.preview ? 'Close Preview' : 'Finish Attempt'}
-            </button>
+            <div style="display:flex;gap:12px;">
+              ${(() => {
+                // DEEP DEBUG: Log all relevant values
+                console.log('🔍 [TEACHER PREVIEW] Rendering submit section:');
+                console.log('  - this.options:', this.options);
+                console.log('  - this.options?.preview:', this.options?.preview);
+                console.log('  - this.currentActivity:', this.currentActivity);
+                const activityType = this.currentActivity?.type || this.currentActivity?.activity_type || '';
+                console.log('  - activityType:', activityType);
+                const isPreview = !!(this.options && this.options.preview);
+                console.log('  - isPreview:', isPreview);
+                const isAutoGradable = activityType !== 'coding' && activityType !== 'upload_based' && activityType !== 'essay';
+                console.log('  - isAutoGradable:', isAutoGradable);
+                
+                // In preview mode, show Test button for auto-gradable activities (like Coordinator side)
+                if (isPreview) {
+                  if (isAutoGradable) {
+                    console.log('🔍 [TEACHER PREVIEW] ✅ Rendering Test button for activityType:', activityType);
+                    return `
+                      <button id="preview-test-btn" style="background:linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(14,165,233,0.3);" onclick="window.testPreviewActivityTeacher('${activityType}')">
+                        <i class="fas fa-check-circle"></i> Test
+                      </button>
+                    `;
+                  } else if (activityType === 'essay' || activityType === 'upload_based') {
+                    console.log('🔍 [TEACHER PREVIEW] Rendering manual grading message for activityType:', activityType);
+                    return `
+                      <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 16px;font-size:12px;color:#856404;">
+                        <i class="fas fa-info-circle"></i> This activity requires manual grading by the teacher.
+                      </div>
+                    `;
+                  } else {
+                    console.log('🔍 [TEACHER PREVIEW] ⚠️ Preview mode but activityType not auto-gradable:', activityType);
+                  }
+                } else {
+                  console.log('🔍 [TEACHER PREVIEW] ⚠️ NOT in preview mode, skipping Test button');
+                }
+                return '';
+              })()}
+              <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);font-family:'Inter',sans-serif;">
+                ${this.options && this.options.preview ? 'Close Preview' : 'Finish Attempt'}
+              </button>
+            </div>
           </div>
         </div>
         
@@ -985,16 +1066,16 @@ class ActivityTester {
     
     this.questions.forEach((question, index) => {
       allQuestionsHtml += `
-        <div style="border:1px solid #e9ecef;border-radius:8px;padding:30px;margin-bottom:30px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);font-family:'Inter',sans-serif;">
+        <div id="question-${index}" style="border:1px solid #e9ecef;border-radius:8px;padding:30px;margin-bottom:30px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);font-family:'Inter',sans-serif;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="margin:0;color:#333;font-size:18px;font-weight:600;font-family:'Inter',sans-serif;">Question ${index + 1}</h3>
+            <h3 style="margin:0;color:#333;font-size:18px;font-weight:500;font-family:'Inter',sans-serif;">Question ${index + 1}</h3>
             <div style="background:#e9ecef;color:#495057;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;">
               ${question.points || 1} point${(question.points || 1) !== 1 ? 's' : ''}
             </div>
           </div>
           
           <div style="margin-bottom:20px;">
-            <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-family:'Inter',sans-serif;">${question.question_text || question.question || 'Question text not available'}</p>
+            <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || question.question || 'Question text not available'}</p>
           </div>
           
           ${this.renderQuestionInput(question, index)}
@@ -1049,14 +1130,14 @@ class ActivityTester {
     let questionHtml = `
       <div style="border:1px solid #e9ecef;border-radius:8px;padding:30px;margin-bottom:30px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);font-family:'Inter',sans-serif;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <h3 style="margin:0;color:#333;font-size:18px;font-weight:600;font-family:'Inter',sans-serif;">Question ${this.currentQuestionIndex + 1}</h3>
+          <h3 style="margin:0;color:#333;font-size:18px;font-weight:500;font-family:'Inter',sans-serif;">Question ${this.currentQuestionIndex + 1}</h3>
           <div style="background:#e9ecef;color:#495057;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;">
             ${question.points || 1} point${(question.points || 1) !== 1 ? 's' : ''}
           </div>
         </div>
         
         <div style="margin-bottom:20px;">
-          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-family:'Inter',sans-serif;">${question.question_text || question.question || 'Question text not available'}</p>
+          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || question.question || 'Question text not available'}</p>
         </div>
         
         ${this.renderQuestionInput(question, this.currentQuestionIndex)}
@@ -1470,7 +1551,7 @@ class ActivityTester {
           <div class="coding-main" style="flex:2 1 520px;background:#ffffff;border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(15,23,42,0.08);min-width:320px;">
             <div style="margin-bottom:20px;">
               <h4 style="margin:0 0 12px 0;font-size:20px;font-weight:700;color:#111827;">${escapeHtml(activity.title || 'Coding Challenge')}</h4>
-              <div style="font-size:14px;color:#374151;line-height:1.7;white-space:pre-wrap;">${escapeHtml(problemStatement)}</div>
+              <div style="font-size:14px;color:#374151;font-weight:600;line-height:1.7;white-space:pre-wrap;">${escapeHtml(problemStatement)}</div>
               ${moreInstructions ? `<div style="margin-top:12px;padding:12px;border-radius:8px;background:#f8fafc;color:#4b5563;line-height:1.6;">${escapeHtml(moreInstructions)}</div>` : ''}
             </div>
             <div>
@@ -1574,7 +1655,7 @@ class ActivityTester {
         <div style="margin-top:24px;display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
           <div style="flex:0 0 320px;min-width:260px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:18px;">
             <h5 style="margin:0 0 12px 0;font-size:15px;font-weight:700;color:#1f2937;">Problem Description</h5>
-            <div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap;">${escapeHtml(problemStatement)}</div>
+            <div style="font-size:13px;color:#374151;font-weight:600;line-height:1.7;white-space:pre-wrap;">${escapeHtml(problemStatement)}</div>
             ${instructions ? `<div style="margin-top:16px;font-size:13px;color:#4b5563;line-height:1.6;white-space:pre-wrap;">${escapeHtml(instructions)}</div>` : ''}
             ${sampleOutputsSection}
             <div style="margin-top:20px;padding:12px;border-radius:10px;background:#eef2ff;color:#312e81;font-size:12px;font-weight:600;">Language: ${escapeHtml(languageLabel)}</div>
@@ -2970,23 +3051,16 @@ class ActivityTester {
     }
   }
 
-  // Show notification
+  // Show notification using unified notification system
   showNotification(type, message) {
-    console.log(`${type.toUpperCase()}: ${message}`);
-    
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed; top: 20px; right: 20px; z-index: 10000;
-      padding: 12px 20px; border-radius: 6px; color: white; font-weight: 600;
-      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#f59e0b'};
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    `;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      notification.remove();
-    }, 3000);
+    if (typeof window.showNotification === 'function') {
+      // Use unified notification system
+      const title = type === 'success' ? 'Success' : type === 'error' ? 'Error' : type === 'warning' ? 'Warning' : 'Info';
+      window.showNotification(type, title, message);
+    } else {
+      // Fallback to console if notification system not available
+      console.log(`${type.toUpperCase()}: ${message}`);
+    }
   }
 }
 
@@ -3023,14 +3097,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tab === 'leaderboards') {
         // placeholder
       }
-    });
-  });
-
-  // Sidebar options
-  document.querySelectorAll('.sidebar-option').forEach(option => {
-    option.addEventListener('click', () => {
-      document.querySelectorAll('.sidebar-option').forEach(o => o.classList.remove('active'));
-      option.classList.add('active');
     });
   });
 
@@ -3280,8 +3346,18 @@ function loadTopicsFromCourse() {
                   dateStrFixed = dateStr.replace(' ', 'T') + '+08:00';
                 }
                 const d = new Date(dateStrFixed);
-                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + 
-                       d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                // Format using Philippine timezone (Asia/Manila)
+                return d.toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric',
+                  timeZone: 'Asia/Manila'
+                }) + ', ' + 
+                d.toLocaleTimeString('en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  timeZone: 'Asia/Manila'
+                });
               };
               
               const startDate = formatDate(activity.start_at);
@@ -3294,7 +3370,6 @@ function loadTopicsFromCourse() {
                   <div class="activity-left-border ${isLocked ? 'border-locked' : ''}"></div>
                   <div class="activity-content">
                     <div class="activity-title">${activityTitle}</div>
-                    ${activity.type === 'coding' ? `<div style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-top: 4px;">${activityType.toUpperCase()}</div>` : ''}
                     <div class="activity-dates" style="margin-top: 8px;">
                       <div class="activity-date start">
                         <i class="fas fa-calendar-check"></i>
@@ -3321,7 +3396,7 @@ function loadTopicsFromCourse() {
                             <i class="fas fa-lock"></i> Lock Activity
                           </div>
                           <div class="dropdown-item" onclick="handleReschedule(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
-                            <i class="fas fa-calendar"></i> Reschedule/Set retakers
+                            <i class="fas fa-calendar"></i> Set Due Date
                           </div>
                           <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
                             <i class="fas fa-play"></i> Try answering
@@ -3348,10 +3423,12 @@ function loadTopicsFromCourse() {
                   (function() {
                     console.log('🔍 JS Debug - User Role:', window.__USER_ROLE__);
                     console.log('🔍 JS Debug - Is Student:', window.__USER_ROLE__.toLowerCase() === 'student');
-                    return window.__USER_ROLE__.toLowerCase() !== 'student' ? 
-                  '<div class="topic-status">Students currently here</div>' +
-                      '<div class="topic-count">N/A</div>' : 
-                      '';
+                    if (window.__USER_ROLE__.toLowerCase() !== 'student') {
+                      const lessonId = lesson.id || '';
+                      return '<div class="topic-status">Students currently here</div>' +
+                          '<div class="topic-count" data-lesson-id="' + lessonId + '" id="active-students-' + lessonId + '">0</div>';
+                    }
+                    return '';
                   })() +
                 '</div>' +
               '</div>' +
@@ -3379,6 +3456,16 @@ function loadTopicsFromCourse() {
       }).join('');
       
       container.innerHTML = generatedHTML;
+      
+      // Start polling for active students count after rendering
+      setTimeout(function() {
+        updateActiveStudentsCounts();
+        // Poll every 30 seconds
+        if (window.__activeStudentsInterval) {
+          clearInterval(window.__activeStudentsInterval);
+        }
+        window.__activeStudentsInterval = setInterval(updateActiveStudentsCounts, 30000);
+      }, 1000);
       
       // Rebind headers for expand/collapse and lazy load
       const newTopicHeaders = document.querySelectorAll('.topic-header');
@@ -3525,7 +3612,9 @@ function loadTopicsFromCourse() {
         }
         
             if (window.cleanActivitySystem && window.cleanActivitySystem.showTryAnswering) {
-        window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
+        // CRITICAL: For Teacher side, always use preview mode (testing only, no save)
+        console.log('🔍 [TEACHER PREVIEW] Calling showTryAnswering with preview: true');
+        window.cleanActivitySystem.showTryAnswering(activityId, activityTitle, { preview: true });
             } else {
               alert('Try Answering function not available. Please refresh the page.');
             }
@@ -3729,7 +3818,6 @@ function loadTopicContent(item, lessonId) {
                 <div class="activity-left-border ${isLocked ? 'border-locked' : ''}"></div>
                 <div class="activity-content">
                   <div class="activity-title">${title}</div>
-                  ${activity.type === 'coding' ? `<div style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-top: 4px;">CODING</div>` : ''}
                   <div class="activity-dates" style="margin-top: 8px;">
                     <div class="activity-date start">
                       <i class="fas fa-calendar-check"></i>
@@ -3907,8 +3995,10 @@ function bindTopicContentEvents(item, materials, activities) {
           return;
         }
         
-        // Use the clean activity system to fetch REAL data from database
-        window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
+        // CRITICAL: For Teacher side, always use preview mode (testing only, no save)
+        // This enables the "Test" button for auto-grading
+        console.log('🔍 [TEACHER PREVIEW] Calling showTryAnswering with preview: true');
+        window.cleanActivitySystem.showTryAnswering(activityId, activityTitle, { preview: true });
       }
       
       // SIMPLE CLOSE - Like old working version
@@ -4556,9 +4646,12 @@ function transformActivityCard(card) {
               const startAt = new Date(activity.start_at);
               const dueAt = activity.due_at ? new Date(activity.due_at) : null;
               
-              if (now < startAt) {
+              // CRITICAL: Require both start_at AND due_at to be set
+              if (!dueAt) {
+                availability = { available: false, status: 'locked', reason: 'Activity is not yet configured. Teacher needs to set the end date.' };
+              } else if (now < startAt) {
                 availability = { available: false, status: 'locked', reason: `Activity opens on ${startAt.toLocaleString()}` };
-              } else if (dueAt && now > dueAt) {
+              } else if (now > dueAt) {
                 availability = { available: false, status: 'closed', reason: `Deadline passed on ${dueAt.toLocaleString()}` };
               } else {
                 availability = { available: true, status: 'open', reason: 'Activity is available' };
@@ -4706,16 +4799,22 @@ async function startStudentActivity(activityId) {
           return;
         }
         
+        // CRITICAL: Require both start_at AND due_at to be set
+        if (!activity.due_at) {
+          alert('This activity is not yet configured. The teacher needs to set the end date.');
+          return;
+        }
+        
         const now = new Date();
         const startAt = new Date(activity.start_at);
-        const dueAt = activity.due_at ? new Date(activity.due_at) : null;
+        const dueAt = new Date(activity.due_at);
         
         if (now < startAt) {
           alert(`This activity opens on ${startAt.toLocaleString()}`);
           return;
         }
         
-        if (dueAt && now > dueAt) {
+        if (now > dueAt) {
           alert(`The deadline for this activity has passed (${dueAt.toLocaleString()}).`);
           return;
         }
@@ -4736,7 +4835,16 @@ async function startStudentActivity(activityId) {
     
     // Call the same function teachers use
     if (window.cleanActivitySystem && window.cleanActivitySystem.showTryAnswering) {
-      window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
+      // CRITICAL: For Teacher side, always use preview mode (testing only, no save)
+      // Check if we're in teacher context
+      const isTeacherContext = window.location.href.includes('teacher_dashboard') || document.querySelector('.teacher-badge');
+      if (isTeacherContext) {
+        console.log('🔍 [TEACHER PREVIEW] Calling showTryAnswering with preview: true');
+        window.cleanActivitySystem.showTryAnswering(activityId, activityTitle, { preview: true });
+      } else {
+        // For students, use normal mode (they can submit)
+        window.cleanActivitySystem.showTryAnswering(activityId, activityTitle);
+      }
     } else {
       console.error('❌ cleanActivitySystem not available');
       alert('Activity system not available. Please try again.');
@@ -4859,7 +4967,14 @@ window.getActivityMaxPoints = getActivityMaxPoints;
 
 // Lock activity function - sets start_at to NULL
 async function lockActivity(activityId, activityTitle) {
-  if (!confirm(`Lock "${activityTitle}"?\n\nThis will close the activity for students. They will not be able to access it until you unlock it again.`)) {
+  const confirmed = await showCustomConfirm(
+    `Lock "${activityTitle}"?`,
+    'This will close the activity for students. They will not be able to access it until you unlock it again.',
+    'Lock',
+    'Cancel',
+    '#ef4444'
+  );
+  if (!confirmed) {
     return;
   }
   
@@ -4905,42 +5020,256 @@ async function lockActivity(activityId, activityTitle) {
   });
 }
 
-// Unlock activity function - sets start_at to current time
+// Unlock activity function - shows modal to set start date and due date
 async function unlockActivity(activityId, activityTitle) {
-  if (!confirm(`Unlock "${activityTitle}"?\n\nThis will open the activity for students immediately.`)) {
-    return;
+  // Get current activity data to show existing dates
+  let currentStartDate = '';
+  let currentDueDate = '';
+  
+  try {
+    const classId = window.__CLASS_ID__;
+    if (classId) {
+      const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+      const topicsData = await topicsRes.json();
+      
+      if (topicsData && topicsData.success && topicsData.modules) {
+        for (const module of topicsData.modules || []) {
+          for (const lesson of module.lessons || []) {
+            const activity = (lesson.activities || []).find(a => a.id == activityId);
+            if (activity) {
+              currentStartDate = activity.start_at || '';
+              currentDueDate = activity.due_at || '';
+              break;
+            }
+          }
+          if (currentStartDate || currentDueDate) break;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching activity data:', error);
   }
   
-  // Set start_at to current time
+  // Show unlock modal with date pickers
+  showUnlockModal(activityId, activityTitle, currentStartDate, currentDueDate);
+}
+
+// Show unlock modal to set start date and due date
+function showUnlockModal(activityId, activityTitle, currentStartDate = '', currentDueDate = '') {
+  const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  
+  // Remove existing modal if any
+  const existingModal = document.getElementById('unlockActivityModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+  
+  const modal = document.createElement('div');
+  modal.id = 'unlockActivityModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  
+  // Get current Philippine time as default
   const now = new Date();
-  const startAt = now.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+  const phFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
   
-  // Get CSRF token
-  const csrfToken = await getCSRFToken();
-  if (!csrfToken) {
-    alert('Error: Failed to get security token. Please refresh the page and try again.');
+  const phParts = phFormatter.formatToParts(now);
+  const phDateObj = {};
+  phParts.forEach(part => {
+    phDateObj[part.type] = part.value;
+  });
+  
+  const defaultStartDate = currentStartDate 
+    ? formatDateForInput(currentStartDate)
+    : `${phDateObj.year}-${phDateObj.month}-${phDateObj.day}`;
+  const defaultStartTime = currentStartDate 
+    ? formatTimeForInput(currentStartDate)
+    : `${phDateObj.hour}:${phDateObj.minute}`;
+  const defaultDueDate = currentDueDate 
+    ? formatDateForInput(currentDueDate)
+    : '';
+  const defaultDueTime = currentDueDate 
+    ? formatTimeForInput(currentDueDate)
+    : '';
+  
+  modal.innerHTML = `
+    <div class="modal-card" style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.15);font-family:${fontStack};">
+      <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #e5e7eb;">
+        <h3 style="margin:0;color:#1f2937;font-size:20px;font-weight:700;font-family:${fontStack};">
+          <i class="fas fa-unlock" style="color:#1d9b3e;margin-right:8px;"></i>
+          Unlock Activity
+        </h3>
+        <button id="closeUnlockModal" style="background:none;border:none;font-size:20px;color:#6b7280;cursor:pointer;padding:4px;font-family:${fontStack};">&times;</button>
+      </div>
+      
+      <div class="modal-body" style="font-family:${fontStack};">
+        <div class="activity-info" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
+          <h4 style="margin:0 0 8px 0;color:#374151;font-size:16px;font-weight:600;font-family:${fontStack};">Activity: ${escapeHtml(activityTitle)}</h4>
+        </div>
+
+        <div class="start-date-section" style="margin-bottom:24px;">
+          <label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;font-size:14px;font-family:${fontStack};">
+            <i class="fas fa-calendar-check" style="color:#1d9b3e;margin-right:6px;"></i>
+            Start Date & Time (When to unlock)
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <input type="date" id="unlockStartDate" value="${defaultStartDate}" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;font-family:${fontStack};">
+            <input type="time" id="unlockStartTime" value="${defaultStartTime}" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;font-family:${fontStack};">
+          </div>
+        </div>
+
+        <div class="due-date-section" style="margin-bottom:24px;">
+          <label style="display:block;margin-bottom:8px;color:#374151;font-weight:600;font-size:14px;font-family:${fontStack};">
+            <i class="fas fa-calendar-times" style="color:#ef4444;margin-right:6px;"></i>
+            Due Date & Time (Deadline)
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <input type="date" id="unlockDueDate" value="${defaultDueDate}" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;font-family:${fontStack};">
+            <input type="time" id="unlockDueTime" value="${defaultDueTime}" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;font-family:${fontStack};">
+          </div>
+          <p style="margin:8px 0 0 0;color:#6b7280;font-size:12px;font-family:${fontStack};">
+            <i class="fas fa-info-circle" style="margin-right:4px;"></i>
+            Both start date and due date are required for students to access this activity.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display:flex;gap:12px;justify-content:flex-end;padding-top:16px;border-top:1px solid #e5e7eb;">
+        <button id="cancelUnlock" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:${fontStack};">Cancel</button>
+        <button id="saveUnlock" style="background:#1d9b3e;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:${fontStack};">
+          <i class="fas fa-unlock" style="margin-right:6px;"></i>
+          Unlock Activity
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Bind events
+  document.getElementById('closeUnlockModal').addEventListener('click', () => modal.remove());
+  document.getElementById('cancelUnlock').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
+  
+  document.getElementById('saveUnlock').addEventListener('click', async () => {
+    await saveUnlockActivity(activityId, activityTitle, modal);
+  });
+}
+
+// Helper function to format date for input
+function formatDateForInput(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper function to format time for input
+function formatTimeForInput(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+// Save unlock activity with start and due dates
+async function saveUnlockActivity(activityId, activityTitle, modal) {
+  const startDate = document.getElementById('unlockStartDate').value;
+  const startTime = document.getElementById('unlockStartTime').value;
+  const dueDate = document.getElementById('unlockDueDate').value;
+  const dueTime = document.getElementById('unlockDueTime').value;
+  
+  if (!startDate) {
+    if (typeof window.showNotification === 'function') {
+      window.showNotification('error', 'Error', 'Please select a start date.');
+    } else {
+      alert('Please select a start date.');
+    }
     return;
   }
   
-  const formData = new FormData();
-  formData.append('action', 'activity_update');
-  formData.append('id', activityId);
-  formData.append('start_at', startAt);
-  formData.append('csrf_token', csrfToken); // Add CSRF token
+  if (!dueDate) {
+    if (typeof window.showNotification === 'function') {
+      window.showNotification('error', 'Error', 'Please select a due date. Both dates are required.');
+    } else {
+      alert('Please select a due date. Both dates are required.');
+    }
+    return;
+  }
   
-  fetch('course_outline_manage.php', {
-    method: 'POST',
-    credentials: 'same-origin',
-    body: formData
-  })
-  .then(r => r.json())
-  .then(res => {
-    if (res && res.success) {
+  try {
+    const saveBtn = document.getElementById('saveUnlock');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>Saving...';
+    saveBtn.disabled = true;
+    
+    // Combine date and time into proper format (YYYY-MM-DD HH:MM:SS)
+    const startDateTime = startTime 
+      ? `${startDate} ${startTime}:00`
+      : `${startDate} 00:00:00`;
+    
+    const dueDateTime = dueTime 
+      ? `${dueDate} ${dueTime}:00`
+      : `${dueDate} 23:59:59`;
+    
+    // Get CSRF token
+    let csrfToken;
+    if (typeof window.getCSRFToken === 'function') {
+      csrfToken = await window.getCSRFToken();
+    } else {
+      const res = await fetch('course_outline_manage.php?action=get_csrf_token', { credentials: 'same-origin' });
+      const data = await res.json();
+      csrfToken = data.token || null;
+    }
+    if (!csrfToken) {
       if (typeof window.showNotification === 'function') {
-        window.showNotification('success', 'Activity Unlocked', `"${activityTitle}" is now available for students.`);
+        window.showNotification('error', 'Error', 'Failed to get security token. Please refresh the page and try again.');
+      } else {
+        alert('Error: Failed to get security token. Please refresh the page and try again.');
+      }
+      saveBtn.innerHTML = originalText;
+      saveBtn.disabled = false;
+      return;
+    }
+    
+    // Update both start_at and due_at
+    const formData = new FormData();
+    formData.append('action', 'activity_update');
+    formData.append('id', activityId);
+    formData.append('start_at', startDateTime);
+    formData.append('due_at', dueDateTime);
+    formData.append('csrf_token', csrfToken);
+    
+    const response = await fetch('course_outline_manage.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (result && result.success) {
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('success', 'Success', `"${activityTitle}" has been unlocked with the selected dates.`);
       } else {
         alert(`Activity "${activityTitle}" unlocked successfully!`);
       }
+      modal.remove();
+      
       // Reload activities
       if (typeof loadTopicsFromCourse === 'function') {
         loadTopicsFromCourse();
@@ -4948,20 +5277,29 @@ async function unlockActivity(activityId, activityTitle) {
         location.reload();
       }
     } else {
-      alert(`Failed to unlock activity: ${res?.message || 'Unknown error'}`);
+      throw new Error(result?.message || 'Failed to unlock activity');
     }
-  })
-  .catch(err => {
-    console.error('Error unlocking activity:', err);
-    alert('Error unlocking activity. Please try again.');
-  });
+  } catch (error) {
+    console.error('Error unlocking activity:', error);
+    if (typeof window.showNotification === 'function') {
+      window.showNotification('error', 'Error', error.message || 'Failed to unlock activity. Please try again.');
+    } else {
+      alert(error.message || 'Error unlocking activity. Please try again.');
+    }
+    
+    const saveBtn = document.getElementById('saveUnlock');
+    saveBtn.innerHTML = '<i class="fas fa-unlock" style="margin-right:6px;"></i>Unlock Activity';
+    saveBtn.disabled = false;
+  }
 }
 
 // View activity items
 function viewActivityItems(activityId) {
   // Redirect to activity view or open modal
   if (typeof window.cleanActivitySystem !== 'undefined' && window.cleanActivitySystem.showTryAnswering) {
-    window.cleanActivitySystem.showTryAnswering(activityId, 'Activity');
+    // CRITICAL: For Teacher side, always use preview mode (testing only, no save)
+    console.log('🔍 [TEACHER PREVIEW] Calling showTryAnswering with preview: true');
+    window.cleanActivitySystem.showTryAnswering(activityId, 'Activity', { preview: true });
   } else {
     console.log('View items for activity:', activityId);
   }
@@ -5032,7 +5370,14 @@ async function addCSRFToken(formData) {
 
 // Lock all activities for the current class
 async function lockAllActivities() {
-  if (!confirm('Lock ALL activities in this class?\n\nThis will close all unlocked activities for students immediately.\n\nStudents will not be able to access them until you unlock them again.')) {
+  const confirmed = await showCustomConfirm(
+    'Lock ALL Activities?',
+    'This will close all unlocked activities for students immediately.\n\nStudents will not be able to access them until you unlock them again.',
+    'Lock All',
+    'Cancel',
+    '#ef4444'
+  );
+  if (!confirmed) {
     return;
   }
   
@@ -5169,7 +5514,14 @@ async function lockAllActivities() {
 
 // Unlock all activities for the current class (for testing purposes)
 async function unlockAllActivities() {
-  if (!confirm('Unlock ALL activities in this class?\n\nThis will open all locked activities for students immediately.\n\nThis is useful for testing purposes.')) {
+  const confirmed = await showCustomConfirm(
+    'Unlock ALL Activities?',
+    'This will open all locked activities for students immediately.\n\nThis is useful for testing purposes.',
+    'Unlock All',
+    'Cancel',
+    '#1d9b3e'
+  );
+  if (!confirmed) {
     return;
   }
   
@@ -5219,9 +5571,27 @@ async function unlockAllActivities() {
       return;
     }
     
-    // Set start_at to current time
+    // Set start_at to current time in Philippine timezone (UTC+8)
     const now = new Date();
-    const startAt = now.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+    // Get Philippine time components using Intl.DateTimeFormat
+    const phFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const phParts = phFormatter.formatToParts(now);
+    const phDateObj = {};
+    phParts.forEach(part => {
+      phDateObj[part.type] = part.value;
+    });
+    
+    // Format as YYYY-MM-DDTHH:mm for datetime-local input (Philippine time)
+    const startAt = `${phDateObj.year}-${phDateObj.month}-${phDateObj.day}T${phDateObj.hour}:${phDateObj.minute}`;
     
     // Get CSRF token once for all requests
     console.log('🔐 Fetching CSRF token...');
@@ -5313,6 +5683,543 @@ async function unlockAllActivities() {
 
 // Make functions globally available
 window.lockActivity = lockActivity;
+
+// ===== TEACHER PREVIEW AUTO-GRADING FUNCTION (Same as Coordinator side) =====
+// This function is called when Teacher clicks "Test" button in preview mode
+// IMPORTANT: This is for testing/preview only. Scores are calculated and displayed but NOT saved to database.
+window.testPreviewActivityTeacher = function(activityType) {
+  console.log('🔍 [TEACHER TEST PREVIEW] Testing activity:', activityType);
+  
+  // Essay and Upload-based activities require manual grading by teacher
+  if (activityType === 'essay' || activityType === 'upload_based') {
+    alert('This activity type requires manual grading by the teacher. Auto-grading is not available for Essay and Upload-based activities.');
+    return;
+  }
+  
+  // Get activity data from activityTester (Teacher side uses activityTester.currentActivity)
+  const activityTester = window.activityTester;
+  if (!activityTester || !activityTester.currentActivity) {
+    alert('Activity data not found. Please try again.');
+    return;
+  }
+  
+  const activity = activityTester.currentActivity;
+  const questions = activity.questions || activity.question || [];
+  
+  if (questions.length === 0) {
+    alert('No questions found in this activity.');
+    return;
+  }
+  
+  // Collect student answers from DOM (same as Coordinator side)
+  const studentAnswers = {};
+  const questionElements = document.querySelectorAll('[id^="question-"]');
+  
+  console.log('🔍 [TEACHER TEST PREVIEW] Found question elements:', questionElements.length);
+  console.log('🔍 [TEACHER TEST PREVIEW] Questions from activity:', questions.length);
+  
+  questionElements.forEach((questionEl, index) => {
+    const question = questions[index];
+    if (!question) {
+      console.log(`🔍 [TEACHER TEST PREVIEW] ⚠️ No question data for index ${index}`);
+      return;
+    }
+    
+    console.log(`🔍 [TEACHER TEST PREVIEW] Processing question ${index + 1}:`, {
+      questionId: question.id || question._id,
+      questionText: question.question_text || question.text,
+      activityType: activityType
+    });
+    
+    if (activityType === 'multiple_choice') {
+      // Get selected radio button
+      const selectedRadio = questionEl.querySelector('input[type="radio"]:checked');
+      if (selectedRadio) {
+        studentAnswers[index] = selectedRadio.value; // choice ID
+        console.log(`🔍 [TEACHER TEST PREVIEW] ✅ Found answer for question ${index + 1}:`, selectedRadio.value);
+      } else {
+        console.log(`🔍 [TEACHER TEST PREVIEW] ⚠️ No answer selected for question ${index + 1}`);
+      }
+    } else if (activityType === 'true_false') {
+      // Get selected radio button (true/false)
+      const selectedRadio = questionEl.querySelector('input[type="radio"]:checked');
+      if (selectedRadio) {
+        studentAnswers[index] = selectedRadio.value; // "true" or "false"
+        console.log(`🔍 [TEACHER TEST PREVIEW] ✅ Found answer for question ${index + 1}:`, selectedRadio.value);
+      } else {
+        console.log(`🔍 [TEACHER TEST PREVIEW] ⚠️ No answer selected for question ${index + 1}`);
+      }
+    } else if (activityType === 'identification') {
+      // Get text input value
+      const textInput = questionEl.querySelector('input[type="text"]');
+      if (textInput && textInput.value.trim()) {
+        studentAnswers[index] = textInput.value.trim();
+        console.log(`🔍 [TEACHER TEST PREVIEW] ✅ Found answer for question ${index + 1}:`, textInput.value);
+      } else {
+        console.log(`🔍 [TEACHER TEST PREVIEW] ⚠️ No answer entered for question ${index + 1}`);
+      }
+    }
+  });
+  
+  console.log('🔍 [TEACHER TEST PREVIEW] Collected student answers:', studentAnswers);
+  const answeredCount = Object.keys(studentAnswers).length;
+  console.log('🔍 [TEACHER TEST PREVIEW] Answered count:', answeredCount);
+  
+  if (answeredCount === 0) {
+    console.error('🔍 [TEACHER TEST PREVIEW] ❌ No answers found!');
+    alert('Please answer at least one question before testing.');
+    return;
+  }
+  
+  // Set loading state
+  const testBtn = document.getElementById('preview-test-btn');
+  if (testBtn) {
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+  }
+  
+  // Grade the answers (SAME LOGIC AS COORDINATOR SIDE)
+  let totalScore = 0;
+  let maxScore = 0;
+  const results = [];
+  
+  questions.forEach((question, index) => {
+    const points = parseFloat(question.points || 1);
+    maxScore += points;
+    
+    const studentAnswer = studentAnswers[index];
+    let isCorrect = false;
+    let earnedPoints = 0;
+    let correctAnswer = '';
+    let explanation = '';
+    
+    let studentAnswerDisplay = studentAnswer || '(No answer)'; // For display
+    
+    if (activityType === 'multiple_choice') {
+      // Check if selected choice is correct
+      const choices = question.choices || [];
+      const selectedChoiceId = studentAnswer;
+      
+      const selectedChoice = choices.find(c => String(c.id) === String(selectedChoiceId));
+      const correctChoice = choices.find(c => !!c.is_correct);
+      
+      // Get the actual choice text for display
+      if (selectedChoice) {
+        studentAnswerDisplay = selectedChoice.choice_text || selectedChoice.text || `Choice ${selectedChoiceId}`;
+      } else {
+        studentAnswerDisplay = '(No answer)';
+      }
+      
+      if (correctChoice) {
+        correctAnswer = correctChoice.choice_text || correctChoice.text || '';
+      }
+      
+      if (selectedChoice && selectedChoice.is_correct) {
+        isCorrect = true;
+        earnedPoints = points;
+      }
+      
+      explanation = question.explanation || '';
+    } else if (activityType === 'true_false') {
+      // Check if answer matches correct choice
+      const choices = question.choices || [];
+      const studentValue = studentAnswer ? String(studentAnswer).toLowerCase().trim() : '';
+      
+      // Display "True" or "False" instead of "true" or "false"
+      studentAnswerDisplay = studentValue === 'true' ? 'True' : (studentValue === 'false' ? 'False' : '(No answer)');
+      
+      // Find correct choice - check both is_correct flag and correct flag
+      let correctChoice = choices.find(c => {
+        const isCorrect = !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1 || c.is_correct === '1' || c.correct === '1';
+        return isCorrect;
+      });
+      
+      // If no choice marked as correct, try to find by choice_text
+      if (!correctChoice && choices.length > 0) {
+        correctChoice = choices.find(c => {
+          const choiceText = String(c.choice_text || c.text || '').toLowerCase().trim();
+          return choiceText === 'true' || choiceText === 'false';
+        });
+      }
+      
+      if (correctChoice) {
+        let correctValue = String(correctChoice.choice_text || correctChoice.text || '').toLowerCase().trim();
+        
+        if (!correctValue || correctValue === '') {
+          const correctIndex = choices.indexOf(correctChoice);
+          correctValue = correctIndex === 0 ? 'true' : 'false';
+        }
+        
+        // Normalize to "true" or "false"
+        if (correctValue === 'true' || correctValue === '1') {
+          correctValue = 'true';
+          correctAnswer = 'True';
+        } else if (correctValue === 'false' || correctValue === '0') {
+          correctValue = 'false';
+          correctAnswer = 'False';
+        } else {
+          const choiceText = correctChoice.choice_text || correctChoice.text || '';
+          correctAnswer = choiceText ? (choiceText.charAt(0).toUpperCase() + choiceText.slice(1).toLowerCase()) : 'N/A';
+          correctValue = String(choiceText).toLowerCase().trim();
+        }
+        
+        // Compare student answer with correct answer
+        if (studentValue && (studentValue === correctValue || studentValue === String(correctValue))) {
+          isCorrect = true;
+          earnedPoints = points;
+        }
+      } else {
+        // Fallback: check question.answer field
+        if (question.answer) {
+          const answerValue = String(question.answer).toLowerCase().trim();
+          correctAnswer = answerValue === 'true' ? 'True' : 'False';
+          if (studentValue === answerValue) {
+            isCorrect = true;
+            earnedPoints = points;
+          }
+        } else {
+          correctAnswer = 'N/A';
+        }
+      }
+      
+      explanation = question.explanation || '';
+    } else if (activityType === 'identification') {
+      // Check against correct answer (supports multiple acceptable answers)
+      const studentValue = String(studentAnswer || '').trim().toLowerCase();
+      
+      // Get acceptable answers - check multiple sources
+      const acceptableAnswers = [];
+      
+      // PRIORITY 1: Check choices with is_correct flag
+      const choices = question.choices || [];
+      if (choices.length > 0) {
+        const correctChoices = choices.filter(c => {
+          const isCorrect = !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1 || c.is_correct === '1' || c.correct === '1';
+          return isCorrect;
+        });
+        
+        correctChoices.forEach(c => {
+          const choiceText = String(c.choice_text || c.text || '').trim();
+          if (choiceText) {
+            const normalized = choiceText.toLowerCase();
+            if (!acceptableAnswers.includes(normalized)) {
+              acceptableAnswers.push(normalized);
+            }
+          }
+        });
+      }
+      
+      // PRIORITY 2: Check explanation (JSON format with primary/alternatives)
+      if (question.explanation) {
+        try {
+          const parsed = JSON.parse(question.explanation);
+          if (parsed && typeof parsed === 'object' && parsed !== null) {
+            if (parsed.primary && String(parsed.primary).trim()) {
+              const normalized = String(parsed.primary).trim().toLowerCase();
+              if (!acceptableAnswers.includes(normalized)) {
+                acceptableAnswers.push(normalized);
+              }
+            }
+            if (parsed.alternatives && Array.isArray(parsed.alternatives)) {
+              parsed.alternatives.forEach(alt => {
+                if (alt && String(alt).trim()) {
+                  const normalizedAlt = String(alt).trim().toLowerCase();
+                  if (!acceptableAnswers.includes(normalizedAlt)) {
+                    acceptableAnswers.push(normalizedAlt);
+                  }
+                }
+              });
+            }
+          }
+        } catch(e) {
+          const explanationText = String(question.explanation).trim();
+          if (explanationText) {
+            const normalized = explanationText.toLowerCase();
+            if (!acceptableAnswers.includes(normalized)) {
+              acceptableAnswers.push(normalized);
+            }
+          }
+        }
+      }
+      
+      // PRIORITY 3: Fallback to answer field
+      if (question.answer) {
+        const answerText = String(question.answer).trim();
+        if (answerText) {
+          const normalized = answerText.toLowerCase();
+          if (!acceptableAnswers.includes(normalized)) {
+            acceptableAnswers.push(normalized);
+          }
+        }
+      }
+      
+      // Grade the answer
+      if (acceptableAnswers.length > 0 && studentValue) {
+        const primaryAnswer = acceptableAnswers[0];
+        correctAnswer = primaryAnswer ? (primaryAnswer.charAt(0).toUpperCase() + primaryAnswer.slice(1)) : 'N/A';
+        
+        // Check if student answer matches any acceptable answer
+        isCorrect = acceptableAnswers.some(acceptable => {
+          const normalizedAcceptable = acceptable.toLowerCase().trim();
+          const normalizedStudent = studentValue.toLowerCase().trim();
+          
+          // Exact match
+          if (normalizedStudent === normalizedAcceptable) {
+            return true;
+          }
+          
+          // Handle common variations (remove extra spaces, punctuation)
+          const cleanAcceptable = normalizedAcceptable.replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+          const cleanStudent = normalizedStudent.replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+          
+          return cleanStudent === cleanAcceptable;
+        });
+        
+        if (isCorrect) {
+          earnedPoints = points;
+        }
+      } else if (studentValue) {
+        correctAnswer = 'N/A';
+        isCorrect = false;
+        earnedPoints = 0;
+      } else {
+        correctAnswer = acceptableAnswers.length > 0 ? (acceptableAnswers[0].charAt(0).toUpperCase() + acceptableAnswers[0].slice(1)) : 'N/A';
+      }
+      
+      // Get explanation (if not already used as answer)
+      if (question.explanation) {
+        try {
+          const parsed = JSON.parse(question.explanation);
+          if (parsed && typeof parsed === 'object' && parsed.explanation) {
+            explanation = parsed.explanation;
+          } else {
+            explanation = '';
+          }
+        } catch(e) {
+          if (!acceptableAnswers.includes(String(question.explanation).trim().toLowerCase())) {
+            explanation = question.explanation;
+          }
+        }
+      }
+    }
+    
+    totalScore += earnedPoints;
+    
+    results.push({
+      questionIndex: index + 1,
+      questionText: question.question_text || question.text || `Question ${index + 1}`,
+      studentAnswer: studentAnswerDisplay,
+      correctAnswer: correctAnswer,
+      isCorrect: isCorrect,
+      points: points,
+      earnedPoints: earnedPoints,
+      explanation: explanation
+    });
+  });
+  
+  // Display results in modal (SAME MODAL AS COORDINATOR SIDE)
+  const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(1) : 0;
+  const passedCount = results.filter(r => r.isCorrect).length;
+  
+  // Create results modal (use same HTML as Coordinator side)
+  const modal = document.createElement('div');
+  modal.id = 'previewTestResultsModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s ease;';
+  
+  // Add smooth animations (same as Coordinator side)
+  if (!document.getElementById('previewTestModalStyles')) {
+    const style = document.createElement('style');
+    style.id = 'previewTestModalStyles';
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes scaleIn {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+      }
+      @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+      }
+      .preview-result-item {
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+      }
+      .preview-result-item:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12) !important;
+      }
+      .preview-result-item.correct {
+        border-left: 3px solid #10b981 !important;
+      }
+      .preview-result-item.incorrect {
+        border-left: 3px solid #ef4444 !important;
+      }
+      .preview-progress-bar {
+        position: relative;
+        overflow: hidden;
+      }
+      .preview-progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: shimmer 2s infinite;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  // Calculate score color and styling
+  const scoreColor = percentage >= 80 ? '#10b981' : percentage >= 60 ? '#f59e0b' : '#ef4444';
+  const scoreBg = percentage >= 80 ? 'rgba(16,185,129,0.08)' : percentage >= 60 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
+  
+  // Use same modal HTML as Coordinator side (copy from coordinator.js lines 11176-11295)
+  // CRITICAL: Use consistent modern font stack across all sides
+  const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;max-width:850px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15);animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);font-family:${fontStack};">
+      <!-- Clean Header -->
+      <div style="padding:28px 32px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#ffffff;font-family:${fontStack};">
+        <div>
+          <h2 style="margin:0 0 4px 0;color:#1e293b;font-size:22px;font-weight:600;font-family:${fontStack};">Test Results</h2>
+          <p style="margin:0;color:#64748b;font-size:13px;font-family:${fontStack};">Preview Mode • No data saved</p>
+        </div>
+        <button onclick="const modal = document.getElementById('previewTestResultsModal'); if(modal) { modal.style.opacity='0'; modal.style.transform='scale(0.95)'; setTimeout(() => modal.remove(), 200); } const btn = document.getElementById('preview-test-btn'); if(btn) { btn.disabled = false; btn.innerHTML = '<i class=\\'fas fa-check-circle\\'></i> Test'; }" 
+                style="background:#f8fafc;border:none;font-size:20px;color:#64748b;cursor:pointer;padding:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all 0.2s;font-family:${fontStack};" 
+                onmouseover="this.style.background='#f1f5f9';this.style.color='#ef4444';" 
+                onmouseout="this.style.background='#f8fafc';this.style.color='#64748b';">&times;</button>
+      </div>
+      
+      <div style="padding:32px;font-family:${fontStack};">
+        <!-- Simple Score Card -->
+        <div style="background:${scoreBg};border-radius:16px;padding:32px;margin-bottom:32px;text-align:center;position:relative;overflow:hidden;animation:scaleIn 0.5s ease;font-family:${fontStack};">
+          <div style="position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:${scoreColor};opacity:0.05;border-radius:50%;"></div>
+          <div style="position:relative;z-index:1;">
+            <div style="font-size:64px;font-weight:700;color:${scoreColor};margin-bottom:8px;line-height:1;font-family:${fontStack};">
+              ${totalScore}<span style="font-size:32px;color:#94a3b8;font-weight:400;font-family:${fontStack};">/${maxScore}</span>
+            </div>
+            <div style="font-size:18px;color:#64748b;margin-bottom:20px;font-weight:500;font-family:${fontStack};">${percentage}% Score</div>
+            
+            <!-- Animated Progress Bar -->
+            <div class="preview-progress-bar" style="background:#e2e8f0;border-radius:12px;height:8px;overflow:hidden;margin:0 auto 20px;max-width:400px;">
+              <div style="background:${scoreColor};height:100%;width:${percentage}%;transition:width 1s cubic-bezier(0.4, 0, 0.2, 1);border-radius:12px;"></div>
+            </div>
+            
+            <!-- Stats -->
+            <div style="display:flex;justify-content:center;gap:32px;margin-top:24px;font-family:${fontStack};">
+              <div>
+                <div style="font-size:24px;font-weight:600;color:${scoreColor};font-family:${fontStack};">${passedCount}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Correct</div>
+              </div>
+              <div style="width:1px;background:#e2e8f0;"></div>
+              <div>
+                <div style="font-size:24px;font-weight:600;color:#64748b;font-family:${fontStack};">${questions.length - passedCount}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Incorrect</div>
+              </div>
+              <div style="width:1px;background:#e2e8f0;"></div>
+              <div>
+                <div style="font-size:24px;font-weight:600;color:#64748b;font-family:${fontStack};">${questions.length}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Total</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Clean Question Results -->
+        <div style="font-family:${fontStack};">
+          <h3 style="margin:0 0 20px 0;color:#1e293b;font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;font-family:${fontStack};">Questions</h3>
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            ${results.map((r, idx) => `
+              <div class="preview-result-item ${r.isCorrect ? 'correct' : 'incorrect'}" 
+                   style="border:1px solid ${r.isCorrect ? '#d1fae5' : '#fee2e2'};border-radius:12px;padding:20px;background:${r.isCorrect ? '#f0fdf4' : '#fef2f2'};animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) ${idx * 0.05}s both;"
+                   onclick="const questionEl = document.getElementById('question-${r.questionIndex - 1}'); if(questionEl) { questionEl.scrollIntoView({behavior:'smooth',block:'center'}); questionEl.style.animation='pulse 0.5s ease'; setTimeout(() => questionEl.style.animation='', 500); }">
+                <div style="display:flex;gap:16px;">
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:start;justify-content:space-between;gap:12px;margin-bottom:12px;font-family:${fontStack};">
+                      <div style="flex:1;">
+                        <div style="font-size:13px;color:#64748b;margin-bottom:6px;font-weight:500;font-family:${fontStack};">Question ${r.questionIndex}</div>
+                        <div style="font-size:15px;color:#1e293b;font-weight:600;line-height:1.5;font-family:${fontStack};">${r.questionText}</div>
+                      </div>
+                      <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:16px;font-weight:600;color:${r.isCorrect ? '#10b981' : '#ef4444'};font-family:${fontStack};">${r.earnedPoints}/${r.points}</div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:2px;font-family:${fontStack};">pts</div>
+                      </div>
+                    </div>
+                    
+                    <!-- Answers -->
+                    <div style="display:flex;flex-direction:column;gap:8px;font-family:${fontStack};">
+                      <div style="display:flex;align-items:start;gap:8px;">
+                        <div style="width:6px;height:6px;background:${r.isCorrect ? '#10b981' : '#ef4444'};border-radius:50%;margin-top:6px;flex-shrink:0;"></div>
+                        <div style="flex:1;">
+                          <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-family:${fontStack};">Your Answer</div>
+                          <div style="font-size:14px;color:#1e293b;padding:10px 14px;background:white;border-radius:8px;border:1px solid ${r.isCorrect ? '#d1fae5' : '#fee2e2'};font-family:${fontStack};">
+                            ${r.studentAnswer}
+                          </div>
+                        </div>
+                      </div>
+                      ${!r.isCorrect ? `
+                        <div style="display:flex;align-items:start;gap:8px;">
+                          <div style="width:6px;height:6px;background:#10b981;border-radius:50%;margin-top:6px;flex-shrink:0;"></div>
+                          <div style="flex:1;">
+                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-family:${fontStack};">Correct Answer</div>
+                            <div style="font-size:14px;color:#1e293b;padding:10px 14px;background:white;border-radius:8px;border:1px solid #d1fae5;font-family:${fontStack};">
+                              ${r.correctAnswer || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      ` : ''}
+                    </div>
+                    
+                    ${r.explanation ? `
+                      <div style="margin-top:12px;padding:12px;background:white;border-radius:8px;border-left:3px solid #3b82f6;font-family:${fontStack};">
+                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-weight:500;font-family:${fontStack};">Explanation</div>
+                        <div style="font-size:13px;color:#475569;line-height:1.6;font-family:${fontStack};">${r.explanation}</div>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- Simple Close Button -->
+        <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid #f1f5f9;font-family:${fontStack};">
+          <button onclick="const modal = document.getElementById('previewTestResultsModal'); if(modal) { modal.style.opacity='0'; modal.style.transform='scale(0.95)'; setTimeout(() => modal.remove(), 200); } const btn = document.getElementById('preview-test-btn'); if(btn) { btn.disabled = false; btn.innerHTML = '<i class=\\'fas fa-check-circle\\'></i> Test'; }" 
+                  style="background:linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);color:white;border:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(14,165,233,0.3);font-family:${fontStack};" 
+                  onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(14,165,233,0.4)';" 
+                  onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(14,165,233,0.3)';">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Reset button state
+  if (testBtn) {
+    testBtn.disabled = false;
+    testBtn.innerHTML = '<i class="fas fa-check-circle"></i> Test';
+  }
+  
+  console.log('🔍 [TEACHER TEST PREVIEW] Results:', { totalScore, maxScore, percentage, results });
+};
 window.unlockActivity = unlockActivity;
 window.lockAllActivities = lockAllActivities;
 window.unlockAllActivities = unlockAllActivities;
@@ -5325,6 +6232,206 @@ function closeActivityDropdown(dropdown) {
   if (!dropdown) return;
   dropdown.classList.remove('dropdown-open');
   dropdown.style.display = 'none';
+}
+
+// Custom styled confirmation modal
+function showCustomConfirm(title, message, confirmText = 'OK', cancelText = 'Cancel', confirmColor = '#1d9b3e') {
+  return new Promise((resolve) => {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('customConfirmModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'customConfirmModal';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+    `;
+    
+    // Add fadeIn animation if not exists
+    if (!document.getElementById('customConfirmStyles')) {
+      const style = document.createElement('style');
+      style.id = 'customConfirmStyles';
+      style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: white;
+      border-radius: 16px;
+      padding: 0;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: slideUp 0.3s ease;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      overflow: hidden;
+    `;
+    
+    modal.innerHTML = `
+      <div style="padding: 28px 32px 24px 32px;">
+        <h3 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #1e293b; line-height: 1.4;">
+          ${escapeHtml(title)}
+        </h3>
+        <p style="margin: 0; font-size: 15px; color: #64748b; line-height: 1.6; white-space: pre-line;">
+          ${escapeHtml(message)}
+        </p>
+      </div>
+      <div style="padding: 16px 32px 24px 32px; background: #f8fafc; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0;">
+        <button class="custom-confirm-cancel" style="
+          background: white;
+          color: #64748b;
+          border: 1px solid #e2e8f0;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        " onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white';this.style.borderColor='#e2e8f0';">
+          ${escapeHtml(cancelText)}
+        </button>
+        <button class="custom-confirm-ok" style="
+          background: ${confirmColor};
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        " onmouseover="this.style.background='${confirmColor === '#1d9b3e' ? '#178832' : confirmColor === '#ef4444' ? '#dc2626' : confirmColor}';this.style.boxShadow='0 4px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='${confirmColor}';this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';">
+          ${escapeHtml(confirmText)}
+        </button>
+      </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Handle button clicks
+    const okBtn = modal.querySelector('.custom-confirm-ok');
+    const cancelBtn = modal.querySelector('.custom-confirm-cancel');
+    
+    const close = (result) => {
+      overlay.style.animation = 'fadeIn 0.2s ease reverse';
+      setTimeout(() => {
+        overlay.remove();
+        resolve(result);
+      }, 200);
+    };
+    
+    okBtn.addEventListener('click', () => close(true));
+    cancelBtn.addEventListener('click', () => close(false));
+    
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        close(false);
+      }
+    });
+    
+    // Close on Escape key
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        close(false);
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+  });
+}
+
+// Function to update active students counts for all lessons
+function updateActiveStudentsCounts() {
+  const countElements = document.querySelectorAll('.topic-count[data-lesson-id]');
+  
+  countElements.forEach(function(el) {
+    const lessonId = el.getAttribute('data-lesson-id');
+    if (!lessonId || lessonId === '0' || lessonId === '') return;
+    
+    fetch('get_active_students.php?lesson_id=' + encodeURIComponent(lessonId), {
+      credentials: 'same-origin'
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.success !== false) {
+        const count = data.count || 0;
+        el.textContent = count;
+        // Update color based on count
+        if (count > 0) {
+          el.style.color = '#10b981'; // Green for active students
+        } else {
+          el.style.color = '#6b7280'; // Gray for zero
+        }
+      } else {
+        el.textContent = '0';
+        el.style.color = '#6b7280';
+      }
+    })
+    .catch(function(err) {
+      console.error('Error fetching active students count:', err);
+      el.textContent = '0';
+      el.style.color = '#6b7280';
+    });
+  });
+}
+
+// Track student activity when viewing a lesson
+function trackStudentActivity(lessonId) {
+  if (!lessonId || lessonId <= 0) return;
+  
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  if (userRole !== 'student') return;
+  
+  // Send activity ping
+  fetch('get_active_students.php?lesson_id=' + encodeURIComponent(lessonId), {
+    credentials: 'same-origin',
+    method: 'GET'
+  }).catch(function(err) {
+    console.error('Error tracking student activity:', err);
+  });
+  
+  // Ping every 2 minutes to keep activity active
+  if (window.__activityTrackingInterval) {
+    clearInterval(window.__activityTrackingInterval);
+  }
+  
+  window.__activityTrackingInterval = setInterval(function() {
+    fetch('get_active_students.php?lesson_id=' + encodeURIComponent(lessonId), {
+      credentials: 'same-origin',
+      method: 'GET'
+    }).catch(function(err) {
+      console.error('Error tracking student activity:', err);
+    });
+  }, 120000); // 2 minutes
 }
 
 

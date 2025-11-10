@@ -8,7 +8,10 @@ $profileService = new ProfileService($db);
 $userProfile = $profileService->getUserProfile($_SESSION['user_id']);
 $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
 ?>
-<div class="sidebar">
+<div class="sidebar" id="adminSidebar">
+  <button class="sidebar-toggle-btn" onclick="toggleSidebarMinimize()" title="Minimize sidebar">
+    <i class="fas fa-chevron-left"></i>
+  </button>
   <div class="user-profile">
     <div class="user-avatar">
       <?php if ($profilePhotoUrl): ?>
@@ -36,9 +39,10 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
     <li data-section="analytics">
       <i class="fas fa-chart-line"></i> User Analytics
     </li>
-    <li data-section="newsfeed">
+    <!-- Hidden until implementation -->
+    <!-- <li data-section="newsfeed">
       <i class="fas fa-bullhorn"></i> Announcement
-    </li>
+    </li> -->
     <li data-section="reports">
       <i class="fas fa-chart-bar"></i> Reports
     </li>

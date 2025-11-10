@@ -694,8 +694,17 @@ class CourseService {
             ];
         }
         
+        // CRITICAL: Require both start_at AND due_at to be set before allowing access
+        if (!$dueAt) {
+            return [
+                'available' => false,
+                'reason' => 'Activity is not yet configured. Teacher needs to set the end date.',
+                'status' => 'locked'
+            ];
+        }
+        
         // If due_at is set and current time is after due_at, activity is closed
-        if ($dueAt && $now > $dueAt) {
+        if ($now > $dueAt) {
             return [
                 'available' => false,
                 'reason' => 'Deadline passed on ' . $dueAt->format('M d, Y h:i A'),
@@ -703,7 +712,7 @@ class CourseService {
             ];
         }
         
-        // Activity is open (start_at is set and current time >= start_at, and (due_at is NULL or current time <= due_at))
+        // Activity is open (start_at is set, due_at is set, current time >= start_at, and current time <= due_at)
         return [
             'available' => true,
             'reason' => 'Activity is available',

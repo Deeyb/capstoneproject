@@ -2233,9 +2233,13 @@
         }, 5000);
     }
 
-    // Expose notification to global so shared modules (e.g., shared_profile.js) use the native style
+    // Use unified notification system from notification_system.js if available
+    // Otherwise, use the custom notification function
     if (typeof window !== 'undefined') {
-        window.showNotification = showNotification;
+        // Only set if notification_system.js hasn't already set it
+        if (typeof window.showNotification === 'undefined') {
+            window.showNotification = showNotification;
+        }
     }
 
     // Password checklist logic (for Add User modal)
@@ -4190,6 +4194,53 @@
     document.addEventListener('DOMContentLoaded', bind);
   } else {
     bind();
+  }
+})();
+
+// ===== SIDEBAR MINIMIZE FUNCTIONALITY =====
+
+// Global sidebar minimize/collapse function
+window.toggleSidebarMinimize = function() {
+  const sidebar = document.querySelector('.sidebar');
+  if (!sidebar) return;
+  
+  sidebar.classList.toggle('collapsed');
+  
+  // Save state to localStorage
+  const isCollapsed = sidebar.classList.contains('collapsed');
+  try {
+    localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+  } catch (e) {
+    console.warn('Could not save sidebar state to localStorage');
+  }
+  
+  // Update main content margin
+  const mainContent = document.querySelector('.main-content, .student-main-content, #mainContent');
+  if (mainContent) {
+    if (isCollapsed) {
+      mainContent.style.marginLeft = '70px';
+    } else {
+      mainContent.style.marginLeft = '250px';
+    }
+  }
+};
+
+// Restore sidebar state on page load
+(function restoreSidebarState() {
+  try {
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (savedState === 'true') {
+      const sidebar = document.querySelector('.sidebar');
+      const mainContent = document.querySelector('.main-content, .student-main-content, #mainContent');
+      if (sidebar) {
+        sidebar.classList.add('collapsed');
+        if (mainContent) {
+          mainContent.style.marginLeft = '70px';
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Could not restore sidebar state from localStorage');
   }
 })();
 

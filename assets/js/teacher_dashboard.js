@@ -309,16 +309,12 @@
                         '<div style="display:flex;align-items:center;gap:16px;">',
                             '<div style="display:flex;align-items:center;gap:6px;">',
                                 '<i class="fas fa-users" style="font-size:14px;"></i>',
-                                '<span>0 Students</span>',
+                                '<span>' + (cls.student_count || 0) + ' Students</span>',
                             '</div>',
                             '<div style="display:flex;align-items:center;gap:6px;">',
                                 '<i class="fas fa-book" style="font-size:14px;"></i>',
-                                '<span>0 Modules</span>',
+                                '<span>' + (cls.modules_count || 0) + ' Modules</span>',
                             '</div>',
-                        '</div>',
-                        '<div style="display:flex;align-items:center;gap:6px;color:rgba(255,255,255,0.7);font-size:12px;">',
-                            '<i class="fas fa-clock"></i>',
-                            '<span>Created recently</span>',
                         '</div>',
                     '</div>',
                 '</div>',
@@ -7393,52 +7389,14 @@ function showBulkOperations(moduleEl){
     });
 }
 
-// Notification System - Matching admin_panel.js implementation
-function showNotification(type, title, message){
-    console.log('🔔 Creating notification:', type, title, message);
-    
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-
-    let iconClass = 'fa-info-circle';
-    if (type === 'success') iconClass = 'fa-check-circle';
-    else if (type === 'error') iconClass = 'fa-exclamation-circle';
-    else if (type === 'warning') iconClass = 'fa-exclamation-triangle';
-    
-    notification.innerHTML = `
-        <i class="fas ${iconClass}"></i>
-        <div class="notification-content">
-            <div class="notification-title">${title}</div>
-            <div class="notification-message">${message}</div>
-        </div>
-    `;
-    
-    document.body.appendChild(notification);
-    console.log('✅ Notification added to DOM');
-    
-    // Use requestAnimationFrame for smooth animation (like admin_panel.js)
-    requestAnimationFrame(() => {
-        notification.classList.add('show');
-        console.log('🎬 Animation started');
-    });
-    
-    // Auto remove after 5 seconds with fade-out animation
-    setTimeout(() => {
-        console.log('⏰ Auto-removing notification after 5 seconds');
-        notification.classList.remove('show');
-        setTimeout(() => { 
-        if (notification.parentElement) {
-            notification.remove();
-                console.log('✅ Notification removed');
-            } else {
-                console.log('⚠️ Notification already removed');
-        }
-        }, 300); // Wait for fade-out animation
-    }, 5000);
+// Use unified notification system from notification_system.js
+// If notification_system.js is not loaded, fallback to simple alert
+if (typeof window.showNotification === 'undefined') {
+    window.showNotification = function(type, title, message, duration) {
+        console.warn('⚠️ notification_system.js not loaded, using alert fallback');
+        alert(`${title}: ${message}`);
+    };
 }
-
-// Make showNotification globally available for shared_profile.js
-window.showNotification = showNotification;
 
 // Add Lesson Modal
 function showAddLessonModal(moduleEl){

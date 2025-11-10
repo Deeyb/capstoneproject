@@ -203,6 +203,8 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
  
   <!-- Load shared UI script (loads admin_panel.js) -->
   <script src="assets/js/app_ui.js"></script>
+  <!-- Unified Notification System - Load BEFORE other scripts -->
+  <script src="assets/js/notification_system.js?v=<?php echo time(); ?>"></script>
   <!-- Load shared profile and coordinator scripts -->
   <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
   <script>window.__CR_COORDINATOR_V2 = true;</script>

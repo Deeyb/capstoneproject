@@ -209,40 +209,6 @@ if ($userRole === 'student') {
     </div>
 
     <div class="dashboard-layout">
-      <!-- Left Sidebar -->
-      <div class="sidebar">
-        <div class="sidebar-section">
-          <h3 class="sidebar-title">Activities</h3>
-          <div class="sidebar-options">
-            <div class="sidebar-option active">
-              <i class="fas fa-star"></i>
-              <span>Course</span>
-            </div>
-            <?php if ($userRole === 'teacher'): ?>
-            <div class="sidebar-option" data-teacher-only>
-              <i class="fas fa-plus"></i>
-              <span>Create Activity</span>
-            </div>
-            <div class="sidebar-option" data-teacher-only>
-              <i class="fas fa-cog"></i>
-              <span>Manage</span>
-            </div>
-            <?php else: ?>
-            <div class="sidebar-option" data-student-only>
-              <i class="fas fa-trophy"></i>
-              <span>My Progress</span>
-            </div>
-            <div class="sidebar-option" data-student-only>
-              <i class="fas fa-chart-line"></i>
-              <span>Leaderboard</span>
-            </div>
-            <?php endif; ?>
-          </div>
-        </div>
-        
-        
-      </div>
-
       <!-- Main Content Area -->
       <div class="main-content">
         <section id="tab-classrecord" class="tab-section">

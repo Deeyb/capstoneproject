@@ -104,7 +104,23 @@ class ClassService {
     }
 
     public function getClassesByOwner(int $ownerUserId): array {
-        return $this->listTeacherClasses($ownerUserId);
+        // Get classes with student count and module count
+        $stmt = $this->db->prepare("
+            SELECT 
+                c.*,
+                COUNT(DISTINCT cs.id) as student_count,
+                COUNT(DISTINCT cm.id) as modules_count
+            FROM classes c
+            LEFT JOIN class_students cs ON c.id = cs.class_id
+            LEFT JOIN courses co ON c.course_id = co.id
+            LEFT JOIN course_modules cm ON co.id = cm.course_id
+            WHERE c.owner_user_id = ? AND c.status = 'active'
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+            LIMIT 200
+        ");
+        $stmt->execute([$ownerUserId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     public function listArchivedClasses(int $ownerUserId): array {

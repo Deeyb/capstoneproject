@@ -2033,8 +2033,11 @@ function viewOutline(courseId) {
                   preloadedState.questions = activityData.questions.map(function(q) {
                     const base = {
                       _id: q.id,
+                      id: q.id,
                       text: q.question_text || q.text || '',
+                      question_text: q.question_text || q.text || '',
                       points: q.points || 1,
+                      // CRITICAL: Include answer and explanation fields for Identification activities
                       explanation: q.explanation || '',
                       answer: q.answer || ''
                     };
@@ -2114,13 +2117,20 @@ function viewOutline(courseId) {
                     // CRITICAL: Also explicitly set dropdown and render test cases after render completes
                     setTimeout(() => {
                       try {
-                        const activityType = window.createActivityState.type || '';
-                        const isCodingActivity = activityType === 'coding' || activityType === 'laboratory';
+                        // CRITICAL: Check viewMode - dropdown only exists in edit mode, not preview mode
+                        const viewMode = window.createActivityState ? window.createActivityState.viewMode : 'edit';
+                        const isPreviewMode = viewMode === 'preview';
                         
-                        console.log('🔍 [EDIT LOAD] Activity type:', activityType, 'isCoding:', isCodingActivity);
+                        const activityType = window.createActivityState.type || '';
+                        const questionType = window.createActivityState.questionType || '';
+                        // CRITICAL: Check both type and questionType for coding activities
+                        const isCodingActivity = activityType === 'coding' || activityType === 'laboratory' || questionType === 'coding';
+                        
+                        console.log('🔍 [EDIT LOAD] Activity type:', activityType, 'questionType:', questionType, 'isCoding:', isCodingActivity, 'viewMode:', viewMode, 'isPreview:', isPreviewMode);
                         
                         // Only set required construct dropdown and render test cases for coding activities
-                        if (isCodingActivity) {
+                        // AND only if we're in edit mode (dropdown doesn't exist in preview mode)
+                        if (isCodingActivity && !isPreviewMode) {
                           console.log('🔍 [EDIT LOAD] Attempting to set dropdown value...');
                           console.log('🔍 [EDIT LOAD] State requiredConstruct:', window.createActivityState.requiredConstruct);
                           console.log('🔍 [EDIT LOAD] State questionType:', window.createActivityState.questionType);
@@ -2137,22 +2147,26 @@ function viewOutline(courseId) {
                               console.warn('🔍 [EDIT LOAD] WARNING: State requiredConstruct is empty!');
                             }
                           } else {
-                            console.error('🔍 [EDIT LOAD] ERROR: Required Construct dropdown not found in DOM!');
-                            console.error('🔍 [EDIT LOAD] Searching for all selects in body...');
-                            const allSelects = document.querySelectorAll('#cafBody select');
-                            console.error('🔍 [EDIT LOAD] Found', allSelects.length, 'select elements');
-                            allSelects.forEach((sel, i) => {
-                              console.error('🔍 [EDIT LOAD] Select', i, 'id:', sel.id, 'name:', sel.name);
-                            });
+                            console.warn('🔍 [EDIT LOAD] WARNING: Required Construct dropdown not found in DOM (this is normal if form is still rendering or in preview mode)');
+                            // Try again after a longer delay if dropdown not found
+                            setTimeout(() => {
+                              const rcDropdownRetry = document.getElementById('cafRequiredConstruct');
+                              if (rcDropdownRetry && window.createActivityState && window.createActivityState.requiredConstruct) {
+                                rcDropdownRetry.value = window.createActivityState.requiredConstruct;
+                                console.log('🔍 [EDIT LOAD] Retry: Set dropdown value to:', window.createActivityState.requiredConstruct);
+                              }
+                            }, 1000);
                           }
                           
-                          // Render test cases (only for coding activities)
+                          // Render test cases (only for coding activities in edit mode)
                           if (typeof renderTestCases === 'function') {
                             console.log('🔍 [EDIT LOAD] Calling renderTestCases() explicitly');
                             renderTestCases();
                           } else {
                             console.warn('🔍 [EDIT LOAD] renderTestCases function not found!');
                           }
+                        } else if (isPreviewMode) {
+                          console.log('🔍 [EDIT LOAD] In preview mode - skipping dropdown setup (dropdown only exists in edit mode)');
                         } else {
                           console.log('🔍 [EDIT LOAD] Skipping Required Construct dropdown and test cases (not a coding activity)');
                         }
@@ -4497,21 +4511,32 @@ function showCreateActivityForm(lessonId, opts){
   }
   // Test if elements exist
   function render(){
-    // CRITICAL: Always use the current global state, not the closure variable
-    const currentState = window.createActivityState || state;
-    console.log('🔍 [RENDER] ========== RENDER START ==========');
-    console.log('🔍 [RENDER] currentState.requiredConstruct:', currentState.requiredConstruct, 'type:', typeof currentState.requiredConstruct, 'truthy:', !!currentState.requiredConstruct);
-    console.log('🔍 [RENDER] State object reference check:', currentState === window.createActivityState, 'currentState === state:', currentState === state);
-    console.log('🔍 [RENDER] currentState.testCases count:', currentState.testCases ? currentState.testCases.length : 0);
-    if (currentState.testCases && currentState.testCases.length > 0) {
-      currentState.testCases.forEach((tc, i) => {
-        console.log(`🔍 [RENDER] currentState.testCases[${i}].points:`, tc.points, 'type:', typeof tc.points, 'isSample:', tc.isSample);
-      });
-    }
-    console.log('🔍 [RENDER] =================================');
-    // Preserve scroll position within the modal body across renders
-    var prevScrollTop = body ? body.scrollTop : 0;
-    // Update mode button visuals
+    try {
+      // CRITICAL: Always use the current global state, not the closure variable
+      const currentState = window.createActivityState || state;
+      console.log('🔍 [RENDER] ========== RENDER START ==========');
+      console.log('🔍 [RENDER] currentState.requiredConstruct:', currentState.requiredConstruct, 'type:', typeof currentState.requiredConstruct, 'truthy:', !!currentState.requiredConstruct);
+      console.log('🔍 [RENDER] State object reference check:', currentState === window.createActivityState, 'currentState === state:', currentState === state);
+      console.log('🔍 [RENDER] currentState.testCases count:', currentState.testCases ? currentState.testCases.length : 0);
+      console.log('🔍 [RENDER] currentState.viewMode:', currentState.viewMode);
+      console.log('🔍 [RENDER] currentState.questionType:', currentState.questionType);
+      if (currentState.testCases && currentState.testCases.length > 0) {
+        currentState.testCases.forEach((tc, i) => {
+          console.log(`🔍 [RENDER] currentState.testCases[${i}].points:`, tc.points, 'type:', typeof tc.points, 'isSample:', tc.isSample);
+        });
+      }
+      console.log('🔍 [RENDER] =================================');
+      
+      // CRITICAL: Check if body element exists
+      if (!body) {
+        console.error('🔍 [RENDER] ❌ Body element not found!');
+        return;
+      }
+      
+      // Preserve scroll position within the modal body across renders
+      var prevScrollTop = body ? body.scrollTop : 0;
+      
+      // Update mode button visuals
     try {
       const editBtn = modal.querySelector('#cafEditMode');
       const previewBtn = modal.querySelector('#cafPreviewMode');
@@ -4525,8 +4550,14 @@ function showCreateActivityForm(lessonId, opts){
       console.log('🔍 DEBUG: instructionsText:', currentState.instructionsText);
       
       // Determine activity type - handle true_false stored as 'quiz' in database
-      let activityType = state.questionType || 'multiple_choice';
-      console.log('🔍 DEBUG: Initial activityType:', activityType);
+      // CRITICAL: Check both questionType and type for coding activities
+      // type can be 'laboratory' and questionType can be 'coding'
+      let activityType = state.questionType || state.type || 'multiple_choice';
+      // If type is 'laboratory', it's definitely a coding activity
+      if (state.type === 'laboratory' && !activityType) {
+        activityType = 'coding';
+      }
+      console.log('🔍 DEBUG: Initial activityType:', activityType, 'state.questionType:', state.questionType, 'state.type:', state.type);
       
       // Check instructions for true_false kind
       if (state.instructionsText && typeof state.instructionsText === 'string') {
@@ -4591,120 +4622,29 @@ function showCreateActivityForm(lessonId, opts){
           time_limit_ms: tc.timeLimitMs || 2000
         })) : [];
         activity.test_cases = activity.testCases; // Also set test_cases for compatibility
+        // CRITICAL: Ensure requiredConstruct is properly set from state
         activity.required_construct = state.requiredConstruct || '';
-        activity.max_score = state.max_score || 0;
-      } else if (activityType === 'upload_based') {
-        const meta = { kind: 'upload_based', instructions: state.instructionsText || '' };
-        activity.instructions = JSON.stringify(meta);
-        const q0 = state.questions && state.questions[0] ? state.questions[0] : {};
-        activity.acceptedFiles = q0.acceptedFiles || ['pdf','docx','pptx','jpg','png','txt','zip'];
-        activity.maxFileSize = q0.maxFileSize || 10;
-      } else {
-        const meta = { kind: activityType, instructions: state.instructionsText || '' };
-        activity.instructions = JSON.stringify(meta);
-        
-        // CRITICAL: For preview mode, try to fetch fresh data from universal_activity_api.php
-        // This ensures we get the same data structure as Teacher side (with choice_text property)
-        const activityId = state.editActivityId || activity.id || 0;
-        let qs = Array.isArray(state.questions) ? state.questions : [];
-        
-        console.log('🔍 [PREVIEW] ========== STARTING PREVIEW RENDER ==========');
-        console.log('🔍 [PREVIEW] Activity ID:', activityId);
-        console.log('🔍 [PREVIEW] State.questions from state:', state.questions);
-        console.log('🔍 [PREVIEW] Questions count from state:', qs.length);
-        
-        // CRITICAL: Check if choices from state have 'text' property instead of 'choice_text'
-        // If so, we need to use the data as-is but ensure proper mapping
-        const needsApiFetch = activityId > 0 && qs.length > 0 && qs[0] && qs[0].choices && qs[0].choices.length > 0 && 
-                              qs[0].choices[0] && !qs[0].choices[0].choice_text && qs[0].choices[0].text;
-        
-        if (needsApiFetch) {
-          console.log('🔍 [PREVIEW] ⚠️ State has choices with "text" property, will map to "choice_text"');
+        // Also ensure it's in the meta for renderCodingPreview
+        if (!meta.requiredConstruct && state.requiredConstruct) {
+          meta.requiredConstruct = state.requiredConstruct;
+          activity.instructions = JSON.stringify(meta);
         }
+        activity.max_score = state.max_score || 0;
+        console.log('🔍 [CODING PREVIEW] Setting requiredConstruct:', state.requiredConstruct, 'activity.required_construct:', activity.required_construct);
         
-        console.log('🔍 [PREVIEW] Processing questions for preview:', {
-          questionsCount: qs.length,
-          firstQuestion: qs[0] || null,
-          firstQuestionChoices: qs[0] ? qs[0].choices : null,
-          activityType: activityType
+        // CRITICAL: Render coding preview directly (like upload_based)
+        console.log('🔍 [CODING PREVIEW] Rendering coding preview directly, activity:', {
+          id: activity.id,
+          title: activity.title,
+          required_construct: activity.required_construct,
+          testCases: activity.testCases,
+          instructions: activity.instructions ? JSON.parse(activity.instructions) : null
         });
-        console.log('🔍 [PREVIEW] Full first question JSON:', JSON.stringify(qs[0] || null, null, 2));
-        
-        activity.questions = qs.map(function(q, idx){
-          // Handle both editor format (q.text) and database format (q.question_text)
-          const questionText = q.question_text || q.text || ('Question ' + (idx+1));
-          const base = { question_text: questionText, points: parseInt(q.points||1,10) };
-          
-          console.log('🔍 [PREVIEW] Processing question', idx, ':', {
-            question: q,
-            hasChoices: !!(q.choices && Array.isArray(q.choices)),
-            choicesCount: q.choices ? q.choices.length : 0,
-            choices: q.choices
-          });
-          
-          if (activityType === 'multiple_choice') { 
-            const choicesArray = q.choices || [];
-            console.log('🔍 [PREVIEW] Question', idx, 'RAW choices array:', JSON.stringify(choicesArray, null, 2));
-            console.log('🔍 [PREVIEW] Question', idx, 'choices array type:', typeof choicesArray, 'isArray:', Array.isArray(choicesArray), 'length:', choicesArray.length);
-            
-            if (choicesArray.length === 0) {
-              console.error('🔍 [PREVIEW] ⚠️ WARNING: No choices found for question', idx, '! Question object:', q);
-            }
-            
-            base.choices = choicesArray.map(function(c, ci){ 
-              // CRITICAL: Handle both formats - API format (choice_text) and state format (text)
-              // API format (from universal_activity_api.php): has 'choice_text' property directly from DB
-              // State format (from activity_get): has 'text' property (mapped from choice_text in line 1661)
-              // Check choice_text FIRST (API format), then text (state format) - SAME AS TEACHER SIDE
-              const rawText = c.choice_text || c.text || c.content || c.option || '';
-              const choiceText = (rawText && String(rawText).trim()) ? String(rawText).trim() : ('Choice ' + (ci+1));
-              
-              console.log('🔍 [PREVIEW] Mapping choice', ci, ':', { 
-                original: c,
-                has_text: !!c.text,
-                has_choice_text: !!c.choice_text,
-                has_content: !!c.content,
-                has_option: !!c.option,
-                raw_text_value: c.text,
-                raw_choice_text_value: c.choice_text,
-                rawText: rawText,
-                final: choiceText,
-                is_correct: !!c.is_correct || !!c.correct
-              });
-              
-              // CRITICAL: Always return with choice_text property (same format as API and Teacher side)
-              // This ensures renderQuestionInput receives the correct format
-              return { 
-                id: c.id || c._id || (ci+1), 
-                choice_text: choiceText, 
-                is_correct: !!c.is_correct || !!c.correct 
-              }; 
-            }); 
-            
-            console.log('🔍 [PREVIEW] Question', idx, 'FINAL mapped choices:', JSON.stringify(base.choices, null, 2));
-          }
-          return base;
-        });
-        
-        console.log('🔍 [PREVIEW] Final activity.questions:', activity.questions);
-      }
-      
-          // Calculate total points - use max_score for upload_based and coding activities
-          let totalPoints = 0;
-          if (activityType === 'upload_based' || activityType === 'coding') {
-            totalPoints = activity.max_score || 0;
-          } else if (activity.questions && activity.questions.length > 0) {
-            totalPoints = activity.questions.reduce((sum, q) => sum + (q.points || 1), 0);
-          } else {
-            totalPoints = activity.max_score || 0;
-          }
-      
-      // Professional test interface
-      if (activityType === 'coding') {
-        // Render dedicated coding preview (does not require questions array)
         try {
           body.innerHTML = renderCodingPreview(activity);
-          // Ensure Monaco initializes (avoid relying on inline <script> execution)
+          if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
+          
+          // Ensure Monaco initializes
           setTimeout(function(){
             try {
               const container = document.getElementById('previewMonacoContainer');
@@ -4729,16 +4669,399 @@ function showCreateActivityForm(lessonId, opts){
                     window.__previewEditor = editor;
                     try { textarea.style.display = 'none'; } catch(_){ }
                   } else {
-                    // Fallback: show textarea
                     textarea.style.display = 'block';
                   }
                 }).catch(function(){ if (textarea) textarea.style.display='block'; });
               }
             } catch(_){ }
           }, 0);
-        } catch(e) {
-          body.innerHTML = '<div class="empty-state">Failed to render coding preview</div>';
+        } catch (renderError) {
+          console.error('🔍 [CODING PREVIEW] Error rendering coding preview:', renderError);
+          console.error('🔍 [CODING PREVIEW] Error stack:', renderError.stack);
+          if (body) {
+            body.innerHTML = `
+              <div style="text-align:center;padding:40px;color:#dc3545;">
+                <h3 style="color:#dc3545;margin-bottom:16px;">⚠️ Error Rendering Coding Preview</h3>
+                <p style="color:#666;margin-bottom:16px;">${renderError.message || 'Unknown error'}</p>
+                <button onclick="window.createActivityState.viewMode = 'edit'; window.dispatchEvent(new CustomEvent('createActivityRender'));" 
+                        style="background:#28a745;color:white;border:none;padding:10px 20px;border-radius:6px;margin-top:16px;cursor:pointer;">
+                  Switch to Edit Mode
+                </button>
+              </div>
+            `;
+          }
         }
+        return; // Exit - don't process through the else block
+      } else if (activityType === 'upload_based') {
+        const meta = { kind: 'upload_based', instructions: state.instructionsText || '' };
+        activity.instructions = JSON.stringify(meta);
+        const q0 = state.questions && state.questions[0] ? state.questions[0] : {};
+        activity.acceptedFiles = q0.acceptedFiles || ['pdf','docx','pptx','jpg','png','txt','zip'];
+        activity.maxFileSize = q0.maxFileSize || 10;
+        // CRITICAL: For upload_based, set questions from state and render directly (no API fetch needed)
+        activity.questions = Array.isArray(state.questions) ? state.questions.map(function(q, idx){
+          return {
+            id: q.id || q._id || undefined,
+            _id: q.id || q._id || undefined,
+            question_text: q.question_text || q.text || ('Question ' + (idx+1)),
+            points: parseInt(q.points||1,10),
+            acceptedFiles: q.acceptedFiles || activity.acceptedFiles,
+            maxFileSize: q.maxFileSize || activity.maxFileSize
+          };
+        }) : [];
+        
+        // Store activity data for Test button functionality
+        window.__previewActivityData = activity;
+        window.__previewActivityType = activityType;
+        
+        // Calculate total points
+        let totalPoints = activity.max_score || 0;
+        if (activity.questions && activity.questions.length > 0) {
+          totalPoints = activity.questions.reduce((sum, q) => sum + (q.points || 1), 0);
+        }
+        
+        // Render upload_based preview directly (inline rendering since continuePreviewRender is in else block)
+        // Use the same rendering logic as continuePreviewRender but inline
+        const uploadBasedHtml = `
+        <div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;display:flex;flex-direction:column;min-height:60vh;">
+          <!-- Test Header -->
+          <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h2 style="margin:0;font-size:24px;font-weight:600;">${activity.title}</h2>
+              <div style="text-align:right;">
+                <div style="font-size:14px;opacity:0.9;">Total Points</div>
+                <div style="font-size:20px;font-weight:700;">${totalPoints}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:20px;font-size:14px;opacity:0.9;">
+              <span>📝 ${getActivityTypeDisplay(activityType)}</span>
+              <span>⏱️ No time limit</span>
+              <span>📊 ${activity.questions ? activity.questions.length : 0} question${(activity.questions ? activity.questions.length : 0) !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          
+          <!-- Instructions -->
+          ${(() => {
+            let instructionsText = state.displayInstructions || state.instructionsText || '';
+            if (instructionsText && typeof instructionsText === 'string') {
+              try {
+                const parsed = JSON.parse(instructionsText);
+                if (parsed && typeof parsed === 'object' && parsed.instructions) {
+                  instructionsText = parsed.instructions;
+                }
+              } catch (e) {}
+            }
+            return instructionsText ? `
+            <div style="padding:20px;border-bottom:1px solid #e9ecef;background:#f8f9fa;">
+              <h3 style="margin:0 0 12px 0;color:#333;font-size:16px;">📋 Instructions</h3>
+              <p style="margin:0;color:#555;line-height:1.6;">${instructionsText}</p>
+            </div>
+          ` : '';
+          })()}
+          
+          <!-- Main content -->
+          <div style="flex:1;overflow:auto;padding:24px;">
+              ${activity.questions && activity.questions.length > 0 ? 
+                renderProfessionalTestQuestions(activity, activityType) : 
+                `
+              <div style="text-align:center;padding:40px;color:#6c757d;">No Questions Added</div>
+              `}
+          </div>
+
+          <!-- Sticky submit -->
+          ${activity.questions && activity.questions.length > 0 ? `
+          <div id="submitSection" style="position:sticky;bottom:0;padding:15px 25px;background:#f8f9fa;border-top:1px solid #e9ecef;z-index:5;">
+            <div style="display:flex;justify-content:space-between;align-items:center;max-width:1100px;margin:0 auto;">
+              <div>
+                <div style="font-size:13px;color:#6c757d;margin-bottom:2px;">Ready to submit?</div>
+                <div style="font-size:11px;color:#6c757d;">Make sure you've answered all questions</div>
+              </div>
+              <div style="display:flex;gap:12px;">
+                <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 16px;font-size:12px;color:#856404;">
+                  <i class="fas fa-info-circle"></i> This activity requires manual grading by the teacher.
+                </div>
+                <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);" onclick="window.finishPreviewAttempt()">Finish Attempt</button>
+              </div>
+            </div>
+          </div>
+          ` : ''}
+        </div>
+      `;
+        body.innerHTML = uploadBasedHtml;
+        if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
+        return; // Exit - don't process through the else block
+      } else {
+        const meta = { kind: activityType, instructions: state.instructionsText || '' };
+        activity.instructions = JSON.stringify(meta);
+        
+        // CRITICAL: For preview mode, try to fetch fresh data from universal_activity_api.php
+        // This ensures we get the same data structure as Teacher side (with choice_text property)
+        const activityId = state.editActivityId || activity.id || 0;
+        let qs = Array.isArray(state.questions) ? state.questions : [];
+        
+        console.log('🔍 [PREVIEW] ========== STARTING PREVIEW RENDER ==========');
+        console.log('🔍 [PREVIEW] Activity ID:', activityId);
+        console.log('🔍 [PREVIEW] Activity Type:', activityType);
+        console.log('🔍 [PREVIEW] State.questions from state:', state.questions);
+        console.log('🔍 [PREVIEW] Questions count from state:', qs.length);
+        
+        // CRITICAL: Check if we need to fetch from API
+        // 1. If choices have wrong format (text instead of choice_text)
+        // 2. If choices are missing/empty for activities that need them (multiple_choice, true_false, identification)
+        const hasChoicesWithWrongFormat = activityId > 0 && qs.length > 0 && qs[0] && qs[0].choices && qs[0].choices.length > 0 && 
+                                          qs[0].choices[0] && !qs[0].choices[0].choice_text && qs[0].choices[0].text;
+        
+        const needsChoicesButMissing = activityId > 0 && (activityType === 'multiple_choice' || activityType === 'true_false' || activityType === 'identification') &&
+                                       qs.length > 0 && (!qs[0].choices || !Array.isArray(qs[0].choices) || qs[0].choices.length === 0);
+        
+        const needsApiFetch = hasChoicesWithWrongFormat || needsChoicesButMissing;
+        
+        if (needsApiFetch) {
+          if (hasChoicesWithWrongFormat) {
+            console.log('🔍 [PREVIEW] ⚠️ State has choices with "text" property, will map to "choice_text"');
+          }
+          if (needsChoicesButMissing) {
+            console.log('🔍 [PREVIEW] ⚠️ CRITICAL: Activity type', activityType, 'needs choices but they are missing! Will fetch from API.');
+          }
+          
+          // Fetch from API to get complete data with choices
+          console.log('🔍 [PREVIEW] Fetching from universal_activity_api.php to get choices...');
+          fetch(`universal_activity_api.php?action=get_activity&id=${activityId}`)
+            .then(r => r.json())
+            .then(apiRes => {
+              if (apiRes && apiRes.success && apiRes.activity && apiRes.activity.questions) {
+                console.log('🔍 [PREVIEW] ✅ Successfully fetched from API, questions with choices:', apiRes.activity.questions);
+                qs = apiRes.activity.questions; // Use API data instead of state
+                // Continue with mapping using API data
+                processQuestionsForPreview();
+              } else {
+                console.warn('🔍 [PREVIEW] ⚠️ API fetch failed or incomplete, using state data');
+                processQuestionsForPreview();
+              }
+            })
+            .catch(e => {
+              console.warn('🔍 [PREVIEW] ⚠️ API fetch error:', e);
+              processQuestionsForPreview();
+            });
+        } else {
+          processQuestionsForPreview();
+        }
+        
+        function processQuestionsForPreview() {
+          console.log('🔍 [PREVIEW] Processing questions for preview:', {
+            questionsCount: qs.length,
+            firstQuestion: qs[0] || null,
+            firstQuestionChoices: qs[0] ? qs[0].choices : null,
+            firstQuestionChoicesCount: qs[0] && qs[0].choices ? qs[0].choices.length : 0,
+            activityType: activityType
+          });
+          console.log('🔍 [PREVIEW] Full first question JSON:', JSON.stringify(qs[0] || null, null, 2));
+          
+          activity.questions = qs.map(function(q, idx){
+          // Handle both editor format (q.text) and database format (q.question_text)
+          const questionText = q.question_text || q.text || ('Question ' + (idx+1));
+          const base = { 
+            id: q.id || q._id || undefined,
+            _id: q.id || q._id || undefined,
+            question_text: questionText, 
+            points: parseInt(q.points||1,10),
+            // CRITICAL: Include answer and explanation fields for Identification activities
+            answer: q.answer || '',
+            explanation: q.explanation || ''
+          };
+          
+          console.log('🔍 [PREVIEW] Processing question', idx, ':', {
+            question: q,
+            hasChoices: !!(q.choices && Array.isArray(q.choices)),
+            choicesCount: q.choices ? q.choices.length : 0,
+            choices: q.choices,
+            hasAnswer: !!q.answer,
+            answer: q.answer,
+            hasExplanation: !!q.explanation,
+            explanation: q.explanation
+          });
+          
+          // CRITICAL: Map choices for ALL activity types that use choices (multiple_choice, true_false, identification)
+          if (activityType === 'multiple_choice' || activityType === 'true_false' || activityType === 'identification') { 
+            const choicesArray = q.choices || [];
+            console.log('🔍 [PREVIEW] Question', idx, 'RAW choices array:', JSON.stringify(choicesArray, null, 2));
+            console.log('🔍 [PREVIEW] Question', idx, 'choices array type:', typeof choicesArray, 'isArray:', Array.isArray(choicesArray), 'length:', choicesArray.length);
+            console.log('🔍 [PREVIEW] Question', idx, 'activityType:', activityType);
+            
+            if (choicesArray.length === 0) {
+              console.error('🔍 [PREVIEW] ⚠️ WARNING: No choices found for question', idx, '! Question object:', q);
+              console.error('🔍 [PREVIEW] ⚠️ Full question object:', JSON.stringify(q, null, 2));
+            }
+            
+            base.choices = choicesArray.map(function(c, ci){ 
+              // CRITICAL: Handle both formats - API format (choice_text) and state format (text)
+              // API format (from universal_activity_api.php): has 'choice_text' property directly from DB
+              // State format (from activity_get): has 'text' property (mapped from choice_text in line 1661)
+              // Check choice_text FIRST (API format), then text (state format) - SAME AS TEACHER SIDE
+              const rawText = c.choice_text || c.text || c.content || c.option || '';
+              const choiceText = (rawText && String(rawText).trim()) ? String(rawText).trim() : ('Choice ' + (ci+1));
+              
+              console.log('🔍 [PREVIEW] Mapping choice', ci, 'for', activityType, ':', { 
+                original: c,
+                has_text: !!c.text,
+                has_choice_text: !!c.choice_text,
+                has_content: !!c.content,
+                has_option: !!c.option,
+                raw_text_value: c.text,
+                raw_choice_text_value: c.choice_text,
+                rawText: rawText,
+                final: choiceText,
+                is_correct: c.is_correct,
+                correct: c.correct,
+                isCorrectFlag: !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1
+              });
+              
+              // CRITICAL: Always return with choice_text property (same format as API and Teacher side)
+              // This ensures renderQuestionInput receives the correct format
+              return { 
+                id: c.id || c._id || (ci+1), 
+                choice_text: choiceText, 
+                text: choiceText, // Also include for compatibility
+                is_correct: !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1 || c.is_correct === '1' || c.correct === '1',
+                correct: !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1 || c.is_correct === '1' || c.correct === '1'
+              }; 
+            }); 
+            
+            console.log('🔍 [PREVIEW] Question', idx, 'FINAL mapped choices:', JSON.stringify(base.choices, null, 2));
+          } else {
+            // For other activity types, still try to map choices if they exist
+            if (q.choices && Array.isArray(q.choices) && q.choices.length > 0) {
+              base.choices = q.choices.map(function(c, ci){
+                const rawText = c.choice_text || c.text || '';
+                return {
+                  id: c.id || c._id || (ci+1),
+                  choice_text: rawText,
+                  text: rawText,
+                  is_correct: !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1,
+                  correct: !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1
+                };
+              });
+            }
+          }
+          return base;
+        });
+        
+        console.log('🔍 [PREVIEW] Final activity.questions:', activity.questions);
+        
+        // CRITICAL: Store activity data for Test button functionality (like coding activity)
+        // Ensure choices have is_correct flag properly set
+        if (activity.questions && Array.isArray(activity.questions)) {
+          activity.questions.forEach(q => {
+            if (q.choices && Array.isArray(q.choices)) {
+              q.choices.forEach(c => {
+                // Ensure is_correct is properly set (handle both 'is_correct' and 'correct' properties)
+                if (c.correct !== undefined && c.is_correct === undefined) {
+                  c.is_correct = !!c.correct;
+                }
+                // Also ensure it's a boolean or 1/0
+                if (c.is_correct !== undefined) {
+                  c.is_correct = !!c.is_correct || c.is_correct === 1 || c.is_correct === '1';
+                }
+              });
+            }
+          });
+        }
+        
+        window.__previewActivityData = activity;
+        window.__previewActivityType = activityType;
+        console.log('🔍 [PREVIEW] Stored activity data for Test button:', {
+          activityId: activity.id || activity.activity_id,
+          activityType: activityType,
+          questionsCount: activity.questions ? activity.questions.length : 0,
+          sampleQuestion: activity.questions && activity.questions[0] ? {
+            id: activity.questions[0].id || activity.questions[0]._id,
+            choices: activity.questions[0].choices ? activity.questions[0].choices.map(c => ({
+              id: c.id || c._id,
+              choice_text: c.choice_text,
+              is_correct: c.is_correct,
+              correct: c.correct
+            })) : []
+          } : null
+        });
+        
+        // Continue with rendering
+        continuePreviewRender();
+      }
+      
+      function continuePreviewRender() {
+        // Professional test interface
+        // Note: activityType is from outer scope
+        
+        // Calculate total points - use max_score for upload_based and coding activities
+        let totalPoints = 0;
+        if (activityType === 'upload_based' || activityType === 'coding') {
+          totalPoints = activity.max_score || 0;
+        } else if (activity.questions && activity.questions.length > 0) {
+          totalPoints = activity.questions.reduce((sum, q) => sum + (q.points || 1), 0);
+        } else {
+          totalPoints = activity.max_score || 0;
+        }
+        
+        if (activityType === 'coding') {
+        // Render dedicated coding preview
+        try {
+          console.log('🔍 [CODING PREVIEW] Rendering coding preview, activity:', {
+            id: activity.id,
+            title: activity.title,
+            required_construct: activity.required_construct,
+            instructions: activity.instructions ? JSON.parse(activity.instructions) : null,
+            state_requiredConstruct: state.requiredConstruct
+          });
+          body.innerHTML = renderCodingPreview(activity);
+          if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
+        } catch (renderError) {
+          console.error('🔍 [CODING PREVIEW] Error rendering coding preview:', renderError);
+          console.error('🔍 [CODING PREVIEW] Error stack:', renderError.stack);
+          if (body) {
+            body.innerHTML = `
+              <div style="text-align:center;padding:40px;color:#dc3545;">
+                <h3 style="color:#dc3545;margin-bottom:16px;">⚠️ Error Rendering Coding Preview</h3>
+                <p style="color:#666;margin-bottom:16px;">${renderError.message || 'Unknown error'}</p>
+                <button onclick="window.createActivityState.viewMode = 'edit'; window.dispatchEvent(new CustomEvent('createActivityRender'));" 
+                        style="background:#28a745;color:white;border:none;padding:10px 20px;border-radius:6px;margin-top:16px;cursor:pointer;">
+                  Switch to Edit Mode
+                </button>
+              </div>
+            `;
+          }
+        }
+        // Ensure Monaco initializes (avoid relying on inline <script> execution)
+        setTimeout(function(){
+          try {
+            const container = document.getElementById('previewMonacoContainer');
+            const textarea = document.getElementById('previewCodeTextarea');
+            if (container && textarea) {
+              loadMonacoEditor().then(function(){
+                if (window.monaco && window.monaco.editor) {
+                  const existing = window.__previewEditor; if (existing && typeof existing.dispose === 'function') existing.dispose();
+                  const lang = (function(){ try { const meta = JSON.parse(activity.instructions||'{}'); return (meta.language||'cpp'); } catch(_){ return 'cpp'; } })();
+                  const editor = window.monaco.editor.create(container, {
+                    value: textarea.value,
+                    language: String(lang||'cpp').toLowerCase(),
+                    theme: 'vs',
+                    fontSize: 14,
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    lineNumbers: 'on'
+                  });
+                  editor.onDidChangeModelContent(function(){ textarea.value = editor.getValue(); });
+                  window.__previewEditor = editor;
+                  try { textarea.style.display = 'none'; } catch(_){ }
+                } else {
+                  // Fallback: show textarea
+                  textarea.style.display = 'block';
+                }
+              }).catch(function(){ if (textarea) textarea.style.display='block'; });
+            }
+          } catch(_){ }
+        }, 0);
         if (body) { try { body.scrollTop = prevScrollTop; } catch(_){ } }
         return;
       }
@@ -4824,6 +5147,18 @@ function showCreateActivityForm(lessonId, opts){
             
           <!-- Main content -->
           <div style="flex:1;overflow:auto;padding:24px;">
+              <style>
+              /* Hide any check/x icons in question headers */
+              [id^="question-"] h3::before,
+              [id^="question-"] h3::after,
+              [id^="question-"] h3 i,
+              [id^="question-"] h3 .fa-check,
+              [id^="question-"] h3 .fa-times,
+              [id^="question-"] h3 .fa-check-circle,
+              [id^="question-"] h3 .fa-times-circle {
+                display: none !important;
+              }
+              </style>
               ${activity.questions && activity.questions.length > 0 ? 
                 renderProfessionalTestQuestions(activity, activityType) : 
                 `
@@ -4841,7 +5176,18 @@ function showCreateActivityForm(lessonId, opts){
                 <div style="font-size:13px;color:#6c757d;margin-bottom:2px;">Ready to submit?</div>
                 <div style="font-size:11px;color:#6c757d;">Make sure you've answered all questions</div>
                   </div>
-              <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);" onclick="window.finishPreviewAttempt()">Finish Attempt</button>
+              <div style="display:flex;gap:12px;">
+                ${activityType !== 'coding' && activityType !== 'upload_based' && activityType !== 'essay' ? `
+                <button id="preview-test-btn" style="background:linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(14,165,233,0.3);" onclick="window.testPreviewActivity('${activityType}')">
+                  <i class="fas fa-check-circle"></i> Test
+                </button>
+                ` : activityType === 'essay' || activityType === 'upload_based' ? `
+                <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 16px;font-size:12px;color:#856404;">
+                  <i class="fas fa-info-circle"></i> This activity requires manual grading by the teacher.
+                </div>
+                ` : ''}
+                <button id="finish-attempt-btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(40,167,69,0.3);" onclick="window.finishPreviewAttempt()">Finish Attempt</button>
+              </div>
                 </div>
               </div>
               ` : ''}
@@ -4855,10 +5201,8 @@ function showCreateActivityForm(lessonId, opts){
             // Initialize progress tracking for fallback preview (only for non-upload activities)
             if (activityType !== 'upload_based') {
               initializePreviewProgressTracking();
-              
-          if (typeof window.updateProgress === 'function') {
-            window.updateProgress();
-            }
+              // Note: updatePreviewProgress() is now called inside initializePreviewProgressTracking()
+              // No need to call window.updateProgress() here as it uses DOM queries which may be inaccurate
             }
           } catch (e) {
             console.error('Error initializing preview features:', e);
@@ -4866,7 +5210,10 @@ function showCreateActivityForm(lessonId, opts){
       }, 100);
       
       return;
-    }
+      } // End of continuePreviewRender function
+    } // End of else block (non-coding activities)
+    return; // Exit preview mode - don't render the form
+    } // End of preview mode block
 
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr;gap:16px;">
@@ -5220,7 +5567,7 @@ function showCreateActivityForm(lessonId, opts){
               <button class="action-btn btn-green" id="cafAddQ" style="margin-top:12px;padding:10px 16px;font-size:14px;">+ Add Question</button>
             </div>
             `;
-          } else if (state.questionType === 'coding') {
+          } else if (state.questionType === 'coding' || state.type === 'laboratory') {
             return `
             <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;background:#f8f9fa;">
               <div style="font-weight:600;margin-bottom:16px;color:#333;">💻 Coding Exercise Configuration</div>
@@ -5653,7 +6000,25 @@ function showCreateActivityForm(lessonId, opts){
         }
       }, 100);
     }
-  }
+    } catch (e) {
+      console.error('🔍 [RENDER] ❌ CRITICAL ERROR in render function:', e);
+      console.error('🔍 [RENDER] Error stack:', e.stack);
+      if (body) {
+        body.innerHTML = `
+          <div style="text-align:center;padding:40px;color:#dc3545;">
+            <h3 style="color:#dc3545;margin-bottom:16px;">⚠️ Error Loading Form</h3>
+            <p style="color:#666;margin-bottom:16px;">An error occurred while rendering the form.</p>
+            <p style="color:#999;font-size:12px;">Error: ${e.message || 'Unknown error'}</p>
+            <button onclick="window.createActivityState.viewMode = 'edit'; window.dispatchEvent(new CustomEvent('createActivityRender'));" 
+                    style="background:#28a745;color:white;border:none;padding:10px 20px;border-radius:6px;margin-top:16px;cursor:pointer;">
+              Try Again
+            </button>
+          </div>
+        `;
+      }
+      return; // Exit render function on error
+    }
+  } // End of render function
 
   render();
   // SAFETY: Always re-attach create handler to ensure it works after save/close
@@ -6099,7 +6464,7 @@ function renderStudentCodingTest(activity) {
         </div>
           <div style="padding:24px;flex:1;">
             <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#374151;">Problem Description</h4>
-            <div style="color:#4b5563;line-height:1.7;font-size:14px;white-space:pre-wrap;">${escapeHtml(problemDescription)}</div>
+            <div style="color:#4b5563;line-height:1.7;font-size:14px;font-weight:600;white-space:pre-wrap;">${escapeHtml(problemDescription)}</div>
             
             ${testCases.length > 0 ? `
               <div style="margin-top:32px;">
@@ -7112,8 +7477,9 @@ function renderStudentMultipleChoiceTest(activity) {
   activity.questions.forEach((question, index) => {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
-        <h4 style="margin:0 0 12px 0;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:500;">${question.question_text || 'Question text not available'}</p>
+        <h4 style="margin:0 0 12px 0;font-weight:500;">Question ${index + 1}</h4>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
+        <div style="font-size:14px;color:#495057;margin:0 0 12px 0;font-weight:500;">Select your answer:</div>
         <div style="space-y:8px;">
     `;
     
@@ -7147,8 +7513,8 @@ function renderStudentIdentificationTest(activity) {
   activity.questions.forEach((question, index) => {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
-        <h4 style="margin:0 0 12px 0;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:500;">${question.question_text || 'Question text not available'}</p>
+        <h4 style="margin:0 0 12px 0;font-weight:500;">Question ${index + 1}</h4>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="margin-bottom:12px;">
           <label style="display:block;margin-bottom:4px;font-weight:500;">Your Answer:</label>
           <input type="text" name="student-q${index + 1}" placeholder="Enter your answer here..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
@@ -7225,7 +7591,7 @@ function renderStudentTrueFalseTest(activity) {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
         <h4 style="margin:0 0 12px 0;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:500;">${question.question_text || 'Question text not available'}</p>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="space-y:8px;">
           <label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:white;transition:all 0.2s;margin-bottom:8px;">
             <input type="radio" name="student-q${index + 1}" value="true" style="margin:0;">
@@ -7253,8 +7619,8 @@ function renderStudentEssayTest(activity) {
   activity.questions.forEach((question, index) => {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
-        <h4 style="margin:0 0 12px 0;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:500;">${question.question_text || 'Question text not available'}</p>
+        <h4 style="margin:0 0 12px 0;font-weight:500;">Question ${index + 1}</h4>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="margin-bottom:12px;">
           <label style="display:block;margin-bottom:4px;font-weight:500;">Your Answer:</label>
           <textarea name="student-q${index + 1}" rows="6" placeholder="Write your essay here..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;resize:vertical;"></textarea>
@@ -7275,8 +7641,8 @@ function renderStudentMatchingTest(activity) {
   activity.questions.forEach((question, index) => {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
-        <h4 style="margin:0 0 12px 0;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:500;">${question.question_text || 'Question text not available'}</p>
+        <h4 style="margin:0 0 12px 0;font-weight:500;">Question ${index + 1}</h4>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="margin-bottom:12px;">
           <label style="display:block;margin-bottom:4px;font-weight:500;">Your Answer:</label>
           <input type="text" name="student-q${index + 1}" placeholder="Enter your answer here..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
@@ -7339,14 +7705,14 @@ function renderProfessionalTestQuestions(activity, activityType) {
     html += `
       <div id="question-${index}" style="border:1px solid #e9ecef;border-radius:8px;padding:24px;margin-bottom:24px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <h3 style="margin:0;color:#333;font-size:18px;font-weight:600;">Question ${index + 1}</h3>
+          <h3 style="margin:0;color:#333;font-size:18px;font-weight:500;">Question ${index + 1}</h3>
           <div style="background:#e9ecef;color:#495057;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">
             ${question.points || 1} point${(question.points || 1) !== 1 ? 's' : ''}
           </div>
         </div>
         
         <div style="margin-bottom:20px;">
-          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;">${question.question_text || question.text || 'Question text not available'}</p>
+          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || question.text || 'Question text not available'}</p>
         </div>
         ${activityType === 'multiple_choice' ? '<div style="font-size:14px;color:#495057;margin:0 0 8px 0;">Select your answer:</div>' : ''}
         ${renderQuestionInput(question, index, activityType)}
@@ -9182,7 +9548,7 @@ function renderCodingPreview(activity){
               </div>
             </div>
           ` : ''}
-          <div style="color:#4b5563;line-height:1.7;font-size:14px;white-space:pre-wrap;">${escapeHtml(problemDescription)}</div>
+          <div style="color:#4b5563;line-height:1.7;font-size:14px;font-weight:600;white-space:pre-wrap;">${escapeHtml(problemDescription)}</div>
           
           ${testCases.length > 0 ? `
             <div style="margin-top:32px;">
@@ -10353,6 +10719,595 @@ window.scrollToQuestion = function(index) {
   }
 }
 
+// Function to test preview activity (auto-grade without saving) - Global scope
+window.testPreviewActivity = function(activityType) {
+  console.log('🔍 [TEST PREVIEW] Testing activity:', activityType);
+  
+  // Essay and Upload-based activities require manual grading by teacher
+  if (activityType === 'essay' || activityType === 'upload_based') {
+    alert('This activity type requires manual grading by the teacher. Auto-grading is not available for Essay and Upload-based activities.');
+    return;
+  }
+  
+  const activity = window.__previewActivityData || {};
+  const questions = activity.questions || [];
+  
+  if (questions.length === 0) {
+    alert('No questions found in this activity.');
+    return;
+  }
+  
+  // Collect student answers from DOM
+  const studentAnswers = {};
+  const questionElements = document.querySelectorAll('[id^="question-"]');
+  
+  questionElements.forEach((questionEl, index) => {
+    const question = questions[index];
+    if (!question) return;
+    
+    if (activityType === 'multiple_choice') {
+      // Get selected radio button
+      const selectedRadio = questionEl.querySelector('input[type="radio"]:checked');
+      if (selectedRadio) {
+        studentAnswers[index] = selectedRadio.value; // choice ID
+      }
+    } else if (activityType === 'true_false') {
+      // Get selected radio button (true/false)
+      const selectedRadio = questionEl.querySelector('input[type="radio"]:checked');
+      if (selectedRadio) {
+        studentAnswers[index] = selectedRadio.value; // "true" or "false"
+      }
+    } else if (activityType === 'identification') {
+      // Get text input value
+      const textInput = questionEl.querySelector('input[type="text"]');
+      if (textInput && textInput.value.trim()) {
+        studentAnswers[index] = textInput.value.trim();
+      }
+    }
+  });
+  
+  const answeredCount = Object.keys(studentAnswers).length;
+  if (answeredCount === 0) {
+    alert('Please answer at least one question before testing.');
+    return;
+  }
+  
+  // Set loading state
+  const testBtn = document.getElementById('preview-test-btn');
+  if (testBtn) {
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+  }
+  
+  // Grade the answers
+  let totalScore = 0;
+  let maxScore = 0;
+  const results = [];
+  
+  questions.forEach((question, index) => {
+    const points = parseFloat(question.points || 1);
+    maxScore += points;
+    
+    const studentAnswer = studentAnswers[index];
+    let isCorrect = false;
+    let earnedPoints = 0;
+    let correctAnswer = '';
+    let explanation = '';
+    
+    let studentAnswerDisplay = studentAnswer || '(No answer)'; // For display
+    
+    if (activityType === 'multiple_choice') {
+      // Check if selected choice is correct
+      const choices = question.choices || [];
+      const selectedChoiceId = studentAnswer;
+      
+      const selectedChoice = choices.find(c => String(c.id) === String(selectedChoiceId));
+      const correctChoice = choices.find(c => !!c.is_correct);
+      
+      // FIX: Get the actual choice text for display
+      if (selectedChoice) {
+        studentAnswerDisplay = selectedChoice.choice_text || selectedChoice.text || `Choice ${selectedChoiceId}`;
+      } else {
+        studentAnswerDisplay = '(No answer)';
+      }
+      
+      if (correctChoice) {
+        correctAnswer = correctChoice.choice_text || correctChoice.text || '';
+      }
+      
+      if (selectedChoice && selectedChoice.is_correct) {
+        isCorrect = true;
+        earnedPoints = points;
+      }
+      
+      explanation = question.explanation || '';
+    } else if (activityType === 'true_false') {
+      // Check if answer matches correct choice
+      const choices = question.choices || [];
+      const studentValue = studentAnswer ? String(studentAnswer).toLowerCase().trim() : ''; // "true" or "false"
+      
+      console.log('🔍 [TEST TRUE/FALSE] Question', index + 1, ':', {
+        questionId: question.id || question._id,
+        studentValue: studentValue,
+        choices: choices.map(c => ({
+          id: c.id || c._id,
+          choice_text: c.choice_text,
+          text: c.text,
+          is_correct: c.is_correct,
+          correct: c.correct,
+          isCorrectFlag: !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1
+        }))
+      });
+      
+      // FIX: Display "True" or "False" instead of "true" or "false"
+      studentAnswerDisplay = studentValue === 'true' ? 'True' : (studentValue === 'false' ? 'False' : '(No answer)');
+      
+      // Find correct choice - check both is_correct flag and correct flag (handle both formats)
+      // Also handle numeric values (1/0) and boolean values
+      let correctChoice = choices.find(c => {
+        const isCorrect = !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1 || c.is_correct === '1' || c.correct === '1';
+        return isCorrect;
+      });
+      
+      console.log('🔍 [TEST TRUE/FALSE] Found correct choice:', correctChoice);
+      
+      // If no choice marked as correct, try to find by choice_text matching "True" or "False"
+      if (!correctChoice && choices.length > 0) {
+        // For True/False, typically first choice is True, second is False
+        // But we should check the actual text
+        correctChoice = choices.find(c => {
+          const choiceText = String(c.choice_text || c.text || '').toLowerCase().trim();
+          // If it says "true" or "false", assume it might be correct (fallback)
+          return choiceText === 'true' || choiceText === 'false';
+        });
+        console.log('🔍 [TEST TRUE/FALSE] Fallback correct choice by text:', correctChoice);
+      }
+      
+      if (correctChoice) {
+        // Get correct value from choice_text or text field
+        let correctValue = String(correctChoice.choice_text || correctChoice.text || '').toLowerCase().trim();
+        
+        // If choice_text is empty, infer from position (first = True, second = False)
+        if (!correctValue || correctValue === '') {
+          const correctIndex = choices.indexOf(correctChoice);
+          correctValue = correctIndex === 0 ? 'true' : 'false';
+          console.log('🔍 [TEST TRUE/FALSE] Inferred correct value from position:', correctValue);
+        }
+        
+        // Normalize to "true" or "false"
+        if (correctValue === 'true' || correctValue === '1') {
+          correctValue = 'true';
+          correctAnswer = 'True';
+        } else if (correctValue === 'false' || correctValue === '0') {
+          correctValue = 'false';
+          correctAnswer = 'False';
+        } else {
+          // Fallback: use the choice text as-is, but capitalize first letter
+          const choiceText = correctChoice.choice_text || correctChoice.text || '';
+          correctAnswer = choiceText ? (choiceText.charAt(0).toUpperCase() + choiceText.slice(1).toLowerCase()) : 'N/A';
+          correctValue = String(choiceText).toLowerCase().trim();
+        }
+        
+        console.log('🔍 [TEST TRUE/FALSE] Final correct answer:', {
+          correctValue: correctValue,
+          correctAnswer: correctAnswer,
+          studentValue: studentValue,
+          willMatch: studentValue === correctValue
+        });
+        
+        // Compare student answer with correct answer
+        if (studentValue && (studentValue === correctValue || studentValue === String(correctValue))) {
+          isCorrect = true;
+          earnedPoints = points;
+          console.log('🔍 [TEST TRUE/FALSE] ✅ Answer is CORRECT');
+        } else {
+          console.log('🔍 [TEST TRUE/FALSE] ❌ Answer is INCORRECT');
+        }
+      } else {
+        // Fallback: check question.answer field
+        if (question.answer) {
+          const answerValue = String(question.answer).toLowerCase().trim();
+          correctAnswer = answerValue === 'true' ? 'True' : 'False';
+          if (studentValue === answerValue) {
+            isCorrect = true;
+            earnedPoints = points;
+          }
+          console.log('🔍 [TEST TRUE/FALSE] Using question.answer fallback:', {
+            answerValue: answerValue,
+            correctAnswer: correctAnswer,
+            studentValue: studentValue,
+            isCorrect: isCorrect
+          });
+        } else {
+          console.warn('🔍 [TEST TRUE/FALSE] ⚠️ No correct choice found and no question.answer!');
+          correctAnswer = 'N/A';
+        }
+      }
+      
+      explanation = question.explanation || '';
+    } else if (activityType === 'identification') {
+      // Check against correct answer (supports multiple acceptable answers)
+      const studentValue = String(studentAnswer || '').trim().toLowerCase();
+      
+      console.log('🔍 [TEST IDENTIFICATION] Question', index + 1, ':', {
+        questionId: question.id || question._id,
+        studentValue: studentValue,
+        hasChoices: !!(question.choices && question.choices.length > 0),
+        choicesCount: question.choices ? question.choices.length : 0,
+        choices: question.choices ? question.choices.map(c => ({
+          id: c.id || c._id,
+          choice_text: c.choice_text,
+          text: c.text,
+          is_correct: c.is_correct,
+          correct: c.correct
+        })) : [],
+        hasAnswer: !!question.answer,
+        answer: question.answer,
+        hasExplanation: !!question.explanation
+      });
+      
+      // Get acceptable answers - check multiple sources
+      const acceptableAnswers = [];
+      
+      // PRIORITY 1: Check choices with is_correct flag (most reliable for identification)
+      const choices = question.choices || [];
+      if (choices.length > 0) {
+        // Get all correct choices (identification can have multiple correct answers)
+        const correctChoices = choices.filter(c => {
+          const isCorrect = !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1 || c.is_correct === '1' || c.correct === '1';
+          return isCorrect;
+        });
+        
+        console.log('🔍 [TEST IDENTIFICATION] Found correct choices:', correctChoices);
+        
+        correctChoices.forEach(c => {
+          const choiceText = String(c.choice_text || c.text || '').trim();
+          if (choiceText) {
+            const normalized = choiceText.toLowerCase();
+            if (!acceptableAnswers.includes(normalized)) {
+              acceptableAnswers.push(normalized);
+            }
+          }
+        });
+      }
+      
+      // PRIORITY 2: Check explanation (JSON format with primary/alternatives) - supports multiple answers
+      if (question.explanation) {
+        try {
+          const parsed = JSON.parse(question.explanation);
+          if (parsed && typeof parsed === 'object' && parsed !== null) {
+            // New format with primary + alternatives
+            if (parsed.primary && String(parsed.primary).trim()) {
+              const normalized = String(parsed.primary).trim().toLowerCase();
+              if (!acceptableAnswers.includes(normalized)) {
+                acceptableAnswers.push(normalized);
+              }
+            }
+            if (parsed.alternatives && Array.isArray(parsed.alternatives)) {
+              parsed.alternatives.forEach(alt => {
+                if (alt && String(alt).trim()) {
+                  const normalizedAlt = String(alt).trim().toLowerCase();
+                  if (!acceptableAnswers.includes(normalizedAlt)) {
+                    acceptableAnswers.push(normalizedAlt);
+                  }
+                }
+              });
+            }
+          }
+        } catch(e) {
+          // Not JSON, treat as plain text (legacy format)
+          const explanationText = String(question.explanation).trim();
+          if (explanationText) {
+            const normalized = explanationText.toLowerCase();
+            if (!acceptableAnswers.includes(normalized)) {
+              acceptableAnswers.push(normalized);
+            }
+          }
+        }
+      }
+      
+      // PRIORITY 3: Fallback to answer field
+      if (question.answer) {
+        const answerText = String(question.answer).trim();
+        if (answerText) {
+          const normalized = answerText.toLowerCase();
+          if (!acceptableAnswers.includes(normalized)) {
+            acceptableAnswers.push(normalized);
+          }
+        }
+      }
+      
+      console.log('🔍 [TEST IDENTIFICATION] Final acceptable answers:', acceptableAnswers);
+      
+      // Grade the answer
+      if (acceptableAnswers.length > 0 && studentValue) {
+        // Show primary answer for display (capitalize first letter for better readability)
+        const primaryAnswer = acceptableAnswers[0];
+        correctAnswer = primaryAnswer ? (primaryAnswer.charAt(0).toUpperCase() + primaryAnswer.slice(1)) : 'N/A';
+        
+        console.log('🔍 [TEST IDENTIFICATION] Grading:', {
+          studentValue: studentValue,
+          acceptableAnswers: acceptableAnswers,
+          correctAnswer: correctAnswer
+        });
+        
+        // Check if student answer matches any acceptable answer (case-insensitive, trimmed)
+        // Also handle partial matches for common variations
+        isCorrect = acceptableAnswers.some(acceptable => {
+          const normalizedAcceptable = acceptable.toLowerCase().trim();
+          const normalizedStudent = studentValue.toLowerCase().trim();
+          
+          // Exact match
+          if (normalizedStudent === normalizedAcceptable) {
+            console.log('🔍 [TEST IDENTIFICATION] ✅ Exact match found:', normalizedStudent);
+            return true;
+          }
+          
+          // Handle common variations (remove extra spaces, punctuation)
+          const cleanAcceptable = normalizedAcceptable.replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+          const cleanStudent = normalizedStudent.replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+          
+          if (cleanStudent === cleanAcceptable) {
+            console.log('🔍 [TEST IDENTIFICATION] ✅ Clean match found:', cleanStudent);
+            return true;
+          }
+          
+          return false;
+        });
+        
+        if (isCorrect) {
+          earnedPoints = points;
+          console.log('🔍 [TEST IDENTIFICATION] ✅ Answer is CORRECT');
+        } else {
+          console.log('🔍 [TEST IDENTIFICATION] ❌ Answer is INCORRECT');
+        }
+      } else if (studentValue) {
+        // Student answered but no correct answer found - mark as incorrect
+        console.warn('🔍 [TEST IDENTIFICATION] ⚠️ Student answered but no correct answer found!');
+        correctAnswer = 'N/A';
+        isCorrect = false;
+        earnedPoints = 0;
+      } else {
+        // No student answer
+        correctAnswer = acceptableAnswers.length > 0 ? (acceptableAnswers[0].charAt(0).toUpperCase() + acceptableAnswers[0].slice(1)) : 'N/A';
+      }
+      
+      // Get explanation (if not already used as answer)
+      if (question.explanation) {
+        try {
+          const parsed = JSON.parse(question.explanation);
+          if (parsed && typeof parsed === 'object' && parsed.explanation) {
+            explanation = parsed.explanation;
+          } else {
+            explanation = '';
+          }
+        } catch(e) {
+          // If explanation was used as answer, don't show it again
+          if (!acceptableAnswers.includes(String(question.explanation).trim().toLowerCase())) {
+            explanation = question.explanation;
+          }
+        }
+      }
+    }
+    
+    totalScore += earnedPoints;
+    
+    results.push({
+      questionIndex: index + 1,
+      questionText: question.question_text || question.text || `Question ${index + 1}`,
+      studentAnswer: studentAnswerDisplay, // Use display text instead of ID
+      correctAnswer: correctAnswer,
+      isCorrect: isCorrect,
+      points: points,
+      earnedPoints: earnedPoints,
+      explanation: explanation
+    });
+  });
+  
+  // Display results in modal
+  const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(1) : 0;
+  const passedCount = results.filter(r => r.isCorrect).length;
+  
+  // Create results modal with interactive features
+  const modal = document.createElement('div');
+  modal.id = 'previewTestResultsModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s ease;';
+  
+  // Add smooth animations
+  if (!document.getElementById('previewTestModalStyles')) {
+    const style = document.createElement('style');
+    style.id = 'previewTestModalStyles';
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes scaleIn {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+      }
+      @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+      }
+      .preview-result-item {
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+      }
+      .preview-result-item:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12) !important;
+      }
+      .preview-result-item.correct {
+        border-left: 3px solid #10b981 !important;
+      }
+      .preview-result-item.incorrect {
+        border-left: 3px solid #ef4444 !important;
+      }
+      .preview-progress-bar {
+        position: relative;
+        overflow: hidden;
+      }
+      .preview-progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: shimmer 2s infinite;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  // Calculate score color and styling (icons removed - using color coding only)
+  const scoreColor = percentage >= 80 ? '#10b981' : percentage >= 60 ? '#f59e0b' : '#ef4444';
+  const scoreBg = percentage >= 80 ? 'rgba(16,185,129,0.08)' : percentage >= 60 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
+  
+  // CRITICAL: Use consistent modern font stack across all sides
+  const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;max-width:850px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15);animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);font-family:${fontStack};">
+      <!-- Clean Header -->
+      <div style="padding:28px 32px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#ffffff;font-family:${fontStack};">
+        <div>
+          <h2 style="margin:0 0 4px 0;color:#1e293b;font-size:22px;font-weight:600;font-family:${fontStack};">Test Results</h2>
+          <p style="margin:0;color:#64748b;font-size:13px;font-family:${fontStack};">Preview Mode • No data saved</p>
+        </div>
+        <button onclick="const modal = document.getElementById('previewTestResultsModal'); if(modal) { modal.style.opacity='0'; modal.style.transform='scale(0.95)'; setTimeout(() => modal.remove(), 200); } const btn = document.getElementById('preview-test-btn'); if(btn) { btn.disabled = false; btn.innerHTML = '<i class=\\'fas fa-check-circle\\'></i> Test'; }" 
+                style="background:#f8fafc;border:none;font-size:20px;color:#64748b;cursor:pointer;padding:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all 0.2s;font-family:${fontStack};" 
+                onmouseover="this.style.background='#f1f5f9';this.style.color='#ef4444';" 
+                onmouseout="this.style.background='#f8fafc';this.style.color='#64748b';">&times;</button>
+      </div>
+      
+      <div style="padding:32px;font-family:${fontStack};">
+        <!-- Simple Score Card -->
+        <div style="background:${scoreBg};border-radius:16px;padding:32px;margin-bottom:32px;text-align:center;position:relative;overflow:hidden;animation:scaleIn 0.5s ease;font-family:${fontStack};">
+          <div style="position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:${scoreColor};opacity:0.05;border-radius:50%;"></div>
+          <div style="position:relative;z-index:1;">
+            <div style="font-size:64px;font-weight:700;color:${scoreColor};margin-bottom:8px;line-height:1;font-family:${fontStack};">
+              ${totalScore}<span style="font-size:32px;color:#94a3b8;font-weight:400;font-family:${fontStack};">/${maxScore}</span>
+            </div>
+            <div style="font-size:18px;color:#64748b;margin-bottom:20px;font-weight:500;font-family:${fontStack};">${percentage}% Score</div>
+            
+            <!-- Animated Progress Bar -->
+            <div class="preview-progress-bar" style="background:#e2e8f0;border-radius:12px;height:8px;overflow:hidden;margin:0 auto 20px;max-width:400px;">
+              <div style="background:${scoreColor};height:100%;width:${percentage}%;transition:width 1s cubic-bezier(0.4, 0, 0.2, 1);border-radius:12px;"></div>
+            </div>
+            
+            <!-- Stats -->
+            <div style="display:flex;justify-content:center;gap:32px;margin-top:24px;font-family:${fontStack};">
+              <div>
+                <div style="font-size:24px;font-weight:600;color:${scoreColor};font-family:${fontStack};">${passedCount}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Correct</div>
+              </div>
+              <div style="width:1px;background:#e2e8f0;"></div>
+              <div>
+                <div style="font-size:24px;font-weight:600;color:#64748b;font-family:${fontStack};">${questions.length - passedCount}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Incorrect</div>
+              </div>
+              <div style="width:1px;background:#e2e8f0;"></div>
+              <div>
+                <div style="font-size:24px;font-weight:600;color:#64748b;font-family:${fontStack};">${questions.length}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Total</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Clean Question Results -->
+        <div style="font-family:${fontStack};">
+          <h3 style="margin:0 0 20px 0;color:#1e293b;font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;font-family:${fontStack};">Questions</h3>
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            ${results.map((r, idx) => `
+              <div class="preview-result-item ${r.isCorrect ? 'correct' : 'incorrect'}" 
+                   style="border:1px solid ${r.isCorrect ? '#d1fae5' : '#fee2e2'};border-radius:12px;padding:20px;background:${r.isCorrect ? '#f0fdf4' : '#fef2f2'};animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) ${idx * 0.05}s both;"
+                   onclick="const questionEl = document.getElementById('question-${r.questionIndex - 1}'); if(questionEl) { questionEl.scrollIntoView({behavior:'smooth',block:'center'}); questionEl.style.animation='pulse 0.5s ease'; setTimeout(() => questionEl.style.animation='', 500); }">
+                <div style="display:flex;gap:16px;">
+                  <!-- Content (Status Icon removed - using color coding instead) -->
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:start;justify-content:space-between;gap:12px;margin-bottom:12px;font-family:${fontStack};">
+                      <div style="flex:1;">
+                        <div style="font-size:13px;color:#64748b;margin-bottom:6px;font-weight:500;font-family:${fontStack};">Question ${r.questionIndex}</div>
+                        <div style="font-size:15px;color:#1e293b;font-weight:600;line-height:1.5;font-family:${fontStack};">${r.questionText}</div>
+                      </div>
+                      <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:16px;font-weight:600;color:${r.isCorrect ? '#10b981' : '#ef4444'};font-family:${fontStack};">${r.earnedPoints}/${r.points}</div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:2px;font-family:${fontStack};">pts</div>
+                      </div>
+                    </div>
+                    
+                    <!-- Answers -->
+                    <div style="display:flex;flex-direction:column;gap:8px;font-family:${fontStack};">
+                      <div style="display:flex;align-items:start;gap:8px;">
+                        <div style="width:6px;height:6px;background:${r.isCorrect ? '#10b981' : '#ef4444'};border-radius:50%;margin-top:6px;flex-shrink:0;"></div>
+                        <div style="flex:1;">
+                          <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-family:${fontStack};">Your Answer</div>
+                          <div style="font-size:14px;color:#1e293b;padding:10px 14px;background:white;border-radius:8px;border:1px solid ${r.isCorrect ? '#d1fae5' : '#fee2e2'};font-family:${fontStack};">
+                            ${r.studentAnswer}
+                          </div>
+                        </div>
+                      </div>
+                      ${!r.isCorrect ? `
+                        <div style="display:flex;align-items:start;gap:8px;">
+                          <div style="width:6px;height:6px;background:#10b981;border-radius:50%;margin-top:6px;flex-shrink:0;"></div>
+                          <div style="flex:1;">
+                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-family:${fontStack};">Correct Answer</div>
+                            <div style="font-size:14px;color:#1e293b;padding:10px 14px;background:white;border-radius:8px;border:1px solid #d1fae5;font-family:${fontStack};">
+                              ${r.correctAnswer || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      ` : ''}
+                    </div>
+                    
+                    ${r.explanation ? `
+                      <div style="margin-top:12px;padding:12px;background:white;border-radius:8px;border-left:3px solid #3b82f6;font-family:${fontStack};">
+                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-weight:500;font-family:${fontStack};">Explanation</div>
+                        <div style="font-size:13px;color:#475569;line-height:1.6;font-family:${fontStack};">${r.explanation}</div>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- Simple Close Button -->
+        <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid #f1f5f9;font-family:${fontStack};">
+          <button onclick="const modal = document.getElementById('previewTestResultsModal'); if(modal) { modal.style.opacity='0'; modal.style.transform='scale(0.95)'; setTimeout(() => modal.remove(), 200); } const btn = document.getElementById('preview-test-btn'); if(btn) { btn.disabled = false; btn.innerHTML = '<i class=\\'fas fa-check-circle\\'></i> Test'; }" 
+                  style="background:linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);color:white;border:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(14,165,233,0.3);font-family:${fontStack};" 
+                  onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(14,165,233,0.4)';" 
+                  onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(14,165,233,0.3)';">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Reset button state
+  if (testBtn) {
+    testBtn.disabled = false;
+    testBtn.innerHTML = '<i class="fas fa-check-circle"></i> Test';
+  }
+  
+  console.log('🔍 [TEST PREVIEW] Results:', { totalScore, maxScore, percentage, results });
+};
+
 // Function to finish preview attempt - Global scope
 window.finishPreviewAttempt = function() {
   // Use the answers from previewState for accurate counting
@@ -10412,6 +11367,10 @@ window.previewState = {
 function initializePreviewProgressTracking() {
   console.log('🔍 DEBUG: Initializing preview progress tracking');
   
+  // CRITICAL: Reset answers object to ensure it starts empty
+  window.previewState.answers = {};
+  console.log('🔍 DEBUG: Reset previewState.answers to empty object');
+  
   // Initialize timer
   window.previewState.startTime = new Date();
   startPreviewTimer();
@@ -10422,11 +11381,22 @@ function initializePreviewProgressTracking() {
   console.log('🔍 DEBUG: Found question elements:', questionElements.length);
   console.log('🔍 DEBUG: Question elements:', questionElements);
   
+  // CRITICAL: Update progress immediately after initialization to show 0/5
+  setTimeout(() => {
+    updatePreviewProgress();
+  }, 50);
+  
   // Setup choice click handlers for deselection (like teacher side)
   setupPreviewChoiceClickHandlers();
   
+  // CRITICAL: Remove old text input listeners if they exist to prevent duplicates
+  if (window.__previewTextInputHandler) {
+    document.removeEventListener('input', window.__previewTextInputHandler);
+    console.log('🔍 DEBUG: Removed old preview text input handler');
+  }
+  
   // Track text input changes
-  document.addEventListener('input', (e) => {
+  window.__previewTextInputHandler = (e) => {
     if (e.target.type === 'text' && e.target.name && e.target.name.startsWith('preview-q')) {
       const questionIndex = parseInt(e.target.name.replace('preview-q', '')) - 1;
       console.log('🔍 DEBUG: Parsed text question index (FIXED):', questionIndex, 'from name:', e.target.name);
@@ -10439,10 +11409,17 @@ function initializePreviewProgressTracking() {
       debouncedAutosave();
       console.log('🔍 DEBUG: Preview text answer recorded:', e.target.value);
     }
-  });
+  };
+  document.addEventListener('input', window.__previewTextInputHandler);
+  
+  // CRITICAL: Remove old textarea listeners if they exist to prevent duplicates
+  if (window.__previewTextareaHandler) {
+    document.removeEventListener('input', window.__previewTextareaHandler);
+    console.log('🔍 DEBUG: Removed old preview textarea handler');
+  }
   
   // Track textarea changes
-  document.addEventListener('input', (e) => {
+  window.__previewTextareaHandler = (e) => {
     if (e.target.tagName === 'TEXTAREA' && e.target.name && e.target.name.startsWith('preview-q')) {
       const questionIndex = parseInt(e.target.name.replace('preview-q', '')) - 1;
       console.log('🔍 DEBUG: Parsed textarea question index (FIXED):', questionIndex, 'from name:', e.target.name);
@@ -10455,7 +11432,8 @@ function initializePreviewProgressTracking() {
       debouncedAutosave();
       console.log('🔍 DEBUG: Preview textarea answer recorded:', e.target.value);
     }
-  });
+  };
+  document.addEventListener('input', window.__previewTextareaHandler);
   
   // Bind keyboard shortcuts (no navigation needed for continuous scroll)
   bindPreviewKeyboardShortcuts();
@@ -10533,11 +11511,20 @@ function showPreviewNotification(type, message) {
 }
 
 // Setup choice click handlers for coordinator preview (like teacher side)
+// CRITICAL: Store the handler function so we can remove it before adding a new one
+window.__previewChoiceClickHandler = null;
+
 function setupPreviewChoiceClickHandlers() {
   console.log('🔍 DEBUG: Setting up preview choice click handlers');
   
-  // Use event delegation to handle choice clicks - target the label elements
-  document.addEventListener('click', (event) => {
+  // CRITICAL: Remove old listener if it exists to prevent duplicates
+  if (window.__previewChoiceClickHandler) {
+    document.removeEventListener('click', window.__previewChoiceClickHandler);
+    console.log('🔍 DEBUG: Removed old preview choice click handler');
+  }
+  
+  // Create the event handler function
+  window.__previewChoiceClickHandler = (event) => {
     // Look for label elements that contain radio inputs with preview-q names
     const label = event.target.closest('label');
     if (label && label.querySelector('input[type="radio"][name^="preview-q"]')) {
@@ -10545,8 +11532,8 @@ function setupPreviewChoiceClickHandlers() {
       event.stopPropagation();
       
       const radioInput = label.querySelector('input[type="radio"]');
-        const questionIndex = parseInt(radioInput.name.replace('preview-q', '')) - 1; // Convert to 0-based index
-        console.log('🔍 DEBUG: Parsed question index (FIXED):', questionIndex, 'from name:', radioInput.name);
+      const questionIndex = parseInt(radioInput.name.replace('preview-q', '')) - 1; // Convert to 0-based index
+      console.log('🔍 DEBUG: Parsed question index (FIXED):', questionIndex, 'from name:', radioInput.name);
       const isCurrentlySelected = radioInput.checked;
       
       console.log('🔍 DEBUG: Label clicked, question:', questionIndex, 'currently selected:', isCurrentlySelected);
@@ -10583,9 +11570,15 @@ function setupPreviewChoiceClickHandlers() {
           }
         });
         
-        // Add answer to answers object
-        window.previewState.answers[questionIndex] = radioInput.value;
-        console.log('🔍 DEBUG: Added answer to previewState:', questionIndex, radioInput.value);
+        // CRITICAL: Only add answer if it doesn't already exist (prevent duplicates)
+        if (!window.previewState.answers[questionIndex]) {
+          window.previewState.answers[questionIndex] = radioInput.value;
+          console.log('🔍 DEBUG: Added answer to previewState:', questionIndex, radioInput.value);
+        } else {
+          // Update existing answer
+          window.previewState.answers[questionIndex] = radioInput.value;
+          console.log('🔍 DEBUG: Updated answer in previewState:', questionIndex, radioInput.value);
+        }
         console.log('🔍 DEBUG: Current answers:', window.previewState.answers);
         console.log('🔍 DEBUG: Radio input name:', radioInput.name);
         updatePreviewProgress();
@@ -10594,7 +11587,11 @@ function setupPreviewChoiceClickHandlers() {
         console.log('🔍 DEBUG: Preview choice selected for question', questionIndex, radioInput.value);
       }
     }
-  });
+  };
+  
+  // Add the new event listener
+  document.addEventListener('click', window.__previewChoiceClickHandler);
+  console.log('🔍 DEBUG: Added new preview choice click handler');
 }
 // Update progress for coordinator preview
 function updatePreviewProgress() {
@@ -10632,8 +11629,14 @@ window.updateProgress = function() {
   
   questionElements.forEach(questionEl => {
     const hasRadioAnswer = questionEl.querySelector('input[type="radio"]:checked');
-    const hasTextAnswer = questionEl.querySelector('input[type="text"]:not([value=""])');
-    const hasTextareaAnswer = questionEl.querySelector('textarea:not([value=""])');
+    
+    // FIX: Check actual .value property instead of CSS selector for text inputs
+    const textInput = questionEl.querySelector('input[type="text"]');
+    const hasTextAnswer = textInput && textInput.value && textInput.value.trim() !== '';
+    
+    // FIX: Check actual .value property instead of CSS selector for textareas
+    const textareaInput = questionEl.querySelector('textarea');
+    const hasTextareaAnswer = textareaInput && textareaInput.value && textareaInput.value.trim() !== '';
     
     if (hasRadioAnswer || hasTextAnswer || hasTextareaAnswer) {
       answeredQuestions++;
@@ -10651,8 +11654,14 @@ window.updateProgress = function() {
       const questionElement = document.getElementById('question-' + index);
       if (questionElement) {
         const hasRadioAnswer = questionElement.querySelector('input[type="radio"]:checked');
-        const hasTextAnswer = questionElement.querySelector('input[type="text"]:not([value=""])');
-        const hasTextareaAnswer = questionElement.querySelector('textarea:not([value=""])');
+        
+        // FIX: Check actual .value property instead of CSS selector
+        const textInput = questionElement.querySelector('input[type="text"]');
+        const hasTextAnswer = textInput && textInput.value && textInput.value.trim() !== '';
+        
+        const textareaInput = questionElement.querySelector('textarea');
+        const hasTextareaAnswer = textareaInput && textareaInput.value && textareaInput.value.trim() !== '';
+        
         const hasAnswer = hasRadioAnswer || hasTextAnswer || hasTextareaAnswer;
         
         if (hasAnswer) {

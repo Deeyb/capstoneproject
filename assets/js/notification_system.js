@@ -111,6 +111,7 @@ class NotificationSystem {
                 display: flex;
                 align-items: center;
                 gap: 8px;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             }
 
             .notification-close {
@@ -134,6 +135,7 @@ class NotificationSystem {
                 color: #64748b;
                 line-height: 1.5;
                 margin: 0;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             }
 
             .notification-icon {
@@ -220,18 +222,90 @@ class NotificationSystem {
             this.show('info', 'Alert', message);
         };
 
-        // Override console.error for better UX
+        // Override console.error for better UX (but skip background polling errors)
         const originalConsoleError = console.error;
         console.error = (...args) => {
             originalConsoleError.apply(console, args);
             const message = args.join(' ');
-            if (message.includes('error') || message.includes('Error') || message.includes('failed')) {
+            
+            // Skip notifications for background polling/API errors that are handled gracefully
+            const silentErrors = [
+                'active students count',
+                'tracking student activity',
+                'Error fetching active students',
+                'Error tracking student activity'
+            ];
+            
+            const shouldShowNotification = !silentErrors.some(silent => 
+                message.toLowerCase().includes(silent.toLowerCase())
+            );
+            
+            if (shouldShowNotification && (message.includes('error') || message.includes('Error') || message.includes('failed'))) {
                 this.show('error', 'Error', message);
             }
         };
     }
 
-    show(type = 'info', title = 'Notification', message = '', duration = 5000) {
+    async requestPermission() {
+        if (!('Notification' in window)) {
+            console.log('Browser does not support notifications');
+            return false;
+        }
+        
+        if (Notification.permission === 'granted') {
+            return true;
+        }
+        
+        if (Notification.permission !== 'denied') {
+            const permission = await Notification.requestPermission();
+            return permission === 'granted';
+        }
+        
+        return false;
+    }
+
+    showNativeNotification(type = 'info', title = 'Notification', message = '', options = {}) {
+        if (!('Notification' in window)) {
+            return null;
+        }
+        
+        if (Notification.permission === 'granted') {
+            const iconMap = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            
+            const notification = new Notification(title, {
+                body: message,
+                icon: options.icon || '/favicon.ico',
+                badge: options.badge || '/favicon.ico',
+                tag: options.tag || `notification-${Date.now()}`,
+                requireInteraction: options.requireInteraction || false,
+                silent: options.silent || false
+            });
+            
+            // Auto close after duration
+            if (options.duration && options.duration > 0) {
+                setTimeout(() => {
+                    notification.close();
+                }, options.duration);
+            }
+            
+            return notification;
+        }
+        
+        return null;
+    }
+
+    show(type = 'info', title = 'Notification', message = '', duration = 5000, useNative = false) {
+        // Try native notification first if requested and permission granted
+        if (useNative && 'Notification' in window && Notification.permission === 'granted') {
+            this.showNativeNotification(type, title, message, { duration });
+        }
+        
+        // Always show in-page notification for visibility
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         
@@ -307,8 +381,13 @@ class NotificationSystem {
 window.notificationSystem = new NotificationSystem();
 
 // Global helper functions
-window.showNotification = (type, title, message, duration) => {
-    return window.notificationSystem.show(type, title, message, duration);
+window.showNotification = (type, title, message, duration, useNative = false) => {
+    return window.notificationSystem.show(type, title, message, duration, useNative);
+};
+
+// Request notification permission
+window.requestNotificationPermission = async () => {
+    return await window.notificationSystem.requestPermission();
 };
 
 window.showSuccess = (title, message, duration) => {

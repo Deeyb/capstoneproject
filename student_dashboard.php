@@ -114,6 +114,9 @@ $current_section = $_GET['section'] ?? 'myclasses';
 
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
+    <button class="sidebar-toggle-btn" onclick="toggleSidebarMinimize()" title="Minimize sidebar">
+      <i class="fas fa-chevron-left"></i>
+    </button>
     <div class="user-profile">
       <div class="user-avatar">
         <?php if ($profilePhotoUrl): ?>
@@ -131,14 +134,15 @@ $current_section = $_GET['section'] ?? 'myclasses';
           <i class="fas fa-book-open"></i>
           <span>My Classes</span>
         </li>
-        <li class="nav-item" onclick="showSection('newsfeed', this)">
+        <!-- Hidden until implementation -->
+        <!-- <li class="nav-item" onclick="showSection('newsfeed', this)">
           <i class="fas fa-newspaper"></i>
           <span>Newsfeed</span>
         </li>
         <li class="nav-item" onclick="showSection('leaderboards', this)">
           <i class="fas fa-trophy"></i>
           <span>Leaderboards</span>
-        </li>
+        </li> -->
         <li class="nav-item" onclick="showSection('play-area', this)">
           <i class="fas fa-terminal"></i>
           <span>Play Area</span>
@@ -181,10 +185,9 @@ $current_section = $_GET['section'] ?? 'myclasses';
         <!-- Enrolled Classes -->
         <?php if (count($formattedClasses) > 0): ?>
           <?php foreach ($formattedClasses as $class): ?>
-            <div class="class-item" data-class-id="<?php echo $class['id']; ?>">
+            <div class="class-item" data-class-id="<?php echo $class['id']; ?>" onclick="enterClass(<?php echo $class['id']; ?>)">
               <div class="class-header">
                 <div class="class-title"><?php echo htmlspecialchars($class['name']); ?></div>
-                <div class="class-status enrolled">ENROLLED</div>
               </div>
               
               <div class="class-details">
@@ -197,8 +200,33 @@ $current_section = $_GET['section'] ?? 'myclasses';
                   <span><?php echo $class['student_count']; ?> Students</span>
                 </div>
                 <div class="class-detail-item">
-                  <i class="fas fa-clock"></i>
-                  <span>Enrolled recently</span>
+                  <i class="fas fa-calendar"></i>
+                  <span><?php 
+                    if (!empty($class['created_at'])) {
+                      try {
+                        $enrolledDate = new DateTime($class['created_at']);
+                        $now = new DateTime();
+                        $diff = $now->diff($enrolledDate);
+                        
+                        if ($diff->days == 0) {
+                          echo 'Enrolled today';
+                        } else if ($diff->days == 1) {
+                          echo 'Enrolled yesterday';
+                        } else if ($diff->days < 7) {
+                          echo 'Enrolled ' . $diff->days . ' days ago';
+                        } else if ($diff->days < 30) {
+                          $weeks = floor($diff->days / 7);
+                          echo 'Enrolled ' . $weeks . ' week' . ($weeks > 1 ? 's' : '') . ' ago';
+                        } else {
+                          echo 'Enrolled ' . $enrolledDate->format('M d, Y');
+                        }
+                      } catch (Exception $e) {
+                        echo 'Enrolled recently';
+                      }
+                    } else {
+                      echo 'Enrolled recently';
+                    }
+                  ?></span>
                 </div>
               </div>
               
@@ -356,6 +384,8 @@ $current_section = $_GET['section'] ?? 'myclasses';
   </div>
 
   <!-- Scripts -->
+  <!-- Unified Notification System - Load BEFORE other scripts -->
+  <script src="assets/js/notification_system.js?v=<?php echo time(); ?>"></script>
   <script src="assets/js/admin_panel.js"></script>
   <!-- Shared Play Area terminal (reusable) -->
   <script src="assets/js/play_area_terminal.js?v=<?php echo time(); ?>"></script>
