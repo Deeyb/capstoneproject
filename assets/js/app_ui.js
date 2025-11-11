@@ -12,6 +12,75 @@ document.write('<script src="assets/js/admin_panel.js"></' + 'script>');
     if (typeof initCoordinatorThemeToggle === 'function') {
       try { initCoordinatorThemeToggle(); } catch(e) { /* optional */ }
     }
+    // Safety: ensure header controls (dark mode + settings dropdown) are bound for all roles
+    try {
+      var themeToggle = document.getElementById('themeToggle');
+      var settingsIcon = document.getElementById('settingsIcon');
+      var settingsDropdown = document.getElementById('settingsDropdown');
+      // Apply saved theme on all roles (robust)
+      try {
+        var savedTheme = localStorage.getItem('theme') || localStorage.getItem('adminTheme') || 'light';
+        var wantDark = (savedTheme === 'dark');
+        document.body.classList[wantDark ? 'add' : 'remove']('dark-mode');
+        var iconEl = themeToggle && (themeToggle.tagName === 'I' ? themeToggle : (themeToggle.querySelector && themeToggle.querySelector('i')));
+        if (iconEl) {
+          if (wantDark) { iconEl.classList.remove('fa-moon'); iconEl.classList.add('fa-sun'); }
+          else { iconEl.classList.remove('fa-sun'); iconEl.classList.add('fa-moon'); }
+        }
+      } catch(_) {}
+      // Dark mode toggle
+      if (themeToggle && !themeToggle.__bound) {
+        themeToggle.__bound = true;
+        themeToggle.addEventListener('click', function(e){
+          e.preventDefault(); e.stopPropagation();
+          document.body.classList.toggle('dark-mode');
+          var isDark = document.body.classList.contains('dark-mode');
+          // Handle icon either self or child
+          var icon = (this.tagName === 'I') ? this : this.querySelector && this.querySelector('i');
+          if (icon) {
+            if (isDark) { icon.classList.remove('fa-moon'); icon.classList.add('fa-sun'); }
+            else { icon.classList.remove('fa-sun'); icon.classList.add('fa-moon'); }
+          }
+          try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch(_){}
+        });
+      }
+      // Delegated fallback (ensures teacher header also works even if element injected late)
+      if (!window.__themeDelegationBound) {
+        window.__themeDelegationBound = true;
+        document.addEventListener('click', function(ev){
+          var t = ev.target;
+          if (!t) return;
+          var isToggle = (t.id === 'themeToggle') || (t.closest && t.closest('#themeToggle'));
+          if (isToggle) {
+            ev.preventDefault(); ev.stopPropagation();
+            // Mirror the same logic as direct binding
+            document.body.classList.toggle('dark-mode');
+            var isDark = document.body.classList.contains('dark-mode');
+            var el = document.getElementById('themeToggle');
+            var icon = el && (el.tagName === 'I' ? el : (el.querySelector && el.querySelector('i')));
+            if (icon) {
+              if (isDark) { icon.classList.remove('fa-moon'); icon.classList.add('fa-sun'); }
+              else { icon.classList.remove('fa-sun'); icon.classList.add('fa-moon'); }
+            }
+            try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch(_){}
+          }
+        }, true);
+      }
+      // Settings dropdown
+      if (settingsIcon && settingsDropdown && !settingsIcon.__bound) {
+        settingsIcon.__bound = true;
+        settingsIcon.addEventListener('click', function(e){
+          e.preventDefault(); e.stopPropagation();
+          var cur = settingsDropdown.style.display || getComputedStyle(settingsDropdown).display;
+          settingsDropdown.style.display = (cur === 'none') ? 'block' : 'none';
+        });
+        document.addEventListener('click', function(e){
+          if (!settingsDropdown.contains(e.target) && e.target !== settingsIcon) {
+            settingsDropdown.style.display = 'none';
+          }
+        });
+      }
+    } catch(_) {}
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bind);

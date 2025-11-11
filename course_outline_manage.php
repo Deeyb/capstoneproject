@@ -1,4 +1,13 @@
 <?php
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
+
 // Start session first, before any other includes
 if (session_status() === PHP_SESSION_NONE) {
     // Robust session name detection to support legacy pages that started PHPSESSID
@@ -7,7 +16,7 @@ if (session_status() === PHP_SESSION_NONE) {
     if (!empty($_COOKIE[$preferred])) { session_name($preferred); }
     elseif (!empty($_COOKIE[$legacy])) { session_name($legacy); }
     else { session_name($preferred); }
-    session_start();
+    @session_start();
     // If user_id is still missing and the alternate cookie exists, switch to that session
     if (empty($_SESSION['user_id'])) {
         $current = session_name();
@@ -504,6 +513,12 @@ try {
                 $startAt = null; // Empty string = NULL (lock activity)
             }
             
+            // Handle empty string for due_at (when locking, also clear due_at)
+            $dueAt = isset($_POST['due_at']) ? trim($_POST['due_at']) : null;
+            if ($dueAt === '') {
+                $dueAt = null; // Empty string = NULL (clear due date when locking)
+            }
+            
             if ($isCoordinator || $isAdmin) {
                 // Full access for coordinators and admins
                 $updateData = [
@@ -511,7 +526,7 @@ try {
                     'instructions' => $_POST['instructions'] ?? null,
                     'type' => $incomingType,
                     'start_at' => $startAt,
-                    'due_at' => $_POST['due_at'] ?? null,
+                    'due_at' => $dueAt,
                     'max_score' => (int)($_POST['max_score'] ?? 100),
                     'required_construct' => isset($_POST['required_construct']) ? (string)$_POST['required_construct'] : null
                 ];
@@ -528,7 +543,7 @@ try {
                             'instructions' => $current['instructions'],
                             'type' => $current['type'],
                             'start_at' => $startAt, // Already handled above
-                            'due_at' => $_POST['due_at'] ?? null,
+                            'due_at' => $dueAt, // Already handled above
                             'max_score' => (int)($current['max_score'] ?? 100),
                             'required_construct' => $current['required_construct'] ?? null
                         ];

@@ -1,5 +1,27 @@
 <?php
-session_start();
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
+
+// Set session name before starting
+if (session_status() === PHP_SESSION_NONE) {
+    $preferred = 'CodeRegalSession';
+    $legacy = 'PHPSESSID';
+    if (!empty($_COOKIE[$preferred])) { 
+        session_name($preferred); 
+    } elseif (!empty($_COOKIE[$legacy])) { 
+        session_name($legacy); 
+    } else { 
+        session_name($preferred); 
+    }
+    @session_start();
+}
+
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/config/Database.php';
 require_once __DIR__ . '/classes/auth_helpers.php';
@@ -10,8 +32,12 @@ header('Content-Type: application/json');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? ($_POST['action'] ?? '');
 
-// Require authentication for all actions
-Auth::requireAuth();
+// Require authentication for all actions (check manually to avoid redirects)
+if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
+}
 
 // Build DB + service
 $db = (new Database())->getConnection();
@@ -32,9 +58,20 @@ try {
 
     if ($action === 'list') {
         // Only teachers can list their classes
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         
         $ownerId = (int)($_SESSION['user_id'] ?? 0);
+        if ($ownerId <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid user ID']);
+            exit;
+        }
+        
         $classes = $service->getClassesByOwner($ownerId);
         
         echo json_encode(['success' => true, 'classes' => $classes]);
@@ -42,7 +79,12 @@ try {
     }
 
     if ($action === 'list_archived') {
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         $ownerId = (int)($_SESSION['user_id'] ?? 0);
         $classes = $service->listArchivedClasses($ownerId);
         echo json_encode(['success' => true, 'classes' => $classes]);
@@ -51,7 +93,12 @@ try {
 
     if ($action === 'create') {
         // Only teachers can create classes
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
 
         // Support JSON or form
         $input = [];
@@ -84,7 +131,12 @@ try {
 
     if ($action === 'delete') {
         // Only teachers can delete their own classes (dev only)
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         $ownerId = (int)($_SESSION['user_id'] ?? 0);
         $classId = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
         if ($ownerId <= 0 || $classId <= 0) {
@@ -103,7 +155,12 @@ try {
     }
 
     if ($action === 'archive') {
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         $ownerId = (int)($_SESSION['user_id'] ?? 0);
         $classId = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
         if ($ownerId <= 0 || $classId <= 0) {
@@ -118,7 +175,12 @@ try {
     }
 
     if ($action === 'unarchive') {
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         $ownerId = (int)($_SESSION['user_id'] ?? 0);
         $classId = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
         if ($ownerId <= 0 || $classId <= 0) {
@@ -134,7 +196,12 @@ try {
 
     if ($action === 'save_outline_overrides') {
         // Only teachers can save outline overrides for their classes
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         
         $input = [];
         $raw = file_get_contents('php://input');
@@ -189,7 +256,12 @@ try {
 
     if ($action === 'load_outline_overrides') {
         // Only teachers can load outline overrides for their classes
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         
         $classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
         $courseId = isset($_GET['course_id']) ? (int)$_GET['course_id'] : 0;
@@ -231,7 +303,12 @@ try {
 
     if ($action === 'add_lesson_to_class') {
         // Only teachers can add lessons to their classes
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         
         $input = [];
         $raw = file_get_contents('php://input');
@@ -310,7 +387,12 @@ try {
 
     if ($action === 'add_topic_to_class') {
         // Only teachers can add topics to their classes
-        Auth::requireRole('teacher');
+        $userRole = strtolower($_SESSION['user_role'] ?? '');
+        if ($userRole !== 'teacher') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden - Teacher access required']);
+            exit;
+        }
         
         $input = [];
         $raw = file_get_contents('php://input');

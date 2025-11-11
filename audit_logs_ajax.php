@@ -1,5 +1,27 @@
 <?php
-session_start();
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
+
+// Set session name before starting
+if (session_status() === PHP_SESSION_NONE) {
+    $preferred = 'CodeRegalSession';
+    $legacy = 'PHPSESSID';
+    if (!empty($_COOKIE[$preferred])) { 
+        session_name($preferred); 
+    } elseif (!empty($_COOKIE[$legacy])) { 
+        session_name($legacy); 
+    } else { 
+        session_name($preferred); 
+    }
+    @session_start();
+}
+
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user_role']) || strtoupper($_SESSION['user_role']) !== 'ADMIN') {
@@ -18,7 +40,7 @@ try {
     $from = isset($_GET['from']) ? trim($_GET['from']) : '';
     $to = isset($_GET['to']) ? trim($_GET['to']) : '';
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-    $pageSize = isset($_GET['pageSize']) ? max(5, (int)$_GET['pageSize']) : 20;
+    $pageSize = isset($_GET['pageSize']) ? max(5, min(100, (int)$_GET['pageSize'])) : 20; // Cap at 100 for safety
     $sortBy = isset($_GET['sortBy']) ? $_GET['sortBy'] : 'id';
     $sortDir = isset($_GET['sortDir']) ? $_GET['sortDir'] : 'DESC';
     $offset = ($page - 1) * $pageSize;
@@ -46,6 +68,9 @@ try {
     $countStmt->execute($params);
     $totalCount = $countStmt->fetchColumn();
     
+    // Sanitize LIMIT and OFFSET (already integers, but ensure they're safe)
+    $pageSize = (int)$pageSize;
+    $offset = (int)$offset;
     $sql .= " ORDER BY $sortBy $sortDir LIMIT $pageSize OFFSET $offset";
 
     $stmt = $db->prepare($sql);

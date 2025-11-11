@@ -65,9 +65,30 @@ try {
                     
                     // For each lesson, get its activities
                     foreach ($lessons as &$lesson) {
-                        $aStmt = $db->prepare("SELECT id, title, type, max_score, instructions, start_at, due_at FROM lesson_activities WHERE lesson_id=? ORDER BY id ASC");
+                        // Check if 'type' column exists before selecting it
+                        $hasTypeColumn = false;
+                        try {
+                            $colCheck = $db->query("SHOW COLUMNS FROM lesson_activities LIKE 'type'");
+                            $hasTypeColumn = $colCheck->rowCount() > 0;
+                        } catch (Exception $e) {
+                            // Column check failed, assume it doesn't exist
+                        }
+                        
+                        $selectFields = ['id', 'title', 'max_score', 'instructions', 'start_at', 'due_at'];
+                        if ($hasTypeColumn) {
+                            $selectFields[] = 'type';
+                        }
+                        
+                        $aStmt = $db->prepare("SELECT " . implode(', ', $selectFields) . " FROM lesson_activities WHERE lesson_id=? ORDER BY id ASC");
                         $aStmt->execute([$lesson['id']]);
                         $activities = $aStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                        
+                        // Ensure 'type' field exists in result (default to 'multiple_choice' if column doesn't exist)
+                        foreach ($activities as &$act) {
+                            if (!isset($act['type'])) {
+                                $act['type'] = 'multiple_choice';
+                            }
+                        }
                         error_log("🔍 [API] Lesson {$lesson['id']} has " . count($activities) . " activities");
                         // Add availability status for each activity (but DON'T filter them out - show all activities)
                         $courseSvc = new CourseService($db);
@@ -257,12 +278,47 @@ try {
                 
                 error_log("🔍 DEBUG: Questions found for activity " . $activityId . ": " . json_encode($questions));
                 
-                // Get choices for each question
+                // Get choices and enrich metadata for each question
                 foreach ($questions as &$question) {
                     // If question doesn't have type, use activity type
                     if (!isset($question['type']) || empty($question['type'])) {
                         $question['type'] = $activity['type'];
                         error_log("🔍 DEBUG: Question " . $question['id'] . " using activity type: " . $activity['type']);
+                    }
+                    
+                    // Enrich with explanation/answer if available (needed for Identification/True-False grading on student side)
+                    try {
+                        // Try activity_questions first
+                        $metaStmt = $db->prepare("SELECT explanation, answer FROM activity_questions WHERE id = ? LIMIT 1");
+                        $metaStmt->execute([$question['id']]);
+                        $meta = $metaStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($meta && (isset($meta['explanation']) || isset($meta['answer']))) {
+                            if (isset($meta['explanation']) && $meta['explanation'] !== null) {
+                                $question['explanation'] = $meta['explanation'];
+                            }
+                            if (isset($meta['answer']) && $meta['answer'] !== null) {
+                                $question['answer'] = $meta['answer'];
+                            }
+                        } else {
+                            // Fallback to generic questions table if present
+                            try {
+                                $metaStmt2 = $db->prepare("SELECT explanation, answer FROM questions WHERE id = ? LIMIT 1");
+                                $metaStmt2->execute([$question['id']]);
+                                $meta2 = $metaStmt2->fetch(PDO::FETCH_ASSOC);
+                                if ($meta2) {
+                                    if (isset($meta2['explanation']) && $meta2['explanation'] !== null) {
+                                        $question['explanation'] = $meta2['explanation'];
+                                    }
+                                    if (isset($meta2['answer']) && $meta2['answer'] !== null) {
+                                        $question['answer'] = $meta2['answer'];
+                                    }
+                                }
+                            } catch (Throwable $e2) {
+                                // Ignore if table/columns don't exist
+                            }
+                        }
+                    } catch (Throwable $e1) {
+                        // Ignore if table/columns don't exist
                     }
                     
                     // Try multiple choice tables

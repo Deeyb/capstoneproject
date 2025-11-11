@@ -58,8 +58,9 @@
             console.log('No saved dark theme, using light theme');
         }
 
-        // Settings dropdown toggle
-        if (settingsIcon && settingsDropdown) {
+        // Settings dropdown toggle (guard against double-binding)
+        if (settingsIcon && settingsDropdown && !settingsIcon.__bound) {
+            settingsIcon.__bound = true;
             settingsIcon.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const current = settingsDropdown.style.display || window.getComputedStyle(settingsDropdown).display;
@@ -67,15 +68,19 @@
             });
 
             // Close dropdown when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!settingsDropdown.contains(e.target) && e.target !== settingsIcon) {
-                    settingsDropdown.style.display = 'none';
-                }
-            });
+            if (!window.__settingsOutsideCloseBound) {
+                window.__settingsOutsideCloseBound = true;
+                document.addEventListener('click', function(e) {
+                    if (settingsDropdown && !settingsDropdown.contains(e.target) && e.target !== settingsIcon) {
+                        settingsDropdown.style.display = 'none';
+                    }
+                });
+            }
         }
 
         // Theme toggle functionality
-        if (themeToggle) {
+        if (themeToggle && !themeToggle.__bound) {
+            themeToggle.__bound = true;
             console.log('Setting up theme toggle for:', themeToggle.tagName, themeToggle.id);
             themeToggle.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -303,9 +308,33 @@
     }
     // Dashboard widgets
     function updateDashboardStats() {
-        fetch('dashboard_stats_ajax.php')
-            .then(response => response.json())
+        // Only call this API if dashboard stats elements exist (admin/coordinator/teacher only)
+        const statTotalUsers = document.getElementById('statTotalUsers');
+        if (!statTotalUsers) {
+            // Dashboard stats elements don't exist (likely student dashboard), skip silently
+            return;
+        }
+        
+        fetch('dashboard_stats_ajax.php', { credentials: 'same-origin' })
+            .then(response => {
+                // Handle 403 Forbidden silently (expected for students/unauthorized users)
+                if (response.status === 403) {
+                    return null; // Silently skip for unauthorized users
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+                    });
+                }
+            })
             .then(data => {
+                if (!data) return; // Skip if 403 was returned
                 const statTotalUsers = document.getElementById('statTotalUsers');
                 if (statTotalUsers) statTotalUsers.textContent = data.totalUsers;
                 const statTotalStudents = document.getElementById('statTotalStudents');
@@ -317,7 +346,10 @@
                 const statActiveCourses = document.getElementById('statActiveCourses');
                 if (statActiveCourses) statActiveCourses.textContent = data.activeCourses;
             })
-            .catch(error => console.error('Error updating stats:', error));
+            .catch(error => {
+                // Only log to console, don't show notification (handled silently)
+                console.log('Dashboard stats update skipped (not available for this role)');
+            });
     }
 
     // Dashboard auto-refresh control
@@ -1531,6 +1563,7 @@
             sel.onchange = function() {
                 fetch('authorized_ids_manage.php', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: 'action=update_status&id=' + encodeURIComponent(this.getAttribute('data-id')) + '&status=' + encodeURIComponent(this.value)
                 }).then(() => {
@@ -1554,7 +1587,9 @@
                 const proceed = typeof showConfirm === 'function' ? showConfirm('Archive selected IDs?', doIt) : (confirm('Archive selected IDs?') && doIt());
                 function doIt(){
                     fetch('authorized_ids_manage.php', {
-                        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: 'action=bulk_archive&ids=' + encodeURIComponent(JSON.stringify(ids))
                     }).then(() => {
                         const params = new URLSearchParams(window.__authParams || {});
@@ -1572,7 +1607,9 @@
                 const proceed = typeof showConfirm === 'function' ? showConfirm('Unarchive selected IDs?', doIt) : (confirm('Unarchive selected IDs?') && doIt());
                 function doIt(){
                     fetch('authorized_ids_manage.php', {
-                        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: 'action=bulk_unarchive&ids=' + encodeURIComponent(JSON.stringify(ids))
                     }).then(() => {
                         const params = new URLSearchParams(window.__authParams || {});
@@ -1591,7 +1628,9 @@
                 const proceed = typeof showConfirm === 'function' ? showConfirm('Delete selected IDs? This cannot be undone.', doIt) : (confirm('Delete selected IDs? This cannot be undone.') && doIt());
                 function doIt(){
                     fetch('authorized_ids_manage.php', {
-                        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: 'action=bulk_delete&ids=' + encodeURIComponent(JSON.stringify(ids))
                     }).then(() => {
                         const params = new URLSearchParams(window.__authParams || {});
@@ -1612,6 +1651,7 @@
             btn.onclick = function() {
                 fetch('authorized_ids_manage.php', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: 'action=delete&id=' + encodeURIComponent(this.getAttribute('data-id'))
                 }).then(() => {
@@ -1640,6 +1680,7 @@
         function doArchiveAuthorizedId(id) {
                 fetch('authorized_ids_manage.php', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: 'action=archive&id=' + encodeURIComponent(id)
                 })
@@ -1693,6 +1734,7 @@
         function doUnarchiveAuthorizedId(id) {
                 fetch('authorized_ids_manage.php', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: 'action=unarchive&id=' + encodeURIComponent(id)
                 })
@@ -1736,6 +1778,7 @@
                 if (ids.length === 0) return;
                 fetch('authorized_ids_manage.php', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: 'action=bulk_delete&ids=' + encodeURIComponent(JSON.stringify(ids))
                 }).then(() => {
@@ -2238,7 +2281,7 @@
     if (typeof window !== 'undefined') {
         // Only set if notification_system.js hasn't already set it
         if (typeof window.showNotification === 'undefined') {
-            window.showNotification = showNotification;
+        window.showNotification = showNotification;
         }
     }
 
@@ -2706,11 +2749,31 @@
         }
 
         fetchData(params = {}) {
-            const url = new URL(this.dataUrl, window.location.origin);
+            // Construct URL properly - use current pathname as base
+            let urlStr = this.dataUrl;
+            if (!urlStr.startsWith('http') && !urlStr.startsWith('/')) {
+                // Relative URL - prepend current directory
+                const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+                urlStr = basePath + urlStr;
+            }
+            const url = new URL(urlStr, window.location.origin);
             Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
             
-            return fetch(url)
-                .then(response => response.json())
+            return fetch(url, { credentials: 'same-origin' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json();
+                    } else {
+                        // Server returned HTML instead of JSON (likely an error page)
+                        return response.text().then(text => {
+                            throw new Error('Server returned HTML instead of JSON. Response: ' + text.substring(0, 200));
+                        });
+                    }
+                })
                 .catch(err => {
                     console.error(`Error fetching analytics data for ${this.canvasId}:`, err);
                     return null;
@@ -3041,8 +3104,20 @@
 
     // Analytics Data Loading Functions
     function loadAnalyticsOverview() {
-        fetch('get_user_analytics.php?type=overview')
-            .then(response => response.json())
+        fetch('get_user_analytics.php?type=overview', { credentials: 'same-origin' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+                    });
+                }
+            })
             .then(data => {
                 if (data.error) {
                     console.error('Analytics overview error:', data.error);
@@ -3066,8 +3141,20 @@
     }
 
     function loadTopActiveUsers() {
-        fetch('get_user_analytics.php?type=top_active&limit=10')
-            .then(response => response.json())
+        fetch('get_user_analytics.php?type=top_active&limit=10', { credentials: 'same-origin' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+                    });
+                }
+            })
             .then(data => {
                 const container = document.getElementById('topActiveUsersList');
                 if (!container) return;
@@ -3097,8 +3184,20 @@
 
     function loadRoleActivitySummary() {
         const days = document.getElementById('analyticsTimeRange')?.value || 30;
-        fetch('get_user_analytics.php?type=activity_summary&days=' + encodeURIComponent(days))
-            .then(response => response.json())
+        fetch('get_user_analytics.php?type=activity_summary&days=' + encodeURIComponent(days), { credentials: 'same-origin' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+                    });
+                }
+            })
             .then(data => {
                 const container = document.getElementById('roleActivitySummary');
                 if (!container) return;
@@ -3213,7 +3312,9 @@
                 return;
             }
             fetch('authorized_ids_manage.php', {
-                method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                method:'POST',
+                credentials: 'same-origin',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
                 body: 'action=create&id_number=' + encodeURIComponent(value) + '&status=active'
             })
             .then(() => {
@@ -3238,7 +3339,9 @@
                 return;
             }
             fetch('authorized_ids_manage.php', {
-                method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                method:'POST',
+                credentials: 'same-origin',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
                 body: 'action=edit&id=' + encodeURIComponent(id) + '&id_number=' + encodeURIComponent(value)
             })
             .then(() => {
@@ -3670,8 +3773,20 @@
         if (!document.getElementById('preferencesForm')) {
             return;
         }
-        fetch('profile_action.php?action=get_preferences')
-            .then(response => response.json())
+        fetch('profile_action.php?action=get_preferences', { credentials: 'same-origin' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+                    });
+                }
+            })
             .then(data => {
                 if (data.success && data.preferences) {
                     const prefs = data.preferences;
@@ -4250,8 +4365,16 @@ window.toggleSidebarMinimize = function() {
 function initCoordinatorDashboard() {
   // If the Coordinator v2 script controls the dashboard, skip legacy init
   if (window.__CR_COORDINATOR_V2 === true) return;
-  // Initialize sidebar navigation
+  
+  // Only initialize coordinator dashboard if coordinator-specific elements exist
+  // Admins don't have these elements, so this prevents unnecessary API calls
   const sidebarNav = document.getElementById('coordinatorSidebarNav');
+  if (!sidebarNav) {
+    // Not a coordinator dashboard, skip initialization
+    return;
+  }
+  
+  // Initialize sidebar navigation
   if (sidebarNav) {
     sidebarNav.addEventListener('click', function(e) {
       const li = e.target.closest('li[data-section]');
@@ -4268,23 +4391,25 @@ function initCoordinatorDashboard() {
     });
   }
 
-  // Initialize settings dropdown
+  // Initialize settings dropdown (guard against double-binding)
   const settingsIcon = document.getElementById('settingsIcon');
   const settingsDropdown = document.getElementById('settingsDropdown');
-  if (settingsIcon && settingsDropdown) {
+  if (settingsIcon && settingsDropdown && !settingsIcon.__bound) {
+    settingsIcon.__bound = true;
     settingsIcon.addEventListener('click', function(e) {
       e.stopPropagation();
-      const currentDisplay = settingsDropdown.style.display;
+      const currentDisplay = settingsDropdown.style.display || getComputedStyle(settingsDropdown).display;
       settingsDropdown.style.display = currentDisplay === 'block' ? 'none' : 'block';
     });
-
+  }
+  if (settingsDropdown && !window.__settingsOutsideCloseBound) {
+    window.__settingsOutsideCloseBound = true;
     // Close dropdown when clicking outside
     document.addEventListener('click', function(e) {
       if (!settingsDropdown.contains(e.target) && e.target !== settingsIcon) {
         settingsDropdown.style.display = 'none';
       }
     });
-
     // Close dropdown when pressing Escape key
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
@@ -4480,9 +4605,24 @@ function initCoordinatorProfile() {
 function loadCoordinatorDashboardData() {
   // If the Coordinator v2 script controls the dashboard, skip legacy rendering
   if (window.__CR_COORDINATOR_V2 === true) return;
+  
+  // Only load coordinator data if user is actually a coordinator
+  // Check if coordinator-specific elements exist (they won't exist for admins)
+  const coordContainer = document.getElementById('coordRecentlyRegistered');
+  if (!coordContainer) {
+    // Not a coordinator dashboard, skip loading coordinator data
+    return;
+  }
+  
   // Load dashboard stats
   fetch('coordinator_dashboard_counts.php', { credentials: 'same-origin' })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) {
+        // If 403 or other error, don't try to parse JSON
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      return r.json();
+    })
     .then(data => {
       if (data.success) {
         const elements = {
@@ -4503,7 +4643,13 @@ function loadCoordinatorDashboardData() {
 
   // Load recently registered
   fetch('coordinator_recent_registrations.php', { credentials: 'same-origin' })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) {
+        // If 403 or other error, don't try to parse JSON
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      return r.json();
+    })
     .then(data => {
       const container = document.getElementById('coordRecentlyRegistered');
       if (container) {
@@ -4529,7 +4675,13 @@ function loadCoordinatorDashboardData() {
 
   // Load recently login
   fetch('coordinator_recent_logins.php', { credentials: 'same-origin' })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) {
+        // If 403 or other error, don't try to parse JSON
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      return r.json();
+    })
     .then(data => {
       const container = document.getElementById('coordRecentlyLogin');
       if (container) {
@@ -4695,4 +4847,37 @@ if (document.readyState === 'loading') {
 } else {
   initCoordinatorDashboard();
 }
+
+// Hide "Unauthorized" notifications/banners
+(function hideUnauthorizedNotifications() {
+  function hideUnauthorized() {
+    // Hide elements containing "Unauthorized" text
+    const allElements = document.querySelectorAll('*');
+    allElements.forEach(el => {
+      if (el.textContent && el.textContent.trim() === 'Unauthorized') {
+        el.style.display = 'none';
+      }
+    });
+    
+    // Hide .empty-state elements that contain "Unauthorized"
+    const emptyStates = document.querySelectorAll('.empty-state');
+    emptyStates.forEach(el => {
+      if (el.textContent && el.textContent.includes('Unauthorized')) {
+        el.style.display = 'none';
+      }
+    });
+  }
+  
+  // Run immediately and on DOM ready
+  hideUnauthorized();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hideUnauthorized);
+  } else {
+    setTimeout(hideUnauthorized, 100);
+  }
+  
+  // Also hide on any dynamic content updates
+  const observer = new MutationObserver(hideUnauthorized);
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
 

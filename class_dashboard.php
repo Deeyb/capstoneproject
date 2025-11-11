@@ -1,5 +1,26 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
+
+// Set session name before starting
+if (session_status() === PHP_SESSION_NONE) {
+    $preferred = 'CodeRegalSession';
+    $legacy = 'PHPSESSID';
+    if (!empty($_COOKIE[$preferred])) { 
+        session_name($preferred); 
+    } elseif (!empty($_COOKIE[$legacy])) { 
+        session_name($legacy); 
+    } else { 
+        session_name($preferred); 
+    }
+    @session_start();
+}
 require_once __DIR__ . '/config/Database.php';
 require_once __DIR__ . '/classes/auth_helpers.php';
 Auth::requireAuth();
@@ -294,7 +315,12 @@ if ($userRole === 'student') {
             <div class="card-header-row">
               <h3>Leaderboards</h3>
             </div>
-            <div style="padding: 12px; color:#6b7280;">Coming soon.</div>
+            <div id="class-leaderboards-content" style="padding: 12px;">
+              <div style="text-align:center;padding:40px;color:#6b7280;">
+                <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#1d9b3e;margin-bottom:16px;"></i>
+                <p style="color:#6b7280;font-size:14px;">Loading leaderboards...</p>
+              </div>
+            </div>
           </div>
         </section>
       </div>

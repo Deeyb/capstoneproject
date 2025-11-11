@@ -1,4 +1,13 @@
 <?php
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
+
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/classes/auth_helpers.php';
 if (session_status() === PHP_SESSION_NONE) {
@@ -8,7 +17,7 @@ if (session_status() === PHP_SESSION_NONE) {
     if (!empty($_COOKIE[$preferred])) { session_name($preferred); }
     elseif (!empty($_COOKIE[$legacy])) { session_name($legacy); }
     else { session_name($preferred); }
-    session_start();
+    @session_start();
     if (empty($_SESSION['user_id'])) {
         $current = session_name();
         $alt = ($current === $preferred) ? $legacy : $preferred;

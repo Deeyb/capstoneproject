@@ -4,6 +4,28 @@
  * Using exact same design as teacher/coordinator/admin dashboards
  */
 
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
+
+// Set session name before starting
+if (session_status() === PHP_SESSION_NONE) {
+    $preferred = 'CodeRegalSession';
+    $legacy = 'PHPSESSID';
+    if (!empty($_COOKIE[$preferred])) { 
+        session_name($preferred); 
+    } elseif (!empty($_COOKIE[$legacy])) { 
+        session_name($legacy); 
+    } else { 
+        session_name($preferred); 
+    }
+}
+
 // Configure session cookie parameters
 session_set_cookie_params([
     'lifetime' => 0,
@@ -14,7 +36,7 @@ session_set_cookie_params([
     'samesite' => 'Lax'
 ]);
 
-session_start();
+@session_start();
 require_once 'config.php';
 require_once 'classes/auth_helpers.php';
 require_once __DIR__ . '/config/Database.php';
@@ -269,7 +291,16 @@ $current_section = $_GET['section'] ?? 'myclasses';
         <h2 class="section-title">Leaderboards</h2>
       </div>
       <div class="leaderboards-content">
-        <p>Leaderboards content will be here...</p>
+        <div style="text-align:center;padding:60px 40px;color:#6b7280;">
+          <i class="fas fa-graduation-cap" style="font-size:64px;color:#d1d5db;margin-bottom:20px;"></i>
+          <h3 style="font-size:20px;font-weight:600;color:#374151;margin:0 0 12px 0;">View Leaderboards by Class</h3>
+          <p style="font-size:16px;margin:0 0 24px 0;color:#6b7280;">
+            Leaderboards are organized per class. Please select a class from "My Classes" to view the leaderboards for that class.
+          </p>
+          <p style="font-size:14px;margin:0;color:#9ca3af;">
+            Click on a class to open it, then navigate to the "Leaderboards" tab.
+          </p>
+        </div>
       </div>
     </div>
 

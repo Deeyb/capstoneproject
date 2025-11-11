@@ -16,11 +16,22 @@ class ActivityProgressService {
         $this->validateActivityId($activityId);
         $this->validateUserId($userId);
         
+        // Check if 'type' column exists in lesson_activities
+        $hasTypeColumn = false;
+        try {
+            $colCheck = $this->db->query("SHOW COLUMNS FROM lesson_activities LIKE 'type'");
+            $hasTypeColumn = $colCheck->rowCount() > 0;
+        } catch (Exception $e) {
+            // Column check failed, assume it doesn't exist
+        }
+        
+        $selectFields = ['ap.*', 'la.title as activity_title'];
+        if ($hasTypeColumn) {
+            $selectFields[] = 'la.type as activity_type';
+        }
+        
         $stmt = $this->db->prepare("
-            SELECT 
-                ap.*,
-                la.title as activity_title,
-                la.type as activity_type
+            SELECT " . implode(', ', $selectFields) . "
             FROM activity_progress ap
             JOIN lesson_activities la ON ap.activity_id = la.id
             WHERE ap.activity_id = ? AND ap.user_id = ?

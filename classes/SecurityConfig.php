@@ -29,17 +29,47 @@ class SecurityConfig {
     private static function configureSession() {
         // Only set session ini settings if session is not active
         if (session_status() === PHP_SESSION_NONE) {
+            // Fix session path permission issues on XAMPP
+            // Only set if not already set (allows login.php to set it first)
+            $currentSavePath = ini_get('session.save_path');
+            if (empty($currentSavePath) || $currentSavePath === 'C:\\xampp\\tmp' || strpos($currentSavePath, 'xampp\\tmp') !== false) {
+                $sessionPath = __DIR__ . '/../sessions';
+                
+                // Create sessions directory if it doesn't exist
+                if (!is_dir($sessionPath)) {
+                    @mkdir($sessionPath, 0777, true);
+                }
+                
+                // Only set custom path if directory is writable
+                if (is_dir($sessionPath) && is_writable($sessionPath)) {
+                    ini_set('session.save_path', $sessionPath);
+                }
+            }
+            
+            // Set session name BEFORE starting (respect existing session name if set)
+            $currentSessionName = session_name();
+            if ($currentSessionName === 'PHPSESSID' || empty($currentSessionName)) {
+                // Only change if it's the default or empty
+                // Try to use existing cookie first
+                $preferred = 'CodeRegalSession';
+                $legacy = 'PHPSESSID';
+                if (!empty($_COOKIE[$preferred])) { 
+                    session_name($preferred); 
+                } elseif (!empty($_COOKIE[$legacy])) { 
+                    session_name($legacy); 
+                } else { 
+                    session_name($preferred); 
+                }
+            }
+            
             ini_set('session.cookie_httponly', 1);
             ini_set('session.cookie_secure', self::isHttps() ? 1 : 0);
             ini_set('session.cookie_samesite', 'Lax');
             ini_set('session.use_strict_mode', 1);
             ini_set('session.cookie_lifetime', 0); // Session cookie
 
-            // Set session name
-            session_name('CodeRegalSession');
-
-            // Start session
-            session_start();
+            // Start session (suppress warnings for permission issues)
+            @session_start();
         }
 
         // Regenerate session ID periodically for security
@@ -55,8 +85,8 @@ class SecurityConfig {
      * Set security headers
      */
     private static function setSecurityHeaders() {
-        // Prevent clickjacking
-        header('X-Frame-Options: DENY');
+        // Prevent clickjacking but allow same-origin embeds (needed for in-app material previews)
+        header('X-Frame-Options: SAMEORIGIN');
         
         // Prevent MIME type sniffing
         header('X-Content-Type-Options: nosniff');
@@ -74,7 +104,8 @@ class SecurityConfig {
         $csp .= "font-src 'self' data: blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com; ";
         $csp .= "img-src 'self' data: https:; ";
         $csp .= "worker-src 'self' blob: data: https://cdn.jsdelivr.net; "; // Allow web workers for Monaco Editor
-        $csp .= "child-src 'self' blob:; "; // Allow iframes (if needed)
+        $csp .= "child-src 'self' blob:; "; // Legacy directive for iframes
+        $csp .= "frame-ancestors 'self'; "; // Modern directive controlling who can embed our pages
         $csp .= "connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com;";
         
         header("Content-Security-Policy: $csp");

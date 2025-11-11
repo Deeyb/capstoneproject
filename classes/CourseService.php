@@ -230,7 +230,7 @@ class CourseService {
         $sql = "SELECT c.*, 
                 (SELECT COUNT(*) FROM course_modules m WHERE m.course_id=c.id) AS modules_count,
                 (SELECT COUNT(*) FROM course_lessons l JOIN course_modules m2 ON l.module_id=m2.id WHERE m2.course_id=c.id) AS lessons_count
-                FROM courses c WHERE c.archived = ?";
+                FROM courses c WHERE COALESCE(c.archived, 0) = ?";
         $params = [$archived ? 1 : 0];
         if ($search !== '') { $sql .= " AND (c.title LIKE ? OR c.code LIKE ?)"; $term = "%$search%"; $params[]=$term; $params[]=$term; }
         if ($status !== '') { $sql .= " AND c.status = ?"; $params[] = $status; }
@@ -739,7 +739,9 @@ class CourseService {
             error_log("[GET_ACTIVITY] TC $idx: points=" . ($tc['points'] ?? 'NULL') . ", is_sample=" . ($tc['is_sample'] ?? 'NULL'));
         }
         // Attach questions/choices for MCQ/quiz/upload_based
-        if (in_array($a['type'], ['multiple_choice','quiz','true_false','identification','essay','upload_based'], true)) {
+        // Handle missing 'type' column gracefully
+        $activityType = $a['type'] ?? 'multiple_choice'; // Default to multiple_choice if type column doesn't exist
+        if (in_array($activityType, ['multiple_choice','quiz','true_false','identification','essay','upload_based'], true)) {
             $qStmt = $this->db->prepare("SELECT * FROM activity_questions WHERE activity_id=? ORDER BY position ASC, id ASC");
             $cStmt = $this->db->prepare("SELECT * FROM question_choices WHERE question_id=? ORDER BY position ASC, id ASC");
             $qStmt->execute([$id]);
@@ -749,6 +751,10 @@ class CourseService {
                 $q['choices'] = $cStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
             }
             $a['questions'] = $questions;
+        }
+        // Ensure 'type' is set even if column doesn't exist
+        if (!isset($a['type'])) {
+            $a['type'] = 'multiple_choice'; // Default type
         }
         return $a;
     }

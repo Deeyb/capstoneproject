@@ -11,6 +11,10 @@ document.addEventListener('DOMContentLoaded', function() {
   
   if (userRole && userRole.toLowerCase() === 'student') {
     initializeStudentView();
+    // Initialize improvements after a delay to ensure content is loaded
+    setTimeout(function() {
+      initializeActivityImprovements();
+    }, 2000);
   } else {
     initializeTeacherView();
   }
@@ -171,7 +175,7 @@ class ActivityManager {
     const modalTitle = isRetakerMode ? 'Set Due Date & Retakers' : 'Set Due Date';
     const modalIcon = isRetakerMode ? 'fa-calendar-alt' : 'fa-calendar';
     
-    const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+    const fontStack = "'Inter', sans-serif";
     
     this.modal.innerHTML = `
       <div class="modal-card" style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.15);font-family:${fontStack};">
@@ -258,7 +262,7 @@ class ActivityManager {
         { id: 4, name: 'Sarah Wilson', email: 'sarah@example.com', selected: false }
       ];
 
-      const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+      const fontStack = "'Inter', sans-serif";
       const studentList = document.getElementById('studentList');
       studentList.innerHTML = students.map(student => `
         <label style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:4px;cursor:pointer;transition:background-color 0.2s;font-family:${fontStack};" 
@@ -272,7 +276,7 @@ class ActivityManager {
         </label>
       `).join('');
     } catch (error) {
-      const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+      const fontStack = "'Inter', sans-serif";
       document.getElementById('studentList').innerHTML = `<p style="color:#ef4444;text-align:center;font-family:${fontStack};">Error loading students</p>`;
     }
   }
@@ -570,6 +574,13 @@ class ActivityTester {
     this.startTime = null;
     this.options = {}; // Store preview options
     this.codingContext = null;
+    
+    // Two-tier storage system
+    this.attemptId = null; // For final submission
+    this.saveTimeout = null; // For debouncing
+    this.debounceDelay = 2000; // 2 seconds
+    this.isStudent = false; // Track if this is student view
+    this.retryQueue = []; // For failed saves
   }
 
   // Show try answering modal
@@ -740,13 +751,27 @@ class ActivityTester {
     document.body.appendChild(this.modal);
     // Use requestAnimationFrame to ensure DOM is fully rendered
     requestAnimationFrame(() => {
+      // Track if this is student view
+      this.isStudent = (window.__USER_ROLE__ || '').toLowerCase() === 'student';
+      
+      // Initialize start time for leaderboard
+      if (!this.startTime) {
+        this.startTime = new Date();
+      }
+      
       this.loadQuestions();
       this.startTimer();
+      
+      // Load existing progress (draft + localStorage)
+      this.loadExistingProgress();
       
       // In preview mode, add answer tracking for progress
       if (this.options && this.options.preview) {
         this.bindPreviewAnswerTracking();
       }
+      
+      // Retry any failed saves on page load
+      this.retryFailedSaves();
     });
   }
 
@@ -1078,7 +1103,7 @@ class ActivityTester {
             <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || question.question || 'Question text not available'}</p>
           </div>
           
-          ${this.renderQuestionInput(question, index)}
+          ${this.renderQuestionInput(question, question.id || question._id || index)}
         </div>
       `;
     });
@@ -1153,39 +1178,42 @@ class ActivityTester {
 
   // Render question input based on question type
   renderQuestionInput(question, questionIndex) {
+    // Use actual question ID if available, otherwise fallback to index
+    const questionId = question.id || question._id || questionIndex;
+    
     // Check for question type from multiple possible sources
     const questionType = question.type || question.activity_type || this.currentActivity?.type || 'multiple_choice';
     
     let result;
     switch (questionType) {
       case 'multiple_choice':
-        result = this.renderMultipleChoiceInput(question, questionIndex);
+        result = this.renderMultipleChoiceInput(question, questionId);
         break;
       case 'true_false':
-        result = this.renderTrueFalseInput(question, questionIndex);
+        result = this.renderTrueFalseInput(question, questionId);
         break;
       case 'identification':
-        result = this.renderIdentificationInput(question, questionIndex);
+        result = this.renderIdentificationInput(question, questionId);
         break;
       case 'essay':
-        result = this.renderEssayInput(question, questionIndex);
+        result = this.renderEssayInput(question, questionId);
         break;
       case 'upload_based':
       case 'UPLOAD_BASED':
-        result = this.renderUploadInput(question, questionIndex);
+        result = this.renderUploadInput(question, questionId);
         break;
       default:
-        result = this.renderMultipleChoiceInput(question, questionIndex);
+        result = this.renderMultipleChoiceInput(question, questionId);
     }
     
     return result;
   }
 
   // Render multiple choice input
-  renderMultipleChoiceInput(question, questionIndex) {
+  renderMultipleChoiceInput(question, questionId) {
     const choices = question.choices || [];
     console.log('🔍 [TEACHER] renderMultipleChoiceInput called:', {
-      questionIndex: questionIndex,
+      questionId: questionId,
       question: question,
       choices: choices,
       choicesCount: choices.length
@@ -1212,10 +1240,10 @@ class ActivityTester {
       });
       
       choicesHtml += `
-        <div class="choice-container" data-question="${questionIndex}" data-choice="${choice.id}" 
+        <div class="choice-container" data-question="${questionId}" data-choice="${choice.id}" 
              style="margin-bottom:16px;padding:16px;border:1px solid #e9ecef;border-radius:8px;background:#f8f9fa;cursor:pointer;transition:all 0.2s ease;">
           <label style="display:flex;align-items:center;cursor:pointer;margin:0;">
-            <input type="radio" name="question_${questionIndex}" value="${choice.id}" 
+            <input type="radio" name="question_${questionId}" value="${choice.id}" 
                    style="margin-right:16px;transform:scale(1.3);">
             <span style="flex:1;font-size:15px;line-height:1.6;">
               <strong>${choiceLabel}.</strong> ${choiceText}
@@ -1229,7 +1257,7 @@ class ActivityTester {
       <div style="margin-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <h4 style="margin:0;color:#333;font-size:16px;">Select your answer:</h4>
-          <button type="button" onclick="window.activityTester.clearAnswer('${questionIndex}')" 
+          <button type="button" onclick="window.activityTester.clearAnswer(${questionId})" 
                   style="background:#f8f9fa;color:#6c757d;border:1px solid #dee2e6;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;transition:all 0.2s;"
                   onmouseover="this.style.background='#e9ecef';this.style.borderColor='#adb5bd';"
                   onmouseout="this.style.background='#f8f9fa';this.style.borderColor='#dee2e6';">
@@ -1242,19 +1270,60 @@ class ActivityTester {
   }
 
   // Render true/false input
-  renderTrueFalseInput(question, questionIndex) {
+  // CRITICAL: Use choice IDs like Multiple Choice, not boolean values
+  renderTrueFalseInput(question, questionId) {
+    const choices = question.choices || [];
+    
+    // Find True and False choices
+    let trueChoice = null;
+    let falseChoice = null;
+    
+    choices.forEach((choice) => {
+      const choiceText = String(choice.choice_text || choice.text || '').toLowerCase().trim();
+      if (choiceText === 'true' || choiceText === '1') {
+        trueChoice = choice;
+      } else if (choiceText === 'false' || choiceText === '0') {
+        falseChoice = choice;
+      }
+    });
+    
+    // Fallback: if choices not found, use first two choices (assume first is True, second is False)
+    if (!trueChoice && choices.length > 0) {
+      trueChoice = choices[0];
+    }
+    if (!falseChoice && choices.length > 1) {
+      falseChoice = choices[1];
+    }
+    
+    // If still no choices, create placeholder IDs (shouldn't happen, but safety fallback)
+    const trueChoiceId = trueChoice ? trueChoice.id : 'true';
+    const falseChoiceId = falseChoice ? falseChoice.id : 'false';
+    
+    // Get current answer (might be choice ID or boolean)
+    const currentAnswer = this.answers[questionId];
+    const trueChecked = (currentAnswer === trueChoiceId || currentAnswer === true || currentAnswer === 'true') ? 'checked' : '';
+    const falseChecked = (currentAnswer === falseChoiceId || currentAnswer === false || currentAnswer === 'false') ? 'checked' : '';
+    
+    // CRITICAL: Ensure choice IDs are numbers (not strings) for proper submission
+    const trueId = typeof trueChoiceId === 'number' ? trueChoiceId : parseInt(trueChoiceId, 10);
+    const falseId = typeof falseChoiceId === 'number' ? falseChoiceId : parseInt(falseChoiceId, 10);
+    
     return `
       <div style="margin-top:20px;">
         <h4 style="margin:0 0 16px 0;color:#333;font-size:16px;">Select your answer:</h4>
         <div style="display:flex;gap:16px;">
-          <div class="choice-container" data-question="${questionIndex}" data-choice="true" 
-               style="display:flex;align-items:center;padding:12px 24px;border:1px solid #e9ecef;border-radius:6px;background:#f8f9fa;cursor:pointer;flex:1;justify-content:center;transition:all 0.2s ease;">
-            <input type="radio" name="question_${questionIndex}" value="true" style="margin-right:8px;transform:scale(1.2);">
+          <div class="choice-container" data-question="${questionId}" data-choice="${trueId}" 
+               style="display:flex;align-items:center;padding:12px 24px;border:1px solid #e9ecef;border-radius:6px;background:#f8f9fa;cursor:pointer;flex:1;justify-content:center;transition:all 0.2s ease;"
+               onclick="window.activityTester.saveAnswer(${questionId}, ${trueId})">
+            <input type="radio" name="question_${questionId}" value="${trueId}" ${trueChecked} style="margin-right:8px;transform:scale(1.2);"
+                   onchange="window.activityTester.saveAnswer(${questionId}, ${trueId})">
             <span style="font-size:16px;font-weight:600;color:#28a745;">TRUE</span>
           </div>
-          <div class="choice-container" data-question="${questionIndex}" data-choice="false" 
-               style="display:flex;align-items:center;padding:12px 24px;border:1px solid #e9ecef;border-radius:6px;background:#f8f9fa;cursor:pointer;flex:1;justify-content:center;transition:all 0.2s ease;">
-            <input type="radio" name="question_${questionIndex}" value="false" style="margin-right:8px;transform:scale(1.2);">
+          <div class="choice-container" data-question="${questionId}" data-choice="${falseId}" 
+               style="display:flex;align-items:center;padding:12px 24px;border:1px solid #e9ecef;border-radius:6px;background:#f8f9fa;cursor:pointer;flex:1;justify-content:center;transition:all 0.2s ease;"
+               onclick="window.activityTester.saveAnswer(${questionId}, ${falseId})">
+            <input type="radio" name="question_${questionId}" value="${falseId}" ${falseChecked} style="margin-right:8px;transform:scale(1.2);"
+                   onchange="window.activityTester.saveAnswer(${questionId}, ${falseId})">
             <span style="font-size:16px;font-weight:600;color:#dc3545;">FALSE</span>
           </div>
         </div>
@@ -1263,27 +1332,29 @@ class ActivityTester {
   }
 
   // Render identification input
-  renderIdentificationInput(question, questionIndex) {
+  renderIdentificationInput(question, questionId) {
+    const value = this.answers[questionId] || '';
     return `
       <div style="margin-top:20px;">
         <h4 style="margin:0 0 16px 0;color:#333;font-size:16px;">Type your answer:</h4>
-        <input type="text" name="question_${questionIndex}" 
+        <input type="text" name="question_${questionId}" value="${escapeHtml(value)}"
                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:16px;font-family:'Inter',sans-serif;"
                placeholder="Enter your answer here..."
-               oninput="window.activityTester.saveAnswer('${questionIndex}', this.value)">
+               oninput="window.activityTester.saveAnswer(${questionId}, this.value)">
       </div>
     `;
   }
 
   // Render essay input
-  renderEssayInput(question, questionIndex) {
+  renderEssayInput(question, questionId) {
+    const value = this.answers[questionId] || '';
     return `
       <div style="margin-top:20px;">
         <h4 style="margin:0 0 16px 0;color:#333;font-size:16px;">Write your answer:</h4>
-        <textarea name="question_${questionIndex}" rows="6" 
+        <textarea name="question_${questionId}" rows="6" 
                   style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:16px;font-family:'Inter',sans-serif;resize:vertical;"
                   placeholder="Write your essay answer here..."
-                  oninput="window.activityTester.saveAnswer('${questionIndex}', this.value)"></textarea>
+                  oninput="window.activityTester.saveAnswer(${questionId}, this.value)">${escapeHtml(value)}</textarea>
       </div>
     `;
   }
@@ -2285,25 +2356,59 @@ class ActivityTester {
   }
 
   // Render true/false question
+  // CRITICAL: Use choice IDs like Multiple Choice, not boolean values
   renderTrueFalse(question) {
-    const trueChecked = this.answers[question.id] === true ? 'checked' : '';
-    const falseChecked = this.answers[question.id] === false ? 'checked' : '';
+    const choices = question.choices || question.options || [];
+    
+    // Find True and False choices
+    let trueChoice = null;
+    let falseChoice = null;
+    
+    choices.forEach((choice) => {
+      const choiceText = String(choice.choice_text || choice.text || choice || '').toLowerCase().trim();
+      if (choiceText === 'true' || choiceText === '1') {
+        trueChoice = choice;
+      } else if (choiceText === 'false' || choiceText === '0') {
+        falseChoice = choice;
+      }
+    });
+    
+    // Fallback: if choices not found, use first two choices (assume first is True, second is False)
+    if (!trueChoice && choices.length > 0) {
+      trueChoice = choices[0];
+    }
+    if (!falseChoice && choices.length > 1) {
+      falseChoice = choices[1];
+    }
+    
+    // If still no choices, create placeholder IDs (shouldn't happen, but safety fallback)
+    const trueChoiceId = trueChoice ? (trueChoice.id || trueChoice) : 'true';
+    const falseChoiceId = falseChoice ? (falseChoice.id || falseChoice) : 'false';
+    
+    // CRITICAL: Ensure choice IDs are numbers (not strings) for proper submission
+    const trueId = typeof trueChoiceId === 'number' ? trueChoiceId : (typeof trueChoiceId === 'string' && /^\d+$/.test(trueChoiceId) ? parseInt(trueChoiceId, 10) : trueChoiceId);
+    const falseId = typeof falseChoiceId === 'number' ? falseChoiceId : (typeof falseChoiceId === 'string' && /^\d+$/.test(falseChoiceId) ? parseInt(falseChoiceId, 10) : falseChoiceId);
+    
+    // Get current answer (might be choice ID or boolean)
+    const currentAnswer = this.answers[question.id];
+    const trueChecked = (currentAnswer === trueId || currentAnswer === true || currentAnswer === 'true' || String(currentAnswer) === String(trueId)) ? 'checked' : '';
+    const falseChecked = (currentAnswer === falseId || currentAnswer === false || currentAnswer === 'false' || String(currentAnswer) === String(falseId)) ? 'checked' : '';
     
     return `
       <div class="options" style="display:flex;gap:20px;">
         <label style="display:flex;align-items:center;gap:8px;padding:12px 20px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;transition:all 0.2s;" 
                onmouseover="this.style.backgroundColor='#f8fafc'" 
                onmouseout="this.style.backgroundColor='transparent'">
-          <input type="radio" name="question_${question.id}" value="true" ${trueChecked} 
-                 onchange="window.activityTester.saveAnswer(${question.id}, true)" 
+          <input type="radio" name="question_${question.id}" value="${trueId}" ${trueChecked} 
+                 onchange="window.activityTester.saveAnswer(${question.id}, ${trueId})" 
                  style="transform:scale(1.2);">
           <span style="color:#374151;font-size:15px;font-weight:600;">True</span>
         </label>
         <label style="display:flex;align-items:center;gap:8px;padding:12px 20px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;transition:all 0.2s;" 
                onmouseover="this.style.backgroundColor='#f8fafc'" 
                onmouseout="this.style.backgroundColor='transparent'">
-          <input type="radio" name="question_${question.id}" value="false" ${falseChecked} 
-                 onchange="window.activityTester.saveAnswer(${question.id}, false)" 
+          <input type="radio" name="question_${question.id}" value="${falseId}" ${falseChecked} 
+                 onchange="window.activityTester.saveAnswer(${question.id}, ${falseId})" 
                  style="transform:scale(1.2);">
           <span style="color:#374151;font-size:15px;font-weight:600;">False</span>
         </label>
@@ -2684,22 +2789,134 @@ class ActivityTester {
 
   // Save answer
   saveAnswer(questionId, answer) {
-    // If answer is empty or just whitespace, remove it from answers
-    if (!answer || answer.trim() === '') {
+    // Normalize answer based on type
+    let processedAnswer = answer;
+    
+    if (processedAnswer === null || processedAnswer === undefined) {
       delete this.answers[questionId];
       console.log('🔍 DEBUG: Empty answer removed for question', questionId);
-    } else {
-      this.answers[questionId] = answer;
-      console.log('🔍 DEBUG: Answer saved for question', questionId, ':', answer);
+      this.updateProgress();
+      this.saveToLocalStorage();
+      this.debouncedSaveProgress();
+      return;
     }
+    
+    if (typeof processedAnswer === 'string') {
+      processedAnswer = processedAnswer.trim();
+      if (processedAnswer === '') {
+        delete this.answers[questionId];
+        console.log('🔍 DEBUG: Blank string answer removed for question', questionId);
+        this.updateProgress();
+        this.saveToLocalStorage();
+        this.debouncedSaveProgress();
+        return;
+      }
+    }
+    
+    // CRITICAL: For choice-based questions (MCQ, True/False), answer should be a number (choice ID)
+    // Convert string numbers to actual numbers to ensure consistency
+    if (typeof processedAnswer === 'string' && /^\d+$/.test(processedAnswer)) {
+      // String that looks like a number - convert to number (for choice IDs)
+      processedAnswer = parseInt(processedAnswer, 10);
+      console.log('🔍 DEBUG: Converted string choice ID to number:', processedAnswer);
+    }
+    
+    // For booleans, ensure the value is strictly true/false
+    if (typeof processedAnswer === 'boolean') {
+      this.answers[questionId] = processedAnswer;
+    } else if (typeof processedAnswer === 'number') {
+      // Numbers: store as number (useful for numeric identification answers and choice IDs)
+      this.answers[questionId] = processedAnswer;
+    } else {
+      // Default: store the normalized string
+      this.answers[questionId] = processedAnswer;
+    }
+    
+    console.log('🔍 DEBUG: Answer saved for question', questionId, ':', this.answers[questionId], '(type:', typeof this.answers[questionId], ')');
     
     this.updateProgress();
     
-    // Auto-save progress to database
-    this.saveProgressToDatabase();
+    // Instant localStorage backup (no delay)
+    this.saveToLocalStorage();
+    
+    // Debounced auto-save to database (draft storage)
+    this.debouncedSaveProgress();
   }
 
-  // Save progress to database
+  // Save to localStorage (instant backup)
+  saveToLocalStorage() {
+    try {
+      if (!this.currentActivity || !this.currentActivity.id) {
+        return;
+      }
+      
+      const backup = {
+        activity_id: this.currentActivity.id,
+        attempt_id: this.attemptId,
+        answers: this.answers,
+        start_time: this.startTime,
+        timestamp: Date.now(),
+        progress_percentage: this.calculateProgressPercentage()
+      };
+      
+      const key = `activity_progress_${this.currentActivity.id}_${window.__USER_ID__ || 0}`;
+      localStorage.setItem(key, JSON.stringify(backup));
+      
+      console.log('💾 Saved to localStorage:', key);
+    } catch (error) {
+      console.error('❌ Error saving to localStorage:', error);
+    }
+  }
+  
+  // Load from localStorage (restore on page load)
+  loadFromLocalStorage() {
+    try {
+      if (!this.currentActivity || !this.currentActivity.id) {
+        return;
+      }
+      
+      const key = `activity_progress_${this.currentActivity.id}_${window.__USER_ID__ || 0}`;
+      const saved = localStorage.getItem(key);
+      
+      if (saved) {
+        const backup = JSON.parse(saved);
+        
+        // Only restore if less than 24 hours old
+        const age = Date.now() - (backup.timestamp || 0);
+        if (age < 24 * 60 * 60 * 1000) {
+          this.answers = backup.answers || {};
+          this.attemptId = backup.attempt_id || null;
+          if (backup.start_time) {
+            this.startTime = new Date(backup.start_time);
+          }
+          
+          console.log('📂 Restored from localStorage:', key);
+          this.restoreFormValues();
+          this.updateProgress();
+        } else {
+          // Too old, remove it
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading from localStorage:', error);
+    }
+  }
+  
+  // Debounced save to database (draft storage)
+  debouncedSaveProgress() {
+    // Clear existing timeout
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    
+    // Set new timeout
+    this.saveTimeout = setTimeout(() => {
+      this.saveProgressToDatabase();
+    }, this.debounceDelay);
+  }
+  
+  // Save progress to database (draft storage - activity_progress table)
   async saveProgressToDatabase() {
     try {
       if (!this.currentActivity || !this.currentActivity.id) {
@@ -2715,7 +2932,7 @@ class ActivityTester {
         last_updated: new Date().toISOString()
       };
       
-      console.log('🔍 DEBUG: Saving progress to database:', progressData);
+      console.log('💾 Saving draft progress to database:', progressData);
       
       const response = await fetch('save_activity_progress.php', {
         method: 'POST',
@@ -2727,17 +2944,99 @@ class ActivityTester {
       
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Progress saved successfully:', result);
+        console.log('✅ Draft progress saved successfully:', result);
+        
+        // Clear retry queue on success
+        this.clearRetryQueue();
       } else {
         console.error('❌ Failed to save progress:', response.statusText);
+        // Add to retry queue
+        this.addToRetryQueue(progressData);
       }
       
     } catch (error) {
       console.error('❌ Error saving progress:', error);
+      // Add to retry queue
+      const progressData = {
+        activity_id: this.currentActivity.id,
+        user_id: window.__USER_ID__ || null,
+        answers: this.answers,
+        progress_percentage: this.calculateProgressPercentage()
+      };
+      this.addToRetryQueue(progressData);
     }
   }
   
-  // Load existing progress from database
+  // Add failed save to retry queue
+  addToRetryQueue(progressData) {
+    try {
+      const queue = JSON.parse(localStorage.getItem('retry_queue') || '[]');
+      queue.push({
+        ...progressData,
+        timestamp: Date.now(),
+        retries: 0
+      });
+      localStorage.setItem('retry_queue', JSON.stringify(queue));
+      console.log('🔄 Added to retry queue');
+    } catch (error) {
+      console.error('❌ Error adding to retry queue:', error);
+    }
+  }
+  
+  // Clear retry queue
+  clearRetryQueue() {
+    try {
+      localStorage.removeItem('retry_queue');
+    } catch (error) {
+      // Ignore
+    }
+  }
+  
+  // Retry failed saves
+  async retryFailedSaves() {
+    try {
+      const queue = JSON.parse(localStorage.getItem('retry_queue') || '[]');
+      if (queue.length === 0) return;
+      
+      console.log(`🔄 Retrying ${queue.length} failed saves...`);
+      
+      const remaining = [];
+      for (const item of queue) {
+        if (item.retries >= 3) {
+          // Too many retries, skip
+          continue;
+        }
+        
+        try {
+          const response = await fetch('save_activity_progress.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          
+          if (response.ok) {
+            console.log('✅ Retry successful for activity:', item.activity_id);
+          } else {
+            item.retries = (item.retries || 0) + 1;
+            remaining.push(item);
+          }
+        } catch (error) {
+          item.retries = (item.retries || 0) + 1;
+          remaining.push(item);
+        }
+      }
+      
+      if (remaining.length > 0) {
+        localStorage.setItem('retry_queue', JSON.stringify(remaining));
+      } else {
+        localStorage.removeItem('retry_queue');
+      }
+    } catch (error) {
+      console.error('❌ Error retrying saves:', error);
+    }
+  }
+  
+  // Load existing progress from database and localStorage
   async loadExistingProgress() {
     try {
       if (!this.currentActivity || !this.currentActivity.id) {
@@ -2745,16 +3044,20 @@ class ActivityTester {
         return;
       }
       
+      // First, try localStorage (fastest)
+      this.loadFromLocalStorage();
+      
+      // Then, load from database (more reliable)
       const response = await fetch(`get_activity_progress.php?activity_id=${this.currentActivity.id}&user_id=${window.__USER_ID__ || 0}`);
       
       if (response.ok) {
         const result = await response.json();
-        if (result.success && result.data) {
-          console.log('✅ Loaded existing progress:', result.data);
+        if (result.success && result.progress) {
+          console.log('✅ Loaded existing progress from database:', result.progress);
           
-          // Restore answers
-          if (result.data.answers) {
-            this.answers = result.data.answers;
+          // Restore answers (database takes precedence)
+          if (result.progress.answers) {
+            this.answers = result.progress.answers;
             
             // Restore form values
             this.restoreFormValues();
@@ -2764,11 +3067,47 @@ class ActivityTester {
           }
         }
       } else {
-        console.log('🔍 DEBUG: No existing progress found');
+        console.log('🔍 DEBUG: No existing progress found in database');
+      }
+      
+      // Initialize attempt if student view
+      if (this.isStudent && (!this.options || !this.options.preview)) {
+        await this.initializeAttempt();
       }
       
     } catch (error) {
       console.error('❌ Error loading existing progress:', error);
+    }
+  }
+  
+  // Initialize attempt (for student submissions)
+  async initializeAttempt() {
+    try {
+      if (!this.currentActivity || !this.currentActivity.id) {
+        return;
+      }
+      
+      // Start or get existing attempt
+      const response = await fetch('submit_activity.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          activity_id: this.currentActivity.id,
+          action: 'start_attempt'
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.attempt_id) {
+          this.attemptId = result.attempt_id;
+          console.log('✅ Attempt initialized:', this.attemptId);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Error initializing attempt:', error);
     }
   }
   
@@ -2968,29 +3307,166 @@ class ActivityTester {
     }
   }
 
-  // Submit activity
+  // Submit activity (FINAL SUBMISSION - moves from draft to final)
   async submitActivity() {
     try {
-      const submitBtn = document.getElementById('submitActivity');
+      const submitBtn = document.getElementById('submitActivity') || document.getElementById('finish-attempt-btn');
+      if (!submitBtn) {
+        console.error('Submit button not found');
+        return;
+      }
+      
       const originalText = submitBtn.innerHTML;
       submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>Submitting...';
       submitBtn.disabled = true;
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const timeSpent = new Date() - this.startTime;
-      console.log('Activity submitted:', {
-        activityId: this.currentActivity.id,
-        answers: this.answers,
-        timeSpent: timeSpent,
-        completedAt: new Date()
+      // Check if this is student view (not preview)
+      const isStudent = this.isStudent && (!this.options || !this.options.preview);
+      
+      if (!isStudent) {
+        // Teacher preview mode - just close
+        this.showNotification('success', 'Preview completed');
+        this.closeModal();
+        return;
+      }
+      
+      // Calculate time spent
+      const timeSpentMs = this.startTime ? (Date.now() - this.startTime.getTime()) : null;
+      
+      // Prepare submission data
+      // Ensure answers is an object (not array) and has valid question IDs
+      const answersToSubmit = {};
+      Object.keys(this.answers).forEach(key => {
+        const answer = this.answers[key];
+        // CRITICAL: Include all valid answers (including 0, false, and empty strings for some question types)
+        // Only exclude null and undefined
+        // For choice-based questions (MCQ, True/False), answer is a choice ID (number)
+        // For identification, answer is a string (can be empty, but we'll allow it)
+        // For essay/upload, answer might be empty initially
+        if (answer !== null && answer !== undefined) {
+          // Convert to appropriate type: preserve numbers, strings, booleans
+          // Don't filter out 0 (valid choice ID) or false (valid boolean answer)
+          answersToSubmit[key] = answer;
+        }
       });
-
-      this.showNotification('success', 'Activity submitted successfully!');
-      this.closeModal();
+      
+      // Log detailed answer information for debugging
+      console.log('📤 Raw answers object:', this.answers);
+      console.log('📤 Filtered answers to submit:', answersToSubmit);
+      console.log('📤 Answers count:', Object.keys(answersToSubmit).length);
+      console.log('📤 Answers keys:', Object.keys(answersToSubmit));
+      console.log('📤 Answers values:', Object.values(answersToSubmit));
+      
+      // Validate that we have at least one answer
+      if (Object.keys(answersToSubmit).length === 0) {
+        console.error('❌ No answers to submit! Raw answers:', this.answers);
+        throw new Error('Please answer at least one question before submitting');
+      }
+      
+      const submissionData = {
+        action: 'submit', // Explicitly set action
+        activity_id: this.currentActivity.id,
+        attempt_id: this.attemptId || null,
+        answers: answersToSubmit,
+        time_spent_ms: timeSpentMs
+      };
+      
+      console.log('📤 Submitting activity (final submission):', submissionData);
+      console.log('📤 Answers count:', Object.keys(answersToSubmit).length);
+      console.log('📤 Answers keys:', Object.keys(answersToSubmit));
+      
+      // Submit to final submission endpoint
+      const response = await fetch('submit_activity.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(submissionData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || 'Failed to submit activity');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Activity submitted successfully:', result);
+        
+        // Store activity ID and score BEFORE closing modal (currentActivity might be cleared)
+        const activityId = this.currentActivity ? this.currentActivity.id : submissionData.activity_id;
+        const finalScore = result.score || 0;
+        const attemptId = result.attempt_id || null;
+        
+        // Clear localStorage backup
+        if (activityId) {
+          const key = `activity_progress_${activityId}_${window.__USER_ID__ || 0}`;
+          localStorage.removeItem(key);
+        }
+        
+        // Clear retry queue
+        this.clearRetryQueue();
+        
+        // No notification - Test Results modal will show the score instead
+        
+        // Close activity modal
+        this.closeModal();
+        
+        // Update activity card score immediately (REAL-TIME UPDATE) - use score from submission response
+        if (activityId && typeof updateActivityCardScore === 'function') {
+          updateActivityCardScore(activityId, finalScore);
+        }
+        
+        // Show Test Results modal first (question-by-question breakdown)
+        setTimeout(() => {
+          if (attemptId) {
+            // Fetch attempt results and show Test Results modal
+            showTestResultsModal(attemptId, activityId, finalScore);
+          } else {
+            console.error('❌ Cannot show test results: attempt ID is missing');
+            // Silent fallback - just reload to show updated score (no notifications)
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          }
+        }, 500);
+        
+        // CRITICAL: Delayed score refresh to ensure score is saved and displayed correctly
+        // This handles cases where the immediate update might fail or the score isn't saved yet
+        setTimeout(() => {
+          if (activityId && typeof loadAllStudentScores === 'function') {
+            console.log('🔄 Refreshing scores from server to ensure accuracy...');
+            loadAllStudentScores();
+          } else if (activityId && typeof getStudentScore === 'function') {
+            // Fallback: refresh just this activity's score
+            getStudentScore(activityId).then(score => {
+              if (typeof updateActivityCardScore === 'function') {
+                updateActivityCardScore(activityId, score);
+              }
+            });
+          }
+        }, 3000); // Wait 3 seconds for database to be updated
+        
+        // Reload page to show updated scores after leaderboard is closed
+        // setTimeout(() => {
+        //   window.location.reload();
+        // }, 1500);
+      } else {
+        throw new Error(result.message || 'Submission failed');
+      }
+      
     } catch (error) {
-      this.showNotification('error', 'Failed to submit activity. Please try again.');
+      // Log error to console only (no user-facing error notifications)
+      console.error('❌ Error submitting activity:', error);
+      
+      // Re-enable submit button
+      const submitBtn = document.getElementById('submitActivity') || document.getElementById('finish-attempt-btn');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Submit';
+      }
     }
   }
 
@@ -3095,7 +3571,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // placeholder
       }
       if (tab === 'leaderboards') {
-        // placeholder
+        loadClassLeaderboards();
       }
     });
   });
@@ -3278,40 +3754,75 @@ function loadTopicsFromCourse() {
               const startDate = formatDate(activity.start_at);
               const dueDate = formatDate(activity.due_at);
               
-              // STUDENT FORMAT - Clean interface with locked state
+              // Determine status badge
+              let statusBadge = '';
+              let statusClass = '';
+              if (isLocked) {
+                statusBadge = '<span class="activity-status-badge badge-locked"><i class="fas fa-lock"></i> Locked</span>';
+                statusClass = 'activity-locked';
+              } else if (isClosed) {
+                statusBadge = '<span class="activity-status-badge badge-closed"><i class="fas fa-clock"></i> Closed</span>';
+                statusClass = 'activity-closed';
+              } else if (isAvailable) {
+                statusBadge = '<span class="activity-status-badge badge-open"><i class="fas fa-check-circle"></i> Open</span>';
+                statusClass = 'activity-open';
+              } else {
+                statusBadge = '<span class="activity-status-badge badge-upcoming"><i class="fas fa-hourglass-half"></i> Upcoming</span>';
+                statusClass = 'activity-upcoming';
+              }
+              
+              // Calculate time remaining for countdown
+              let timeRemainingHtml = '';
+              if (activity.due_at && !isLocked) {
+                const dueDateObj = new Date(activity.due_at.replace(' ', 'T') + '+08:00');
+                const now = new Date();
+                if (dueDateObj > now) {
+                  timeRemainingHtml = `<div class="time-remaining" data-due-date="${activity.due_at}" data-activity-id="${activity.id}">
+                    <i class="fas fa-hourglass-half"></i> <span class="countdown-text">Calculating...</span>
+                  </div>`;
+                }
+              }
+              
+              // STUDENT FORMAT - Enhanced interactive design
               return `
-                <div class="activity-card student-format ${isLocked ? 'activity-locked' : isClosed ? 'activity-closed' : ''}" data-activity-id="${activity.id}">
-                  <div class="activity-left-border ${isLocked ? 'border-locked' : isClosed ? 'border-closed' : ''}"></div>
+                <div class="activity-card student-format ${statusClass}" data-activity-id="${activity.id}" data-max-score="${maxScore}">
+                  <div class="activity-left-border ${isLocked ? 'border-locked' : isClosed ? 'border-closed' : isAvailable ? 'border-open' : 'border-upcoming'}"></div>
+                  ${statusBadge ? `<div class="activity-status-badge-top-right">${statusBadge}</div>` : ''}
                   <div class="activity-content">
-                    <div class="activity-title">
-                      ${isLocked ? '<i class="fas fa-lock" style="margin-right: 8px; color: #dc2626;"></i>' : ''}
-                      ${isClosed ? '<i class="fas fa-clock" style="margin-right: 8px; color: #dc2626;"></i>' : ''}
-                      ${activityTitle}
-                    </div>
-                    <div class="activity-dates">
-                      <div class="activity-date start">
-                        <i class="fas fa-calendar-check"></i>
-                        Open Date: ${startDate}
-                      </div>
-                      <div class="activity-date end">
-                        <i class="fas fa-calendar-times"></i>
-                        Due Date: ${dueDate}
+                    <div class="activity-header-row">
+                      <div class="activity-title">
+                        ${activityTitle}
                       </div>
                     </div>
-                    ${!isAvailable ? `<div class="activity-status-message" style="margin-top: 8px; padding: 8px; background: #fee2e2; border-radius: 4px; color: #dc2626; font-size: 12px;">
+                    <div class="activity-info-grid">
+                      <div class="activity-dates">
+                        <div class="activity-date start">
+                          <i class="fas fa-calendar-check"></i>
+                          <span class="date-label">Opens:</span>
+                          <span class="date-value">${startDate}</span>
+                        </div>
+                        <div class="activity-date end">
+                          <i class="fas fa-calendar-times"></i>
+                          <span class="date-label">Due:</span>
+                          <span class="date-value">${dueDate}</span>
+                        </div>
+                      </div>
+                      ${timeRemainingHtml ? `<div class="countdown-wrapper">${timeRemainingHtml}</div>` : ''}
+                    </div>
+                    ${!isAvailable ? `<div class="activity-status-message">
                       <i class="fas fa-info-circle"></i> ${availability.reason || 'Activity not available'}
                     </div>` : ''}
                   </div>
-                    <div class="activity-stats">
-                    <div class="student-score">
-                      <div class="score-value">${isLocked ? '-' : '0'}/${maxScore}</div>
+                  <div class="activity-stats">
+                    <div class="student-score" data-activity-id="${activity.id}">
+                      <div class="score-value">-/${maxScore}</div>
                       <div class="score-label">Score</div>
                     </div>
                     ${isAvailable ? 
-                      `<button class="start-activity-btn" onclick="startStudentActivity(${activity.id})" style="background: #1d9b3e; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2);">
+                      `<button class="start-activity-btn" onclick="startStudentActivity(${activity.id})" style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10;">
                         <i class="fas fa-play"></i> Start
                       </button>` :
-                      `<button class="start-activity-btn" disabled style="background: #9ca3af; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: not-allowed; opacity: 0.6; display: flex; align-items: center; gap: 8px;">
+                      `<button class="start-activity-btn" disabled style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10;">
                         <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
                       </button>`
                     }
@@ -3329,9 +3840,14 @@ function loadTopicsFromCourse() {
                 startAtValue: activity.start_at
               });
               
-              // Check if activity is locked (no start_at)
-              const isLocked = !activity.start_at;
-              console.log('👨‍🏫 DEBUG - isLocked:', isLocked, 'start_at:', activity.start_at);
+              // Check if activity is locked - use availability status from API (more reliable)
+              const availability = activity.availability || { 
+                available: false, 
+                status: !activity.start_at ? 'locked' : 'open', 
+                reason: !activity.start_at ? 'Activity is locked. Teacher will open it soon.' : 'Activity is available'
+              };
+              const isLocked = availability.status === 'locked' || !availability.available;
+              console.log('👨‍🏫 DEBUG - isLocked:', isLocked, 'start_at:', activity.start_at, 'availability:', availability);
               console.log('👨‍🏫 DEBUG - Will render Unlock button:', isLocked);
               
               // Format dates for teacher view
@@ -3363,42 +3879,86 @@ function loadTopicsFromCourse() {
               const startDate = formatDate(activity.start_at);
               const dueDate = formatDate(activity.due_at);
               
-              // TEACHER FORMAT - Management interface with Unlock button
+              // TEACHER FORMAT - Enhanced interactive design with stats
               console.log('👨‍🏫 DEBUG - Rendering teacher format, isLocked:', isLocked, 'Button will be:', isLocked ? 'Unlock...' : 'Dropdown menu');
+              const teacherStatusBadge = isLocked ? 
+                '<span class="activity-status-badge badge-locked"><i class="fas fa-lock"></i> Locked</span>' :
+                '<span class="activity-status-badge badge-open"><i class="fas fa-check-circle"></i> Open</span>';
+              
+              // Determine activity status (closed/open) - Functional check
+              let activityStatus = 'Open';
+              let activityStatusTime = '00:00';
+              if (activity.due_at && activity.start_at) {
+                // Parse dates with Manila timezone
+                let dueDateFixed = activity.due_at;
+                if (dueDateFixed && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dueDateFixed)) {
+                  dueDateFixed = dueDateFixed.replace(' ', 'T') + '+08:00';
+                }
+                const dueDateObj = new Date(dueDateFixed);
+                const now = new Date();
+                
+                if (now > dueDateObj) {
+                  activityStatus = 'Closed';
+                  // Show the time when it closed (due date time)
+                  const hours = String(dueDateObj.getHours()).padStart(2, '0');
+                  const minutes = String(dueDateObj.getMinutes()).padStart(2, '0');
+                  activityStatusTime = `${hours}:${minutes}`;
+                } else {
+                  // Still open - show current time or "00:00"
+                  activityStatus = 'Open';
+                  activityStatusTime = '00:00';
+                }
+              } else if (!activity.start_at) {
+                // Not yet unlocked
+                activityStatus = 'Locked';
+                activityStatusTime = '00:00';
+              }
+              
               return `
-                <div class="activity-card teacher-format" data-activity-id="${activity.id}">
-                  <div class="activity-left-border ${isLocked ? 'border-locked' : ''}"></div>
+                <div class="activity-card teacher-format ${isLocked ? 'activity-locked' : 'activity-open'}" data-activity-id="${activity.id}" data-max-score="${maxScore}">
+                  <div class="activity-left-border ${isLocked ? 'border-locked' : 'border-open'}"></div>
+                  ${teacherStatusBadge ? `<div class="activity-status-badge-top-right">${teacherStatusBadge}</div>` : ''}
                   <div class="activity-content">
-                    <div class="activity-title">${activityTitle}</div>
-                    <div class="activity-dates" style="margin-top: 8px;">
-                      <div class="activity-date start">
-                        <i class="fas fa-calendar-check"></i>
-                        ${startDate}
-                      </div>
-                      <div class="activity-date end">
-                        <i class="fas fa-calendar-times"></i>
-                        ${dueDate}
+                    <div class="activity-header-row">
+                      <div class="activity-title">${activityTitle}</div>
+                    </div>
+                    <div class="activity-info-grid">
+                      <div class="activity-dates">
+                        <div class="activity-date start">
+                          <i class="fas fa-calendar-check"></i>
+                          <span class="date-label">Opens:</span>
+                          <span class="date-value">${startDate}</span>
+                        </div>
+                        <div class="activity-date end">
+                          <i class="fas fa-calendar-times"></i>
+                          <span class="date-label">Due:</span>
+                          <span class="date-value">${dueDate}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div class="activity-stats" style="display: flex; align-items: center; gap: 12px;">
-                    <button class="btn-view-items" onclick="viewActivityItems(${activity.id})" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                      View items
-                    </button>
+                  <div class="activity-stats">
+                    <div class="teacher-stat-circles">
+                      <div class="stat-circle avg-score" data-activity-id="${activity.id}">
+                        <div class="stat-value">0/${maxScore}</div>
+                        <div class="stat-label">Avg. overall score</div>
+                      </div>
+                      <div class="stat-circle activity-status">
+                        <div class="stat-value">${activityStatusTime}</div>
+                        <div class="stat-label">Activity ${activityStatus.toLowerCase()}</div>
+                      </div>
+                    </div>
                     ${isLocked ? 
-                      `<button class="btn-unlock" onclick="unlockActivity(${activity.id}, '${escapeHtml(activityTitle)}')" style="background: #1d9b3e !important; color: white !important; border: none !important; border-radius: 6px !important; padding: 10px 20px !important; font-size: 14px !important; font-weight: 600 !important; cursor: pointer !important; display: flex !important; align-items: center !important; gap: 8px !important; transition: all 0.2s !important; box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2) !important; min-width: 120px !important; justify-content: center !important;">
+                      `<button class="btn-unlock" onclick="unlockActivity(${activity.id}, '${escapeHtml(activityTitle)}')">
                         <i class="fas fa-unlock"></i> Unlock...
                       </button>` :
-                      `<div class="activity-menu" style="position: relative;">
-                        <i class="fas fa-ellipsis-v" style="cursor: pointer; padding: 8px; color: #6b7280; font-family: 'Font Awesome 5 Free' !important; font-weight: 900 !important; font-style: normal !important;"></i>
+                      `<div class="activity-menu">
+                        <i class="fas fa-ellipsis-v"></i>
                         <div class="activity-dropdown" style="display: none;">
-                          <div class="dropdown-item" onclick="lockActivity(${activity.id}, '${escapeHtml(activityTitle)}')" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #f59e0b; display: flex; align-items: center; gap: 8px; transition: background 0.2s;">
+                          <div class="dropdown-item" onclick="lockActivity(${activity.id}, '${escapeHtml(activityTitle)}')">
                             <i class="fas fa-lock"></i> Lock Activity
                           </div>
-                          <div class="dropdown-item" onclick="handleReschedule(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
-                            <i class="fas fa-calendar"></i> Set Due Date
-                          </div>
-                          <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
+                          <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})">
                             <i class="fas fa-play"></i> Try answering
                           </div>
                         </div>
@@ -3435,7 +3995,10 @@ function loadTopicsFromCourse() {
               '<div class="topic-body">' +
                 '<div class="topic-content-row">' +
                   '<div class="topic-doc-icon"><i class="fas fa-file-alt"></i></div>' +
-                  '<div class="topic-content-link">Topic Content</div>' +
+                  '<div class="topic-content-link">' +
+                    '<span>Topic Content</span>' +
+                    '<span class="topic-content-count"></span>' +
+                  '</div>' +
                 '</div>' +
                 activitiesHtml +
               '</div>' +
@@ -3460,6 +4023,26 @@ function loadTopicsFromCourse() {
       // Start polling for active students count after rendering
       setTimeout(function() {
         updateActiveStudentsCounts();
+        
+        // Initialize improvements after content loads
+        const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+        if (userRole === 'student') {
+          setTimeout(function() {
+            loadAllStudentScores();
+            cleanupCountdownTimers();
+            initializeCountdownTimers();
+          }, 500);
+        } else if (userRole === 'teacher' || userRole === 'coordinator') {
+          setTimeout(function() {
+            loadAllAvgScores();
+          }, 500);
+        }
+        
+        // Ensure real-time polling is running
+        if (!activityStatusPollingInterval) {
+          startActivityStatusPolling();
+        }
+        
         // Poll every 30 seconds
         if (window.__activeStudentsInterval) {
           clearInterval(window.__activeStudentsInterval);
@@ -3724,11 +4307,16 @@ function loadTopicContent(item, lessonId) {
       // Build content HTML
       let contentHtml = '';
       
-      // Topic Content section
+      // Topic Content section - Simple but Interactive
       if (materials.length > 0) {
-        contentHtml += '<div class="topic-content-row">' +
+        const materialCount = materials.length;
+        const materialText = materialCount === 1 ? 'material' : 'materials';
+        contentHtml += '<div class="topic-content-row" data-material-count="' + materialCount + '">' +
           '<div class="topic-doc-icon"><i class="fas fa-file-alt"></i></div>' +
-          '<div class="topic-content-link">Topic Content</div>' +
+          '<div class="topic-content-link">' +
+            '<span>Topic Content</span>' +
+            '<span class="topic-content-count">(' + materialCount + ' ' + materialText + ')</span>' +
+          '</div>' +
         '</div>';
       }
       
@@ -3776,30 +4364,65 @@ function loadTopicContent(item, lessonId) {
             console.log(`🎓 loadTopicContent: Activity ${activity.id} - availability:`, availability);
             console.log(`🎓 loadTopicContent: Activity ${activity.id} - isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
             
+            // Determine status badge
+            let statusBadge = '';
+            let statusClass = '';
+            if (isLocked) {
+              statusBadge = '<span class="activity-status-badge badge-locked"><i class="fas fa-lock"></i> Locked</span>';
+              statusClass = 'activity-locked';
+            } else if (isClosed) {
+              statusBadge = '<span class="activity-status-badge badge-closed"><i class="fas fa-clock"></i> Closed</span>';
+              statusClass = 'activity-closed';
+            } else if (isAvailable) {
+              statusBadge = '<span class="activity-status-badge badge-open"><i class="fas fa-check-circle"></i> Open</span>';
+              statusClass = 'activity-open';
+            } else {
+              statusBadge = '<span class="activity-status-badge badge-upcoming"><i class="fas fa-hourglass-half"></i> Upcoming</span>';
+              statusClass = 'activity-upcoming';
+            }
+            
+            // Calculate time remaining for countdown
+            let timeRemainingHtml = '';
+            if (activity.due_at && !isLocked) {
+              const dueDateObj = new Date(activity.due_at.replace(' ', 'T') + '+08:00');
+              const now = new Date();
+              if (dueDateObj > now) {
+                timeRemainingHtml = `<div class="time-remaining" data-due-date="${activity.due_at}" data-activity-id="${activity.id}">
+                  <i class="fas fa-hourglass-half"></i> <span class="countdown-text">Calculating...</span>
+                </div>`;
+              }
+            }
+            
             contentHtml += `
-              <div class="activity-card student-format ${isLocked ? 'activity-locked' : ''} ${isClosed ? 'activity-closed' : ''}" data-activity-id="${activity.id}">
-                <div class="activity-left-border ${isLocked ? 'border-locked' : ''} ${isClosed ? 'border-closed' : ''}"></div>
+              <div class="activity-card student-format ${statusClass}" data-activity-id="${activity.id}" data-max-score="${activity.max_score || 0}">
+                <div class="activity-left-border ${isLocked ? 'border-locked' : isClosed ? 'border-closed' : isAvailable ? 'border-open' : 'border-upcoming'}"></div>
+                ${statusBadge ? `<div class="activity-status-badge-top-right">${statusBadge}</div>` : ''}
                 <div class="activity-content">
-                  <div class="activity-title">
-                    ${isLocked ? '<i class="fas fa-lock" style="margin-right: 8px; color: #f59e0b;"></i>' : ''}
-                    ${isClosed ? '<i class="fas fa-clock" style="margin-right: 8px; color: #ef4444;"></i>' : ''}
-                    ${title}
-                  </div>
-                  <div class="activity-dates" style="margin-top: 8px;">
-                    <div class="activity-date start">
-                      <i class="fas fa-calendar-check"></i>
-                      ${startDate}
-                    </div>
-                    <div class="activity-date end">
-                      <i class="fas fa-calendar-times"></i>
-                      ${dueDate}
+                  <div class="activity-header-row">
+                    <div class="activity-title">
+                      ${title}
                     </div>
                   </div>
-                  ${availability.reason ? `<div style="margin-top: 8px; color: #f59e0b; font-size: 12px;">${escapeHtml(availability.reason)}</div>` : ''}
+                  <div class="activity-info-grid">
+                    <div class="activity-dates">
+                      <div class="activity-date start">
+                        <i class="fas fa-calendar-check"></i>
+                        <span class="date-label">Opens:</span>
+                        <span class="date-value">${startDate}</span>
+                      </div>
+                      <div class="activity-date end">
+                        <i class="fas fa-calendar-times"></i>
+                        <span class="date-label">Due:</span>
+                        <span class="date-value">${dueDate}</span>
+                      </div>
+                    </div>
+                    ${timeRemainingHtml ? `<div class="countdown-wrapper">${timeRemainingHtml}</div>` : ''}
+                  </div>
+                  ${!isAvailable && availability.reason ? `<div class="activity-status-message">${escapeHtml(availability.reason)}</div>` : ''}
                 </div>
                 <div class="activity-stats">
-                  <div class="student-score">
-                    <div class="score-value">${isLocked ? '-' : '0'}/${activity.max_score || 0}</div>
+                  <div class="student-score" data-activity-id="${activity.id}">
+                    <div class="score-value">-/${activity.max_score || 0}</div>
                     <div class="score-label">Score</div>
                   </div>
                   <button class="btn-start" ${isLocked || isClosed ? 'disabled' : ''} onclick="startStudentActivity(${activity.id})" style="background: ${isLocked || isClosed ? '#9ca3af' : '#1d9b3e'}; color: white; border: none; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: ${isLocked || isClosed ? 'not-allowed' : 'pointer'};">
@@ -3809,44 +4432,94 @@ function loadTopicContent(item, lessonId) {
               </div>
             `;
           } else {
-            // Teacher format - check for locked state
-            const isLocked = !activity.start_at || activity.start_at === 'null' || activity.start_at === '' || activity.start_at === null || activity.start_at === undefined;
-            console.log(`👨‍🏫 loadTopicContent: Activity ${activity.id} isLocked:`, isLocked, 'start_at:', activity.start_at);
+            // Teacher format - check for locked state using availability status from API
+            const availability = activity.availability || { 
+              available: false, 
+              status: (!activity.start_at || activity.start_at === 'null' || activity.start_at === '' || activity.start_at === null || activity.start_at === undefined) ? 'locked' : 'open', 
+              reason: 'Activity status'
+            };
+            const isLocked = availability.status === 'locked' || !availability.available;
+            console.log(`👨‍🏫 loadTopicContent: Activity ${activity.id} isLocked:`, isLocked, 'start_at:', activity.start_at, 'availability:', availability);
+            
+            const teacherStatusBadge = isLocked ? 
+              '<span class="activity-status-badge badge-locked"><i class="fas fa-lock"></i> Locked</span>' :
+              '<span class="activity-status-badge badge-open"><i class="fas fa-check-circle"></i> Open</span>';
+            
+            // Determine activity status (closed/open) - Functional check
+            let activityStatus = 'Open';
+            let activityStatusTime = '00:00';
+            const maxScore = activity.max_score || 0;
+            if (activity.due_at && activity.start_at) {
+              // Parse dates with Manila timezone
+              let dueDateFixed = activity.due_at;
+              if (dueDateFixed && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dueDateFixed)) {
+                dueDateFixed = dueDateFixed.replace(' ', 'T') + '+08:00';
+              }
+              const dueDateObj = new Date(dueDateFixed);
+              const now = new Date();
+              
+              if (now > dueDateObj) {
+                activityStatus = 'Closed';
+                // Show the time when it closed (due date time)
+                const hours = String(dueDateObj.getHours()).padStart(2, '0');
+                const minutes = String(dueDateObj.getMinutes()).padStart(2, '0');
+                activityStatusTime = `${hours}:${minutes}`;
+              } else {
+                // Still open - show current time or "00:00"
+                activityStatus = 'Open';
+                activityStatusTime = '00:00';
+              }
+            } else if (!activity.start_at) {
+              // Not yet unlocked
+              activityStatus = 'Locked';
+              activityStatusTime = '00:00';
+            }
             
             contentHtml += `
-              <div class="activity-card teacher-format" data-activity-id="${activity.id}">
-                <div class="activity-left-border ${isLocked ? 'border-locked' : ''}"></div>
+              <div class="activity-card teacher-format ${isLocked ? 'activity-locked' : 'activity-open'}" data-activity-id="${activity.id}" data-max-score="${maxScore}">
+                <div class="activity-left-border ${isLocked ? 'border-locked' : 'border-open'}"></div>
+                ${teacherStatusBadge ? `<div class="activity-status-badge-top-right">${teacherStatusBadge}</div>` : ''}
                 <div class="activity-content">
-                  <div class="activity-title">${title}</div>
-                  <div class="activity-dates" style="margin-top: 8px;">
-                    <div class="activity-date start">
-                      <i class="fas fa-calendar-check"></i>
-                      ${startDate}
-                    </div>
-                    <div class="activity-date end">
-                      <i class="fas fa-calendar-times"></i>
-                      ${dueDate}
+                  <div class="activity-header-row">
+                    <div class="activity-title">${title}</div>
+                  </div>
+                  <div class="activity-info-grid">
+                    <div class="activity-dates">
+                      <div class="activity-date start">
+                        <i class="fas fa-calendar-check"></i>
+                        <span class="date-label">Opens:</span>
+                        <span class="date-value">${startDate}</span>
+                      </div>
+                      <div class="activity-date end">
+                        <i class="fas fa-calendar-times"></i>
+                        <span class="date-label">Due:</span>
+                        <span class="date-value">${dueDate}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div class="activity-stats" style="display: flex; align-items: center; gap: 12px;">
-                  <button class="btn-view-items" onclick="viewActivityItems(${activity.id})" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                    View items
-                  </button>
+                <div class="activity-stats">
+                  <div class="teacher-stat-circles">
+                    <div class="stat-circle avg-score" data-activity-id="${activity.id}">
+                      <div class="stat-value">0/${maxScore}</div>
+                      <div class="stat-label">Avg. overall score</div>
+                    </div>
+                    <div class="stat-circle activity-status">
+                      <div class="stat-value">${activityStatusTime}</div>
+                      <div class="stat-label">Activity ${activityStatus.toLowerCase()}</div>
+                    </div>
+                  </div>
                   ${isLocked ? 
-                    `<button class="btn-unlock" onclick="unlockActivity(${activity.id}, '${escapeHtml(title)}')" style="background: #1d9b3e !important; color: white !important; border: none !important; border-radius: 6px !important; padding: 10px 20px !important; font-size: 14px !important; font-weight: 600 !important; cursor: pointer !important; display: flex !important; align-items: center !important; gap: 8px !important; transition: all 0.2s !important; box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2) !important; min-width: 120px !important; justify-content: center !important;">
+                    `<button class="btn-unlock" onclick="unlockActivity(${activity.id}, '${escapeHtml(title)}')">
                       <i class="fas fa-unlock"></i> Unlock...
                     </button>` :
-                    `<div class="activity-menu" style="position: relative;">
-                      <i class="fas fa-ellipsis-v" style="cursor: pointer; padding: 8px; color: #6b7280; font-family: 'Font Awesome 5 Free' !important; font-weight: 900 !important; font-style: normal !important;"></i>
+                    `<div class="activity-menu">
+                      <i class="fas fa-ellipsis-v"></i>
                       <div class="activity-dropdown" style="display: none;">
-                        <div class="dropdown-item" onclick="lockActivity(${activity.id}, '${escapeHtml(title)}')" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #f59e0b; display: flex; align-items: center; gap: 8px; transition: background 0.2s;">
+                        <div class="dropdown-item" onclick="lockActivity(${activity.id}, '${escapeHtml(title)}')">
                           <i class="fas fa-lock"></i> Lock Activity
                         </div>
-                        <div class="dropdown-item" onclick="handleReschedule(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
-                          <i class="fas fa-calendar"></i> Reschedule/Set retakers
-                        </div>
-                        <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})" style="padding: 10px 16px; cursor: pointer; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px; transition: background 0.2s; border-top: 1px solid #e5e7eb;">
+                        <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})">
                           <i class="fas fa-play"></i> Try answering
                         </div>
                       </div>
@@ -3868,16 +4541,43 @@ function loadTopicContent(item, lessonId) {
       
       // Bind event listeners
       bindTopicContentEvents(item, materials, activities);
+      
+      // Initialize improvements after content loads
+      const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+      if (userRole === 'student') {
+        setTimeout(function() {
+          loadAllStudentScores();
+          cleanupCountdownTimers();
+          initializeCountdownTimers();
+        }, 500);
+      } else if (userRole === 'teacher' || userRole === 'coordinator') {
+        setTimeout(function() {
+          loadAllAvgScores();
+        }, 500);
+      }
+      
+      // Trigger activity status check after loading topic content
+      setTimeout(function() {
+        checkAndUpdateActivityStatuses();
+      }, 1000);
       }).catch(() => {
       body.innerHTML = '<div style="color:#ef4444;">Failed to load lesson details.</div>';
     });
 }
 
 function bindTopicContentEvents(item, materials, activities) {
-  // Bind topic content link
-  const contentLink = item.querySelector('.topic-content-link');
-  if (contentLink && materials.length > 0) {
-    contentLink.addEventListener('click', () => {
+  // Bind topic content link - make entire row clickable
+  const contentRow = item.querySelector('.topic-content-row');
+  if (contentRow && materials.length > 0) {
+    // Update material count if not already set
+    const countSpan = contentRow.querySelector('.topic-content-count');
+    if (countSpan && !countSpan.textContent) {
+      const materialCount = materials.length;
+      const materialText = materialCount === 1 ? 'material' : 'materials';
+      countSpan.textContent = '(' + materialCount + ' ' + materialText + ')';
+    }
+    
+    contentRow.addEventListener('click', () => {
       if (materials.length > 0) {
         const firstMaterial = materials[0];
         if (materials.length > 1) {
@@ -4654,7 +5354,7 @@ function transformActivityCard(card) {
               } else if (now > dueAt) {
                 availability = { available: false, status: 'closed', reason: `Deadline passed on ${dueAt.toLocaleString()}` };
               } else {
-                availability = { available: true, status: 'open', reason: 'Activity is available' };
+                availability = { available: true, status: 'open', reason: '' };
               }
             }
             
@@ -4695,25 +5395,44 @@ function transformActivityCard(card) {
             Promise.all([
               getActivityMaxPoints(activityId),
               getStudentScore(activityId)
-            ]).then(function([maxPoints, studentScore]){
+            ]).then(async function([maxPoints, studentScore]){
               const safeMax = Number(maxPoints) > 0 ? Number(maxPoints) : 0;
               const safeScore = Math.max(0, Math.min(Number(studentScore) || 0, safeMax || Infinity));
+              
+              // Check if student has already submitted this activity
+              let isSubmitted = false;
+              try {
+                const scoreResponse = await fetch(`get_student_score.php?activity_id=${activityId}`, {
+                  credentials: 'same-origin'
+                });
+                if (scoreResponse.ok) {
+                  const scoreData = await scoreResponse.json();
+                  isSubmitted = scoreData.success && scoreData.attempt_id && scoreData.submitted_at;
+                }
+              } catch (e) {
+                // If check fails, assume not submitted
+                console.log('Could not check submission status:', e);
+              }
               
               activityStats.innerHTML = `
                 <div class="student-score">
                   <div class="score-value">${isLocked ? '-' : safeScore}/${safeMax || 0}</div>
                   <div class="score-label">Score</div>
                 </div>
-                ${isAvailable ? 
-                  `<button class="start-activity-btn" onclick="startStudentActivity(${activityId})" style="background: #1d9b3e; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(29, 155, 62, 0.2);">
-                    <i class="fas fa-play"></i> Start
+                ${isSubmitted ? 
+                  `<button class="start-activity-btn" disabled style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10; background: #9ca3af !important; cursor: not-allowed;">
+                    <i class="fas fa-check-circle"></i> Completed
                   </button>` :
-                  `<button class="start-activity-btn" disabled style="background: #9ca3af; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: not-allowed; opacity: 0.6; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
-                  </button>`
+                  isAvailable ? 
+                    `<button class="start-activity-btn" onclick="startStudentActivity(${activityId})" style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10;">
+                      <i class="fas fa-play"></i> Start
+                    </button>` :
+                    `<button class="start-activity-btn" disabled style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10;">
+                      <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
+                    </button>`
                 }`;
               
-              // Add status message if not available
+              // Add status message if not available (text only, no background)
               if (!isAvailable) {
                 const content = card.querySelector('.activity-content');
                 if (content) {
@@ -4721,7 +5440,6 @@ function transformActivityCard(card) {
                   if (!existingMsg) {
                     const msgDiv = document.createElement('div');
                     msgDiv.className = 'activity-status-message';
-                    msgDiv.style.cssText = 'margin-top: 8px; padding: 8px; background: #fee2e2; border-radius: 4px; color: #dc2626; font-size: 12px;';
                     msgDiv.innerHTML = `<i class="fas fa-info-circle"></i> ${availability.reason || 'Activity not available'}`;
                     content.appendChild(msgDiv);
                   }
@@ -4736,7 +5454,7 @@ function transformActivityCard(card) {
                   <div class="score-value">${isLocked ? '-' : '0'}/0</div>
                   <div class="score-label">Score</div>
                 </div>
-                <button class="start-activity-btn" disabled style="background: #9ca3af; color: white; border: none; border-radius: 8px; padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: not-allowed; opacity: 0.6; display: flex; align-items: center; gap: 8px;">
+                <button class="start-activity-btn" disabled style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10;">
                   <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
                 </button>`;
               card.setAttribute('data-student-enhanced','1');
@@ -4757,6 +5475,25 @@ async function startStudentActivity(activityId) {
   if (!activityId) {
     alert('Error: Activity not found');
     return;
+  }
+  
+  // CRITICAL: Check if student has already submitted this activity
+  try {
+    const scoreResponse = await fetch(`get_student_score.php?activity_id=${activityId}`, {
+      credentials: 'same-origin'
+    });
+    
+    if (scoreResponse.ok) {
+      const scoreData = await scoreResponse.json();
+      // If student has a submitted attempt (score > 0 or attempt_id exists), prevent resubmission
+      if (scoreData.success && scoreData.attempt_id && scoreData.submitted_at) {
+        alert('You have already submitted this activity. You cannot submit again.');
+        return;
+      }
+    }
+  } catch (e) {
+    // If check fails, continue (don't block user)
+    console.log('Could not check submission status:', e);
   }
   
   // CRITICAL: Check availability before allowing start
@@ -4855,12 +5592,41 @@ async function startStudentActivity(activityId) {
   }
 }
 
-// Function to get real student score from database (single progress object)
+// Function to get real student score from database (from final submissions - activity_attempts)
 async function getStudentScore(activityId) {
   try {
     console.log('🔍 Getting student score for activity:', activityId);
     
-    // Use the existing get_activity_progress.php API
+    // Try new endpoint first (gets score from activity_attempts - final submissions)
+    try {
+      const response = await fetch(`get_student_score.php?activity_id=${activityId}`, {
+        credentials: 'same-origin'
+      });
+      
+      // Check if response is JSON (not HTML redirect)
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.success && data.score !== null && data.score !== undefined) {
+            const score = Number(data.score || 0);
+            console.log('🔍 Student final score (from attempts):', score);
+            return isFinite(score) ? score : 0;
+          }
+        } else {
+          // Response not OK, but still JSON - log to console only (no user notification)
+          const errorData = await response.json().catch(() => ({}));
+          // Silent error - just log to console for debugging
+          console.log('⚠️ Score endpoint returned error (silent):', errorData.message || 'Unknown error');
+        }
+      } else {
+        console.warn('⚠️ Score endpoint returned non-JSON response (likely HTML redirect)');
+      }
+    } catch (e) {
+      console.log('⚠️ New score endpoint error:', e.message, '- falling back to progress endpoint');
+    }
+    
+    // Fallback to old endpoint (gets score from activity_progress - draft storage)
     const response = await fetch(`get_activity_progress.php?activity_id=${activityId}&user_id=${window.__USER_ID__ || 0}`);
     const data = await response.json();
     
@@ -4868,7 +5634,7 @@ async function getStudentScore(activityId) {
     
     if (data && data.success && data.progress) {
       const score = Number(data.progress.score || 0);
-      console.log('🔍 Student score:', score);
+      console.log('🔍 Student score (from progress):', score);
       return isFinite(score) ? score : 0;
     } else {
       console.log('🔍 No progress data found, returning 0');
@@ -4988,7 +5754,8 @@ async function lockActivity(activityId, activityTitle) {
   const formData = new FormData();
   formData.append('action', 'activity_update');
   formData.append('id', activityId);
-  formData.append('start_at', ''); // Empty string = NULL in database
+  formData.append('start_at', ''); // Empty string = NULL in database (locks activity)
+  formData.append('due_at', ''); // Also clear due_at when locking
   formData.append('csrf_token', csrfToken); // Add CSRF token
   
   fetch('course_outline_manage.php', {
@@ -5004,12 +5771,17 @@ async function lockActivity(activityId, activityTitle) {
       } else {
         alert(`Activity "${activityTitle}" locked successfully!`);
       }
-      // Reload activities
-      if (typeof loadTopicsFromCourse === 'function') {
-        loadTopicsFromCourse();
-      } else {
-        location.reload();
-      }
+      // Force immediate status check and reload activities
+      setTimeout(() => {
+        if (typeof checkAndUpdateActivityStatuses === 'function') {
+          checkAndUpdateActivityStatuses();
+        }
+        if (typeof loadTopicsFromCourse === 'function') {
+          loadTopicsFromCourse();
+        } else {
+          location.reload();
+        }
+      }, 500); // Small delay to ensure database is updated
     } else {
       alert(`Failed to lock activity: ${res?.message || 'Unknown error'}`);
     }
@@ -5270,12 +6042,92 @@ async function saveUnlockActivity(activityId, activityTitle, modal) {
       }
       modal.remove();
       
-      // Reload activities
-      if (typeof loadTopicsFromCourse === 'function') {
-        loadTopicsFromCourse();
-      } else {
-        location.reload();
-      }
+      // Preserve expanded topics before reloading
+      const expandedTopics = new Set();
+      document.querySelectorAll('.topic-item').forEach(topic => {
+        const body = topic.querySelector('.topic-body');
+        if (body && body.style.display !== 'none' && body.innerHTML.trim() !== '') {
+          const topicId = topic.getAttribute('data-topic-id') || topic.getAttribute('data-lesson-id');
+          if (topicId) {
+            expandedTopics.add(topicId);
+          }
+        }
+      });
+      
+      // Force immediate status check and update only the specific activity card
+      setTimeout(() => {
+        if (typeof checkAndUpdateActivityStatuses === 'function') {
+          checkAndUpdateActivityStatuses();
+        }
+        
+        // Try to update just the specific activity card instead of reloading everything
+        const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
+        if (activityCard) {
+          // Fetch fresh activity data and update just this card
+          const classId = window.__CLASS_ID__;
+          if (classId) {
+            fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' })
+              .then(r => r.json())
+              .then(res => {
+                if (res && res.success && res.modules) {
+                  // Find the updated activity data
+                  for (const module of res.modules || []) {
+                    for (const lesson of module.lessons || []) {
+                      const activity = (lesson.activities || []).find(a => a.id == activityId);
+                      if (activity) {
+                        // Update just this activity card
+                        const availability = activity.availability || {};
+                        const newStatus = {
+                          status: availability.status || 'locked',
+                          startAt: activity.start_at || null,
+                          dueAt: activity.due_at || null
+                        };
+                        if (typeof updateActivityCardStatus === 'function') {
+                          updateActivityCardStatus(activityCard, newStatus);
+                        }
+                        break;
+                      }
+                    }
+                  }
+                }
+              })
+              .catch(err => {
+                console.error('Error updating activity card:', err);
+                // Fallback to full reload if update fails
+                if (typeof loadTopicsFromCourse === 'function') {
+                  loadTopicsFromCourse();
+                  // Restore expanded topics after reload (wait for DOM to update)
+                  setTimeout(() => {
+                    expandedTopics.forEach(topicId => {
+                      const topic = document.querySelector(`[data-topic-id="${topicId}"], [data-lesson-id="${topicId}"]`);
+                      if (topic) {
+                        const header = topic.querySelector('.topic-header');
+                        if (header) header.click();
+                      }
+                    });
+                  }, 1000);
+                }
+              });
+          }
+        } else {
+          // If card not found, do full reload but preserve expanded state
+          if (typeof loadTopicsFromCourse === 'function') {
+            loadTopicsFromCourse();
+            // Restore expanded topics after reload (wait for DOM to update)
+            setTimeout(() => {
+              expandedTopics.forEach(topicId => {
+                const topic = document.querySelector(`[data-topic-id="${topicId}"], [data-lesson-id="${topicId}"]`);
+                if (topic) {
+                  const header = topic.querySelector('.topic-header');
+                  if (header) header.click();
+                }
+              });
+            }, 1000);
+          } else {
+            location.reload();
+          }
+        }
+      }, 500); // Small delay to ensure database is updated
     } else {
       throw new Error(result?.message || 'Failed to unlock activity');
     }
@@ -5590,8 +6442,27 @@ async function unlockAllActivities() {
       phDateObj[part.type] = part.value;
     });
     
-    // Format as YYYY-MM-DDTHH:mm for datetime-local input (Philippine time)
-    const startAt = `${phDateObj.year}-${phDateObj.month}-${phDateObj.day}T${phDateObj.hour}:${phDateObj.minute}`;
+    // Format as YYYY-MM-DD HH:mm:ss for database (Philippine time)
+    const startAt = `${phDateObj.year}-${phDateObj.month}-${phDateObj.day} ${phDateObj.hour}:${phDateObj.minute}:00`;
+    
+    // Set due_at to 7 days from now (default deadline)
+    const dueDate = new Date(now);
+    dueDate.setDate(dueDate.getDate() + 7); // Add 7 days
+    const duePhFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    const duePhParts = duePhFormatter.formatToParts(dueDate);
+    const duePhDateObj = {};
+    duePhParts.forEach(part => {
+      duePhDateObj[part.type] = part.value;
+    });
+    const dueAt = `${duePhDateObj.year}-${duePhDateObj.month}-${duePhDateObj.day} ${duePhDateObj.hour}:${duePhDateObj.minute}:00`;
     
     // Get CSRF token once for all requests
     console.log('🔐 Fetching CSRF token...');
@@ -5608,6 +6479,7 @@ async function unlockAllActivities() {
       formData.append('action', 'activity_update');
       formData.append('id', activity.id);
       formData.append('start_at', startAt);
+      formData.append('due_at', dueAt); // CRITICAL: Also set due_at (7 days from now)
       formData.append('csrf_token', csrfToken); // Add CSRF token
       
       console.log(`🔓 Unlocking activity ${activity.id}: "${activity.title}"`);
@@ -6167,17 +7039,17 @@ window.testPreviewActivityTeacher = function(activityType) {
                         <div style="flex:1;">
                           <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-family:${fontStack};">Your Answer</div>
                           <div style="font-size:14px;color:#1e293b;padding:10px 14px;background:white;border-radius:8px;border:1px solid ${r.isCorrect ? '#d1fae5' : '#fee2e2'};font-family:${fontStack};">
-                            ${r.studentAnswer}
+                            ${escapeHtml(r.studentAnswer)}
                           </div>
                         </div>
                       </div>
-                      ${!r.isCorrect ? `
+                      ${!r.isCorrect && r.correctAnswer ? `
                         <div style="display:flex;align-items:start;gap:8px;">
                           <div style="width:6px;height:6px;background:#10b981;border-radius:50%;margin-top:6px;flex-shrink:0;"></div>
                           <div style="flex:1;">
                             <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-family:${fontStack};">Correct Answer</div>
                             <div style="font-size:14px;color:#1e293b;padding:10px 14px;background:white;border-radius:8px;border:1px solid #d1fae5;font-family:${fontStack};">
-                              ${r.correctAnswer || 'N/A'}
+                              ${escapeHtml(r.correctAnswer)}
                             </div>
                           </div>
                         </div>
@@ -6220,6 +7092,394 @@ window.testPreviewActivityTeacher = function(activityType) {
   
   console.log('🔍 [TEACHER TEST PREVIEW] Results:', { totalScore, maxScore, percentage, results });
 };
+
+/**
+ * Show Test Results modal for students after submission
+ * Displays question-by-question breakdown with score, correct/incorrect answers, and explanations
+ */
+async function showTestResultsModal(attemptId, activityId, userScore) {
+  // Get max score from activity card if available (for fallback)
+  let fallbackMaxScore = 10; // Default fallback
+  if (activityId) {
+    const activityCard = document.querySelector(`.activity-card[data-activity-id="${activityId}"]`);
+    if (activityCard) {
+      const cardMaxScore = parseInt(activityCard.getAttribute('data-max-score') || 0);
+      if (cardMaxScore > 0) {
+        fallbackMaxScore = cardMaxScore;
+      }
+    }
+  }
+  
+  try {
+    console.log('📊 Showing Test Results modal for attempt:', attemptId);
+    
+    // Fetch attempt results from API
+    const response = await fetch(`get_attempt_results.php?attempt_id=${attemptId}`, {
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    // Check if response is JSON (not HTML redirect)
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      // Try to get error message from response
+      const text = await response.text();
+      console.error('❌ Non-JSON response:', text.substring(0, 200));
+      throw new Error('Server returned non-JSON response. Please check your session.');
+    }
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.error('❌ API error:', errorData);
+      throw new Error(errorData.message || `Failed to fetch attempt results (${response.status})`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success || !data.results) {
+      throw new Error(data.message || 'Failed to load results');
+    }
+    
+    const { results, summary, activity } = data;
+    const { totalScore, maxScore, percentage, correctCount, totalCount } = summary;
+    
+    // Remove any existing modal
+    const existing = document.getElementById('studentTestResultsModal');
+    if (existing) existing.remove();
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'studentTestResultsModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s ease;';
+    
+    // Use EXACT SAME styles as coordinator (previewTestModalStyles)
+    // Check if coordinator styles already exist, if not add them
+    if (!document.getElementById('previewTestModalStyles')) {
+      const style = document.createElement('style');
+      style.id = 'previewTestModalStyles';
+      style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(30px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.03); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -1000px 0; }
+          100% { background-position: 1000px 0; }
+        }
+        .preview-result-item {
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: pointer;
+        }
+        .preview-result-item:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.12) !important;
+        }
+        .preview-result-item.correct {
+          border-left: 3px solid #10b981 !important;
+        }
+        .preview-result-item.incorrect {
+          border-left: 3px solid #ef4444 !important;
+        }
+        .preview-progress-bar {
+          position: relative;
+          overflow: hidden;
+        }
+        .preview-progress-bar::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+          animation: shimmer 2s infinite;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Calculate score color
+    const scoreColor = percentage >= 80 ? '#10b981' : percentage >= 60 ? '#f59e0b' : '#ef4444';
+    const scoreBg = percentage >= 80 ? 'rgba(16,185,129,0.08)' : percentage >= 60 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
+    const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+    
+    // Helper to escape HTML
+    const escapeHtml = (text) => {
+      if (text === null || text === undefined) return '';
+      const div = document.createElement('div');
+      div.textContent = String(text);
+      return div.innerHTML;
+    };
+
+    // Normalize answer display (capitalize booleans, handle blanks)
+    const formatAnswerDisplay = (text) => {
+      if (text === null || text === undefined) return '(No answer)';
+      let value = String(text).trim();
+      if (value === '') return '(No answer)';
+      const lower = value.toLowerCase();
+      if (lower === 'true') return 'True';
+      if (lower === 'false') return 'False';
+      return value;
+    };
+    
+    // Build modal HTML (EXACT SAME AS COORDINATOR'S TEST RESULTS MODAL)
+    modal.innerHTML = `
+      <div style="background:white;border-radius:16px;max-width:850px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15);animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);font-family:${fontStack};">
+        <!-- Clean Header -->
+        <div style="padding:28px 32px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#ffffff;font-family:${fontStack};">
+          <div>
+            <h2 style="margin:0;color:#1e293b;font-size:22px;font-weight:700;font-family:${fontStack};">${escapeHtml(activity.title || 'Activity')}</h2>
+          </div>
+          <button id="closeTestResultsModalX" 
+                  style="background:#f8fafc;border:none;font-size:20px;color:#64748b;cursor:pointer;padding:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all 0.2s;font-family:${fontStack};" 
+                  onmouseover="this.style.background='#f1f5f9';this.style.color='#ef4444';" 
+                  onmouseout="this.style.background='#f8fafc';this.style.color='#64748b';">&times;</button>
+        </div>
+        
+        <div style="padding:32px;font-family:${fontStack};">
+          <!-- Simple Score Card -->
+          <div style="background:${scoreBg};border-radius:16px;padding:32px;margin-bottom:32px;text-align:center;position:relative;overflow:hidden;animation:scaleIn 0.5s ease;font-family:${fontStack};">
+            <div style="position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:${scoreColor};opacity:0.05;border-radius:50%;"></div>
+            <div style="position:relative;z-index:1;">
+              <div style="font-size:64px;font-weight:700;color:${scoreColor};margin-bottom:8px;line-height:1;font-family:${fontStack};">
+                ${totalScore}<span style="font-size:32px;color:#94a3b8;font-weight:400;font-family:${fontStack};">/${maxScore}</span>
+              </div>
+              <div style="font-size:18px;color:#64748b;margin-bottom:20px;font-weight:500;font-family:${fontStack};">${percentage}% Score</div>
+              
+              <!-- Animated Progress Bar -->
+              <div class="preview-progress-bar" style="background:#e2e8f0;border-radius:12px;height:8px;overflow:hidden;margin:0 auto 20px;max-width:400px;">
+                <div style="background:${scoreColor};height:100%;width:${percentage}%;transition:width 1s cubic-bezier(0.4, 0, 0.2, 1);border-radius:12px;"></div>
+              </div>
+              
+              <!-- Stats -->
+              <div style="display:flex;justify-content:center;gap:32px;margin-top:24px;font-family:${fontStack};">
+                <div>
+                  <div style="font-size:24px;font-weight:600;color:${scoreColor};font-family:${fontStack};">${correctCount}</div>
+                  <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Correct</div>
+                </div>
+                <div style="width:1px;background:#e2e8f0;"></div>
+                <div>
+                  <div style="font-size:24px;font-weight:600;color:#64748b;font-family:${fontStack};">${totalCount - correctCount}</div>
+                  <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Incorrect</div>
+                </div>
+                <div style="width:1px;background:#e2e8f0;"></div>
+                <div>
+                  <div style="font-size:24px;font-weight:600;color:#64748b;font-family:${fontStack};">${totalCount}</div>
+                  <div style="font-size:12px;color:#64748b;margin-top:4px;font-family:${fontStack};">Total</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Clean Question Results -->
+          <div style="font-family:${fontStack};">
+            <h3 style="margin:0 0 20px 0;color:#1e293b;font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;font-family:${fontStack};">Questions</h3>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              ${results.map((r, idx) => `
+                <div class="preview-result-item ${r.isCorrect ? 'correct' : 'incorrect'}" 
+                     style="border:1px solid ${r.isCorrect ? '#d1fae5' : '#fee2e2'};border-radius:12px;padding:20px;background:${r.isCorrect ? '#f0fdf4' : '#fef2f2'};animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) ${idx * 0.05}s both;"
+                     onclick="const questionEl = document.getElementById('question-${r.questionIndex - 1}'); if(questionEl) { questionEl.scrollIntoView({behavior:'smooth',block:'center'}); questionEl.style.animation='pulse 0.5s ease'; setTimeout(() => questionEl.style.animation='', 500); }">
+                  <div style="display:flex;gap:16px;">
+                    <!-- Content (Status Icon removed - using color coding instead) -->
+                    <div style="flex:1;min-width:0;">
+                      <div style="display:flex;align-items:start;justify-content:space-between;gap:12px;margin-bottom:12px;font-family:${fontStack};">
+                        <div style="flex:1;">
+                          <div style="font-size:13px;color:#64748b;margin-bottom:6px;font-weight:500;font-family:${fontStack};">Question ${r.questionIndex}</div>
+                          <div style="font-size:15px;color:#1e293b;font-weight:600;line-height:1.5;font-family:${fontStack};">${r.questionText}</div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                          <div style="font-size:16px;font-weight:600;color:${r.isCorrect ? '#10b981' : '#ef4444'};font-family:${fontStack};">${r.earnedPoints}/${r.points}</div>
+                          <div style="font-size:11px;color:#94a3b8;margin-top:2px;font-family:${fontStack};">pts</div>
+                        </div>
+                      </div>
+                      
+                      <!-- Answers -->
+                      <div style="display:flex;flex-direction:column;gap:8px;font-family:${fontStack};">
+                        <div style="display:flex;align-items:start;gap:8px;">
+                          <div style="width:6px;height:6px;background:${r.isCorrect ? '#10b981' : '#ef4444'};border-radius:50%;margin-top:6px;flex-shrink:0;"></div>
+                          <div style="flex:1;">
+                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-family:${fontStack};">Your Answer</div>
+                            <div style="font-size:14px;color:#1e293b;padding:10px 14px;background:white;border-radius:8px;border:1px solid ${r.isCorrect ? '#d1fae5' : '#fee2e2'};font-family:${fontStack};">
+                              ${escapeHtml(formatAnswerDisplay(r.studentAnswer))}
+                            </div>
+                          </div>
+                        </div>
+                        ${!r.isCorrect ? `
+                          <div style="display:flex;align-items:start;gap:8px;">
+                            <div style="width:6px;height:6px;background:#10b981;border-radius:50%;margin-top:6px;flex-shrink:0;"></div>
+                            <div style="flex:1;">
+                              <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-family:${fontStack};">Correct Answer</div>
+                              <div style="font-size:14px;color:#1e293b;padding:10px 14px;background:white;border-radius:8px;border:1px solid #d1fae5;font-family:${fontStack};">
+                                ${escapeHtml(formatAnswerDisplay(r.correctAnswer || 'N/A'))}
+                              </div>
+                            </div>
+                          </div>
+                        ` : ''}
+                      </div>
+                      
+                      ${r.explanation ? `
+                        <div style="margin-top:12px;padding:12px;background:white;border-radius:8px;border-left:3px solid #3b82f6;font-family:${fontStack};">
+                          <div style="font-size:12px;color:#64748b;margin-bottom:4px;font-weight:500;font-family:${fontStack};">Explanation</div>
+                          <div style="font-size:13px;color:#475569;line-height:1.6;font-family:${fontStack};">${r.explanation}</div>
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          
+          <!-- Simple Close Button -->
+          <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid #f1f5f9;font-family:${fontStack};">
+            <button id="closeTestResultsModalBtn" 
+                    style="background:linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);color:white;border:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(14,165,233,0.3);font-family:${fontStack};" 
+                    onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(14,165,233,0.4)';" 
+                    onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(14,165,233,0.3)';">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.style.opacity = '0';
+        modal.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          modal.remove();
+          // Refresh activity card scores after modal closes
+          if (activityId && typeof loadAllStudentScores === 'function') {
+            console.log('🔄 Modal closed - Refreshing activity card scores...');
+            setTimeout(() => {
+              loadAllStudentScores();
+            }, 500);
+          }
+          // DO NOT show leaderboard automatically - user can access it from Leaderboards tab
+        }, 200);
+      }
+    });
+    
+    // Add refresh trigger to close button handlers
+    const closeModalAndRefresh = function() {
+      modal.style.opacity = '0';
+      modal.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        modal.remove();
+        // Refresh activity card scores after modal closes
+        if (activityId && typeof loadAllStudentScores === 'function') {
+          console.log('🔄 Modal closed - Refreshing activity card scores for activity:', activityId);
+          setTimeout(() => {
+            loadAllStudentScores();
+            // Also try to update the specific card
+            if (typeof updateActivityCardScore === 'function') {
+              // Get fresh score from server
+              if (typeof getStudentScore === 'function') {
+                getStudentScore(activityId).then(score => {
+                  updateActivityCardScore(activityId, score);
+                });
+              }
+            }
+          }, 500);
+        }
+      }, 200);
+    };
+    
+    // Bind close button handlers
+    const closeXBtn = modal.querySelector('#closeTestResultsModalX');
+    const closeBtn = modal.querySelector('#closeTestResultsModalBtn');
+    if (closeXBtn) {
+      closeXBtn.addEventListener('click', closeModalAndRefresh);
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeModalAndRefresh);
+    }
+    
+    console.log('✅ Test Results modal displayed');
+    
+  } catch (error) {
+    // Log error to console only (no user-facing error notifications)
+    console.error('❌ Error showing test results:', error);
+    
+    // Show a simplified Test Results modal with just the score if API fails
+    // This ensures user still sees their score even if detailed results can't be loaded
+    // NO ERROR NOTIFICATIONS - just show the score silently
+    try {
+      const modal = document.createElement('div');
+      modal.id = 'studentTestResultsModal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s ease;';
+      
+      const fontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+      const scoreColor = '#10b981';
+      const scoreBg = 'rgba(16,185,129,0.08)';
+      
+      // Use fallback max score (already calculated above)
+      const maxScore = fallbackMaxScore;
+      
+      modal.innerHTML = `
+        <div style="background:white;border-radius:16px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.15);animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);font-family:${fontStack};">
+          <div style="padding:28px 32px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h2 style="margin:0;color:#1e293b;font-size:22px;font-weight:700;">Activity Results</h2>
+            </div>
+            <button onclick="const modal = document.getElementById('studentTestResultsModal'); if(modal) { modal.style.opacity='0'; setTimeout(() => modal.remove(), 200); }" 
+                    style="background:#f8fafc;border:none;font-size:20px;color:#64748b;cursor:pointer;padding:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;">&times;</button>
+          </div>
+          <div style="padding:32px;text-align:center;">
+            <div style="background:${scoreBg};border-radius:16px;padding:32px;margin-bottom:24px;">
+              <div style="font-size:64px;font-weight:700;color:${scoreColor};margin-bottom:8px;">
+                ${userScore || 0}<span style="font-size:32px;color:#94a3b8;">/${maxScore}</span>
+              </div>
+              <div style="font-size:18px;color:#64748b;margin-bottom:20px;">Score</div>
+            </div>
+            <p style="color:#64748b;font-size:14px;margin-bottom:24px;">Your score has been recorded successfully.</p>
+            <button onclick="const modal = document.getElementById('studentTestResultsModal'); if(modal) { modal.style.opacity='0'; setTimeout(() => modal.remove(), 200); }" 
+                    style="background:linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);color:white;border:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;">
+              Close
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Close on outside click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.style.opacity = '0';
+          setTimeout(() => modal.remove(), 200);
+        }
+      });
+      
+      console.log('✅ Simplified Test Results modal displayed with score:', userScore);
+    } catch (modalError) {
+      // Silent fallback - just reload to show updated score
+      console.error('❌ Error creating fallback modal:', modalError);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  }
+}
+
 window.unlockActivity = unlockActivity;
 window.lockAllActivities = lockAllActivities;
 window.unlockAllActivities = unlockAllActivities;
@@ -6287,7 +7547,7 @@ function showCustomConfirm(title, message, confirmText = 'OK', cancelText = 'Can
       width: 90%;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       animation: slideUp 0.3s ease;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Inter', sans-serif;
       overflow: hidden;
     `;
     
@@ -6311,7 +7571,7 @@ function showCustomConfirm(title, message, confirmText = 'OK', cancelText = 'Can
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          font-family: 'Inter', sans-serif;
         " onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white';this.style.borderColor='#e2e8f0';">
           ${escapeHtml(cancelText)}
         </button>
@@ -6325,7 +7585,7 @@ function showCustomConfirm(title, message, confirmText = 'OK', cancelText = 'Can
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          font-family: 'Inter', sans-serif;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         " onmouseover="this.style.background='${confirmColor === '#1d9b3e' ? '#178832' : confirmColor === '#ef4444' ? '#dc2626' : confirmColor}';this.style.boxShadow='0 4px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='${confirmColor}';this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';">
           ${escapeHtml(confirmText)}
@@ -6380,7 +7640,17 @@ function updateActiveStudentsCounts() {
     fetch('get_active_students.php?lesson_id=' + encodeURIComponent(lessonId), {
       credentials: 'same-origin'
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      // Check if response is OK and content type is JSON
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      const contentType = r.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Response is not JSON');
+      }
+      return r.json();
+    })
     .then(function(data) {
       if (data && data.success !== false) {
         const count = data.count || 0;
@@ -6397,7 +7667,11 @@ function updateActiveStudentsCounts() {
       }
     })
     .catch(function(err) {
-      console.error('Error fetching active students count:', err);
+      // Silently fail - don't spam console with errors for this non-critical feature
+      // Only log if it's not a common error (like 403 for students)
+      if (err.message && !err.message.includes('403') && !err.message.includes('Unauthorized')) {
+        console.warn('Error fetching active students count for lesson ' + lessonId + ':', err.message);
+      }
       el.textContent = '0';
       el.style.color = '#6b7280';
     });
@@ -6432,6 +7706,1301 @@ function trackStudentActivity(lessonId) {
       console.error('Error tracking student activity:', err);
     });
   }, 120000); // 2 minutes
+}
+
+// ==================== REAL-TIME PROGRESS & COUNTDOWN FUNCTIONS ====================
+
+// Update activity card score immediately (after submission)
+function updateActivityCardScore(activityId, newScore) {
+  try {
+    console.log('📊 Updating activity card score:', activityId, '→', newScore);
+    
+    // Find all activity cards with this ID
+    let activityCards = document.querySelectorAll(`.activity-card[data-activity-id="${activityId}"]`);
+    
+    // If not found, try alternative selectors
+    if (activityCards.length === 0) {
+      activityCards = document.querySelectorAll(`[data-activity-id="${activityId}"]`);
+    }
+    
+    if (activityCards.length === 0) {
+      console.warn('⚠️ No activity cards found for activity ID:', activityId);
+      // Force reload scores from server after a delay (score might not be saved yet)
+      setTimeout(() => {
+        if (typeof loadAllStudentScores === 'function') {
+          console.log('🔄 Reloading all student scores as fallback...');
+          loadAllStudentScores();
+        } else {
+          // Last resort: reload the page
+          console.log('🔄 Reloading page to show updated score...');
+          window.location.reload();
+        }
+      }, 2000);
+      return;
+    }
+    
+    let updateSuccess = false;
+    activityCards.forEach(function(card) {
+      const maxScore = parseInt(card.getAttribute('data-max-score') || 0);
+      
+      // Try multiple selectors to find the score element
+      let scoreElement = card.querySelector(`.student-score[data-activity-id="${activityId}"]`);
+      if (!scoreElement) {
+        // Try without data-activity-id attribute
+        scoreElement = card.querySelector('.student-score');
+      }
+      if (!scoreElement) {
+        // Try finding in activity-stats
+        const statsElement = card.querySelector('.activity-stats');
+        if (statsElement) {
+          scoreElement = statsElement.querySelector('.student-score');
+        }
+      }
+      
+      // Try finding score-value directly as fallback
+      let scoreValueEl = null;
+      if (scoreElement) {
+        scoreValueEl = scoreElement.querySelector('.score-value');
+      }
+      if (!scoreValueEl) {
+        // Last resort: search for score-value anywhere in card
+        scoreValueEl = card.querySelector('.score-value');
+      }
+      
+      if (scoreValueEl) {
+        const safeScore = Math.max(0, Math.min(Number(newScore) || 0, maxScore || Infinity));
+        scoreValueEl.textContent = `${safeScore}/${maxScore || 0}`;
+        
+        // Update color based on score percentage
+        const percentage = maxScore > 0 ? (safeScore / maxScore) * 100 : 0;
+        if (percentage >= 80) {
+          scoreValueEl.style.color = '#059669'; // Green for high score
+        } else if (percentage >= 60) {
+          scoreValueEl.style.color = '#f59e0b'; // Orange for medium score
+        } else {
+          scoreValueEl.style.color = '#dc2626'; // Red for low score
+        }
+        
+        // Add visual feedback (brief highlight)
+        if (scoreElement) {
+          scoreElement.style.transition = 'all 0.3s ease';
+          scoreElement.style.borderColor = '#10b981';
+          scoreElement.style.transform = 'scale(1.05)';
+          setTimeout(() => {
+            scoreElement.style.borderColor = '';
+            scoreElement.style.transform = '';
+          }, 500);
+        }
+        
+        console.log('✅ Updated score display:', `${safeScore}/${maxScore}`);
+        updateSuccess = true;
+      } else {
+        console.warn('⚠️ Score value element not found in card for activity:', activityId);
+      }
+    });
+    
+    // CRITICAL: Multiple refresh attempts to ensure score is updated
+    // Even if immediate update succeeded, also refresh from server to ensure consistency
+    if (typeof loadAllStudentScores === 'function') {
+      // Immediate refresh attempt
+      setTimeout(() => {
+        console.log('🔄 Refresh attempt 1 - Reloading all student scores...');
+        loadAllStudentScores();
+      }, 1000);
+      
+      // Additional refresh attempts with increasing delays
+      setTimeout(() => {
+        console.log('🔄 Refresh attempt 2 - Reloading all student scores...');
+        loadAllStudentScores();
+      }, 3000);
+      
+      setTimeout(() => {
+        console.log('🔄 Refresh attempt 3 - Reloading all student scores...');
+        loadAllStudentScores();
+      }, 5000);
+    }
+    
+    // If update failed, force page reload as last resort
+    if (!updateSuccess && activityCards.length === 0) {
+      setTimeout(() => {
+        console.log('🔄 No cards found, reloading page as last resort...');
+        window.location.reload();
+      }, 6000);
+    }
+  } catch (error) {
+    console.error('❌ Error updating activity card score:', error);
+  }
+}
+
+// Load real student scores for all activity cards
+async function loadAllStudentScores() {
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  if (userRole !== 'student') return;
+  
+  const scoreElements = document.querySelectorAll('.student-score[data-activity-id]');
+  const promises = [];
+  
+  scoreElements.forEach(function(scoreEl) {
+    const activityId = scoreEl.getAttribute('data-activity-id');
+    if (!activityId) return;
+    
+    const activityCard = scoreEl.closest('.activity-card');
+    const maxScore = activityCard ? (activityCard.getAttribute('data-max-score') || 0) : 0;
+    const promise = getStudentScore(activityId).then(function(score) {
+      const scoreValueEl = scoreEl.querySelector('.score-value');
+      if (scoreValueEl) {
+        const safeScore = Math.max(0, Math.min(Number(score) || 0, Number(maxScore) || Infinity));
+        scoreValueEl.textContent = `${safeScore}/${maxScore || 0}`;
+        
+        // Update color based on score percentage
+        const percentage = maxScore > 0 ? (safeScore / maxScore) * 100 : 0;
+        if (percentage >= 80) {
+          scoreValueEl.style.color = '#059669'; // Green for high score
+        } else if (percentage >= 60) {
+          scoreValueEl.style.color = '#f59e0b'; // Orange for medium score
+        } else {
+          scoreValueEl.style.color = '#dc2626'; // Red for low score
+        }
+      }
+    }).catch(function(err) {
+      console.error('Error loading score for activity', activityId, ':', err);
+    });
+    
+    promises.push(promise);
+  });
+  
+  await Promise.all(promises);
+  console.log('✅ Loaded all student scores');
+}
+
+// Initialize countdown timers for all activities
+function initializeCountdownTimers() {
+  const countdownElements = document.querySelectorAll('.time-remaining[data-due-date]');
+  
+  countdownElements.forEach(function(el) {
+    // Skip if already initialized
+    if (el.getAttribute('data-countdown-initialized') === 'true') {
+      return;
+    }
+    
+    const dueDateStr = el.getAttribute('data-due-date');
+    if (!dueDateStr) return;
+    
+    // Clean up any existing interval first
+    const existingInterval = el.getAttribute('data-countdown-interval');
+    if (existingInterval) {
+      clearInterval(parseInt(existingInterval));
+    }
+    
+    // Parse due date (assume Manila timezone if no timezone info)
+    let dueDateFixed = dueDateStr;
+    if (dueDateStr && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dueDateStr)) {
+      dueDateFixed = dueDateStr.replace(' ', 'T') + '+08:00';
+    }
+    const dueDate = new Date(dueDateFixed);
+    
+    // Validate date
+    if (isNaN(dueDate.getTime())) {
+      console.error('Invalid due date:', dueDateStr);
+      return;
+    }
+    
+    const countdownText = el.querySelector('.countdown-text');
+    if (!countdownText) return;
+    
+    function updateCountdown() {
+      const now = new Date();
+      const diff = dueDate - now;
+      
+      if (diff <= 0) {
+        countdownText.textContent = 'Time\'s up!';
+        countdownText.style.color = '#dc2626';
+        el.style.background = '#fee2e2';
+        el.style.borderColor = '#fecaca';
+        // Clear interval when time is up
+        const intervalId = el.getAttribute('data-countdown-interval');
+        if (intervalId) {
+          clearInterval(parseInt(intervalId));
+          el.removeAttribute('data-countdown-interval');
+        }
+        return;
+      }
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      let timeStr = '';
+      if (days > 0) {
+        timeStr = `${days}d ${hours}h ${minutes}m`;
+      } else if (hours > 0) {
+        timeStr = `${hours}h ${minutes}m ${seconds}s`;
+      } else if (minutes > 0) {
+        timeStr = `${minutes}m ${seconds}s`;
+      } else {
+        timeStr = `${seconds}s`;
+      }
+      
+      countdownText.textContent = `Due in ${timeStr}`;
+      
+      // Color coding based on time remaining
+      if (days > 1) {
+        countdownText.style.color = '#059669'; // Green - plenty of time
+        el.style.background = '#f0fdf4';
+        el.style.borderColor = '#bbf7d0';
+      } else if (hours > 6) {
+        countdownText.style.color = '#f59e0b'; // Orange - moderate urgency
+        el.style.background = '#fffbeb';
+        el.style.borderColor = '#fde68a';
+      } else {
+        countdownText.style.color = '#dc2626'; // Red - urgent
+        el.style.background = '#fee2e2';
+        el.style.borderColor = '#fecaca';
+      }
+    }
+    
+    // Update immediately
+    updateCountdown();
+    
+    // Update every second
+    const intervalId = setInterval(updateCountdown, 1000);
+    
+    // Store interval ID for cleanup
+    el.setAttribute('data-countdown-interval', intervalId);
+    el.setAttribute('data-countdown-initialized', 'true');
+  });
+  
+  console.log('✅ Initialized countdown timers for', countdownElements.length, 'activities');
+}
+
+// Clean up countdown timers
+function cleanupCountdownTimers() {
+  const countdownElements = document.querySelectorAll('.time-remaining[data-countdown-interval]');
+  countdownElements.forEach(function(el) {
+    const intervalId = el.getAttribute('data-countdown-interval');
+    if (intervalId) {
+      clearInterval(parseInt(intervalId));
+      el.removeAttribute('data-countdown-interval');
+      el.removeAttribute('data-countdown-initialized');
+    }
+  });
+  console.log('🧹 Cleaned up countdown timers');
+}
+
+// Get average score for an activity (for teachers)
+async function getActivityAvgScore(activityId) {
+  try {
+    const response = await fetch(`get_activity_avg_score.php?activity_id=${activityId}`, {
+      credentials: 'same-origin'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      if (data && data.success) {
+        return Number(data.avg_score || 0);
+      }
+      return 0;
+    } else {
+      const text = await response.text();
+      throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+    }
+  } catch (error) {
+    console.error('Error getting average score:', error);
+    return 0;
+  }
+}
+
+// Load average scores for all teacher activity cards
+async function loadAllAvgScores() {
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  if (userRole !== 'teacher' && userRole !== 'coordinator') return;
+  
+  const avgScoreElements = document.querySelectorAll('.stat-circle.avg-score[data-activity-id]');
+  const promises = [];
+  
+  avgScoreElements.forEach(function(scoreEl) {
+    const activityId = scoreEl.getAttribute('data-activity-id');
+    if (!activityId) return;
+    
+    const activityCard = scoreEl.closest('.activity-card');
+    const maxScore = activityCard ? (activityCard.getAttribute('data-max-score') || 0) : 0;
+    
+    const promise = getActivityAvgScore(activityId).then(function(avgScore) {
+      const statValueEl = scoreEl.querySelector('.stat-value');
+      if (statValueEl) {
+        const safeAvg = Math.max(0, Math.min(Number(avgScore) || 0, Number(maxScore) || Infinity));
+        statValueEl.textContent = `${safeAvg}/${maxScore || 0}`;
+        
+        // Update color based on average score percentage
+        const percentage = maxScore > 0 ? (safeAvg / maxScore) * 100 : 0;
+        if (percentage >= 80) {
+          statValueEl.style.color = '#059669'; // Green for high average
+        } else if (percentage >= 60) {
+          statValueEl.style.color = '#f59e0b'; // Orange for medium average
+        } else {
+          statValueEl.style.color = '#dc2626'; // Red for low average
+        }
+      }
+    }).catch(function(err) {
+      console.error('Error loading average score for activity', activityId, ':', err);
+    });
+    
+    promises.push(promise);
+  });
+  
+  await Promise.all(promises);
+  console.log('✅ Loaded all average scores');
+}
+
+// Initialize improvements after content loads
+function initializeActivityImprovements() {
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  
+  if (userRole === 'student') {
+    // Load real student scores
+    setTimeout(function() {
+      loadAllStudentScores();
+    }, 500);
+    
+    // Initialize countdown timers
+    setTimeout(function() {
+      initializeCountdownTimers();
+    }, 1000);
+  } else if (userRole === 'teacher' || userRole === 'coordinator') {
+    // Load average scores for teachers
+    setTimeout(function() {
+      loadAllAvgScores();
+    }, 500);
+  }
+  
+  // Re-initialize when new content is loaded (e.g., when expanding lessons)
+  const observer = new MutationObserver(function(mutations) {
+    let shouldReload = false;
+    mutations.forEach(function(mutation) {
+      mutation.addedNodes.forEach(function(node) {
+        if (node instanceof HTMLElement) {
+          if (node.classList && node.classList.contains('activity-card')) {
+            shouldReload = true;
+          }
+          if (node.querySelector && node.querySelector('.activity-card')) {
+            shouldReload = true;
+          }
+        }
+      });
+    });
+    
+    if (shouldReload) {
+      setTimeout(function() {
+        if (userRole === 'student') {
+          loadAllStudentScores();
+          cleanupCountdownTimers();
+          initializeCountdownTimers();
+        } else if (userRole === 'teacher' || userRole === 'coordinator') {
+          loadAllAvgScores();
+        }
+      }, 300);
+    }
+  });
+  
+  observer.observe(document.body, { childList: true, subtree: true });
+  
+  // Start real-time activity status polling
+  startActivityStatusPolling();
+  
+  // REMOVED: Leaderboard buttons should NOT be on activity cards
+  // Leaderboards are only accessible from the Leaderboards tab/section
+  
+  console.log('✅ Activity improvements initialized');
+}
+
+/**
+ * Add leaderboard buttons to all activity cards
+ */
+function addLeaderboardButtonsToCards() {
+  const activityCards = document.querySelectorAll('.activity-card.student-format[data-activity-id]');
+  activityCards.forEach(card => {
+    const activityId = card.getAttribute('data-activity-id');
+    if (activityId) {
+      addLeaderboardButton(card, parseInt(activityId));
+    }
+  });
+}
+
+// ==================== LEADERBOARD FUNCTIONALITY ====================
+
+/**
+ * Show leaderboard modal for an activity
+ */
+async function showLeaderboardModal(activityId, userScore = null) {
+  try {
+    console.log('🏆 Loading leaderboard for activity:', activityId, 'with user score:', userScore);
+    
+    // Initialize variables
+    let leaderboard = [];
+    let userRank = null;
+    let userScoreData = null;
+    let userPercentage = null;
+    
+    // Try to fetch leaderboard data (but don't fail if it doesn't work)
+    try {
+      const response = await fetch(`get_leaderboard.php?activity_id=${activityId}&limit=50`, {
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      // Check if response is JSON (not HTML redirect)
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json') && response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          leaderboard = data.leaderboard || [];
+          userRank = data.user_rank;
+          userScoreData = data.user_score;
+          userPercentage = data.user_percentage;
+        }
+      } else {
+        // Silent error - just log to console
+        console.log('⚠️ Leaderboard endpoint returned non-JSON (likely auth error)');
+      }
+    } catch (error) {
+      // Silent error - just log to console
+      console.log('⚠️ Could not load leaderboard data (silent):', error.message || error);
+      // Continue with just the userScore - still show the modal
+    }
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'leaderboard-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000;font-family:"Inter",sans-serif;';
+    
+    // Format time
+    const formatTime = (ms) => {
+      if (!ms) return 'N/A';
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+      }
+      return `${secs}s`;
+    };
+    
+    // Format date
+    const formatDate = (dateString) => {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+    
+    // Get medal emoji for top 3
+    const getMedal = (rank) => {
+      if (rank === 1) return '🥇';
+      if (rank === 2) return '🥈';
+      if (rank === 3) return '🥉';
+      return `#${rank}`;
+    };
+    
+    // Build leaderboard HTML
+    let leaderboardHTML = '';
+    if (leaderboard.length === 0) {
+      leaderboardHTML = `
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-trophy" style="font-size:48px;color:#d1d5db;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">No submissions yet. Be the first!</p>
+        </div>
+      `;
+    } else {
+      leaderboardHTML = `
+        <div style="max-height:400px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f8f9fa;border-bottom:2px solid #e9ecef;">
+                <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Rank</th>
+                <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Student</th>
+                <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Score</th>
+                <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Time</th>
+                <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${leaderboard.map((entry, index) => {
+                const isCurrentUser = entry.user_id === (window.__USER_ID__ || 0);
+                const rowStyle = isCurrentUser 
+                  ? 'background:#e3f2fd;border-left:3px solid #2196f3;font-weight:600;' 
+                  : '';
+                return `
+                  <tr style="${rowStyle}border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:12px;font-size:14px;color:#374151;">
+                      <span style="display:inline-flex;align-items:center;gap:4px;">
+                        ${getMedal(entry.rank)}
+                      </span>
+                    </td>
+                    <td style="padding:12px;font-size:14px;color:#374151;">
+                      ${escapeHtml(entry.name || 'Unknown')}
+                      ${isCurrentUser ? '<span style="margin-left:8px;color:#2196f3;font-size:12px;">(You)</span>' : ''}
+                    </td>
+                    <td style="padding:12px;text-align:right;font-size:14px;color:#374151;">
+                      <span style="font-weight:600;">${entry.score || 0}</span>
+                      <span style="color:#9ca3af;font-size:12px;margin-left:4px;">/ ${entry.max_score || 0}</span>
+                      <span style="color:#059669;font-size:12px;margin-left:8px;">(${entry.percentage ? entry.percentage.toFixed(1) : 0}%)</span>
+                    </td>
+                    <td style="padding:12px;text-align:right;font-size:12px;color:#6b7280;">
+                      ${formatTime(entry.time_spent_ms)}
+                    </td>
+                    <td style="padding:12px;text-align:right;font-size:12px;color:#6b7280;">
+                      ${formatDate(entry.submitted_at)}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+    
+    // User's rank display - Always show prominently if userScore is provided (from submission)
+    let userRankHTML = '';
+    const displayScore = userScore !== null && userScore !== undefined ? userScore : (userScoreData || 0);
+    const displayRank = userRank !== null && userRank !== undefined ? userRank : null;
+    const displayPercentage = userPercentage || null;
+    
+    // Show user's score prominently if provided (from submission)
+    if (userScore !== null && userScore !== undefined) {
+      userRankHTML = `
+        <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:24px;border-radius:12px;margin-bottom:20px;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+          <div style="font-size:16px;opacity:0.95;margin-bottom:12px;font-weight:600;">🎉 Your Score</div>
+          <div style="font-size:48px;font-weight:700;margin-bottom:8px;line-height:1;">${displayScore}</div>
+          ${displayRank !== null ? `
+            <div style="font-size:18px;opacity:0.95;margin-bottom:8px;">Rank: ${getMedal(displayRank)}</div>
+          ` : ''}
+          ${displayPercentage !== null ? `
+            <div style="font-size:14px;opacity:0.9;">
+              Percentage: <strong>${displayPercentage.toFixed(1)}%</strong>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    } else if (displayRank !== null) {
+      // Show rank if available from API
+      userRankHTML = `
+        <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:20px;border-radius:12px;margin-bottom:20px;text-align:center;">
+          <div style="font-size:14px;opacity:0.9;margin-bottom:8px;">Your Rank</div>
+          <div style="font-size:36px;font-weight:700;margin-bottom:4px;">${getMedal(displayRank)}</div>
+          <div style="font-size:14px;opacity:0.9;">
+            Score: <strong>${displayScore}</strong> 
+            ${displayPercentage ? `(${displayPercentage.toFixed(1)}%)` : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    modal.innerHTML = `
+      <div style="background:white;border-radius:16px;max-width:800px;width:95%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04);">
+        <div style="padding:24px;border-bottom:1px solid #e9ecef;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <h2 style="margin:0;font-size:24px;font-weight:700;color:#111827;display:flex;align-items:center;gap:12px;">
+              <i class="fas fa-trophy" style="color:#f59e0b;"></i>
+              Leaderboard
+            </h2>
+            <p style="margin:4px 0 0 0;font-size:14px;color:#6b7280;">Top performers for this activity</p>
+          </div>
+          <button onclick="this.closest('.leaderboard-modal').remove(); window.location.reload();" 
+                  style="background:none;border:none;font-size:24px;color:#6b7280;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.2s;"
+                  onmouseover="this.style.background='#f3f4f6';this.style.color='#374151';"
+                  onmouseout="this.style.background='none';this.style.color='#6b7280';">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div style="padding:24px;overflow-y:auto;flex:1;">
+          ${userRankHTML}
+          ${leaderboardHTML}
+        </div>
+        <div style="padding:16px 24px;border-top:1px solid #e9ecef;background:#f8f9fa;display:flex;justify-content:flex-end;gap:12px;">
+          <button onclick="this.closest('.leaderboard-modal').remove(); window.location.reload();" 
+                  style="background:#1d9b3e;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;"
+                  onmouseover="this.style.background='#15803d';this.style.transform='translateY(-1px)';"
+                  onmouseout="this.style.background='#1d9b3e';this.style.transform='translateY(0)';">
+            Close
+          </button>
+        </div>
+      </div>
+    `;
+    
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+        window.location.reload();
+      }
+    });
+    
+    document.body.appendChild(modal);
+    
+  } catch (error) {
+    console.error('❌ Error showing leaderboard:', error);
+    
+    // Even if there's an error, show a simple score modal if userScore was provided
+    if (userScore !== null && userScore !== undefined) {
+      const modal = document.createElement('div');
+      modal.className = 'leaderboard-modal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000;font-family:"Inter",sans-serif;';
+      
+      modal.innerHTML = `
+        <div style="background:white;border-radius:16px;max-width:500px;width:95%;padding:32px;text-align:center;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
+          <div style="font-size:64px;margin-bottom:16px;">🎉</div>
+          <h2 style="margin:0 0 16px 0;font-size:28px;font-weight:700;color:#111827;">Activity Submitted!</h2>
+          <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:24px;border-radius:12px;margin:24px 0;">
+            <div style="font-size:16px;opacity:0.95;margin-bottom:12px;font-weight:600;">Your Score</div>
+            <div style="font-size:48px;font-weight:700;line-height:1;">${userScore}</div>
+          </div>
+          <p style="color:#6b7280;font-size:14px;margin:24px 0;">Your submission has been recorded successfully.</p>
+          <button onclick="this.closest('.leaderboard-modal').remove(); window.location.reload();" 
+                  style="background:#1d9b3e;color:white;border:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:16px;">
+            Close
+          </button>
+        </div>
+      `;
+      
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+          window.location.reload();
+        }
+      });
+      
+      document.body.appendChild(modal);
+    } else {
+      // No score to show, just reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  }
+}
+
+/**
+ * Add leaderboard button to a single activity card
+ */
+function addLeaderboardButton(activityCard, activityId) {
+  // Check if button already exists
+  if (activityCard.querySelector('.leaderboard-btn')) {
+    return;
+  }
+  
+  const statsContainer = activityCard.querySelector('.activity-stats');
+  if (!statsContainer) return;
+  
+  const leaderboardBtn = document.createElement('button');
+  leaderboardBtn.className = 'leaderboard-btn';
+  leaderboardBtn.innerHTML = '<i class="fas fa-trophy"></i> Leaderboard';
+  leaderboardBtn.style.cssText = `
+    position: absolute;
+    right: 140px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+  `;
+  
+  leaderboardBtn.addEventListener('mouseenter', () => {
+    leaderboardBtn.style.transform = 'translateY(calc(-50% - 2px))';
+    leaderboardBtn.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)';
+  });
+  
+  leaderboardBtn.addEventListener('mouseleave', () => {
+    leaderboardBtn.style.transform = 'translateY(-50%)';
+    leaderboardBtn.style.boxShadow = 'none';
+  });
+  
+  leaderboardBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showLeaderboardModal(activityId);
+  });
+  
+  // Insert before the start button or at the end
+  const startBtn = activityCard.querySelector('.start-activity-btn');
+  if (startBtn && startBtn.parentElement === statsContainer) {
+    statsContainer.insertBefore(leaderboardBtn, startBtn);
+  } else {
+    statsContainer.appendChild(leaderboardBtn);
+  }
+}
+
+// ==================== CLASS LEADERBOARDS FUNCTIONALITY ====================
+
+/**
+ * Load leaderboards for the current class
+ */
+async function loadClassLeaderboards() {
+  const classId = window.__CLASS_ID__;
+  console.log('🏆 loadClassLeaderboards called, classId:', classId);
+  
+  if (!classId) {
+    console.error('❌ No class ID available');
+    const leaderboardsContent = document.getElementById('class-leaderboards-content');
+    if (leaderboardsContent) {
+      leaderboardsContent.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#dc2626;">
+          <i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">Error: Class ID not found. Please refresh the page.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+  
+  const leaderboardsContent = document.getElementById('class-leaderboards-content');
+  if (!leaderboardsContent) {
+    console.error('❌ Leaderboards content container not found');
+    return;
+  }
+  
+  // Show loading state
+  leaderboardsContent.innerHTML = `
+    <div style="text-align:center;padding:40px;">
+      <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#1d9b3e;margin-bottom:16px;"></i>
+      <p style="color:#6b7280;font-size:14px;">Loading leaderboards...</p>
+    </div>
+  `;
+  
+  try {
+    console.log('🏆 Fetching class details for classId:', classId);
+    // Get class details to get course name
+    const classResponse = await fetch(`class_view_api.php?action=get_details&id=${encodeURIComponent(classId)}`, {
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    let className = 'Course';
+    if (classResponse.ok) {
+      const classData = await classResponse.json();
+      console.log('🏆 Class details response:', classData);
+      if (classData.success && classData.class) {
+        className = classData.class.name || classData.class.course_name || 'Course';
+      }
+    } else {
+      console.log('⚠️ Failed to fetch class details:', classResponse.status);
+    }
+    
+    console.log('🏆 Fetching leaderboard for classId:', classId);
+    // Load course-level leaderboard (aggregates all activities)
+    const leaderboardResponse = await fetch(`get_leaderboard.php?class_id=${classId}&limit=50`, {
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log('🏆 Leaderboard response status:', leaderboardResponse.status);
+    console.log('🏆 Leaderboard response headers:', {
+      'content-type': leaderboardResponse.headers.get('content-type'),
+      'ok': leaderboardResponse.ok
+    });
+    
+    // Check if response is JSON (not HTML redirect)
+    const contentType = leaderboardResponse.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await leaderboardResponse.text();
+      console.error('❌ Leaderboard endpoint returned non-JSON:', text.substring(0, 200));
+      leaderboardsContent.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-trophy" style="font-size:48px;color:#d1d5db;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">No leaderboards available yet. Submit activities to see rankings!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    if (!leaderboardResponse.ok) {
+      const errorData = await leaderboardResponse.json().catch(() => ({}));
+      console.error('❌ Leaderboard error:', errorData);
+      leaderboardsContent.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-trophy" style="font-size:48px;color:#d1d5db;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">No leaderboards available yet. Submit activities to see rankings!</p>
+          <p style="font-size:12px;margin:8px 0 0 0;color:#9ca3af;">Error: ${errorData.message || 'Unknown error'}</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const leaderboardData = await leaderboardResponse.json();
+    console.log('🏆 Leaderboard data received:', leaderboardData);
+    
+    if (!leaderboardData.success) {
+      console.error('❌ Leaderboard API returned success=false:', leaderboardData);
+      leaderboardsContent.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-trophy" style="font-size:48px;color:#d1d5db;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">No leaderboards available yet. Submit activities to see rankings!</p>
+          <p style="font-size:12px;margin:8px 0 0 0;color:#9ca3af;">${leaderboardData.message || 'No data available'}</p>
+        </div>
+      `;
+      return;
+    }
+    
+    if (!leaderboardData.leaderboard || leaderboardData.leaderboard.length === 0) {
+      console.log('⚠️ Leaderboard is empty');
+      leaderboardsContent.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-trophy" style="font-size:48px;color:#d1d5db;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">No leaderboards available yet. Submit activities to see rankings!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const leaderboard = leaderboardData.leaderboard || [];
+    const userRank = leaderboardData.user_rank;
+    const userScore = leaderboardData.user_score || 0;
+    const userPercentage = leaderboardData.user_percentage || 0;
+    const totalPossibleScore = leaderboardData.total_possible_score || 0;
+    
+    // Get medal emoji
+    const getMedal = (rank) => {
+      if (rank === 1) return '🥇';
+      if (rank === 2) return '🥈';
+      if (rank === 3) return '🥉';
+      return `#${rank}`;
+    };
+    
+    // Render course-level leaderboard
+    let html = `
+      <div style="border:1px solid #e9ecef;border-radius:12px;padding:24px;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e9ecef;">
+          <h4 style="margin:0;font-size:20px;font-weight:700;color:#111827;">
+            ${escapeHtml(className)}
+          </h4>
+          ${userRank !== null && userRank !== undefined ? `
+            <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;">
+              Your Rank: ${getMedal(userRank)} (${userPercentage.toFixed(1)}%)
+            </div>
+          ` : ''}
+        </div>
+        
+        <div style="max-height:600px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f8f9fa;border-bottom:2px solid #e9ecef;">
+                <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Rank</th>
+                <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Student</th>
+                <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Total Score</th>
+                <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${leaderboard.map((entry) => {
+                const isCurrentUser = entry.user_id === (window.__USER_ID__ || 0);
+                const rowStyle = isCurrentUser 
+                  ? 'background:#e3f2fd;border-left:3px solid #2196f3;font-weight:600;' 
+                  : 'background:white;';
+                return `
+                  <tr style="${rowStyle}border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:12px;font-size:14px;color:#374151;">
+                      ${getMedal(entry.rank)}
+                    </td>
+                    <td style="padding:12px;font-size:14px;color:#374151;">
+                      ${escapeHtml(entry.name || 'Unknown')}
+                      ${isCurrentUser ? '<span style="margin-left:8px;color:#2196f3;font-size:12px;">(You)</span>' : ''}
+                    </td>
+                    <td style="padding:12px;text-align:right;font-size:14px;color:#374151;">
+                      <span style="font-weight:600;">${entry.score || 0}</span>
+                      <span style="color:#9ca3af;font-size:12px;margin-left:4px;">/ ${totalPossibleScore}</span>
+                    </td>
+                    <td style="padding:12px;text-align:right;font-size:14px;color:#374151;">
+                      <span style="color:#059669;font-weight:600;">${entry.percentage ? entry.percentage.toFixed(1) : 0}%</span>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    
+    leaderboardsContent.innerHTML = html;
+    
+  } catch (error) {
+    console.error('❌ Error loading class leaderboards:', error);
+    leaderboardsContent.innerHTML = `
+      <div style="text-align:center;padding:40px;color:#dc2626;">
+        <i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>
+        <p style="font-size:16px;margin:0;">Error loading leaderboards. Please try again later.</p>
+        <p style="font-size:14px;margin:8px 0 0 0;color:#6b7280;">${escapeHtml(error.message || 'Unknown error')}</p>
+      </div>
+    `;
+  }
+}
+
+// ==================== REAL-TIME ACTIVITY STATUS POLLING ====================
+let activityStatusPollingInterval = null;
+
+function startActivityStatusPolling() {
+  // Clear any existing interval
+  if (activityStatusPollingInterval) {
+    clearInterval(activityStatusPollingInterval);
+  }
+  
+  // Poll every 30 seconds to check for activity unlock/lock status changes
+  // Reduced frequency to minimize unnecessary updates and console spam
+  activityStatusPollingInterval = setInterval(function() {
+    checkAndUpdateActivityStatuses();
+  }, 30000); // 30 seconds (balanced between responsiveness and performance)
+  
+  // Also check immediately on page load
+  setTimeout(function() {
+    checkAndUpdateActivityStatuses();
+  }, 2000); // Wait 2 seconds after page load
+  
+  console.log('✅ Started real-time activity status polling (every 30 seconds)');
+}
+
+function stopActivityStatusPolling() {
+  if (activityStatusPollingInterval) {
+    clearInterval(activityStatusPollingInterval);
+    activityStatusPollingInterval = null;
+    console.log('✅ Stopped activity status polling');
+  }
+}
+
+async function checkAndUpdateActivityStatuses() {
+  const classId = window.__CLASS_ID__;
+  if (!classId) {
+    return;
+  }
+  
+  try {
+    // Fetch latest activity statuses from API
+    const response = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { 
+      credentials: 'same-origin' 
+    });
+    
+    if (!response.ok) {
+      return;
+    }
+    
+    const data = await response.json();
+    if (!data || !data.success || !data.modules) {
+      return;
+    }
+    
+    // Collect all activities with their current status
+    const activityStatusMap = new Map();
+    
+    data.modules.forEach(function(module) {
+      (module.lessons || []).forEach(function(lesson) {
+        (lesson.activities || []).forEach(function(activity) {
+          if (activity.id && activity.availability) {
+            activityStatusMap.set(activity.id, {
+              status: activity.availability.status,
+              available: activity.availability.available,
+              start_at: activity.start_at,
+              due_at: activity.due_at
+            });
+          }
+        });
+      });
+    });
+    
+    // Check each activity card on the page
+    const activityCards = document.querySelectorAll('.activity-card[data-activity-id]');
+    
+    activityCards.forEach(function(card) {
+      const activityId = parseInt(card.getAttribute('data-activity-id'));
+      if (!activityId) return;
+      
+      const latestStatus = activityStatusMap.get(activityId);
+      if (!latestStatus) return;
+      
+      // Get current status from card (check stored status first, then fallback to DOM)
+      const storedStatus = card.getAttribute('data-last-status');
+      const currentStatus = storedStatus || getCurrentActivityStatus(card);
+      
+      // Only update if status actually changed (prevents unnecessary UI updates and console spam)
+      if (currentStatus !== latestStatus.status) {
+        console.log(`🔄 Activity ${activityId} status changed: ${currentStatus || 'unknown'} → ${latestStatus.status}`);
+        updateActivityCardStatus(card, latestStatus);
+      }
+      // If status hasn't changed, skip the update to avoid unnecessary DOM manipulation
+    });
+    
+  } catch (error) {
+    console.error('❌ Error checking activity statuses:', error);
+  }
+}
+
+function getCurrentActivityStatus(card) {
+  // Check for status classes
+  if (card.classList.contains('activity-locked')) {
+    return 'locked';
+  }
+  if (card.classList.contains('activity-closed')) {
+    return 'closed';
+  }
+  if (card.classList.contains('activity-open')) {
+    return 'open';
+  }
+  if (card.classList.contains('activity-upcoming')) {
+    return 'upcoming';
+  }
+  
+  // Check for status badge
+  const statusBadge = card.querySelector('.activity-status-badge');
+  if (statusBadge) {
+    if (statusBadge.classList.contains('badge-locked')) return 'locked';
+    if (statusBadge.classList.contains('badge-closed')) return 'closed';
+    if (statusBadge.classList.contains('badge-open')) return 'open';
+    if (statusBadge.classList.contains('badge-upcoming')) return 'upcoming';
+  }
+  
+  // Check for locked button
+  const startButton = card.querySelector('.start-activity-btn, .btn-start');
+  if (startButton && startButton.disabled) {
+    const buttonText = startButton.textContent || '';
+    if (buttonText.includes('Locked')) return 'locked';
+    if (buttonText.includes('Closed')) return 'closed';
+  }
+  
+  return null;
+}
+
+function updateActivityCardStatus(card, newStatus) {
+  const activityId = parseInt(card.getAttribute('data-activity-id'));
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  const isStudent = userRole === 'student';
+  
+  // Remove old status classes
+  card.classList.remove('activity-locked', 'activity-closed', 'activity-open', 'activity-upcoming');
+  
+  // Update border color
+  const leftBorder = card.querySelector('.activity-left-border');
+  if (leftBorder) {
+    leftBorder.classList.remove('border-locked', 'border-closed', 'border-open', 'border-upcoming');
+    if (newStatus.status === 'locked') {
+      leftBorder.classList.add('border-locked');
+    } else if (newStatus.status === 'closed') {
+      leftBorder.classList.add('border-closed');
+    } else if (newStatus.status === 'open') {
+      leftBorder.classList.add('border-open');
+    } else {
+      leftBorder.classList.add('border-upcoming');
+    }
+  }
+  
+  // Add new status class
+  if (newStatus.status === 'locked') {
+    card.classList.add('activity-locked');
+  } else if (newStatus.status === 'closed') {
+    card.classList.add('activity-closed');
+  } else if (newStatus.status === 'open') {
+    card.classList.add('activity-open');
+  } else {
+    card.classList.add('activity-upcoming');
+  }
+  
+  if (isStudent) {
+    // Update student view
+    updateStudentActivityCard(card, newStatus);
+  } else {
+    // Update teacher view
+    updateTeacherActivityCard(card, newStatus);
+  }
+  
+  // Show notification ONLY if activity status changed from locked/closed to open
+  // Use a global map to track which activities have already shown notifications (prevents duplicates)
+  if (!window.__activityNotificationShown) {
+    window.__activityNotificationShown = new Map();
+  }
+  
+  const previousStatus = card.getAttribute('data-last-status') || getCurrentActivityStatus(card) || 'unknown';
+  const statusChanged = previousStatus !== newStatus.status;
+  const justUnlocked = statusChanged && newStatus.status === 'open' && newStatus.available && previousStatus !== 'open';
+  
+  // Only show notification if:
+  // 1. Status actually changed to 'open'
+  // 2. Previous status was not 'open'
+  // 3. We haven't shown a notification for this activity in the last 5 seconds
+  if (justUnlocked) {
+    const lastNotificationTime = window.__activityNotificationShown.get(activityId) || 0;
+    const now = Date.now();
+    const timeSinceLastNotification = now - lastNotificationTime;
+    
+    // Only show if we haven't shown a notification for this activity in the last 5 seconds
+    if (timeSinceLastNotification > 5000) {
+      const activityTitle = card.querySelector('.activity-title')?.textContent || 'Activity';
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('success', 'Activity Unlocked', `"${activityTitle}" is now available!`);
+        window.__activityNotificationShown.set(activityId, now);
+      }
+    }
+  }
+  
+  // Store current status in data attribute for next comparison
+  card.setAttribute('data-last-status', newStatus.status);
+}
+
+function updateStudentActivityCard(card, newStatus) {
+  // Update status badge (top right) - same structure as teacher view
+  let statusBadgeContainer = card.querySelector('.activity-status-badge-top-right');
+  if (!statusBadgeContainer) {
+    // Create the container if it doesn't exist
+    statusBadgeContainer = document.createElement('div');
+    statusBadgeContainer.className = 'activity-status-badge-top-right';
+    const content = card.querySelector('.activity-content');
+    if (content) {
+      content.insertBefore(statusBadgeContainer, content.firstChild);
+    } else {
+      card.insertBefore(statusBadgeContainer, card.firstChild);
+    }
+  }
+  
+  // Update the badge content
+  if (newStatus.status === 'locked') {
+    statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-locked"><i class="fas fa-lock"></i> Locked</span>';
+  } else if (newStatus.status === 'closed') {
+    statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-closed"><i class="fas fa-clock"></i> Closed</span>';
+  } else if (newStatus.status === 'open') {
+    statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-open"><i class="fas fa-check-circle"></i> Open</span>';
+  } else {
+    statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-upcoming"><i class="fas fa-hourglass-half"></i> Upcoming</span>';
+  }
+  
+  // Remove any existing leaderboard buttons (they should not be on activity cards)
+  const existingLeaderboardBtn = card.querySelector('.leaderboard-btn');
+  if (existingLeaderboardBtn) {
+    existingLeaderboardBtn.remove();
+  }
+  
+  // Update start button
+  const startButton = card.querySelector('.start-activity-btn, .btn-start');
+  if (startButton) {
+    const isLocked = newStatus.status === 'locked' || !newStatus.available;
+    const isClosed = newStatus.status === 'closed';
+    
+    startButton.disabled = isLocked || isClosed;
+    
+    if (isLocked) {
+      startButton.innerHTML = '<i class="fas fa-lock"></i> Locked';
+      startButton.style.background = '#9ca3af';
+      startButton.style.cursor = 'not-allowed';
+    } else if (isClosed) {
+      startButton.innerHTML = '<i class="fas fa-clock"></i> Closed';
+      startButton.style.background = '#9ca3af';
+      startButton.style.cursor = 'not-allowed';
+    } else {
+      startButton.innerHTML = '<i class="fas fa-play"></i> Start';
+      startButton.style.background = '#1d9b3e';
+      startButton.style.cursor = 'pointer';
+    }
+  }
+  
+  // Update status message
+  const statusMessage = card.querySelector('.activity-status-message');
+  if (statusMessage && newStatus.status !== 'open') {
+    const reason = newStatus.status === 'locked' 
+      ? 'Activity is locked. Teacher will open it soon.'
+      : newStatus.status === 'closed'
+      ? 'Deadline has passed.'
+      : 'Activity not available.';
+    statusMessage.innerHTML = `<i class="fas fa-info-circle"></i> ${reason}`;
+  }
+}
+
+function updateTeacherActivityCard(card, newStatus) {
+  const activityId = parseInt(card.getAttribute('data-activity-id'));
+  const isLocked = newStatus.status === 'locked';
+  
+  // Update unlock/lock button visibility
+  const unlockBtn = card.querySelector('.btn-unlock');
+  const activityMenu = card.querySelector('.activity-menu');
+  
+  if (isLocked) {
+    // Show unlock button, hide menu
+    if (unlockBtn) {
+      unlockBtn.style.display = 'block';
+    }
+    if (activityMenu) {
+      activityMenu.style.display = 'none';
+    }
+  } else {
+    // Hide unlock button, show menu
+    if (unlockBtn) {
+      unlockBtn.style.display = 'none';
+    }
+    if (activityMenu) {
+      activityMenu.style.display = 'block';
+    }
+  }
+  
+  // Update status badge (top right)
+  let statusBadgeContainer = card.querySelector('.activity-status-badge-top-right');
+  if (!statusBadgeContainer) {
+    // Create the container if it doesn't exist
+    statusBadgeContainer = document.createElement('div');
+    statusBadgeContainer.className = 'activity-status-badge-top-right';
+    const content = card.querySelector('.activity-content');
+    if (content) {
+      content.insertBefore(statusBadgeContainer, content.firstChild);
+    } else {
+      card.insertBefore(statusBadgeContainer, card.firstChild);
+    }
+  }
+  
+  // Update the badge content
+  if (newStatus.status === 'locked') {
+    statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-locked"><i class="fas fa-lock"></i> Locked</span>';
+  } else if (newStatus.status === 'closed') {
+    statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-closed"><i class="fas fa-clock"></i> Closed</span>';
+  } else if (newStatus.status === 'open') {
+    statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-open"><i class="fas fa-check-circle"></i> Open</span>';
+  } else {
+    statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-upcoming"><i class="fas fa-hourglass-half"></i> Upcoming</span>';
+  }
+  
+  // Update activity status circle (for teacher view)
+  const activityStatusCircle = card.querySelector('.stat-circle.activity-status');
+  if (activityStatusCircle) {
+    const statusValue = activityStatusCircle.querySelector('.stat-value');
+    const statusLabel = activityStatusCircle.querySelector('.stat-label');
+    
+    if (newStatus.status === 'closed' && newStatus.due_at) {
+      const dueDate = new Date(newStatus.due_at);
+      const hours = String(dueDate.getHours()).padStart(2, '0');
+      const minutes = String(dueDate.getMinutes()).padStart(2, '0');
+      if (statusValue) statusValue.textContent = `${hours}:${minutes}`;
+      if (statusLabel) statusLabel.textContent = 'Activity closed';
+    } else if (newStatus.status === 'open') {
+      if (statusValue) statusValue.textContent = '00:00';
+      if (statusLabel) statusLabel.textContent = 'Activity open';
+    } else if (newStatus.status === 'locked') {
+      if (statusValue) statusValue.textContent = '00:00';
+      if (statusLabel) statusLabel.textContent = 'Activity locked';
+    }
+  }
 }
 
 

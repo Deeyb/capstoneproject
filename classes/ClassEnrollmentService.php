@@ -168,11 +168,12 @@ class ClassEnrollmentService {
                 u.firstname as teacher_firstname,
                 u.lastname as teacher_lastname,
                 u.middlename as teacher_middlename,
-                COUNT(cs2.id) as student_count
+                COUNT(DISTINCT CASE WHEN su.id IS NOT NULL AND UPPER(su.status) = 'ACTIVE' THEN cs2.student_user_id END) as student_count
             FROM class_students cs
             JOIN classes c ON cs.class_id = c.id
             LEFT JOIN users u ON c.owner_user_id = u.id
             LEFT JOIN class_students cs2 ON c.id = cs2.class_id
+            LEFT JOIN users su ON su.id = cs2.student_user_id
             WHERE cs.student_user_id = ? AND c.status = 'active'
             GROUP BY c.id, c.name, c.code, c.created_at, u.firstname, u.lastname, u.middlename
             ORDER BY c.created_at DESC

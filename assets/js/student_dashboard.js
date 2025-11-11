@@ -3,6 +3,17 @@
 // Global variables
 let currentSection = 'myclasses';
 
+// Utility function to escape HTML
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ===== SIDEBAR FUNCTIONALITY =====
 
 function toggleSidebar() {
@@ -134,6 +145,10 @@ function showSection(sectionName, clickedElement = null) {
     } else {
       console.log('⚠️ initSharedProfile function not available');
     }
+  } else if (sectionName === 'leaderboards') {
+    console.log('🏆 Loading Leaderboards section...');
+    // Leaderboards are per-class, so we just show a message directing users to select a class
+    // The actual leaderboards are shown in the class dashboard's Leaderboards tab
   }
 }
 
@@ -445,6 +460,382 @@ window.testNavigation = function() {
   }
 };
 
+// ==================== LEADERBOARDS FUNCTIONALITY ====================
+
+/**
+ * Load all leaderboards for all activities across all enrolled classes
+ */
+async function loadAllLeaderboards() {
+  const leaderboardsContent = document.querySelector('.leaderboards-content');
+  if (!leaderboardsContent) {
+    console.error('❌ Leaderboards content container not found');
+    return;
+  }
+  
+  // Show loading state
+  leaderboardsContent.innerHTML = `
+    <div style="text-align:center;padding:40px;">
+      <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#1d9b3e;margin-bottom:16px;"></i>
+      <p style="color:#6b7280;font-size:14px;">Loading leaderboards...</p>
+    </div>
+  `;
+  
+  try {
+    // Get all enrolled classes
+    const classesResponse = await fetch('get_my_classes.php', { credentials: 'same-origin' });
+    if (!classesResponse.ok) {
+      throw new Error('Failed to load classes');
+    }
+    
+    const classesData = await classesResponse.json();
+    if (!classesData.success || !classesData.classes || classesData.classes.length === 0) {
+      leaderboardsContent.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-trophy" style="font-size:48px;color:#d1d5db;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">No classes enrolled yet. Join a class to see leaderboards!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Collect all activities from all classes
+    const allActivities = [];
+    const classPromises = classesData.classes.map(async (classItem) => {
+      try {
+        const topicsResponse = await fetch(`class_view_api.php?action=list_topics&id=${classItem.id}`, {
+          credentials: 'same-origin'
+        });
+        if (!topicsResponse.ok) return;
+        
+        const topicsData = await topicsResponse.json();
+        if (!topicsData.success || !topicsData.modules) return;
+        
+        // Extract all activities
+        topicsData.modules.forEach(module => {
+          (module.lessons || []).forEach(lesson => {
+            (lesson.activities || []).forEach(activity => {
+              if (activity.id) {
+                allActivities.push({
+                  ...activity,
+                  class_id: classItem.id,
+                  class_name: classItem.name,
+                  class_code: classItem.code
+                });
+              }
+            });
+          });
+        });
+      } catch (error) {
+        console.error(`Error loading activities for class ${classItem.id}:`, error);
+      }
+    });
+    
+    await Promise.all(classPromises);
+    
+    if (allActivities.length === 0) {
+      leaderboardsContent.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-trophy" style="font-size:48px;color:#d1d5db;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">No activities found. Activities will appear here once created by your teacher.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Load leaderboard for each activity
+    const leaderboardPromises = allActivities.map(async (activity) => {
+      try {
+        const leaderboardResponse = await fetch(`get_leaderboard.php?activity_id=${activity.id}&limit=10`, {
+          credentials: 'same-origin'
+        });
+        if (!leaderboardResponse.ok) return null;
+        
+        const leaderboardData = await leaderboardResponse.json();
+        if (!leaderboardData.success) return null;
+        
+        return {
+          activity: activity,
+          leaderboard: leaderboardData.leaderboard || [],
+          user_rank: leaderboardData.user_rank,
+          user_score: leaderboardData.user_score,
+          user_percentage: leaderboardData.user_percentage,
+          total_participants: leaderboardData.total_participants || 0
+        };
+      } catch (error) {
+        console.error(`Error loading leaderboard for activity ${activity.id}:`, error);
+        return null;
+      }
+    });
+    
+    const leaderboardResults = await Promise.all(leaderboardPromises);
+    const validLeaderboards = leaderboardResults.filter(r => r !== null && r.leaderboard.length > 0);
+    
+    // Group by class
+    const leaderboardsByClass = {};
+    validLeaderboards.forEach(result => {
+      const classId = result.activity.class_id;
+      if (!leaderboardsByClass[classId]) {
+        leaderboardsByClass[classId] = {
+          class_name: result.activity.class_name,
+          class_code: result.activity.class_code,
+          leaderboards: []
+        };
+      }
+      leaderboardsByClass[classId].leaderboards.push(result);
+    });
+    
+    // Render leaderboards
+    if (Object.keys(leaderboardsByClass).length === 0) {
+      leaderboardsContent.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-trophy" style="font-size:48px;color:#d1d5db;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">No leaderboards available yet. Submit activities to see rankings!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '<div style="display:flex;flex-direction:column;gap:24px;">';
+    
+    Object.values(leaderboardsByClass).forEach(classData => {
+      html += `
+        <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+          <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e9ecef;">
+            <h3 style="margin:0;font-size:20px;font-weight:700;color:#111827;display:flex;align-items:center;gap:12px;">
+              <i class="fas fa-graduation-cap" style="color:#1d9b3e;"></i>
+              ${escapeHtml(classData.class_name)} (${escapeHtml(classData.class_code)})
+            </h3>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:20px;">
+      `;
+      
+      classData.leaderboards.forEach(result => {
+        const activity = result.activity;
+        const leaderboard = result.leaderboard;
+        const userRank = result.user_rank;
+        const userScore = result.user_score;
+        const userPercentage = result.user_percentage;
+        
+        // Format time
+        const formatTime = (ms) => {
+          if (!ms) return 'N/A';
+          const seconds = Math.floor(ms / 1000);
+          const minutes = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          if (minutes > 0) {
+            return `${minutes}m ${secs}s`;
+          }
+          return `${secs}s`;
+        };
+        
+        // Get medal emoji
+        const getMedal = (rank) => {
+          if (rank === 1) return '🥇';
+          if (rank === 2) return '🥈';
+          if (rank === 3) return '🥉';
+          return `#${rank}`;
+        };
+        
+        html += `
+          <div style="border:1px solid #e9ecef;border-radius:8px;padding:20px;background:#f8f9fa;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <h4 style="margin:0;font-size:16px;font-weight:600;color:#374151;">
+                ${escapeHtml(activity.title || 'Untitled Activity')}
+              </h4>
+              ${userRank !== null && userRank !== undefined ? `
+                <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;">
+                  Your Rank: ${getMedal(userRank)}
+                </div>
+              ` : ''}
+            </div>
+            
+            <div style="max-height:300px;overflow-y:auto;">
+              <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr style="background:white;border-bottom:2px solid #e9ecef;">
+                    <th style="padding:10px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Rank</th>
+                    <th style="padding:10px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Student</th>
+                    <th style="padding:10px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Score</th>
+                    <th style="padding:10px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${leaderboard.slice(0, 10).map((entry, index) => {
+                    const isCurrentUser = entry.user_id === (window.__USER_ID__ || 0);
+                    const rowStyle = isCurrentUser 
+                      ? 'background:#e3f2fd;border-left:3px solid #2196f3;font-weight:600;' 
+                      : 'background:white;';
+                    return `
+                      <tr style="${rowStyle}border-bottom:1px solid #f3f4f6;">
+                        <td style="padding:10px;font-size:14px;color:#374151;">
+                          ${getMedal(entry.rank)}
+                        </td>
+                        <td style="padding:10px;font-size:14px;color:#374151;">
+                          ${escapeHtml(entry.name || 'Unknown')}
+                          ${isCurrentUser ? '<span style="margin-left:8px;color:#2196f3;font-size:12px;">(You)</span>' : ''}
+                        </td>
+                        <td style="padding:10px;text-align:right;font-size:14px;color:#374151;">
+                          <span style="font-weight:600;">${entry.score || 0}</span>
+                          <span style="color:#9ca3af;font-size:12px;margin-left:4px;">/ ${entry.max_score || 0}</span>
+                          <span style="color:#059669;font-size:12px;margin-left:8px;">(${entry.percentage ? entry.percentage.toFixed(1) : 0}%)</span>
+                        </td>
+                        <td style="padding:10px;text-align:right;font-size:12px;color:#6b7280;">
+                          ${formatTime(entry.time_spent_ms)}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+            
+            ${leaderboard.length >= 10 ? `
+              <div style="margin-top:12px;text-align:center;">
+                <button onclick="window.showLeaderboardModal ? window.showLeaderboardModal(${activity.id}) : alert('Full leaderboard feature coming soon!')" 
+                        style="background:#1d9b3e;color:white;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;"
+                        onmouseover="this.style.background='#15803d';this.style.transform='translateY(-1px)';"
+                        onmouseout="this.style.background='#1d9b3e';this.style.transform='translateY(0)';">
+                  View Full Leaderboard
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+      
+      html += `
+          </div>
+        </div>
+      `;
+    });
+    
+    html += '</div>';
+    leaderboardsContent.innerHTML = html;
+    
+  } catch (error) {
+    console.error('❌ Error loading leaderboards:', error);
+    leaderboardsContent.innerHTML = `
+      <div style="text-align:center;padding:40px;color:#dc2626;">
+        <i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>
+        <p style="font-size:16px;margin:0;">Error loading leaderboards. Please try again later.</p>
+      </div>
+    `;
+  }
+}
+
+/**
+ * Open full leaderboard modal (reuse from class_dashboard.js if available, otherwise create simple modal)
+ */
+function openFullLeaderboard(activityId) {
+  // Try to use the function from class_dashboard.js if available
+  if (typeof window.showLeaderboardModal === 'function') {
+    window.showLeaderboardModal(activityId);
+    return;
+  }
+  
+  // Fallback: Create a simple modal
+  fetch(`get_leaderboard.php?activity_id=${activityId}&limit=50`, { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        alert('Failed to load leaderboard');
+        return;
+      }
+      
+      const leaderboard = data.leaderboard || [];
+      const userRank = data.user_rank;
+      
+      const formatTime = (ms) => {
+        if (!ms) return 'N/A';
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        if (minutes > 0) return `${minutes}m ${secs}s`;
+        return `${secs}s`;
+      };
+      
+      const getMedal = (rank) => {
+        if (rank === 1) return '🥇';
+        if (rank === 2) return '🥈';
+        if (rank === 3) return '🥉';
+        return `#${rank}`;
+      };
+      
+      let html = `
+        <div style="background:white;border-radius:16px;max-width:800px;width:95%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
+          <div style="padding:24px;border-bottom:1px solid #e9ecef;display:flex;justify-content:space-between;align-items:center;">
+            <h2 style="margin:0;font-size:24px;font-weight:700;color:#111827;">
+              <i class="fas fa-trophy" style="color:#f59e0b;"></i> Full Leaderboard
+            </h2>
+            <button onclick="this.closest('.leaderboard-modal').remove()" 
+                    style="background:none;border:none;font-size:24px;color:#6b7280;cursor:pointer;">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div style="padding:24px;overflow-y:auto;flex:1;">
+            ${userRank !== null ? `
+              <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:20px;border-radius:12px;margin-bottom:20px;text-align:center;">
+                <div style="font-size:14px;opacity:0.9;margin-bottom:8px;">Your Rank</div>
+                <div style="font-size:36px;font-weight:700;">${getMedal(userRank)}</div>
+              </div>
+            ` : ''}
+            <table style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f8f9fa;border-bottom:2px solid #e9ecef;">
+                  <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;">Rank</th>
+                  <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;">Student</th>
+                  <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;">Score</th>
+                  <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#6b7280;">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${leaderboard.map(entry => {
+                  const isCurrentUser = entry.user_id === (window.__USER_ID__ || 0);
+                  const rowStyle = isCurrentUser ? 'background:#e3f2fd;border-left:3px solid #2196f3;font-weight:600;' : '';
+                  return `
+                    <tr style="${rowStyle}border-bottom:1px solid #f3f4f6;">
+                      <td style="padding:12px;font-size:14px;color:#374151;">${getMedal(entry.rank)}</td>
+                      <td style="padding:12px;font-size:14px;color:#374151;">
+                        ${escapeHtml(entry.name || 'Unknown')}
+                        ${isCurrentUser ? '<span style="color:#2196f3;font-size:12px;">(You)</span>' : ''}
+                      </td>
+                      <td style="padding:12px;text-align:right;font-size:14px;color:#374151;">
+                        <strong>${entry.score || 0}</strong> / ${entry.max_score || 0}
+                        <span style="color:#059669;font-size:12px;">(${entry.percentage ? entry.percentage.toFixed(1) : 0}%)</span>
+                      </td>
+                      <td style="padding:12px;text-align:right;font-size:12px;color:#6b7280;">${formatTime(entry.time_spent_ms)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="padding:16px 24px;border-top:1px solid #e9ecef;text-align:right;">
+            <button onclick="this.closest('.leaderboard-modal').remove()" 
+                    style="background:#1d9b3e;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+              Close
+            </button>
+          </div>
+        </div>
+      `;
+      
+      const modal = document.createElement('div');
+      modal.className = 'leaderboard-modal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000;';
+      modal.innerHTML = html;
+      
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+      
+      document.body.appendChild(modal);
+    })
+    .catch(err => {
+      console.error('Error loading leaderboard:', err);
+      alert('Failed to load leaderboard');
+    });
+}
+
 // ===== INITIALIZATION =====
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -469,7 +860,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Newsfeed content will be loaded here
   } else if (section === 'leaderboards') {
     console.log('🏆 Loading Leaderboards section...');
-    // Leaderboards content will be loaded here
+    // Leaderboards are per-class, shown in the class dashboard
   } else if (section === 'certification') {
     console.log('🏅 Loading Certification section...');
     // Certification content will be loaded here

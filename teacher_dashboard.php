@@ -3,7 +3,30 @@
  * TEACHER DASHBOARD
  * Using original auth system to avoid redirect loops
  */
-session_start();
+
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
+
+// Set session name before starting
+if (session_status() === PHP_SESSION_NONE) {
+    $preferred = 'CodeRegalSession';
+    $legacy = 'PHPSESSID';
+    if (!empty($_COOKIE[$preferred])) { 
+        session_name($preferred); 
+    } elseif (!empty($_COOKIE[$legacy])) { 
+        session_name($legacy); 
+    } else { 
+        session_name($preferred); 
+    }
+}
+
+@session_start();
 require_once 'config.php';
 require_once 'classes/auth_helpers.php';
 require_once __DIR__ . '/config/Database.php';

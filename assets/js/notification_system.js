@@ -111,7 +111,7 @@ class NotificationSystem {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                font-family: 'Inter', sans-serif;
             }
 
             .notification-close {
@@ -135,7 +135,7 @@ class NotificationSystem {
                 color: #64748b;
                 line-height: 1.5;
                 margin: 0;
-                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                font-family: 'Inter', sans-serif;
             }
 
             .notification-icon {
@@ -233,7 +233,11 @@ class NotificationSystem {
                 'active students count',
                 'tracking student activity',
                 'Error fetching active students',
-                'Error tracking student activity'
+                'Error tracking student activity',
+                'Error updating stats',
+                'dashboard stats',
+                '403',
+                'Forbidden'
             ];
             
             const shouldShowNotification = !silentErrors.some(silent => 

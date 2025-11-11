@@ -1,7 +1,27 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
 }
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
+
+// Set session name before starting
+if (session_status() === PHP_SESSION_NONE) {
+    $preferred = 'CodeRegalSession';
+    $legacy = 'PHPSESSID';
+    if (!empty($_COOKIE[$preferred])) { 
+        session_name($preferred); 
+    } elseif (!empty($_COOKIE[$legacy])) { 
+        session_name($legacy); 
+    } else { 
+        session_name($preferred); 
+    }
+    @session_start();
+}
+
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 
@@ -9,7 +29,13 @@ try {
     require_once __DIR__ . '/classes/auth_helpers.php';
     require_once __DIR__ . '/config/Database.php';
     require_once __DIR__ . '/classes/CourseService.php';
-    Auth::requireAuth();
+    
+    // Return JSON error instead of redirecting for API calls
+    if (empty($_SESSION['user_id'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit;
+    }
 
     // Allow both GET and POST for different actions
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'GET') {

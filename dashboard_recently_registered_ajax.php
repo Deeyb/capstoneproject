@@ -1,17 +1,30 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// CRITICAL: Set session path BEFORE any session_start() calls
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0777, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    ini_set('session.save_path', $sessionPath);
+}
 
-session_start();
-
-// Debug logging
-error_log('Session data in recently registered: ' . print_r($_SESSION, true));
+// Set session name before starting
+if (session_status() === PHP_SESSION_NONE) {
+    $preferred = 'CodeRegalSession';
+    $legacy = 'PHPSESSID';
+    if (!empty($_COOKIE[$preferred])) { 
+        session_name($preferred); 
+    } elseif (!empty($_COOKIE[$legacy])) { 
+        session_name($legacy); 
+    } else { 
+        session_name($preferred); 
+    }
+    @session_start();
+}
 
 // Check if user is logged in and is an admin or coordinator (case-insensitive)
 if (!isset($_SESSION['user_role']) || !in_array(strtoupper($_SESSION['user_role']), ['ADMIN', 'COORDINATOR'])) {
     http_response_code(403);
-    error_log('Access denied. User role: ' . ($_SESSION['user_role'] ?? 'not set'));
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }

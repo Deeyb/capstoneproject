@@ -108,10 +108,12 @@ class ClassService {
         $stmt = $this->db->prepare("
             SELECT 
                 c.*,
-                COUNT(DISTINCT cs.id) as student_count,
+                /* Count only enrolled users that still exist and are Active */
+                COUNT(DISTINCT CASE WHEN u.id IS NOT NULL AND UPPER(u.status) = 'ACTIVE' THEN cs.student_user_id END) AS student_count,
                 COUNT(DISTINCT cm.id) as modules_count
             FROM classes c
             LEFT JOIN class_students cs ON c.id = cs.class_id
+            LEFT JOIN users u ON u.id = cs.student_user_id
             LEFT JOIN courses co ON c.course_id = co.id
             LEFT JOIN course_modules cm ON co.id = cm.course_id
             WHERE c.owner_user_id = ? AND c.status = 'active'

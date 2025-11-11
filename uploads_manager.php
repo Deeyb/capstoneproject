@@ -1,8 +1,22 @@
 <?php
-// Start session only if not already started
+// Unified session bootstrap (consistent with other endpoints)
+// Ensure custom save path and honor existing cookie name
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('PHPSESSID');
-    session_start();
+    $sessionPath = __DIR__ . '/sessions';
+    if (!is_dir($sessionPath)) { @mkdir($sessionPath, 0777, true); }
+    if (is_dir($sessionPath) && is_writable($sessionPath)) {
+        ini_set('session.save_path', $sessionPath);
+    }
+    $preferred = 'CodeRegalSession';
+    $legacy = 'PHPSESSID';
+    if (!empty($_COOKIE[$preferred])) {
+        session_name($preferred);
+    } elseif (!empty($_COOKIE[$legacy])) {
+        session_name($legacy);
+    } else {
+        session_name($preferred);
+    }
+    @session_start();
 }
 
 require_once __DIR__ . '/classes/auth_helpers.php';
@@ -20,9 +34,10 @@ $db = (new Database())->getConnection();
 $stmt = $db->prepare("SELECT LOWER(TRIM(role)) FROM users WHERE id=? LIMIT 1");
 $stmt->execute([$_SESSION['user_id']]);
 $role = $stmt->fetchColumn() ?: '';
-if ($role !== 'teacher' && $role !== 'coordinator') {
+// Allow teacher, coordinator, and admin to access uploads manager
+if ($role !== 'teacher' && $role !== 'coordinator' && $role !== 'admin') {
     http_response_code(403);
-    echo json_encode(['success'=>false,'message'=>'Forbidden - Teacher or Coordinator access required']);
+    echo json_encode(['success'=>false,'message'=>'Forbidden - Teacher, Coordinator, or Admin access required']);
     exit;
 }
 

@@ -141,8 +141,50 @@ class LoginService {
      * @return bool
      */
     private function validateCSRFToken($data) {
+        // Ensure session is started
+        if (session_status() === PHP_SESSION_NONE) {
+            // Set session path if not set
+            $sessionPath = __DIR__ . '/../sessions';
+            if (!is_dir($sessionPath)) {
+                @mkdir($sessionPath, 0777, true);
+            }
+            if (is_dir($sessionPath) && is_writable($sessionPath)) {
+                ini_set('session.save_path', $sessionPath);
+            }
+            
+            // Try to use the same session name as the main app
+            $preferred = 'CodeRegalSession';
+            $legacy = 'PHPSESSID';
+            if (!empty($_COOKIE[$preferred])) { 
+                session_name($preferred); 
+            } elseif (!empty($_COOKIE[$legacy])) { 
+                session_name($legacy); 
+            } else { 
+                session_name($preferred); 
+            }
+            @session_start();
+        }
+        
         $token = $data[CSRFProtection::getTokenName()] ?? '';
-        return CSRFProtection::validateToken($token);
+        
+        // Debug logging
+        error_log("CSRF Validation - Token received: " . (!empty($token) ? substr($token, 0, 10) . '...' : 'EMPTY'));
+        error_log("CSRF Validation - Session name: " . session_name());
+        error_log("CSRF Validation - Session ID: " . session_id());
+        error_log("CSRF Validation - Session has tokens: " . (isset($_SESSION['csrf_tokens']) ? 'YES (' . count($_SESSION['csrf_tokens']) . ')' : 'NO'));
+        if (isset($_SESSION['csrf_tokens'])) {
+            error_log("CSRF Validation - Available tokens: " . implode(', ', array_map(function($t) { return substr($t, 0, 10) . '...'; }, array_keys($_SESSION['csrf_tokens']))));
+        }
+        
+        if (empty($token)) {
+            error_log("CSRF Validation - Token is empty");
+            return false;
+        }
+        
+        $isValid = CSRFProtection::validateToken($token);
+        error_log("CSRF Validation - Result: " . ($isValid ? 'VALID' : 'INVALID'));
+        
+        return $isValid;
     }
     
     /**
@@ -188,7 +230,7 @@ class LoginService {
             case 'STUDENT':
                 return 'student_dashboard.php?section=myclasses';
             case 'TEACHER':
-                return 'teacher_dashboard.php?section=my-classes';
+                return 'Teacher_dashboard.php?section=my-classes'; // Match actual filename
             case 'COORDINATOR':
                 return 'coordinator_dashboard.php';
             default:
@@ -197,23 +239,66 @@ class LoginService {
     }
     
     public function logout() {
+        // Ensure session is started
+        if (session_status() === PHP_SESSION_NONE) {
+            // Set session path if not set
+            $sessionPath = __DIR__ . '/../sessions';
+            if (!is_dir($sessionPath)) {
+                @mkdir($sessionPath, 0777, true);
+            }
+            if (is_dir($sessionPath) && is_writable($sessionPath)) {
+                ini_set('session.save_path', $sessionPath);
+            }
+            
+            // Try to use the same session name as the main app
+            $preferred = 'CodeRegalSession';
+            $legacy = 'PHPSESSID';
+            if (!empty($_COOKIE[$preferred])) { 
+                session_name($preferred); 
+            } elseif (!empty($_COOKIE[$legacy])) { 
+                session_name($legacy); 
+            } else { 
+                session_name($preferred); 
+            }
+            @session_start();
+        }
+        
         // Audit logout before session clear
-        try { $uid = $_SESSION['user_id'] ?? null; if ($uid) { (new AuditLogService($this->db))->log($uid, 'auth.logout', 'user', (string)$uid); } } catch (Throwable $e) {}
+        try { 
+            $uid = $_SESSION['user_id'] ?? null; 
+            if ($uid) { 
+                (new AuditLogService($this->db))->log($uid, 'auth.logout', 'user', (string)$uid); 
+            } 
+        } catch (Throwable $e) {
+            error_log('Audit log error during logout: ' . $e->getMessage());
+        }
 
-        // Clear session
-        session_destroy();
+        // Clear all session variables
+        $_SESSION = [];
         
         // Clear remember me cookie
         if (isset($_COOKIE['remember_token'])) {
             $token = $_COOKIE['remember_token'];
             
             // Remove token from database
-            $stmt = $this->db->prepare("DELETE FROM remember_me_tokens WHERE token = ?");
-            $stmt->execute([$token]);
+            try {
+                $stmt = $this->db->prepare("DELETE FROM remember_me_tokens WHERE token = ?");
+                $stmt->execute([$token]);
+            } catch (Throwable $e) {
+                error_log('Error deleting remember token: ' . $e->getMessage());
+            }
             
             // Clear cookie
-            setcookie('remember_token', '', time() - 3600, '/');
+            setcookie('remember_token', '', time() - 3600, '/', '', false, true);
         }
+        
+        // Destroy session cookie
+        if (isset($_COOKIE[session_name()])) {
+            setcookie(session_name(), '', time() - 3600, '/');
+        }
+        
+        // Destroy session
+        @session_destroy();
         
         return [
             'success' => true,

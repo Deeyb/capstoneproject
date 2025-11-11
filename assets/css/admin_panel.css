@@ -106,10 +106,16 @@ body {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
+  /* Hide label text when collapsed even if not wrapped in span */
+  font-size: 0;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .sidebar.collapsed ul li i {
   margin-right: 0;
+  /* Restore icon size when parent font-size is zeroed */
+  font-size: 18px;
 }
 
 /* Toggle Button - Bottom Position (Recommended) */

@@ -1425,16 +1425,15 @@ function viewOutline(courseId) {
             const viewUrl = absoluteUrl + (absoluteUrl.includes('?') ? '&' : '?') + 'view=true';
             showPDFViewer(viewUrl);
           } else if (type === 'page' || /material_page_view\.php/i.test(url)) {
-            // Open material page in fullscreen iframe viewer (consistent with class_dashboard)
+            // Open material page in fullscreen iframe viewer (clean header, X close button)
             const overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:stretch;justify-content:stretch;';
             const wrap = document.createElement('div');
-            wrap.style.cssText = 'background:#fff;width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;border-radius:0;box-shadow:none;';
+            wrap.style.cssText = 'background:#fff;width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;border-radius:0;box-shadow:none;position:relative;';
             wrap.innerHTML = ''+
-              '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);">'+
-                '<div style="font-weight:700;color:#0f172a;">Content Page</div>'+
-                '<button id="coordMatCloseBtn" style="background:#6b7280;color:#fff;border:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Close</button>'+
-              '</div>'+
+              '<button id="coordMatCloseBtn" aria-label="Close" title="Close" '+
+              'style="position:absolute;top:10px;right:12px;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#6b7280;border:none;color:#fff;cursor:pointer;z-index:10001;">' +
+              '<span style="font-size:16px;line-height:1;">&#10005;</span></button>' +
               '<iframe src="' + absoluteUrl + '" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
             overlay.appendChild(wrap);
             document.body.appendChild(overlay);
@@ -3036,10 +3035,31 @@ function loadCoordinatorUploads() {
   if (type) url += '&type=' + encodeURIComponent(type);
   
   // Reuse materials listing for active (archived=0)
+  console.log('🔍 [Uploads] Fetching from:', url);
   fetch(url, { credentials:'same-origin' })
-    .then(r=>r.json())
+    .then(r => {
+      console.log('🔍 [Uploads] Response status:', r.status, r.statusText);
+      console.log('🔍 [Uploads] Response headers:', r.headers.get('content-type'));
+      if (!r.ok) {
+        return r.text().then(text => {
+          console.error('❌ [Uploads] HTTP Error:', r.status, text.substring(0, 500));
+          throw new Error(`HTTP ${r.status}: ${r.statusText} - ${text.substring(0, 200)}`);
+        });
+      }
+      const contentType = r.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return r.json();
+      } else {
+        return r.text().then(text => {
+          console.error('❌ [Uploads] Non-JSON response:', text.substring(0, 500));
+          throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+        });
+      }
+    })
     .then(data=>{
-      if (data.success && Array.isArray(data.data) && data.data.length) {
+      console.log('🔍 [Uploads] Response data:', data);
+      if (data && data.success && Array.isArray(data.data)) {
+        if (data.data.length > 0) {
         list.innerHTML = `
           <table>
             <thead>
@@ -3079,11 +3099,19 @@ function loadCoordinatorUploads() {
               }).join('')}
             </tbody>
           </table>`;
+        } else {
+          console.log('ℹ️ [Uploads] No materials found (empty array)');
+          list.innerHTML = '<div class="empty-state"><i class="fas fa-upload"></i>No materials found</div>';
+        }
       } else {
-        list.innerHTML = '<div class="empty-state"><i class="fas fa-upload"></i>No materials found</div>';
+        console.warn('⚠️ [Uploads] Invalid response format:', data);
+        list.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>Invalid response format</div>';
       }
     })
-    .catch(()=>{ list.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>Failed to load</div>'; });
+    .catch(err => {
+      console.error('❌ [Uploads] Error loading uploads:', err);
+      list.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>Failed to load: ' + (err.message || 'Unknown error') + '</div>';
+    });
 }
 function archiveMaterial(id, btnEl, ev) {
   if (ev && ev.preventDefault) ev.preventDefault();
@@ -4881,16 +4909,17 @@ function showCreateActivityForm(lessonId, opts){
             explanation: q.explanation
           });
           
-          // CRITICAL: Map choices for ALL activity types that use choices (multiple_choice, true_false, identification)
-          if (activityType === 'multiple_choice' || activityType === 'true_false' || activityType === 'identification') { 
+          // CRITICAL: Map choices for activity types that use choices (multiple_choice, true_false)
+          // NOTE: Identification activities don't use choices - they use explanation field for correct answer
+          if (activityType === 'multiple_choice' || activityType === 'true_false') { 
             const choicesArray = q.choices || [];
             console.log('🔍 [PREVIEW] Question', idx, 'RAW choices array:', JSON.stringify(choicesArray, null, 2));
             console.log('🔍 [PREVIEW] Question', idx, 'choices array type:', typeof choicesArray, 'isArray:', Array.isArray(choicesArray), 'length:', choicesArray.length);
             console.log('🔍 [PREVIEW] Question', idx, 'activityType:', activityType);
             
             if (choicesArray.length === 0) {
-              console.error('🔍 [PREVIEW] ⚠️ WARNING: No choices found for question', idx, '! Question object:', q);
-              console.error('🔍 [PREVIEW] ⚠️ Full question object:', JSON.stringify(q, null, 2));
+              console.warn('🔍 [PREVIEW] ⚠️ WARNING: No choices found for question', idx, '! Question object:', q);
+              console.warn('🔍 [PREVIEW] ⚠️ Full question object:', JSON.stringify(q, null, 2));
             }
             
             base.choices = choicesArray.map(function(c, ci){ 
@@ -4928,8 +4957,17 @@ function showCreateActivityForm(lessonId, opts){
             }); 
             
             console.log('🔍 [PREVIEW] Question', idx, 'FINAL mapped choices:', JSON.stringify(base.choices, null, 2));
+          } else if (activityType === 'identification') {
+            // Identification activities don't use choices - they use explanation field for correct answer
+            // No need to map choices, just ensure explanation is available
+            console.log('🔍 [PREVIEW] Question', idx, 'is Identification type - using explanation field for correct answer');
+            if (!base.explanation && q.explanation) {
+              base.explanation = q.explanation;
+            }
+            // Set empty choices array for consistency
+            base.choices = [];
           } else {
-            // For other activity types, still try to map choices if they exist
+            // For other activity types (essay, upload_based, etc.), still try to map choices if they exist
             if (q.choices && Array.isArray(q.choices) && q.choices.length > 0) {
               base.choices = q.choices.map(function(c, ci){
                 const rawText = c.choice_text || c.text || '';
@@ -4941,6 +4979,8 @@ function showCreateActivityForm(lessonId, opts){
                   correct: !!c.is_correct || !!c.correct || c.is_correct === 1 || c.correct === 1
                 };
               });
+            } else {
+              base.choices = [];
             }
           }
           return base;
@@ -7478,7 +7518,7 @@ function renderStudentMultipleChoiceTest(activity) {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
         <h4 style="margin:0 0 12px 0;font-weight:500;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family: 'Inter', sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="font-size:14px;color:#495057;margin:0 0 12px 0;font-weight:500;">Select your answer:</div>
         <div style="space-y:8px;">
     `;
@@ -7514,7 +7554,7 @@ function renderStudentIdentificationTest(activity) {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
         <h4 style="margin:0 0 12px 0;font-weight:500;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family: 'Inter', sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="margin-bottom:12px;">
           <label style="display:block;margin-bottom:4px;font-weight:500;">Your Answer:</label>
           <input type="text" name="student-q${index + 1}" placeholder="Enter your answer here..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
@@ -7591,7 +7631,7 @@ function renderStudentTrueFalseTest(activity) {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
         <h4 style="margin:0 0 12px 0;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family: 'Inter', sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="space-y:8px;">
           <label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:white;transition:all 0.2s;margin-bottom:8px;">
             <input type="radio" name="student-q${index + 1}" value="true" style="margin:0;">
@@ -7620,7 +7660,7 @@ function renderStudentEssayTest(activity) {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
         <h4 style="margin:0 0 12px 0;font-weight:500;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family: 'Inter', sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="margin-bottom:12px;">
           <label style="display:block;margin-bottom:4px;font-weight:500;">Your Answer:</label>
           <textarea name="student-q${index + 1}" rows="6" placeholder="Write your essay here..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;resize:vertical;"></textarea>
@@ -7642,7 +7682,7 @@ function renderStudentMatchingTest(activity) {
     html += `
       <div style="border:1px solid #e3e6ea;border-radius:8px;padding:16px;margin-bottom:16px;background:white;">
         <h4 style="margin:0 0 12px 0;font-weight:500;">Question ${index + 1}</h4>
-        <p style="margin:0 0 16px 0;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || 'Question text not available'}</p>
+        <p style="margin:0 0 16px 0;font-weight:600;font-family: 'Inter', sans-serif;">${question.question_text || 'Question text not available'}</p>
         <div style="margin-bottom:12px;">
           <label style="display:block;margin-bottom:4px;font-weight:500;">Your Answer:</label>
           <input type="text" name="student-q${index + 1}" placeholder="Enter your answer here..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
@@ -7712,7 +7752,7 @@ function renderProfessionalTestQuestions(activity, activityType) {
         </div>
         
         <div style="margin-bottom:20px;">
-          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-weight:600;font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${question.question_text || question.text || 'Question text not available'}</p>
+          <p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#333;font-weight:600;font-family: 'Inter', sans-serif;">${question.question_text || question.text || 'Question text not available'}</p>
         </div>
         ${activityType === 'multiple_choice' ? '<div style="font-size:14px;color:#495057;margin:0 0 8px 0;">Select your answer:</div>' : ''}
         ${renderQuestionInput(question, index, activityType)}
