@@ -118,7 +118,8 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
         </li>
         
         
-        <li class="nav-item" onclick="showSection('reports', this)">
+        <!-- Reports - Hidden -->
+        <li class="nav-item" onclick="showSection('reports', this)" style="display: none;">
           <i class="fas fa-chart-bar"></i>
           <span>Reports</span>
         </li>
@@ -167,8 +168,8 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
 
     
 
-    <!-- Reports Section -->
-    <div id="reports" class="section-content">
+    <!-- Reports Section - Hidden -->
+    <div id="reports" class="section-content" style="display: none;">
       <div class="section-title">Reports</div>
       <p>Reporting features will be implemented here.</p>
     </div>

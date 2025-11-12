@@ -106,8 +106,10 @@ class ActivitySubmissionController {
         $activityType = strtolower($activity['type'] ?? '');
         
         // For Identification: use the calculated score (don't recalculate from items)
+        // For Coding: use the pre-calculated score (don't recalculate from items)
         // For other auto-graded activities (MCQ, True/False, Matching), recalculate from items
         $shouldRecalculateFromItems = in_array($activityType, ['multiple_choice', 'mcq', 'quiz', 'true_false', 'matching'], true);
+        $isCoding = ($activityType === 'coding');
         
         // Submit the attempt (with retry logic if attempt not found)
         try {
@@ -125,9 +127,9 @@ class ActivitySubmissionController {
             }
         }
         
-        // Recalculate score from attempt items for auto-graded activities (except Identification)
-        // For Identification, use the pre-calculated score to avoid overwriting with incorrect item-based calculation
-        if ($shouldRecalculateFromItems || ($result['score'] === null && $activityType !== 'identification')) {
+        // Recalculate score from attempt items for auto-graded activities (except Identification and Coding)
+        // For Identification and Coding, use the pre-calculated score to avoid overwriting with incorrect item-based calculation
+        if ($shouldRecalculateFromItems || ($result['score'] === null && $activityType !== 'identification' && !$isCoding)) {
             error_log("Activity {$activityId} (type: {$activityType}): Starting score recalculation from items for attempt {$attemptId}");
             $recalculatedScore = $this->recalculateScoreFromItems($attemptId);
             if ($recalculatedScore !== null) {
@@ -234,15 +236,20 @@ class ActivitySubmissionController {
             ];
         }
         
-        // CRITICAL: Ensure score is always a number (not null) for auto-graded activities
+        // CRITICAL: For manual grading activities, keep score as null in response
+        // For auto-graded activities, ensure score is always a number (not null)
         $responseScore = $result['score'];
-        if (!$isManualGrading && ($responseScore === null || $responseScore === '')) {
-            // Use finalScore which we verified above
+        if ($isManualGrading) {
+            // For manual grading (essay, upload_based), score should be null (pending grading)
+            $responseScore = null;
+            error_log("Manual grading activity - keeping score as null in response");
+        } else if ($responseScore === null || $responseScore === '') {
+            // Use finalScore which we verified above for auto-graded activities
             $responseScore = $finalScore !== null ? $finalScore : 0;
             error_log("Using finalScore for response: {$responseScore}");
         }
         
-        // Ensure score is numeric
+        // Ensure score is numeric (only if not null)
         if ($responseScore !== null) {
             $responseScore = (float)$responseScore;
         }
@@ -272,15 +279,51 @@ class ActivitySubmissionController {
             return $this->progressService->calculateIdentificationScore($activity['id'], $answers);
         }
         
+        // CRITICAL: Handle coding activities - score is pre-calculated from test cases
+        if ($activityType === 'coding') {
+            return $this->calculateCodingScore($activity, $answers);
+        }
+        
         // For essay and upload_based: manual grading required (return null)
         if (in_array($activityType, ['essay', 'upload_based'], true)) {
             return null; // Teacher will grade manually
         }
         
         // For MCQ, quiz, true_false, matching: score will be calculated from attempt items
-        // For coding: handled separately (not through this submission flow)
         // For lecture, laboratory, assignment: typically don't have submissions
         return null; // Score calculated from attempt items in recalculateScoreFromItems()
+    }
+    
+    /**
+     * Calculate score for coding activities
+     * Score is pre-calculated from test case results in the frontend
+     */
+    private function calculateCodingScore($activity, $answers) {
+        // Check if score is already provided in the submission
+        // The frontend calculates score from test case results and includes it
+        if (isset($answers['coding']) && is_array($answers['coding'])) {
+            $codingData = $answers['coding'];
+            
+            // If score is directly provided, use it
+            if (isset($codingData['score']) && is_numeric($codingData['score'])) {
+                return (float)$codingData['score'];
+            }
+            
+            // Otherwise, calculate from test cases
+            if (isset($codingData['testCases']) && is_array($codingData['testCases'])) {
+                $totalScore = 0.0;
+                foreach ($codingData['testCases'] as $testCase) {
+                    if (isset($testCase['earned']) && is_numeric($testCase['earned'])) {
+                        $totalScore += (float)$testCase['earned'];
+                    }
+                }
+                return $totalScore;
+            }
+        }
+        
+        // Fallback: return 0 if no score can be calculated
+        error_log("Warning: Could not calculate coding score for activity {$activity['id']}");
+        return 0.0;
     }
     
     /**

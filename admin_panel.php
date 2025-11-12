@@ -358,7 +358,8 @@ require_once 'includes/sidebar.php';
     <h2 class="section-title">Assessments</h2>
     <!-- Assessments content will go here -->
   </div>
-  <div id="reports" class="section-content">
+  <!-- Reports Section - Hidden -->
+  <div id="reports" class="section-content" style="display: none;">
     <h2 class="section-title">Reports</h2>
     <!-- Reports content will go here -->
   </div>

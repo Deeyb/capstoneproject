@@ -42,7 +42,8 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
     <li data-section="archiveCoord">
       <i class="fas fa-archive"></i> Archive
     </li>
-    <li data-section="importExport">
+    <!-- Import/Export - Hidden -->
+    <li data-section="importExport" style="display: none;">
       <i class="fas fa-exchange-alt"></i> Import/Export
     </li>
     <li data-section="profile">

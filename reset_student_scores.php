@@ -2,7 +2,7 @@
 /**
  * RESET STUDENT SCORES UTILITY
  * Allows resetting student scores for testing purposes
- * 
+ * http://localhost/capstoneproject/reset_student_scores.php
  * WARNING: This is a utility script for development/testing only!
  * Remove or secure this file in production.
  */

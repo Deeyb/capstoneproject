@@ -29,8 +29,9 @@ $activityId = isset($_GET['activity_id']) ? (int)$_GET['activity_id'] : 0;
   <button class="back-btn" onclick="history.back()" aria-label="Back (Esc)" title="Back (Esc)"><span class="back-btn__icon">×</span></button>
   <div class="preview-wrap"><div id="root"></div></div>
   <script>
-  // Set user ID for submission saving
+  // Set user ID and role for submission saving
   window.__USER_ID__ = <?php echo isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0; ?>;
+  window.__USER_ROLE__ = <?php echo isset($_SESSION['user_role']) ? json_encode(strtolower($_SESSION['user_role'])) : json_encode('student'); ?>;
   
   (async function(){
     const aid = <?php echo $activityId; ?>;

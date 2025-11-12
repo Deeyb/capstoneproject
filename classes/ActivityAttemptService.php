@@ -309,7 +309,7 @@ class ActivityAttemptService {
         } catch (Exception $e) {
             error_log("ActivityAttemptService::saveAttemptItems - Failed to determine activity type for activity {$activityId}: " . $e->getMessage());
         }
-        if (!in_array($activityType, ['multiple_choice','mcq','quiz','true_false','identification','matching','essay','upload_based'], true)) {
+        if (!in_array($activityType, ['multiple_choice','mcq','quiz','true_false','identification','matching','essay','upload_based','coding'], true)) {
             $activityType = 'multiple_choice';
         }
 
@@ -349,7 +349,165 @@ class ActivityAttemptService {
         $deleteStmt = $this->db->prepare("DELETE FROM activity_attempt_items WHERE attempt_id = ?");
         $deleteStmt->execute([$attemptId]);
         
-        // Insert each answer
+        // CRITICAL: Handle coding activities differently - they don't have questions, they have code and test case results
+        if ($activityType === 'coding') {
+            // For coding activities, save the code and results as a single attempt item
+            if (isset($answers['coding']) && is_array($answers['coding'])) {
+                $codingData = $answers['coding'];
+                $code = $codingData['code'] ?? '';
+                $language = $codingData['language'] ?? 'cpp';
+                $results = $codingData['results'] ?? [];
+                $testCases = $codingData['testCases'] ?? [];
+                $verdict = $codingData['verdict'] ?? 'failed';
+                $constructCheck = $codingData['constructCheck'] ?? null;
+                
+                // Calculate total score from test cases
+                $totalScore = 0.0;
+                foreach ($testCases as $tc) {
+                    if (isset($tc['earned']) && is_numeric($tc['earned'])) {
+                        $totalScore += (float)$tc['earned'];
+                    }
+                }
+                
+                // Save coding submission as a single attempt item
+                // Use a special question_id of 0 or -1 to indicate it's a coding submission
+                $extra = json_encode([
+                    'code' => $code,
+                    'language' => $language,
+                    'results' => $results,
+                    'testCases' => $testCases,
+                    'verdict' => $verdict,
+                    'constructCheck' => $constructCheck,
+                    'type' => 'coding'
+                ]);
+                
+                $stmt = $this->db->prepare("
+                    INSERT INTO activity_attempt_items 
+                    (attempt_id, question_id, response_text, is_correct, points_awarded, extra)
+                    VALUES (?, 0, ?, ?, ?, ?)
+                ");
+                
+                $isCorrect = ($verdict === 'AC' || $verdict === 'passed');
+                $stmt->execute([
+                    $attemptId,
+                    $code, // Store code in response_text
+                    $isCorrect ? 1 : 0,
+                    $totalScore,
+                    $extra
+                ]);
+                
+                error_log("Coding activity saved - Attempt {$attemptId}, Score: {$totalScore}, Verdict: {$verdict}");
+            }
+            return; // Don't process questions for coding activities
+        }
+        
+        // CRITICAL: Handle upload-based activities - they have file uploads instead of question-based answers
+        if ($activityType === 'upload_based') {
+            error_log("=== UPLOAD-BASED ACTIVITY DETECTED ===");
+            error_log("Activity ID: {$activityId}, Attempt ID: {$attemptId}");
+            error_log("Answers keys: " . implode(', ', array_keys($answers)));
+            error_log("Answers full: " . json_encode($answers));
+            
+            // For upload-based activities, save the file info as a single attempt item
+            if (isset($answers['upload'])) {
+                $uploadData = $answers['upload'];
+                
+                error_log("Upload-based activity - Raw upload data type: " . gettype($uploadData));
+                error_log("Upload-based activity - Raw upload data: " . var_export($uploadData, true));
+                
+                // If upload is a JSON string, decode it
+                if (is_string($uploadData)) {
+                    $decoded = json_decode($uploadData, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $uploadData = $decoded;
+                        error_log("Upload-based activity - Decoded JSON successfully");
+                    } else {
+                        error_log("Upload-based activity - JSON decode error: " . json_last_error_msg());
+                    }
+                }
+                
+                if (is_array($uploadData) || is_object($uploadData)) {
+                    $fileName = $uploadData['fileName'] ?? $uploadData['file_name'] ?? 'uploaded_file';
+                    $fileSize = $uploadData['fileSize'] ?? $uploadData['file_size'] ?? 0;
+                    $fileType = $uploadData['fileType'] ?? $uploadData['file_type'] ?? '';
+                    $filePath = $uploadData['filePath'] ?? $uploadData['file_path'] ?? '';
+                    
+                    error_log("Upload-based activity - Extracted file info: fileName={$fileName}, fileSize={$fileSize}, fileType={$fileType}, filePath={$filePath}");
+                    
+                    // Store file info in response_text as JSON
+                    $fileInfo = json_encode([
+                        'fileName' => $fileName,
+                        'fileSize' => $fileSize,
+                        'fileType' => $fileType,
+                        'filePath' => $filePath
+                    ]);
+                    
+                    // Get first question ID (upload-based activities typically have one question)
+                    $firstQuestionId = !empty($questions) ? (int)$questions[0]['id'] : 0;
+                    
+                    $stmt = $this->db->prepare("
+                        INSERT INTO activity_attempt_items 
+                        (attempt_id, question_id, response_text, is_correct, points_awarded, extra)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    
+                    // For upload-based: is_correct and points_awarded are null (manual grading)
+                    $executeResult = $stmt->execute([
+                        $attemptId,
+                        $firstQuestionId,
+                        $fileInfo, // Store file info JSON in response_text
+                        null, // is_correct = null (teacher will grade)
+                        null, // points_awarded = null (teacher will grade)
+                        json_encode(['type' => 'upload_based'])
+                    ]);
+                    
+                    if (!$executeResult) {
+                        $errorInfo = $stmt->errorInfo();
+                        error_log("ERROR: Failed to insert upload item for attempt {$attemptId}: " . json_encode($errorInfo));
+                    } else {
+                        $insertedId = $this->db->lastInsertId();
+                        error_log("SUCCESS: Upload-based activity saved - Attempt {$attemptId}, Item ID: {$insertedId}, File: {$fileName}, Path: {$filePath}, Response text length: " . strlen($fileInfo));
+                        
+                        // Verify the insert worked
+                        $verifyStmt = $this->db->prepare("SELECT id, response_text FROM activity_attempt_items WHERE id = ?");
+                        $verifyStmt->execute([$insertedId]);
+                        $verified = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($verified) {
+                            error_log("VERIFIED: Item {$insertedId} exists in database, response_text length: " . strlen($verified['response_text'] ?? ''));
+                        } else {
+                            error_log("ERROR: Item {$insertedId} NOT FOUND in database after insert!");
+                        }
+                    }
+                } else {
+                    error_log("Upload-based activity - Upload data is not array/object, storing as-is. Type: " . gettype($uploadData));
+                    // Fallback: store as plain text or JSON
+                    $stmt = $this->db->prepare("
+                        INSERT INTO activity_attempt_items 
+                        (attempt_id, question_id, response_text, is_correct, points_awarded, extra)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    $firstQuestionId = !empty($questions) ? (int)$questions[0]['id'] : 0;
+                    $responseText = is_string($uploadData) ? $uploadData : json_encode($uploadData);
+                    $stmt->execute([
+                        $attemptId,
+                        $firstQuestionId,
+                        $responseText,
+                        null,
+                        null,
+                        json_encode(['type' => 'upload_based'])
+                    ]);
+                    error_log("Upload-based activity saved (fallback) - Attempt {$attemptId}, Response text: {$responseText}");
+                }
+            } else {
+                error_log("ERROR: Upload-based activity - No 'upload' key found in answers!");
+                error_log("Available keys: " . implode(', ', array_keys($answers)));
+                error_log("Answers structure: " . json_encode($answers, JSON_PRETTY_PRINT));
+                error_log("This means the file was not uploaded or answers were not structured correctly!");
+            }
+            return; // Don't process questions for upload-based activities (file is the answer)
+        }
+        
+        // Insert each answer (for non-coding activities)
         foreach ($questions as $question) {
             $questionId = (int)$question['id'];
             $points = (float)$question['points'];

@@ -6551,8 +6551,9 @@ function renderStudentCodingTest(activity) {
             </button>
             <button id="codestemCheckBtn" 
                     onclick="checkCodestemTests()" 
-                    style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
-              <i class="fas fa-check"></i> Check Tests
+                    style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;"
+                    title="Test all cases and submit your solution (score will be recorded)">
+              <i class="fas fa-check"></i> Test & Submit
             </button>
           </div>
         </div>
@@ -6806,56 +6807,93 @@ window.checkCodestemTests = async function() {
       verdict = 'PA'; // Partially accepted
     }
     
-    // Save attempt to database
+    // CRITICAL: Submit through unified submission system (submit_activity.php)
+    // This ensures coding activities are integrated with leaderboards and activity cards
     try {
-      const submitFd = new FormData();
-      submitFd.append('action', 'submit_attempt');
-      submitFd.append('activity_id', String(activityId));
-      submitFd.append('language', language);
-      submitFd.append('source', code);
-      submitFd.append('results', JSON.stringify(results));
-      submitFd.append('verdict', verdict);
-      submitFd.append('score', String(totalPts));
-      submitFd.append('duration_ms', String(durationMs));
+      // Prepare answers object for unified submission system
+      // For coding activities, we store the code and results in a special format
+      const codingAnswers = {
+        code: code,
+        language: language,
+        results: results,
+        testCases: cases,
+        verdict: verdict,
+        constructCheck: constructCheck
+      };
       
-      // Get CSRF token first
-      const csrfResponse = await fetch('course_outline_manage.php', {
-        method: 'POST',
-        body: new FormData().append('action', 'get_csrf_token'),
-        credentials: 'same-origin'
-      });
-      const csrfData = await csrfResponse.json();
-      if (csrfData && csrfData.token) {
-        submitFd.append(csrfData.token_name || 'csrf_token', csrfData.token);
+      // Get or create attempt ID
+      let attemptId = window.__CURRENT_ATTEMPT_ID__ || null;
+      if (!attemptId) {
+        // Start a new attempt
+        try {
+          const startResponse = await fetch('submit_activity.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              action: 'start_attempt',
+              activity_id: activityId
+            })
+          });
+          if (startResponse.ok) {
+            const startData = await startResponse.json();
+            if (startData.success && startData.attempt_id) {
+              attemptId = startData.attempt_id;
+              window.__CURRENT_ATTEMPT_ID__ = attemptId;
+            }
+          }
+        } catch (e) {
+          console.warn('Could not start attempt:', e);
+        }
       }
       
-      await fetch('submissions_api.php?action=submit_attempt', {
-        method: 'POST',
-        body: submitFd,
-        credentials: 'same-origin'
-      });
-    } catch (submitErr) {
-      console.warn('Failed to save attempt:', submitErr);
-    }
-    
-    // Save progress with score
-    try {
-      const progressResponse = await fetch('save_activity_progress.php', {
+      // Submit through unified system
+      // CRITICAL: Include score in codingAnswers so backend can extract it
+      codingAnswers.score = totalPts;
+      
+      const submissionData = {
+        action: 'submit',
+        activity_id: activityId,
+        attempt_id: attemptId,
+        answers: { 'coding': codingAnswers }, // Store coding data in answers object
+        time_spent_ms: durationMs
+        // Note: score is included in codingAnswers.score, backend will extract it
+      };
+      
+      console.log('📤 Submitting coding activity through unified system:', submissionData);
+      
+      const submitResponse = await fetch('submit_activity.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          activity_id: activityId,
-          user_id: window.__USER_ID__ || 0,
-          answers: { code: code, results: results },
-          score: totalPts,
-          completed: true
-        }),
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        body: JSON.stringify(submissionData)
       });
-      const progressData = await progressResponse.json();
-      console.log('Progress saved:', progressData);
-    } catch (progressErr) {
-      console.warn('Failed to save progress:', progressErr);
+      
+      if (submitResponse.ok) {
+        const submitResult = await submitResponse.json();
+        if (submitResult.success) {
+          console.log('✅ Coding activity submitted successfully:', submitResult);
+          
+          // Update activity card score
+          if (typeof updateActivityCardScore === 'function') {
+            updateActivityCardScore(activityId, totalPts);
+          }
+          
+          // Refresh scores after a delay
+          setTimeout(() => {
+            if (typeof loadAllStudentScores === 'function') {
+              loadAllStudentScores();
+            }
+          }, 2000);
+        } else {
+          console.warn('⚠️ Submission returned success=false:', submitResult);
+        }
+      } else {
+        console.warn('⚠️ Submission failed with status:', submitResponse.status);
+      }
+    } catch (submitErr) {
+      console.error('❌ Failed to submit coding activity:', submitErr);
+      // Don't block the UI - still show results even if submission fails
     }
     
     // Build optional construct banner
@@ -8076,19 +8114,33 @@ function renderCodingPreview(activity){
           inputField.addEventListener('keydown', function(e){
             if (e.key === 'Enter'){
               e.preventDefault();
-              var val = inputField.value.trim();
-              if (!val) { inputField.focus(); return; }
+              // CRITICAL: Get value directly from input field, don't rely on stored values
+              var val = String(inputField.value || '').trim();
               
-              // Show input value in terminal
+              // CRITICAL: Log the actual value being read
+              console.log('🔍 [INPUT HANDLER] Input field value:', inputField.value);
+              console.log('🔍 [INPUT HANDLER] Trimmed value:', val);
+              console.log('🔍 [INPUT HANDLER] Value type:', typeof val);
+              
+              // CRITICAL: Check if value is empty or just whitespace
+              if (!val || val === '') {
+                console.warn('⚠️ [INPUT HANDLER] Empty input detected, focusing input field');
+                inputField.focus();
+                return;
+              }
+              
+              // CRITICAL: Show input value in terminal immediately
               var terminalBody = document.getElementById(terminalBodyId);
               if (terminalBody) {
                 terminalBody.innerHTML = '<span style="color:#e5e7eb;">' + escapeHtml(firstPromptText) + '</span> <span style="color:#e5e7eb;">' + escapeHtml(val) + '</span><br/>Executing...';
               }
               
-              // Store input value for API call
+              // CRITICAL: Store input value for API call (as string, not number)
               window.__previewTerminalInputValue = val;
               window.playTerminalPromptText = firstPromptText;
               window.__previewSelectedTestIndex = selectedTestIndex; // Store selected test index
+              
+              console.log('✅ [INPUT HANDLER] Calling runCodeWithInput with value:', val, 'type:', typeof val);
               
               // Run code with user input
               runCodeWithInput(code, val, activity, meta, language, terminalBodyId, runBtn, selectedTestIndex);
@@ -8336,14 +8388,22 @@ function renderCodingPreview(activity){
     
     // Helper function to run code with user input
     function runCodeWithInput(code, userInput, activity, meta, language, terminalBodyId, runBtn, selectedTestIndex) {
+      // CRITICAL: Ensure userInput is a string, not a number
+      const stdinValue = String(userInput || '').trim();
+      
+      console.log('🔍 [RUN CODE WITH INPUT] Received userInput:', userInput);
+      console.log('🔍 [RUN CODE WITH INPUT] userInput type:', typeof userInput);
+      console.log('🔍 [RUN CODE WITH INPUT] Processed stdinValue:', stdinValue);
+      console.log('🔍 [RUN CODE WITH INPUT] stdinValue type:', typeof stdinValue);
+      
       var fd = new FormData();
       fd.append('action','run_activity');
       fd.append('activity_id', String(activity.id || activity.activity_id || ''));
       fd.append('source', code);
       fd.append('quick','1');
-      fd.append('stdin', userInput || '');
+      fd.append('stdin', stdinValue); // Use processed value
       
-      console.log('🚀 Running code with user input:', userInput);
+      console.log('🚀 Running code with stdin:', stdinValue, '| Original userInput:', userInput);
       
       // CRITICAL: Add CSRF token before sending
       ;(async function(){ 
@@ -8370,11 +8430,32 @@ function renderCodingPreview(activity){
           }
           
           var results = Array.isArray(res.results) ? res.results : [];
+          
+          // CRITICAL: Log detailed response for debugging
+          console.log('🔍 [RUN CODE WITH INPUT] API Response:', {
+            success: res.success,
+            resultsCount: results.length,
+            results: results,
+            message: res.message,
+            stdinUsed: stdinValue
+          });
+          
           if (results.length === 0) {
             var terminalBody = document.getElementById(terminalBodyId);
             if (terminalBody) {
-              terminalBody.textContent = '⚠️ No output received';
+              // CRITICAL: Show more detailed error message
+              let errorMsg = '⚠️ No output received';
+              if (res.message) {
+                errorMsg += '\n\nServer message: ' + res.message;
+              }
+              if (!res.success) {
+                errorMsg += '\n\nRequest failed. Check console for details.';
+              }
+              errorMsg += '\n\nInput used: ' + (stdinValue || '(empty)');
+              terminalBody.textContent = errorMsg;
             }
+            console.error('❌ [RUN CODE WITH INPUT] No results returned from API. Response:', res);
+            console.error('❌ [RUN CODE WITH INPUT] stdinValue sent:', stdinValue);
             return;
           }
           
@@ -8849,95 +8930,166 @@ function renderCodingPreview(activity){
             verdict = 'PA'; // Partially accepted
           }
           
-          // CRITICAL: Save submission to database
-          // Note: Duration is calculated from when the test started (stored in closure)
+          // CRITICAL: Submit through unified submission system (submit_activity.php)
+          // BUT ONLY IF USER IS A STUDENT - Coordinator/Teacher are just previewing
           const testStartTime = window.__previewTestStartTime || Date.now();
           const durationMs = Date.now() - testStartTime;
           const activityId = activity.id || activity.activity_id || 0;
           const meta = window.__codingPreviewCtx && window.__codingPreviewCtx.meta ? window.__codingPreviewCtx.meta : {};
           const submissionLanguage = (meta && meta.language) ? String(meta.language).toLowerCase() : testLanguage || 'cpp';
           
-          // Save attempt asynchronously (don't block UI)
-          (async function saveSubmission() {
-            try {
-              console.log('💾 [PREVIEW MODE] Saving submission to database...');
-              
-              // Get CSRF token
-              let csrfToken = null;
+          // CRITICAL: Check user role - only students should record scores
+          const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+          const isStudent = userRole === 'student';
+          
+          console.log('🔍 [PREVIEW MODE] User role:', userRole, '| Is Student:', isStudent);
+          
+          // Save attempt asynchronously (don't block UI) - ONLY FOR STUDENTS
+          if (isStudent) {
+            (async function saveSubmission() {
               try {
-                const tokenRes = await fetch('course_outline_manage.php', {
-                  method: 'POST',
-                  body: (() => {
-                    const fd = new FormData();
-                    fd.append('action', 'get_csrf_token');
-                    return fd;
-                  })(),
-                  credentials: 'same-origin'
-                });
-                const tokenData = await tokenRes.json();
-                if (tokenData && tokenData.token) {
-                  csrfToken = tokenData.token;
+                console.log('💾 [PREVIEW MODE] Saving submission to database via unified system (STUDENT MODE)...');
+              
+              // Prepare answers object for unified submission system
+              // For coding activities, we store the code and results in a special format
+              const codingAnswers = {
+                code: code,
+                language: submissionLanguage,
+                results: results,
+                testCases: cases,
+                verdict: verdict,
+                constructCheck: constructCheck
+              };
+              
+              // Get or create attempt ID
+              let attemptId = window.__CURRENT_ATTEMPT_ID__ || null;
+              if (!attemptId) {
+                // Start a new attempt
+                try {
+                  const startResponse = await fetch('submit_activity.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                      action: 'start_attempt',
+                      activity_id: activityId
+                    })
+                  });
+                  if (startResponse.ok) {
+                    const startData = await startResponse.json();
+                    if (startData.success && startData.attempt_id) {
+                      attemptId = startData.attempt_id;
+                      window.__CURRENT_ATTEMPT_ID__ = attemptId;
+                    }
+                  }
+                } catch (e) {
+                  console.warn('⚠️ [PREVIEW MODE] Could not start attempt:', e);
                 }
-              } catch(e) {
-                console.warn('⚠️ [PREVIEW MODE] Failed to get CSRF token:', e);
               }
               
-              // Prepare submission data
-              const submitFd = new FormData();
-              submitFd.append('action', 'submit_attempt');
-              submitFd.append('activity_id', String(activityId));
-              submitFd.append('language', submissionLanguage);
-              submitFd.append('source', code);
-              submitFd.append('results', JSON.stringify(results));
-              submitFd.append('verdict', verdict);
-              submitFd.append('score', String(totalPts));
-              submitFd.append('duration_ms', String(durationMs));
+              // Submit through unified system
+              // CRITICAL: Include score in codingAnswers so backend can extract it
+              codingAnswers.score = totalPts;
               
-              if (csrfToken) {
-                submitFd.append('csrf_token', csrfToken);
-              }
+              const submissionData = {
+                action: 'submit',
+                activity_id: activityId,
+                attempt_id: attemptId,
+                answers: { 'coding': codingAnswers }, // Store coding data in answers object
+                time_spent_ms: durationMs
+                // Note: score is included in codingAnswers.score, backend will extract it
+              };
               
-              // Save to submissions API
-              const submitRes = await fetch('submissions_api.php?action=submit_attempt', {
+              console.log('📤 [PREVIEW MODE] Submitting coding activity through unified system:', submissionData);
+              
+              const submitResponse = await fetch('submit_activity.php', {
                 method: 'POST',
-                body: submitFd,
-                credentials: 'same-origin'
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify(submissionData)
               });
               
-              const submitData = await submitRes.json();
-              if (submitData && submitData.success) {
-                console.log('✅ [PREVIEW MODE] Submission saved successfully! ID:', submitData.id);
-                
-                // Also update activity progress with the score
-                try {
-                  // Get user ID from session (will be set by PHP in the page)
-                  const userId = window.__USER_ID__ || (typeof __USER_ID__ !== 'undefined' ? __USER_ID__ : null);
-                  if (userId && activityId) {
-                    await fetch('save_activity_progress.php', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'same-origin',
-                      body: JSON.stringify({
-                        activity_id: activityId,
-                        user_id: userId,
-                        answers: { code: code },
-                        score: totalPts,
-                        completed: (verdict === 'AC' && passedCount === totalCount)
-                      })
-                    });
-                    console.log('✅ [PREVIEW MODE] Activity progress updated');
+              if (submitResponse.ok) {
+                const submitResult = await submitResponse.json();
+                if (submitResult.success) {
+                  console.log('✅ [PREVIEW MODE] Coding activity submitted successfully:', submitResult);
+                  
+                  // CRITICAL: Update score display immediately
+                  const scoreEl = document.getElementById('previewScoreValue');
+                  if (scoreEl) {
+                    scoreEl.textContent = String(totalPts);
+                    console.log('✅ [PREVIEW MODE] Score display updated to:', totalPts);
                   }
-                } catch(progressErr) {
-                  console.warn('⚠️ [PREVIEW MODE] Failed to update progress:', progressErr);
+                  
+                  // Update activity card score (if function available)
+                  if (typeof updateActivityCardScore === 'function') {
+                    try {
+                      updateActivityCardScore(activityId, totalPts);
+                      console.log('✅ [PREVIEW MODE] Activity card score updated');
+                    } catch (e) {
+                      console.warn('⚠️ [PREVIEW MODE] updateActivityCardScore error:', e);
+                    }
+                  } else {
+                    console.log('ℹ️ [PREVIEW MODE] updateActivityCardScore not available (may be in full-page preview)');
+                  }
+                  
+                  // Refresh scores after a delay (if function available)
+                  setTimeout(() => {
+                    if (typeof loadAllStudentScores === 'function') {
+                      try {
+                        loadAllStudentScores();
+                        console.log('✅ [PREVIEW MODE] Student scores refreshed');
+                      } catch (e) {
+                        console.warn('⚠️ [PREVIEW MODE] loadAllStudentScores error:', e);
+                      }
+                    } else {
+                      console.log('ℹ️ [PREVIEW MODE] loadAllStudentScores not available (may be in full-page preview)');
+                    }
+                  }, 2000);
+                  
+                  // Show success notification
+                  if (typeof showNotification === 'function') {
+                    showNotification('success', `Score recorded: ${totalPts}/${totalMax} points!`);
+                  } else if (typeof window.showNotification === 'function') {
+                    window.showNotification('success', `Score recorded: ${totalPts}/${totalMax} points!`);
+                  }
+                } else {
+                  console.error('❌ [PREVIEW MODE] Submission returned success=false:', submitResult);
+                  const errorMsg = submitResult.message || 'Submission failed';
+                  if (typeof showNotification === 'function') {
+                    showNotification('error', `Failed to record score: ${errorMsg}`);
+                  } else if (typeof window.showNotification === 'function') {
+                    window.showNotification('error', `Failed to record score: ${errorMsg}`);
+                  } else {
+                    alert(`Failed to record score: ${errorMsg}`);
+                  }
                 }
               } else {
-                console.warn('⚠️ [PREVIEW MODE] Submission save failed:', submitData.message || 'Unknown error');
+                const errorText = await submitResponse.text();
+                console.error('❌ [PREVIEW MODE] Submission failed with status:', submitResponse.status, errorText);
+                if (typeof showNotification === 'function') {
+                  showNotification('error', `Failed to record score: HTTP ${submitResponse.status}`);
+                } else if (typeof window.showNotification === 'function') {
+                  window.showNotification('error', `Failed to record score: HTTP ${submitResponse.status}`);
+                } else {
+                  alert(`Failed to record score: HTTP ${submitResponse.status}`);
+                }
               }
             } catch (submitErr) {
-              console.warn('⚠️ [PREVIEW MODE] Error saving submission:', submitErr);
-              // Don't block UI - submission save failure is non-critical
+              console.error('❌ [PREVIEW MODE] Error saving submission:', submitErr);
+              const errorMsg = submitErr && submitErr.message ? submitErr.message : 'Unknown error';
+              if (typeof showNotification === 'function') {
+                showNotification('error', `Error recording score: ${errorMsg}`);
+              } else if (typeof window.showNotification === 'function') {
+                window.showNotification('error', `Error recording score: ${errorMsg}`);
+              } else {
+                alert(`Error recording score: ${errorMsg}`);
+              }
             }
           })();
+          } else {
+            console.log('ℹ️ [PREVIEW MODE] User is ' + userRole + ' - NOT recording score (preview only)');
+          }
           
           // CRITICAL: Show results modal
           console.log('🎯 [PREVIEW MODE] About to show results modal');
@@ -9156,7 +9308,7 @@ function renderCodingPreview(activity){
             window.setPreviewButtonLoading('previewTestBtn', false);
           } else if (testBtn) {
             testBtn.disabled = false;
-            testBtn.innerHTML = '<i class="fas fa-vial"></i> Test (All Cases)';
+            testBtn.innerHTML = '<i class="fas fa-vial"></i> Test & Submit';
           }
         });
       
@@ -9637,8 +9789,8 @@ function renderCodingPreview(activity){
           <button id="previewTestBtn" 
                   onclick="if(window.__previewTestHandler){window.__previewTestHandler(event||window.event);return false;}else{console.error('Test handler not ready');return false;}"
                   style="background:#f59e0b;color:#1f2937;border:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;"
-                  title="Test All Cases (Ctrl/Cmd + Shift + Enter)">
-            <i class="fas fa-vial"></i> <span class="btn-text">Test (All Cases)</span>
+                  title="Test all cases and submit your solution (score will be recorded)">
+            <i class="fas fa-vial"></i> <span class="btn-text">Test & Submit</span>
           </button>
           <button id="previewResetBtn" 
                   onclick="(function(){try{const h=window.__previewResetHandler||window.__previewResetHandlerReal;if(h){h(event||window.event);}else{console.error('Reset handler not found!');}}catch(e){console.error('Reset handler error:',e);}})();return false;"
@@ -9886,7 +10038,7 @@ function renderCodingPreview(activity){
           } else if (buttonId === 'previewTestBtn') {
             const btnText = btn.querySelector('.btn-text');
             if (btnText) {
-              btnText.textContent = 'Test (All Cases)';
+              btnText.textContent = 'Test & Submit';
             } else {
               btn.innerHTML = '<i class="fas fa-vial"></i> Test (All Cases)';
             }

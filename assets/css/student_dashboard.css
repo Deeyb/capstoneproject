@@ -543,14 +543,14 @@ li.nav-item.active {
 .leaderboards-content,
 .certification-content,
 .profile-content {
-  padding: 24px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
   min-height: 400px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #666;
-  font-size: 18px;
+}
+
+.certification-content {
+  background: transparent;
+  padding: 0;
 }

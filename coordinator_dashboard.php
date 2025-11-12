@@ -192,7 +192,8 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
       </div>
     </div>
 
-    <div id="importExport" class="section-content">
+    <!-- Import/Export Section - Hidden -->
+    <div id="importExport" class="section-content" style="display: none;">
       <h2 class="section-title">Import/Export</h2>
       <p style="color:#555;">Bulk import/export of course content. Coming next.</p>
     </div>

@@ -2716,14 +2716,40 @@ class ActivityTester {
         fileStatus.textContent = `Selected: ${file.name}`;
         fileStatus.style.color = '#1d9b3e';
       }
-      this.saveAnswer(questionIndex, file.name);
-      console.log('🔍 DEBUG: File uploaded for question', questionIndex, ':', file.name);
+      
+      // CRITICAL: For upload-based activities, use handleActivityUpload instead of saveAnswer
+      // This ensures the file is properly stored in this.answers['upload'] with file object
+      const isUploadBased = this.currentActivity && (
+        (this.currentActivity.type || this.currentActivity.activity_type || '').toLowerCase() === 'upload_based'
+      );
+      
+      if (isUploadBased) {
+        // Use handleActivityUpload which properly sets this.answers['upload']
+        this.handleActivityUpload(file);
+        console.log('🔍 DEBUG: File uploaded for upload-based activity:', file.name);
+      } else {
+        // For other activity types, save to question_id key (legacy behavior)
+        this.saveAnswer(questionIndex, file.name);
+        console.log('🔍 DEBUG: File uploaded for question', questionIndex, ':', file.name);
+      }
     } else {
       if (fileStatus) {
         fileStatus.textContent = 'No file selected';
         fileStatus.style.color = '#6b7280';
       }
-      this.saveAnswer(questionIndex, '');
+      
+      // Clear answer
+      const isUploadBased = this.currentActivity && (
+        (this.currentActivity.type || this.currentActivity.activity_type || '').toLowerCase() === 'upload_based'
+      );
+      
+      if (isUploadBased) {
+        // Clear upload key
+        delete this.answers['upload'];
+      } else {
+        // Clear question_id key
+        this.saveAnswer(questionIndex, '');
+      }
     }
   }
 
@@ -3333,22 +3359,136 @@ class ActivityTester {
       // Calculate time spent
       const timeSpentMs = this.startTime ? (Date.now() - this.startTime.getTime()) : null;
       
+      // CRITICAL: Handle file uploads for upload-based activities
+      // Upload files first, then include file paths in answers
+      if (this.answers['upload'] && this.answers['upload'].file) {
+        try {
+          console.log('📤 Uploading file for activity submission...');
+          const file = this.answers['upload'].file;
+          
+          // Get CSRF token from course_outline_manage.php
+          const tokenResponse = await fetch('course_outline_manage.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            credentials: 'same-origin',
+            body: 'action=get_csrf_token'
+          });
+          const tokenData = await tokenResponse.json();
+          const csrfToken = tokenData.csrf_token || tokenData.token || '';
+          
+          // Upload file
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('activity_id', this.currentActivity.id);
+          if (csrfToken) {
+            formData.append('csrf_token', csrfToken);
+          }
+          
+          const uploadResponse = await fetch('upload_activity_file.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+          });
+          
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json().catch(() => ({ message: 'Upload failed' }));
+            throw new Error(errorData.message || 'Failed to upload file');
+          }
+          
+          const uploadResult = await uploadResponse.json();
+          if (uploadResult.success) {
+            // Replace file object with file path
+            this.answers['upload'] = {
+              fileName: uploadResult.file_name,
+              fileSize: uploadResult.file_size,
+              fileType: uploadResult.file_type,
+              filePath: uploadResult.file_path
+            };
+            console.log('✅ File uploaded successfully:', uploadResult.file_path);
+          } else {
+            throw new Error(uploadResult.message || 'File upload failed');
+          }
+        } catch (uploadError) {
+          console.error('❌ File upload error:', uploadError);
+          throw new Error('Failed to upload file: ' + (uploadError.message || 'Unknown error'));
+        }
+      }
+      
       // Prepare submission data
       // Ensure answers is an object (not array) and has valid question IDs
       const answersToSubmit = {};
-      Object.keys(this.answers).forEach(key => {
-        const answer = this.answers[key];
-        // CRITICAL: Include all valid answers (including 0, false, and empty strings for some question types)
-        // Only exclude null and undefined
-        // For choice-based questions (MCQ, True/False), answer is a choice ID (number)
-        // For identification, answer is a string (can be empty, but we'll allow it)
-        // For essay/upload, answer might be empty initially
-        if (answer !== null && answer !== undefined) {
-          // Convert to appropriate type: preserve numbers, strings, booleans
-          // Don't filter out 0 (valid choice ID) or false (valid boolean answer)
-          answersToSubmit[key] = answer;
+      
+      // CRITICAL: For upload-based activities, check if we have file info in 'upload' key
+      // OR if file name was saved to question_id key (legacy behavior)
+      const isUploadBased = this.currentActivity && (
+        (this.currentActivity.type || this.currentActivity.activity_type || '').toLowerCase() === 'upload_based'
+      );
+      
+      if (isUploadBased) {
+        // For upload-based: prioritize 'upload' key, but also check question_id keys for file names
+        if (this.answers['upload'] && typeof this.answers['upload'] === 'object' && this.answers['upload'].filePath) {
+          // We have proper upload object with filePath
+          answersToSubmit['upload'] = JSON.stringify({
+            fileName: this.answers['upload'].fileName,
+            fileSize: this.answers['upload'].fileSize,
+            fileType: this.answers['upload'].fileType,
+            filePath: this.answers['upload'].filePath
+          });
+        } else {
+          // Check if file name was saved to question_id key (legacy behavior)
+          // Find the first question_id key that has a file name
+          let foundFileInfo = null;
+          Object.keys(this.answers).forEach(key => {
+            if (key !== 'upload' && this.answers[key] && typeof this.answers[key] === 'string') {
+              const answerValue = this.answers[key];
+              // Check if this looks like a file name (has extension)
+              if (answerValue.match(/\.(pdf|docx|pptx|jpg|png|txt|zip|xml|gif|bmp|svg)$/i)) {
+                // This is likely a file name saved to question_id key
+                // Try to find the actual upload object or construct from file name
+                if (this.answers['upload'] && typeof this.answers['upload'] === 'object') {
+                  foundFileInfo = this.answers['upload'];
+                } else {
+                  // Construct minimal file info from file name
+                  foundFileInfo = {
+                    fileName: answerValue,
+                    fileSize: 0,
+                    fileType: '',
+                    filePath: '' // Will need to be set from upload result
+                  };
+                }
+              }
+            }
+          });
+          
+          if (foundFileInfo && foundFileInfo.filePath) {
+            // We have file path, use it
+            answersToSubmit['upload'] = JSON.stringify({
+              fileName: foundFileInfo.fileName,
+              fileSize: foundFileInfo.fileSize || 0,
+              fileType: foundFileInfo.fileType || '',
+              filePath: foundFileInfo.filePath
+            });
+          } else if (this.answers['upload']) {
+            // We have upload object but no filePath yet - this shouldn't happen if upload succeeded
+            console.warn('⚠️ Upload object exists but no filePath. Upload may have failed.');
+          }
         }
-      });
+      } else {
+        // For non-upload activities, process all answers normally
+        Object.keys(this.answers).forEach(key => {
+          const answer = this.answers[key];
+          // CRITICAL: Include all valid answers (including 0, false, and empty strings for some question types)
+          // Only exclude null and undefined
+          // For choice-based questions (MCQ, True/False), answer is a choice ID (number)
+          // For identification, answer is a string (can be empty, but we'll allow it)
+          // For essay/upload, answer might be empty initially
+          if (answer !== null && answer !== undefined) {
+            // Convert to appropriate type: preserve numbers, strings, booleans
+            // Don't filter out 0 (valid choice ID) or false (valid boolean answer)
+            answersToSubmit[key] = answer;
+          }
+        });
+      }
       
       // Log detailed answer information for debugging
       console.log('📤 Raw answers object:', this.answers);
@@ -3397,6 +3537,7 @@ class ActivityTester {
         
         // Store activity ID and score BEFORE closing modal (currentActivity might be cleared)
         const activityId = this.currentActivity ? this.currentActivity.id : submissionData.activity_id;
+        const activityType = this.currentActivity ? (this.currentActivity.type || this.currentActivity.activity_type || '').toLowerCase() : '';
         const finalScore = result.score || 0;
         const attemptId = result.attempt_id || null;
         
@@ -3409,29 +3550,44 @@ class ActivityTester {
         // Clear retry queue
         this.clearRetryQueue();
         
-        // No notification - Test Results modal will show the score instead
-        
         // Close activity modal
         this.closeModal();
         
-        // Update activity card score immediately (REAL-TIME UPDATE) - use score from submission response
-        if (activityId && typeof updateActivityCardScore === 'function') {
-          updateActivityCardScore(activityId, finalScore);
-        }
-        
-        // Show Test Results modal first (question-by-question breakdown)
-        setTimeout(() => {
-          if (attemptId) {
-            // Fetch attempt results and show Test Results modal
-            showTestResultsModal(attemptId, activityId, finalScore);
-          } else {
-            console.error('❌ Cannot show test results: attempt ID is missing');
-            // Silent fallback - just reload to show updated score (no notifications)
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
+        // CRITICAL: For upload-based and essay activities, show submission confirmation instead of test results
+        if (activityType === 'upload_based' || activityType === 'essay') {
+          // Show submission confirmation modal for manual grading activities
+          setTimeout(() => {
+            showSubmissionConfirmationModal(activityId, activityType);
+          }, 300);
+          
+          // IMMEDIATE refresh for manual grading activities to show "Pending" status
+          setTimeout(() => {
+            if (activityId && typeof loadAllStudentScores === 'function') {
+              console.log('🔄 [Manual Grading] Immediately refreshing scores to show PENDING status...');
+              loadAllStudentScores();
+            }
+          }, 500); // Quick refresh after modal shows
+        } else {
+          // For auto-graded activities, show test results modal
+          // Update activity card score immediately (REAL-TIME UPDATE) - use score from submission response
+          if (activityId && typeof updateActivityCardScore === 'function') {
+            updateActivityCardScore(activityId, finalScore);
           }
-        }, 500);
+          
+          // Show Test Results modal first (question-by-question breakdown)
+          setTimeout(() => {
+            if (attemptId) {
+              // Fetch attempt results and show Test Results modal
+              showTestResultsModal(attemptId, activityId, finalScore);
+            } else {
+              console.error('❌ Cannot show test results: attempt ID is missing');
+              // Silent fallback - just reload to show updated score (no notifications)
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+            }
+          }, 500);
+        }
         
         // CRITICAL: Delayed score refresh to ensure score is saved and displayed correctly
         // This handles cases where the immediate update might fail or the score isn't saved yet
@@ -3565,7 +3721,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadLessons();
       }
       if (tab === 'classrecord') {
-        // placeholder: could load attendance/grades summary
+        loadClassStatistics();
+        loadStudentPerformance();
       }
       if (tab === 'newsfeed') {
         // placeholder
@@ -3704,7 +3861,37 @@ function loadTopicsFromCourse() {
             console.log('🔍 [LOAD TOPICS] Processing activity:', activity.title || 'Untitled', 'ID:', activity.id);
             console.log('🔍 [LOAD TOPICS] Full activity object:', JSON.stringify(activity, null, 2));
             const activityTitle = escapeHtml(activity.title || 'Untitled Activity');
-            const activityType = activity.type || 'upload_based';
+            
+            // CRITICAL: Get activity type from multiple possible fields
+            let activityType = '';
+            if (activity.type) {
+              activityType = String(activity.type).toLowerCase().trim();
+            } else if (activity.activity_type) {
+              activityType = String(activity.activity_type).toLowerCase().trim();
+            } else if (activity.kind) {
+              activityType = String(activity.kind).toLowerCase().trim();
+            }
+            
+            // Log activity type for debugging
+            console.log('🔍 [LOAD TOPICS] Activity Type Detection:', {
+              'activity.type': activity.type,
+              'activity.activity_type': activity.activity_type,
+              'activity.kind': activity.kind,
+              'final activityType': activityType
+            });
+            
+            // CRITICAL: Determine if this is a manual grading activity BEFORE template string
+            const typeCheck = String(activityType || activity.type || activity.activity_type || activity.kind || '').toLowerCase().trim();
+            const isManualGrading = typeCheck === 'upload_based' || typeCheck === 'essay' || typeCheck === 'upload-based' || typeCheck === 'upload based';
+            
+            console.log('🔍 [LOAD TOPICS] Manual Grading Check:', {
+              activityId: activity.id,
+              activityTitle: activity.title,
+              'typeCheck': typeCheck,
+              'isManualGrading': isManualGrading,
+              'activityType variable': activityType
+            });
+            
             const maxScore = activity.max_score || 10;
             
             // SUPER DEEP DEBUGGING
@@ -3914,6 +4101,9 @@ function loadTopicsFromCourse() {
                 activityStatusTime = '00:00';
               }
               
+              // Get activity type for grading button
+              const activityType = String(activity.type || activity.activity_type || '').toLowerCase();
+              
               return `
                 <div class="activity-card teacher-format ${isLocked ? 'activity-locked' : 'activity-open'}" data-activity-id="${activity.id}" data-max-score="${maxScore}">
                   <div class="activity-left-border ${isLocked ? 'border-locked' : 'border-open'}"></div>
@@ -3954,13 +4144,18 @@ function loadTopicsFromCourse() {
                       </button>` :
                       `<div class="activity-menu">
                         <i class="fas fa-ellipsis-v"></i>
-                        <div class="activity-dropdown" style="display: none;">
+                        <div class="activity-dropdown" style="display: none;" data-activity-id="${activity.id}">
                           <div class="dropdown-item" onclick="lockActivity(${activity.id}, '${escapeHtml(activityTitle)}')">
                             <i class="fas fa-lock"></i> Lock Activity
                           </div>
                           <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})">
                             <i class="fas fa-play"></i> Try answering
                           </div>
+                          ${isManualGrading ? `
+                          <div class="dropdown-item" onclick="if(typeof showGradingModal === 'function') { showGradingModal(${activity.id}, '${escapeHtml(activityTitle)}'); } else { console.error('showGradingModal function not found'); alert('Grading function not available. Please refresh the page.'); }">
+                            <i class="fas fa-check-circle"></i> Grade Submissions
+                          </div>
+                          ` : ''}
                         </div>
                       </div>`
                     }
@@ -4200,6 +4395,28 @@ function loadTopicsFromCourse() {
         window.cleanActivitySystem.showTryAnswering(activityId, activityTitle, { preview: true });
             } else {
               alert('Try Answering function not available. Please refresh the page.');
+            }
+          } else if (text.includes('Grade Submissions')) {
+            console.log('🔍 [GLOBAL HANDLER] Grade Submissions clicked for activity:', {
+              activityId: activityId,
+              activityTitle: activityTitle,
+              element: activityCard
+            });
+            
+            // Validate activity ID
+            if (!activityId || activityId === 'undefined' || activityId === 'null') {
+              console.error('🔍 [GLOBAL HANDLER] Invalid activity ID detected:', activityId);
+              alert('Error: Invalid activity ID. Please try again.');
+              return;
+            }
+            
+            // Call showGradingModal function
+            if (typeof showGradingModal === 'function') {
+              console.log('🔍 [GLOBAL HANDLER] Calling showGradingModal...');
+              showGradingModal(activityId, activityTitle);
+            } else {
+              console.error('🔍 [GLOBAL HANDLER] showGradingModal function not found');
+              alert('Grading function not available. Please refresh the page.');
             }
           }
         };
@@ -4475,6 +4692,29 @@ function loadTopicContent(item, lessonId) {
               activityStatusTime = '00:00';
             }
             
+            // CRITICAL: Get activity type for grading button
+            let activityTypeForGrading = '';
+            if (activity.type) {
+              activityTypeForGrading = String(activity.type).toLowerCase().trim();
+            } else if (activity.activity_type) {
+              activityTypeForGrading = String(activity.activity_type).toLowerCase().trim();
+            } else if (activity.kind) {
+              activityTypeForGrading = String(activity.kind).toLowerCase().trim();
+            }
+            
+            // CRITICAL: Determine if this is a manual grading activity
+            const typeCheckForGrading = String(activityTypeForGrading || activity.type || activity.activity_type || activity.kind || '').toLowerCase().trim();
+            const isManualGradingForGrading = typeCheckForGrading === 'upload_based' || typeCheckForGrading === 'essay' || typeCheckForGrading === 'upload-based' || typeCheckForGrading === 'upload based';
+            
+            console.log('🔍 [loadTopicContent] Manual Grading Check:', {
+              activityId: activity.id,
+              activityTitle: title,
+              'activity.type': activity.type,
+              'activityTypeForGrading': activityTypeForGrading,
+              'typeCheckForGrading': typeCheckForGrading,
+              'isManualGradingForGrading': isManualGradingForGrading
+            });
+            
             contentHtml += `
               <div class="activity-card teacher-format ${isLocked ? 'activity-locked' : 'activity-open'}" data-activity-id="${activity.id}" data-max-score="${maxScore}">
                 <div class="activity-left-border ${isLocked ? 'border-locked' : 'border-open'}"></div>
@@ -4515,13 +4755,18 @@ function loadTopicContent(item, lessonId) {
                     </button>` :
                     `<div class="activity-menu">
                       <i class="fas fa-ellipsis-v"></i>
-                      <div class="activity-dropdown" style="display: none;">
+                      <div class="activity-dropdown" style="display: none;" data-activity-id="${activity.id}">
                         <div class="dropdown-item" onclick="lockActivity(${activity.id}, '${escapeHtml(title)}')">
                           <i class="fas fa-lock"></i> Lock Activity
                         </div>
                         <div class="dropdown-item" onclick="handleTryAnswering(${activity.id})">
                           <i class="fas fa-play"></i> Try answering
                         </div>
+                        ${isManualGradingForGrading ? `
+                        <div class="dropdown-item" onclick="showGradingModal(${activity.id}, '${escapeHtml(title)}')">
+                          <i class="fas fa-check-circle"></i> Grade Submissions
+                        </div>
+                        ` : ''}
                       </div>
                     </div>`
                   }
@@ -4699,6 +4944,27 @@ function bindTopicContentEvents(item, materials, activities) {
         // This enables the "Test" button for auto-grading
         console.log('🔍 [TEACHER PREVIEW] Calling showTryAnswering with preview: true');
         window.cleanActivitySystem.showTryAnswering(activityId, activityTitle, { preview: true });
+      } else if (text.includes('Grade Submissions')) {
+        console.log('🔍 Grade Submissions clicked for activity:', {
+          activityId: activityId,
+          activityTitle: activityTitle,
+          element: activityCard
+        });
+        
+        // Validate activity ID
+        if (!activityId || activityId === 'undefined' || activityId === 'null') {
+          console.error('🔍 DEBUG: Invalid activity ID detected:', activityId);
+          alert('Error: Invalid activity ID. Please try again.');
+          return;
+        }
+        
+        // Call showGradingModal function
+        if (typeof showGradingModal === 'function') {
+          showGradingModal(activityId, activityTitle);
+        } else {
+          console.error('showGradingModal function not found');
+          alert('Grading function not available. Please refresh the page.');
+        }
       }
       
       // SIMPLE CLOSE - Like old working version
@@ -5399,24 +5665,62 @@ function transformActivityCard(card) {
               const safeMax = Number(maxPoints) > 0 ? Number(maxPoints) : 0;
               const safeScore = Math.max(0, Math.min(Number(studentScore) || 0, safeMax || Infinity));
               
-              // Check if student has already submitted this activity
+              // Check if student has already submitted this activity and if it's pending
               let isSubmitted = false;
+              let isPending = false;
+              let actualScore = safeScore;
               try {
                 const scoreResponse = await fetch(`get_student_score.php?activity_id=${activityId}`, {
                   credentials: 'same-origin'
                 });
                 if (scoreResponse.ok) {
                   const scoreData = await scoreResponse.json();
+                  console.log('🔍 [transformActivityCard] Score data for activity', activityId, ':', scoreData);
+                  
                   isSubmitted = scoreData.success && scoreData.attempt_id && scoreData.submitted_at;
+                  isPending = scoreData.is_pending === true && scoreData.is_manual_grading === true;
+                  
+                  // Use actual score from API (might be null for pending)
+                  if (scoreData.score !== null && scoreData.score !== undefined) {
+                    actualScore = Number(scoreData.score) || 0;
+                  } else if (isPending) {
+                    actualScore = null; // Pending - no score yet
+                  }
+                  
+                  console.log('🔍 [transformActivityCard] Activity', activityId, '- isSubmitted:', isSubmitted, ', isPending:', isPending, ', actualScore:', actualScore);
                 }
               } catch (e) {
                 // If check fails, assume not submitted
                 console.log('Could not check submission status:', e);
               }
               
+              // Determine score display text
+              let scoreDisplayText = '';
+              let scoreDisplayColor = '#dc2626'; // Default red
+              if (isLocked) {
+                scoreDisplayText = '-';
+                scoreDisplayColor = '#9ca3af'; // Gray
+              } else if (isPending) {
+                scoreDisplayText = 'Pending';
+                scoreDisplayColor = '#f59e0b'; // Orange/amber for pending
+                console.log('🔍 [transformActivityCard] Activity', activityId, '- Displaying PENDING status');
+              } else {
+                const displayScore = actualScore !== null ? actualScore : 0;
+                scoreDisplayText = `${displayScore}/${safeMax || 0}`;
+                // Update color based on score percentage
+                const percentage = safeMax > 0 ? (displayScore / safeMax) * 100 : 0;
+                if (percentage >= 80) {
+                  scoreDisplayColor = '#059669'; // Green for high score
+                } else if (percentage >= 60) {
+                  scoreDisplayColor = '#f59e0b'; // Orange for medium score
+                } else {
+                  scoreDisplayColor = '#dc2626'; // Red for low score
+                }
+              }
+              
               activityStats.innerHTML = `
                 <div class="student-score">
-                  <div class="score-value">${isLocked ? '-' : safeScore}/${safeMax || 0}</div>
+                  <div class="score-value" style="color: ${scoreDisplayColor};">${scoreDisplayText}</div>
                   <div class="score-label">Score</div>
                 </div>
                 ${isSubmitted ? 
@@ -7835,42 +8139,114 @@ function updateActivityCardScore(activityId, newScore) {
 // Load real student scores for all activity cards
 async function loadAllStudentScores() {
   const userRole = (window.__USER_ROLE__ || '').toLowerCase();
-  if (userRole !== 'student') return;
+  if (userRole !== 'student') {
+    console.log('🔍 [loadAllStudentScores] Skipping - user role is not student:', userRole);
+    return;
+  }
   
+  console.log('🔍 [loadAllStudentScores] Starting to load scores...');
   const scoreElements = document.querySelectorAll('.student-score[data-activity-id]');
+  console.log('🔍 [loadAllStudentScores] Found', scoreElements.length, 'score elements');
+  
+  if (scoreElements.length === 0) {
+    console.warn('⚠️ [loadAllStudentScores] No score elements found! Trying alternative selectors...');
+    // Try alternative selectors
+    const altElements = document.querySelectorAll('.student-score');
+    console.log('🔍 [loadAllStudentScores] Found', altElements.length, 'score elements (without data-activity-id)');
+  }
+  
   const promises = [];
   
   scoreElements.forEach(function(scoreEl) {
     const activityId = scoreEl.getAttribute('data-activity-id');
-    if (!activityId) return;
+    if (!activityId) {
+      console.warn('⚠️ [loadAllStudentScores] Score element missing data-activity-id');
+      return;
+    }
     
     const activityCard = scoreEl.closest('.activity-card');
     const maxScore = activityCard ? (activityCard.getAttribute('data-max-score') || 0) : 0;
-    const promise = getStudentScore(activityId).then(function(score) {
+    
+    console.log('🔍 [loadAllStudentScores] Processing activity', activityId, 'maxScore:', maxScore);
+    
+    // Fetch score data with pending status
+    const promise = fetch(`get_student_score.php?activity_id=${activityId}`, {
+      credentials: 'same-origin'
+    }).then(async function(response) {
+      if (!response.ok) {
+        console.error('❌ [loadAllStudentScores] Response not OK for activity', activityId, ':', response.status, response.statusText);
+        return { success: false, score: 0, is_pending: false, is_manual_grading: false };
+      }
+      
+      // Check content type to ensure it's JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('❌ [loadAllStudentScores] Response is not JSON for activity', activityId, 'Content-Type:', contentType, 'Preview:', text.substring(0, 100));
+        return { success: false, score: 0, is_pending: false, is_manual_grading: false };
+      }
+      
+      try {
+        return await response.json();
+      } catch (jsonError) {
+        // If JSON parsing fails, try to get the text to see what we got
+        const text = await response.text();
+        console.error('❌ [loadAllStudentScores] JSON parse error for activity', activityId, ':', jsonError.message, 'Response preview:', text.substring(0, 200));
+        return { success: false, score: 0, is_pending: false, is_manual_grading: false };
+      }
+    }).then(function(data) {
+      console.log('🔍 [loadAllStudentScores] Score data for activity', activityId, ':', JSON.stringify(data));
+      console.log('🔍 [loadAllStudentScores] Activity', activityId, '- is_pending:', data.is_pending, ', is_manual_grading:', data.is_manual_grading, ', score:', data.score);
+      
       const scoreValueEl = scoreEl.querySelector('.score-value');
-      if (scoreValueEl) {
-        const safeScore = Math.max(0, Math.min(Number(score) || 0, Number(maxScore) || Infinity));
-        scoreValueEl.textContent = `${safeScore}/${maxScore || 0}`;
+      if (!scoreValueEl) {
+        console.error('❌ [loadAllStudentScores] Score value element not found for activity', activityId);
+        return;
+      }
+      
+      let scoreDisplayText = '';
+      let scoreDisplayColor = '#dc2626'; // Default red
+      
+      // Check if pending - must be BOTH is_pending AND is_manual_grading
+      const isPending = data.is_pending === true && data.is_manual_grading === true;
+      console.log('🔍 [loadAllStudentScores] Activity', activityId, '- isPending check:', isPending, '(is_pending:', data.is_pending, ', is_manual_grading:', data.is_manual_grading, ')');
+      
+      if (isPending) {
+        // Submitted but not graded yet (pending)
+        scoreDisplayText = 'Pending';
+        scoreDisplayColor = '#f59e0b'; // Orange/amber for pending
+        console.log('✅ [loadAllStudentScores] Activity', activityId, '- Setting PENDING status (orange)');
+      } else {
+        // Has score or no submission
+        const safeScore = data.score !== null && data.score !== undefined 
+          ? Math.max(0, Math.min(Number(data.score) || 0, Number(maxScore) || Infinity))
+          : 0;
+        scoreDisplayText = `${safeScore}/${maxScore || 0}`;
         
         // Update color based on score percentage
         const percentage = maxScore > 0 ? (safeScore / maxScore) * 100 : 0;
         if (percentage >= 80) {
-          scoreValueEl.style.color = '#059669'; // Green for high score
+          scoreDisplayColor = '#059669'; // Green for high score
         } else if (percentage >= 60) {
-          scoreValueEl.style.color = '#f59e0b'; // Orange for medium score
+          scoreDisplayColor = '#f59e0b'; // Orange for medium score
         } else {
-          scoreValueEl.style.color = '#dc2626'; // Red for low score
+          scoreDisplayColor = '#dc2626'; // Red for low score
         }
+        console.log('🔍 [loadAllStudentScores] Activity', activityId, '- Setting score:', scoreDisplayText, 'color:', scoreDisplayColor);
       }
+      
+      scoreValueEl.textContent = scoreDisplayText;
+      scoreValueEl.style.color = scoreDisplayColor;
+      console.log('✅ [loadAllStudentScores] Activity', activityId, '- Updated display to:', scoreDisplayText, 'with color:', scoreDisplayColor);
     }).catch(function(err) {
-      console.error('Error loading score for activity', activityId, ':', err);
+      console.error('❌ [loadAllStudentScores] Error loading score for activity', activityId, ':', err);
     });
     
     promises.push(promise);
   });
   
   await Promise.all(promises);
-  console.log('✅ Loaded all student scores');
+  console.log('✅ [loadAllStudentScores] Finished loading all student scores');
 }
 
 // Initialize countdown timers for all activities
@@ -8930,6 +9306,665 @@ function updateStudentActivityCard(card, newStatus) {
   }
 }
 
+// ===== GRADING MODAL FOR UPLOAD-BASED AND ESSAY ACTIVITIES =====
+async function showGradingModal(activityId, activityTitle) {
+  console.log('🔍 [GRADING MODAL] showGradingModal called:', { activityId, activityTitle });
+  
+  try {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('gradingModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+    
+    // Show loading state
+    const loadingModal = document.createElement('div');
+    loadingModal.id = 'gradingModalLoading';
+    loadingModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+    loadingModal.innerHTML = `
+      <div style="background:white;border-radius:12px;padding:32px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">⏳</div>
+        <div style="font-size:16px;color:#374151;">Loading submissions...</div>
+      </div>
+    `;
+    document.body.appendChild(loadingModal);
+    
+    console.log('🔍 [GRADING MODAL] Fetching submissions for activity:', activityId);
+    
+    // Fetch submissions
+    const response = await fetch(`get_activity_submissions.php?activity_id=${encodeURIComponent(activityId)}`, {
+      credentials: 'same-origin'
+    });
+    
+    console.log('🔍 [GRADING MODAL] Response status:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('🔍 [GRADING MODAL] Response not OK:', errorText);
+      throw new Error(`Failed to load submissions: ${response.status} ${response.statusText}`);
+    }
+    
+    // Check content type to ensure it's JSON
+    const contentType = response.headers.get('content-type');
+    const responseText = await response.text();
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('🔍 [GRADING MODAL] Response is not JSON, Content-Type:', contentType, 'Preview:', responseText.substring(0, 200));
+      throw new Error('Invalid response from server: Expected JSON but got ' + (contentType || 'unknown type'));
+    }
+    
+    console.log('🔍 [GRADING MODAL] Response text preview:', responseText.substring(0, 200));
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('🔍 [GRADING MODAL] JSON parse error:', parseError);
+      console.error('🔍 [GRADING MODAL] Response text (full):', responseText);
+      throw new Error('Invalid response from server: ' + responseText.substring(0, 200));
+    }
+    
+    console.log('🔍 [GRADING MODAL] Parsed data:', data);
+    
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to load submissions');
+    }
+    
+    // Remove loading modal
+    if (loadingModal.parentNode) {
+      loadingModal.remove();
+    }
+    
+    const submissions = data.submissions || [];
+    const maxScore = submissions.length > 0 ? submissions[0].max_score : 0;
+    const activityInstructions = data.activity_instructions || null;
+    const essayQuestions = data.essay_questions || [];
+    const firstEssayQuestion = essayQuestions.length > 0 ? essayQuestions[0].question_text : null;
+    
+    // Debug logging for essay questions
+    console.log('🔍 [GRADING MODAL] Essay questions data:', {
+      essayQuestions: essayQuestions,
+      essayQuestionsLength: essayQuestions.length,
+      firstEssayQuestion: firstEssayQuestion,
+      activityInstructions: activityInstructions
+    });
+    
+    // SUPER DEEP DEBUGGING: Log each submission's upload_info
+    console.log('🔍 [GRADING MODAL] Total submissions:', submissions.length);
+    submissions.forEach((sub, idx) => {
+      console.log(`🔍 [GRADING MODAL] Submission ${idx + 1}:`, {
+        attempt_id: sub.attempt_id,
+        student_name: sub.student_name,
+        upload_info: sub.upload_info,
+        upload_info_type: typeof sub.upload_info,
+        upload_info_null: sub.upload_info === null,
+        items_count: sub.items ? sub.items.length : 0,
+        items: sub.items
+      });
+      
+      // Check items for file info
+      if (sub.items && sub.items.length > 0) {
+        sub.items.forEach((item, itemIdx) => {
+          console.log(`🔍 [GRADING MODAL] Submission ${idx + 1} - Item ${itemIdx}:`, {
+            item_id: item.item_id,
+            question_id: item.question_id,
+            response_text: item.response_text,
+            response_text_length: item.response_text ? item.response_text.length : 0,
+            response_text_preview: item.response_text ? item.response_text.substring(0, 100) : null
+          });
+        });
+      }
+    });
+    
+    // Create modal with larger size and Inter font
+    const modal = document.createElement('div');
+    modal.id = 'gradingModal';
+    modal.setAttribute('data-activity-id', activityId); // Store activity_id for real-time updates
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;backdrop-filter:blur(4px);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;';
+    
+    modal.innerHTML = `
+      <div style="background:white;border-radius:16px;width:95%;max-width:1200px;max-height:95vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);font-family:inherit;">
+        <!-- Header -->
+        <div style="padding:24px 28px;background:#1d9b3e;color:white;display:flex;justify-content:space-between;align-items:center;font-family:inherit;">
+          <div>
+            <h2 style="margin:0;font-size:20px;font-weight:600;font-family:inherit;">Grade Submissions</h2>
+            <p style="margin:4px 0 0 0;font-size:14px;opacity:0.95;font-family:inherit;">${escapeHtml(activityTitle)}</p>
+          </div>
+          <button onclick="closeGradingModal()" style="background:rgba(255,255,255,0.15);color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:22px;transition:background 0.2s;font-family:inherit;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">&times;</button>
+        </div>
+        
+        <!-- Content -->
+        <div style="flex:1;overflow-y:auto;padding:28px;font-family:inherit;">
+          ${submissions.length === 0 ? `
+            <div style="text-align:center;padding:60px 20px;color:#6b7280;font-family:inherit;">
+              <i class="fas fa-inbox" style="font-size:48px;margin-bottom:16px;opacity:0.4;"></i>
+              <h3 style="margin:0 0 8px 0;color:#374151;font-size:16px;font-family:inherit;">No submissions yet</h3>
+              <p style="margin:0;font-size:14px;font-family:inherit;">Students haven't submitted their work for this activity.</p>
+            </div>
+          ` : `
+            <div style="display:flex;flex-direction:column;gap:24px;">
+              <!-- Activity Instructions (shown once at the top for essay activities) -->
+              ${activityInstructions ? `
+                <div style="padding:20px;background:#eff6ff;border-radius:12px;border:1px solid #bfdbfe;font-family:inherit;">
+                  <div style="display:flex;align-items:start;gap:12px;">
+                    <i class="fas fa-info-circle" style="font-size:20px;color:#3b82f6;margin-top:2px;flex-shrink:0;"></i>
+                    <div style="flex:1;">
+                      <div style="font-weight:600;color:#1e40af;margin-bottom:10px;font-size:15px;font-family:inherit;">Activity Instructions</div>
+                      <div style="font-size:14px;line-height:1.6;color:#1e3a8a;white-space:pre-wrap;word-wrap:break-word;font-family:inherit;">
+                        ${typeof activityInstructions === 'object' && activityInstructions.instructions ? escapeHtml(activityInstructions.instructions) : escapeHtml(String(activityInstructions || ''))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+              
+              <!-- Essay Question/Prompt (shown once at the top for essay activities) -->
+              ${firstEssayQuestion ? `
+                <div style="padding:20px;background:#fef3c7;border-radius:12px;border:1px solid #fcd34d;font-family:inherit;">
+                  <div style="display:flex;align-items:start;gap:12px;">
+                    <i class="fas fa-question-circle" style="font-size:20px;color:#f59e0b;margin-top:2px;flex-shrink:0;"></i>
+                    <div style="flex:1;">
+                      <div style="font-weight:600;color:#92400e;margin-bottom:10px;font-size:15px;font-family:inherit;">Essay Question / Prompt</div>
+                      <div style="font-size:14px;line-height:1.6;color:#78350f;white-space:pre-wrap;word-wrap:break-word;font-family:inherit;">
+                        ${escapeHtml(firstEssayQuestion)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+              
+              <!-- Student Submissions List -->
+              ${submissions.map((sub, idx) => {
+                // Extract file info
+                let downloadUrl = '';
+                let canView = false;
+                
+                if (sub.upload_info && sub.upload_info.filePath) {
+                  const filePath = sub.upload_info.filePath;
+                  if (filePath.includes('download_activity_file.php')) {
+                    downloadUrl = filePath;
+                  } else {
+                    downloadUrl = `download_activity_file.php?f=${encodeURIComponent(filePath)}`;
+                  }
+                  
+                  const fileName = (sub.upload_info.fileName || '').toLowerCase();
+                  const fileType = (sub.upload_info.fileType || '').toLowerCase();
+                  canView = fileName.endsWith('.pdf') || 
+                           fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                           fileType.includes('pdf') ||
+                           fileType.includes('image');
+                }
+                
+                return `
+                <div class="submission-card" data-attempt-id="${sub.attempt_id}" style="border:1px solid #e5e7eb;border-radius:12px;padding:24px;background:#ffffff;transition:all 0.2s;box-shadow:0 2px 4px rgba(0,0,0,0.05);font-family:inherit;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';this.style.borderColor='#d1d5db'" onmouseout="this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)';this.style.borderColor='#e5e7eb'">
+                  <!-- Student Info -->
+                  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #f3f4f6;">
+                    <div>
+                      <h4 style="margin:0 0 8px 0;font-size:16px;font-weight:600;color:#111827;font-family:inherit;">${escapeHtml(sub.student_name)}</h4>
+                      <p style="margin:0 0 6px 0;font-size:13px;color:#6b7280;font-family:inherit;">ID: ${escapeHtml(sub.id_number || 'N/A')}</p>
+                      <p style="margin:0;font-size:13px;color:#9ca3af;font-family:inherit;">${new Date(sub.submitted_at).toLocaleString()}</p>
+                    </div>
+                    <div style="text-align:right;">
+                      <div style="font-size:13px;color:#6b7280;margin-bottom:6px;font-family:inherit;">Current Score</div>
+                      <div id="score-display-${sub.attempt_id}" data-attempt-id="${sub.attempt_id}" style="font-size:20px;font-weight:700;color:${sub.score !== null ? '#1d9b3e' : '#f59e0b'};font-family:inherit;">
+                        ${sub.score !== null ? `${sub.score}/${sub.max_score || maxScore}` : '<span style="font-size:15px;">Not graded</span>'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- File Info (for upload-based) -->
+                  ${sub.upload_info ? `
+                    <div style="margin-bottom:24px;padding:16px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;">
+                      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                        <i class="fas fa-file-pdf" style="font-size:24px;color:#ef4444;"></i>
+                        <div style="flex:1;min-width:250px;">
+                          <div style="font-weight:600;color:#111827;margin-bottom:6px;font-size:15px;font-family:inherit;">${escapeHtml(sub.upload_info.fileName || 'Uploaded file')}</div>
+                          <div style="font-size:13px;color:#6b7280;display:flex;gap:16px;flex-wrap:wrap;font-family:inherit;">
+                            <span>Size: ${formatFileSize(sub.upload_info.fileSize || 0)}</span>
+                            ${sub.upload_info.fileType ? `<span>Type: ${escapeHtml(sub.upload_info.fileType)}</span>` : ''}
+                          </div>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                          ${canView && downloadUrl ? `
+                            <a href="${downloadUrl}" target="_blank" style="background:#10b981;color:white;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:8px;transition:background 0.2s;font-family:inherit;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                              <i class="fas fa-eye"></i> View
+                            </a>
+                          ` : ''}
+                          ${downloadUrl ? `
+                            <a href="${downloadUrl}" download style="background:#3b82f6;color:white;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:8px;transition:background 0.2s;font-family:inherit;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                              <i class="fas fa-download"></i> Download
+                            </a>
+                          ` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  ` : ''}
+                  
+                  <!-- Student's Essay Response (for essay activities) -->
+                  ${sub.essay_text ? `
+                    <div style="margin-bottom:24px;padding:20px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;">
+                      <div style="display:flex;align-items:start;gap:12px;">
+                        <i class="fas fa-file-alt" style="font-size:20px;color:#3b82f6;margin-top:2px;flex-shrink:0;"></i>
+                        <div style="flex:1;">
+                          <div style="font-weight:600;color:#111827;margin-bottom:12px;font-size:15px;font-family:inherit;">Student's Essay Response</div>
+                          <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;max-height:400px;overflow-y:auto;font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap;word-wrap:break-word;font-family:inherit;">
+                            ${escapeHtml(sub.essay_text)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ` : ''}
+                  
+                  <!-- Grading Form -->
+                  <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+                    <!-- Score Section -->
+                    <div style="flex:0 0 180px;display:flex;flex-direction:column;">
+                      <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:12px;font-family:inherit;">Score (0 - ${sub.max_score || maxScore})</label>
+                      <input type="number" 
+                             id="score-${sub.attempt_id}" 
+                             min="0" 
+                             max="${sub.max_score || maxScore}" 
+                             step="0.5"
+                             value="${sub.score !== null ? sub.score : ''}"
+                             placeholder="0"
+                             style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;font-weight:600;text-align:center;transition:border-color 0.2s;font-family:inherit;box-sizing:border-box;" 
+                             onfocus="this.style.borderColor='#1d9b3e';this.style.outline='none'" 
+                             onblur="this.style.borderColor='#e5e7eb'">
+                    </div>
+                    
+                    <!-- Feedback Section -->
+                    <div style="flex:1;min-width:300px;display:flex;flex-direction:column;">
+                      <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:12px;font-family:inherit;">Feedback (optional)</label>
+                      <textarea id="feedback-${sub.attempt_id}" 
+                                placeholder="Add feedback for the student..."
+                                rows="3"
+                                style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;resize:vertical;font-family:inherit;transition:border-color 0.2s;line-height:1.5;box-sizing:border-box;" 
+                                onfocus="this.style.borderColor='#1d9b3e';this.style.outline='none'" 
+                                onblur="this.style.borderColor='#e5e7eb'"></textarea>
+                    </div>
+                    
+                    <!-- Save Button Section -->
+                    <div style="flex:0 0 160px;display:flex;flex-direction:column;justify-content:flex-end;">
+                      <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:12px;font-family:inherit;opacity:0;pointer-events:none;">Action</label>
+                      <button onclick="saveGrade(${sub.attempt_id}, ${sub.max_score || maxScore})" 
+                              style="background:#1d9b3e;color:white;border:none;padding:14px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background 0.2s;width:100%;font-family:inherit;box-sizing:border-box;" 
+                              onmouseover="this.style.background='#16a34a'" 
+                              onmouseout="this.style.background='#1d9b3e'">
+                        <i class="fas fa-save"></i> Save Grade
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    console.log('🔍 [GRADING MODAL] Modal created and appended to DOM');
+    
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeGradingModal();
+      }
+    });
+    
+    // Close on Escape key
+    const escapeHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeGradingModal();
+        document.removeEventListener('keydown', escapeHandler);
+      }
+    };
+    document.addEventListener('keydown', escapeHandler);
+    
+    console.log('🔍 [GRADING MODAL] Modal setup complete');
+    
+  } catch (error) {
+    console.error('❌ [GRADING MODAL] Error showing grading modal:', error);
+    console.error('❌ [GRADING MODAL] Error stack:', error.stack);
+    
+    // Remove loading modal if still present
+    const loadingModal = document.getElementById('gradingModalLoading');
+    if (loadingModal) {
+      loadingModal.remove();
+    }
+    
+    // Show error alert
+    alert('Failed to load submissions: ' + (error.message || 'Unknown error'));
+  }
+}
+
+function closeGradingModal() {
+  const modal = document.getElementById('gradingModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+async function saveGrade(attemptId, maxScore) {
+  // Find the Save Grade button for this attempt
+  const saveButton = document.querySelector(`button[onclick*="saveGrade(${attemptId}"]`);
+  const originalButtonText = saveButton ? saveButton.innerHTML : '';
+  const originalButtonStyle = saveButton ? saveButton.style.cssText : '';
+  
+  try {
+    const scoreInput = document.getElementById(`score-${attemptId}`);
+    const feedbackInput = document.getElementById(`feedback-${attemptId}`);
+    
+    if (!scoreInput) {
+      throw new Error('Score input not found');
+    }
+    
+    const score = parseFloat(scoreInput.value);
+    const feedback = feedbackInput ? feedbackInput.value.trim() : '';
+    
+    if (isNaN(score) || score < 0 || score > maxScore) {
+      alert(`Score must be between 0 and ${maxScore}`);
+      return;
+    }
+    
+    // Show loading state on button
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+      saveButton.style.cursor = 'wait';
+      saveButton.style.opacity = '0.7';
+    }
+    
+    // Get activity_id from the modal (stored when modal was opened)
+    const gradingModal = document.getElementById('gradingModal');
+    const activityId = gradingModal ? gradingModal.getAttribute('data-activity-id') : null;
+    
+    console.log('🔍 [saveGrade] Saving grade for attempt', attemptId, 'activity', activityId, 'score', score);
+    
+    // Get CSRF token
+    const tokenResponse = await fetch('course_outline_manage.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      credentials: 'same-origin',
+      body: 'action=get_csrf_token'
+    });
+    const tokenData = await tokenResponse.json();
+    const csrfToken = tokenData.csrf_token || tokenData.token || '';
+    
+    // Save grade
+    const response = await fetch('grade_activity_submission.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        attempt_id: attemptId,
+        score: score,
+        feedback: feedback,
+        csrf_token: csrfToken
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to save grade' }));
+      throw new Error(errorData.message || 'Failed to save grade');
+    }
+    
+    const result = await response.json();
+    if (result.success) {
+      console.log('✅ [saveGrade] Grade saved successfully:', result);
+      
+      // REAL-TIME UPDATE: Update score display IMMEDIATELY (instant feedback)
+      // Strategy 1: Find by ID (most reliable - added data attribute)
+      let scoreValueEl = document.getElementById(`score-display-${attemptId}`);
+      
+      // Strategy 2: Find by submission card structure
+      if (!scoreValueEl) {
+        const submissionCard = document.querySelector(`.submission-card[data-attempt-id="${attemptId}"]`);
+        if (submissionCard) {
+          // Find by "Current Score" text
+          const allDivs = submissionCard.querySelectorAll('div');
+          for (let i = 0; i < allDivs.length; i++) {
+            const div = allDivs[i];
+            if (div.textContent && div.textContent.includes('Current Score')) {
+              if (div.nextElementSibling && div.nextElementSibling.tagName === 'DIV') {
+                scoreValueEl = div.nextElementSibling;
+                break;
+              }
+            }
+          }
+          
+          // Strategy 3: Find by structure (text-align:right div with font-size:20px)
+          if (!scoreValueEl) {
+            const rightAlignContainer = submissionCard.querySelector('div[style*="text-align:right"], div[style*="text-align: right"]');
+            if (rightAlignContainer) {
+              const children = Array.from(rightAlignContainer.children);
+              if (children.length >= 2 && children[1].tagName === 'DIV') {
+                scoreValueEl = children[1];
+              }
+            }
+          }
+        }
+      }
+      
+      // Update the score display if found
+      if (scoreValueEl) {
+        // Clear any inner content (including spans) and update immediately
+        scoreValueEl.innerHTML = `${score}/${maxScore}`;
+        scoreValueEl.style.color = '#1d9b3e'; // Green for graded
+        scoreValueEl.style.fontSize = '20px';
+        scoreValueEl.style.fontWeight = '700';
+        scoreValueEl.style.fontFamily = 'inherit';
+        
+        // Add visual feedback animation (pulse effect for instant feedback)
+        scoreValueEl.style.transition = 'all 0.3s ease';
+        scoreValueEl.style.transform = 'scale(1.15)';
+        scoreValueEl.style.opacity = '0.9';
+        
+        setTimeout(() => {
+          scoreValueEl.style.transform = 'scale(1)';
+          scoreValueEl.style.opacity = '1';
+        }, 300);
+        
+        console.log('✅ [saveGrade] REAL-TIME: Updated score display in modal:', `${score}/${maxScore}`);
+      } else {
+        console.warn('⚠️ [saveGrade] Could not find score display element for attempt', attemptId);
+      }
+      
+      // REAL-TIME UPDATE 2: Update teacher's activity card average score immediately
+      if (activityId) {
+        // Get the activity card
+        const activityCard = document.querySelector(`.activity-card[data-activity-id="${activityId}"]`);
+        if (activityCard) {
+          // Update average score immediately
+          const avgScoreEl = activityCard.querySelector('.stat-circle.avg-score[data-activity-id]');
+          if (avgScoreEl && typeof getActivityAvgScore === 'function') {
+            getActivityAvgScore(activityId).then(function(avgScore) {
+              const statValueEl = avgScoreEl.querySelector('.stat-value');
+              if (statValueEl) {
+                const maxScoreAttr = activityCard.getAttribute('data-max-score') || maxScore;
+                const safeAvg = Math.max(0, Math.min(Number(avgScore) || 0, Number(maxScoreAttr) || Infinity));
+                statValueEl.textContent = `${safeAvg}/${maxScoreAttr || 0}`;
+                
+                // Update color based on average score percentage
+                const percentage = maxScoreAttr > 0 ? (safeAvg / maxScoreAttr) * 100 : 0;
+                if (percentage >= 80) {
+                  statValueEl.style.color = '#059669'; // Green for high average
+                } else if (percentage >= 60) {
+                  statValueEl.style.color = '#f59e0b'; // Orange for medium average
+                } else {
+                  statValueEl.style.color = '#dc2626'; // Red for low average
+                }
+                console.log('✅ [saveGrade] Updated activity card average score:', `${safeAvg}/${maxScoreAttr}`);
+              }
+            }).catch(function(err) {
+              console.error('❌ [saveGrade] Error updating average score:', err);
+            });
+          }
+        }
+      }
+      
+      // Restore button state
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.innerHTML = originalButtonText;
+        saveButton.style.cursor = 'pointer';
+        saveButton.style.opacity = '1';
+      }
+      
+      // Show success notification (after UI updates for better UX)
+      setTimeout(() => {
+        if (typeof showNotification === 'function') {
+          showNotification('success', 'Grade saved successfully!');
+        } else {
+          alert('Grade saved successfully!');
+        }
+      }, 100); // Small delay to ensure UI updates are visible first
+      
+      // Refresh student scores (for student view if they're viewing)
+      setTimeout(() => {
+        if (typeof loadAllStudentScores === 'function') {
+          loadAllStudentScores();
+        }
+      }, 500);
+    } else {
+      throw new Error(result.message || 'Failed to save grade');
+    }
+    
+  } catch (error) {
+    console.error('❌ [saveGrade] Error saving grade:', error);
+    
+    // Restore button state on error
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.innerHTML = originalButtonText;
+      saveButton.style.cursor = 'pointer';
+      saveButton.style.opacity = '1';
+    }
+    
+    alert('Failed to save grade: ' + (error.message || 'Unknown error'));
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ===== SUBMISSION CONFIRMATION MODAL FOR UPLOAD-BASED AND ESSAY =====
+function showSubmissionConfirmationModal(activityId, activityType) {
+  const activityTypeLabel = activityType === 'upload_based' ? 'Upload-Based Activity' : 'Essay Activity';
+  
+  // Create modal with Inter font
+  const modal = document.createElement('div');
+  modal.id = 'submissionConfirmationModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;backdrop-filter:blur(4px);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;';
+  
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;width:90%;max-width:520px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);font-family:inherit;">
+      <!-- Header -->
+      <div style="padding:20px 24px;background:#1d9b3e;color:white;display:flex;justify-content:space-between;align-items:center;font-family:inherit;">
+        <div>
+          <h2 style="margin:0;font-size:18px;font-weight:600;font-family:inherit;">Submission Received</h2>
+          <p style="margin:4px 0 0 0;font-size:13px;opacity:0.95;font-family:inherit;">${activityTypeLabel}</p>
+        </div>
+        <button onclick="closeSubmissionConfirmationModal()" style="background:rgba(255,255,255,0.15);color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:20px;transition:background 0.2s;font-family:inherit;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">&times;</button>
+      </div>
+      
+      <!-- Content -->
+      <div style="padding:32px;text-align:center;font-family:inherit;">
+        <!-- Success Icon -->
+        <div style="width:80px;height:80px;background:#d1fae5;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;border:3px solid #10b981;">
+          <i class="fas fa-check" style="font-size:36px;color:#10b981;"></i>
+        </div>
+        
+        <!-- Main Message -->
+        <h3 style="margin:0 0 12px 0;color:#111827;font-size:18px;font-weight:600;font-family:inherit;">Your submission has been received!</h3>
+        <p style="margin:0 0 28px 0;color:#6b7280;font-size:14px;line-height:1.6;font-family:inherit;">
+          Your work has been successfully submitted. The teacher will review and grade your submission soon.
+          ${activityType === 'upload_based' ? 'You will be notified once your grade is available.' : 'You will receive your grade once the teacher has reviewed your essay.'}
+        </p>
+        
+        <!-- What happens next -->
+        <div style="background:#f9fafb;border-radius:10px;padding:18px;margin-bottom:28px;text-align:left;border:1px solid #e5e7eb;">
+          <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:12px;font-family:inherit;">What happens next?</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:start;gap:10px;">
+              <i class="fas fa-check-circle" style="font-size:14px;color:#10b981;margin-top:2px;flex-shrink:0;"></i>
+              <span style="font-size:13px;color:#6b7280;line-height:1.5;font-family:inherit;">The teacher will review your submission</span>
+            </div>
+            <div style="display:flex;align-items:start;gap:10px;">
+              <i class="fas fa-check-circle" style="font-size:14px;color:#10b981;margin-top:2px;flex-shrink:0;"></i>
+              <span style="font-size:13px;color:#6b7280;line-height:1.5;font-family:inherit;">You will receive a grade once grading is complete</span>
+            </div>
+            <div style="display:flex;align-items:start;gap:10px;">
+              <i class="fas fa-check-circle" style="font-size:14px;color:#10b981;margin-top:2px;flex-shrink:0;"></i>
+              <span style="font-size:13px;color:#6b7280;line-height:1.5;font-family:inherit;">Your score will appear on the activity card and leaderboard</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Close Button -->
+        <button onclick="closeSubmissionConfirmationModal()" 
+                style="background:#1d9b3e;color:white;border:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s;font-family:inherit;min-width:120px;" 
+                onmouseover="this.style.background='#16a34a'" 
+                onmouseout="this.style.background='#1d9b3e'">
+          Close
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeSubmissionConfirmationModal();
+    }
+  });
+  
+  // Close on Escape key
+  const escapeHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeSubmissionConfirmationModal();
+      document.removeEventListener('keydown', escapeHandler);
+    }
+  };
+  document.addEventListener('keydown', escapeHandler);
+}
+
+function closeSubmissionConfirmationModal() {
+  const modal = document.getElementById('submissionConfirmationModal');
+  if (modal) {
+    modal.remove();
+    
+    // Refresh scores after closing modal to ensure "Pending" status is displayed
+    setTimeout(() => {
+      if (typeof loadAllStudentScores === 'function') {
+        console.log('🔄 [Submission Modal Closed] Refreshing scores to show PENDING status...');
+        loadAllStudentScores();
+      }
+    }, 300);
+  }
+}
+
+// Make functions globally available
+window.showGradingModal = showGradingModal;
+window.closeGradingModal = closeGradingModal;
+window.saveGrade = saveGrade;
+window.showSubmissionConfirmationModal = showSubmissionConfirmationModal;
+window.closeSubmissionConfirmationModal = closeSubmissionConfirmationModal;
+
 function updateTeacherActivityCard(card, newStatus) {
   const activityId = parseInt(card.getAttribute('data-activity-id'));
   const isLocked = newStatus.status === 'locked';
@@ -9003,6 +10038,618 @@ function updateTeacherActivityCard(card, newStatus) {
   }
 }
 
+// ===== CLASS STATISTICS =====
 
+function loadClassStatistics() {
+  const classId = window.__CLASS_ID__ || getClassIdFromURL();
+  if (!classId) {
+    console.error('Class ID not found');
+    return;
+  }
+  
+  const cardsContainer = document.getElementById('classStatisticsCards');
+  if (!cardsContainer) {
+    console.error('Statistics cards container not found');
+    return;
+  }
+  
+  // Show loading state
+  cardsContainer.innerHTML = `
+    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280;">
+      <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+      <p>Loading statistics...</p>
+    </div>
+  `;
+  
+  fetch(`get_class_statistics.php?class_id=${classId}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.data) {
+        renderStatisticsCards(data.data);
+      } else {
+        showStatisticsError(data.message || 'Failed to load statistics');
+      }
+    })
+    .catch(error => {
+      console.error('Error loading class statistics:', error);
+      showStatisticsError('Failed to load statistics');
+    });
+}
+
+function renderStatisticsCards(stats) {
+  const cardsContainer = document.getElementById('classStatisticsCards');
+  if (!cardsContainer) return;
+  
+  const studentsEnrolled = stats.students_enrolled || 0;
+  const averageGrade = stats.average_grade !== null ? stats.average_grade.toFixed(1) + '%' : '-';
+  const averageTopics = stats.average_topics_completed !== null ? stats.average_topics_completed.toFixed(1) + '%' : '-';
+  
+  cardsContainer.innerHTML = `
+    <div onclick="showEnrolledStudentsModal()" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 16px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;" 
+         onmouseover="this.style.borderColor='#9333ea'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(147, 51, 234, 0.2)';" 
+         onmouseout="this.style.borderColor='transparent'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
+      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <i class="fas fa-users" style="font-size: 24px; color: white;"></i>
+      </div>
+      <div style="flex: 1;">
+        <div style="font-size: 32px; font-weight: 700; color: #111827; line-height: 1.2; margin-bottom: 4px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+          ${studentsEnrolled} ${studentsEnrolled === 1 ? 'student' : 'students'}
+        </div>
+        <div style="font-size: 14px; color: #6b7280; font-weight: 500; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+          Students enrolled <i class="fas fa-chevron-right" style="margin-left: 4px; font-size: 10px;"></i>
+        </div>
+      </div>
+    </div>
+    
+    <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 16px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <i class="fas fa-graduation-cap" style="font-size: 24px; color: white;"></i>
+      </div>
+      <div style="flex: 1;">
+        <div style="font-size: 32px; font-weight: 700; color: #111827; line-height: 1.2; margin-bottom: 4px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+          ${averageGrade}
+        </div>
+        <div style="font-size: 14px; color: #6b7280; font-weight: 500; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+          Average grade
+        </div>
+      </div>
+    </div>
+    
+    <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 16px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <i class="fas fa-book-open" style="font-size: 24px; color: white;"></i>
+      </div>
+      <div style="flex: 1;">
+        <div style="font-size: 32px; font-weight: 700; color: #111827; line-height: 1.2; margin-bottom: 4px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+          ${averageTopics}
+        </div>
+        <div style="font-size: 14px; color: #6b7280; font-weight: 500; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+          Average topics completed
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showStatisticsError(message) {
+  const cardsContainer = document.getElementById('classStatisticsCards');
+  if (!cardsContainer) return;
+  
+  cardsContainer.innerHTML = `
+    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #dc3545;">
+      <i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 10px;"></i>
+      <p>${message}</p>
+    </div>
+  `;
+}
+
+function getClassIdFromURL() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('class_id') || urlParams.get('id') || null;
+}
+
+// ===== STUDENT PERFORMANCE MANAGEMENT =====
+
+let allStudentsData = [];
+let filteredStudentsData = [];
+
+function loadStudentPerformance() {
+  const classId = window.__CLASS_ID__ || getClassIdFromURL();
+  if (!classId) {
+    console.error('Class ID not found');
+    return;
+  }
+  
+  const tableContainer = document.getElementById('studentPerformanceTable');
+  if (!tableContainer) {
+    console.error('Student performance table container not found');
+    return;
+  }
+  
+  // Show loading state
+  tableContainer.innerHTML = `
+    <div style="padding: 40px; text-align: center; color: #6b7280;">
+      <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+      <p>Loading student performance data...</p>
+    </div>
+  `;
+  
+  fetch(`get_student_performance.php?class_id=${classId}`)
+    .then(response => {
+      console.log('Student Performance Response Status:', response.status);
+      console.log('Student Performance Response Headers:', response.headers.get('Content-Type'));
+      
+      // Check if response is JSON
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) {
+        return response.text().then(text => {
+          console.error('Non-JSON response:', text.substring(0, 500));
+          throw new Error('Server returned non-JSON response');
+        });
+      }
+      
+      return response.json();
+    })
+    .then(data => {
+      console.log('Student Performance Data:', data);
+      
+      if (data.success && data.data) {
+        allStudentsData = data.data;
+        filteredStudentsData = [...allStudentsData];
+        renderStudentPerformanceTable(data.data, data.summary);
+      } else {
+        console.error('Student Performance Error:', data.message || 'Unknown error', data);
+        showStudentPerformanceError(data.message || 'Failed to load student performance');
+      }
+    })
+    .catch(error => {
+      console.error('Error loading student performance:', error);
+      showStudentPerformanceError('Failed to load student performance: ' + error.message);
+    });
+}
+
+function renderStudentPerformanceTable(students, summary) {
+  const tableContainer = document.getElementById('studentPerformanceTable');
+  if (!tableContainer) return;
+  
+  if (!students || students.length === 0) {
+    tableContainer.innerHTML = `
+      <div style="padding: 40px; text-align: center; color: #6b7280;">
+        <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+        <p style="font-size: 16px; margin: 0;">No students enrolled in this class yet.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  const fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  
+  let tableHTML = `
+    <div style="overflow-x: auto; font-family: ${fontFamily};">
+      <table style="width: 100%; border-collapse: collapse; font-family: ${fontFamily};">
+        <thead>
+          <tr style="background: #f8f9fa; border-bottom: 2px solid #e5e7eb;">
+            <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Student</th>
+            <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">ID Number</th>
+            <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Overall Grade</th>
+            <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Activities</th>
+            <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Topics</th>
+            <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  students.forEach((student, index) => {
+    const gradeColor = student.overall_grade !== null 
+      ? (student.overall_grade >= 90 ? '#10b981' : student.overall_grade >= 75 ? '#3b82f6' : student.overall_grade >= 60 ? '#f59e0b' : '#ef4444')
+      : '#6b7280';
+    
+    const gradeDisplay = student.overall_grade !== null ? `${student.overall_grade.toFixed(1)}%` : '-';
+    
+    const activitiesDisplay = `${student.completed_activities}/${student.total_activities}`;
+    const topicsDisplay = `${student.topics_completed.toFixed(1)}%`;
+    
+    tableHTML += `
+      <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.2s; font-family: ${fontFamily};" 
+          onmouseover="this.style.background='#f9fafb';" 
+          onmouseout="this.style.background='white';">
+        <td style="padding: 12px 16px; font-family: ${fontFamily};">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; font-family: ${fontFamily};">
+              ${student.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div style="font-weight: 600; color: #111827; font-size: 14px; font-family: ${fontFamily};">${escapeHtml(student.name)}</div>
+              <div style="font-size: 12px; color: #6b7280; font-family: ${fontFamily};">Enrolled ${formatDate(student.enrolled_at)}</div>
+            </div>
+          </div>
+        </td>
+        <td style="padding: 12px 16px; text-align: center; color: #6b7280; font-size: 14px; font-family: ${fontFamily};">
+          ${student.id_number || '-'}
+        </td>
+        <td style="padding: 12px 16px; text-align: center; font-family: ${fontFamily};">
+          <span style="font-weight: 700; font-size: 16px; color: ${gradeColor}; font-family: ${fontFamily};">${gradeDisplay}</span>
+        </td>
+        <td style="padding: 12px 16px; text-align: center; font-family: ${fontFamily};">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <span style="font-weight: 600; color: #111827; font-size: 14px; font-family: ${fontFamily};">${activitiesDisplay}</span>
+            ${student.pending_activities > 0 ? `<span style="font-size: 11px; color: #f59e0b; font-family: ${fontFamily};">${student.pending_activities} pending</span>` : ''}
+          </div>
+        </td>
+        <td style="padding: 12px 16px; text-align: center; font-family: ${fontFamily};">
+          <span style="font-weight: 600; color: #111827; font-size: 14px; font-family: ${fontFamily};">${topicsDisplay}</span>
+        </td>
+        <td style="padding: 12px 16px; text-align: center; font-family: ${fontFamily};">
+          <button onclick="viewStudentDetails(${student.student_id}, '${escapeHtml(student.name)}')" 
+                  style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: ${fontFamily};"
+                  onmouseover="this.style.background='#2563eb'; this.style.transform='scale(1.05)';"
+                  onmouseout="this.style.background='#3b82f6'; this.style.transform='scale(1)';">
+            <i class="fas fa-eye"></i> View Details
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+  
+  tableHTML += `
+        </tbody>
+      </table>
+    </div>
+  `;
+  
+  tableContainer.innerHTML = tableHTML;
+}
+
+function filterStudents() {
+  const searchInput = document.getElementById('studentSearchInput');
+  if (!searchInput) return;
+  
+  const searchTerm = searchInput.value.toLowerCase().trim();
+  
+  if (!searchTerm) {
+    filteredStudentsData = [...allStudentsData];
+  } else {
+    filteredStudentsData = allStudentsData.filter(student => 
+      student.name.toLowerCase().includes(searchTerm) ||
+      (student.id_number && student.id_number.toLowerCase().includes(searchTerm))
+    );
+  }
+  
+  renderStudentPerformanceTable(filteredStudentsData, null);
+}
+
+function sortStudents() {
+  const sortSelect = document.getElementById('sortStudentsSelect');
+  if (!sortSelect) return;
+  
+  const sortBy = sortSelect.value;
+  
+  filteredStudentsData.sort((a, b) => {
+    if (sortBy === 'name') {
+      return a.name.localeCompare(b.name);
+    } else if (sortBy === 'grade') {
+      const gradeA = a.overall_grade !== null ? a.overall_grade : -1;
+      const gradeB = b.overall_grade !== null ? b.overall_grade : -1;
+      return gradeB - gradeA; // Descending
+    } else if (sortBy === 'completed') {
+      const completedA = a.completed_activities / a.total_activities;
+      const completedB = b.completed_activities / b.total_activities;
+      return completedB - completedA; // Descending
+    }
+    return 0;
+  });
+  
+  renderStudentPerformanceTable(filteredStudentsData, null);
+}
+
+function viewStudentDetails(studentId, studentName) {
+  const student = allStudentsData.find(s => s.student_id === studentId);
+  if (!student) return;
+  
+  const fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  
+  // Create modal for student details
+  const modal = document.createElement('div');
+  modal.id = 'studentDetailsModal';
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.5); z-index: 10000; display: flex; 
+    align-items: center; justify-content: center; padding: 20px;
+    font-family: ${fontFamily};
+  `;
+  
+  let activitiesHTML = '';
+  student.activity_scores.forEach(activity => {
+    const statusColor = activity.status === 'completed' ? '#10b981' : 
+                       activity.status === 'pending' ? '#f59e0b' : 
+                       activity.status === 'in_progress' ? '#3b82f6' : '#6b7280';
+    const statusIcon = activity.status === 'completed' ? 'check-circle' : 
+                      activity.status === 'pending' ? 'clock' : 
+                      activity.status === 'in_progress' ? 'spinner' : 'circle';
+    
+    activitiesHTML += `
+      <tr style="border-bottom: 1px solid #e5e7eb; font-family: ${fontFamily};">
+        <td style="padding: 10px 12px; color: #111827; font-size: 14px; font-family: ${fontFamily};">${escapeHtml(activity.activity_title)}</td>
+        <td style="padding: 10px 12px; text-align: center; font-family: ${fontFamily};">
+          ${activity.score !== null ? `${activity.score}/${activity.max_score}` : '-'}
+        </td>
+        <td style="padding: 10px 12px; text-align: center; font-family: ${fontFamily};">
+          ${activity.percentage !== null ? `${activity.percentage}%` : '-'}
+        </td>
+        <td style="padding: 10px 12px; text-align: center; font-family: ${fontFamily};">
+          <span style="color: ${statusColor}; font-size: 12px; font-family: ${fontFamily};">
+            <i class="fas fa-${statusIcon}"></i> ${activity.status.replace('_', ' ')}
+          </span>
+        </td>
+      </tr>
+    `;
+  });
+  
+  modal.innerHTML = `
+    <div style="background: white; border-radius: 12px; max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
+      <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">${escapeHtml(studentName)} - Performance Details</h3>
+        <button onclick="document.getElementById('studentDetailsModal').remove()" 
+                style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; font-family: ${fontFamily};"
+                onmouseover="this.style.background='#f3f4f6'; this.style.color='#111827';"
+                onmouseout="this.style.background='none'; this.style.color='#6b7280';">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div style="padding: 24px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; font-family: ${fontFamily};">
+            <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px; font-family: ${fontFamily};">Overall Grade</div>
+            <div style="font-size: 24px; font-weight: 700; color: ${student.overall_grade !== null ? (student.overall_grade >= 90 ? '#10b981' : student.overall_grade >= 75 ? '#3b82f6' : student.overall_grade >= 60 ? '#f59e0b' : '#ef4444') : '#6b7280'}; font-family: ${fontFamily};">
+              ${student.overall_grade !== null ? `${student.overall_grade.toFixed(1)}%` : '-'}
+            </div>
+          </div>
+          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; font-family: ${fontFamily};">
+            <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px; font-family: ${fontFamily};">Activities Completed</div>
+            <div style="font-size: 24px; font-weight: 700; color: #111827; font-family: ${fontFamily};">
+              ${student.completed_activities}/${student.total_activities}
+            </div>
+          </div>
+          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; font-family: ${fontFamily};">
+            <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px; font-family: ${fontFamily};">Topics Completed</div>
+            <div style="font-size: 24px; font-weight: 700; color: #111827; font-family: ${fontFamily};">
+              ${student.topics_completed.toFixed(1)}%
+            </div>
+          </div>
+        </div>
+        
+        <h4 style="margin: 0 0 16px 0; color: #111827; font-size: 16px; font-weight: 600; font-family: ${fontFamily};">Activity Scores</h4>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-family: ${fontFamily};">
+            <thead>
+              <tr style="background: #f8f9fa; border-bottom: 2px solid #e5e7eb;">
+                <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #374151; font-size: 13px; font-family: ${fontFamily};">Activity</th>
+                <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #374151; font-size: 13px; font-family: ${fontFamily};">Score</th>
+                <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #374151; font-size: 13px; font-family: ${fontFamily};">Percentage</th>
+                <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #374151; font-size: 13px; font-family: ${fontFamily};">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activitiesHTML || `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #6b7280; font-family: ${fontFamily};">No activities found</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+function showStudentPerformanceError(message) {
+  const tableContainer = document.getElementById('studentPerformanceTable');
+  if (!tableContainer) return;
+  
+  tableContainer.innerHTML = `
+    <div style="padding: 40px; text-align: center; color: #dc3545;">
+      <i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 10px;"></i>
+      <p>${message}</p>
+    </div>
+  `;
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ===== ENROLLED STUDENTS MODAL =====
+
+function showEnrolledStudentsModal() {
+  const classId = window.__CLASS_ID__ || getClassIdFromURL();
+  if (!classId) {
+    console.error('Class ID not found');
+    return;
+  }
+  
+  const fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  
+  // Create modal
+  const modal = document.createElement('div');
+  modal.id = 'enrolledStudentsModal';
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.5); z-index: 10000; display: flex; 
+    align-items: center; justify-content: center; padding: 20px;
+    font-family: ${fontFamily};
+  `;
+  
+  // Show loading state
+  modal.innerHTML = `
+    <div style="background: white; border-radius: 12px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
+      <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
+        <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
+                style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; font-family: ${fontFamily};"
+                onmouseover="this.style.background='#f3f4f6'; this.style.color='#111827';"
+                onmouseout="this.style.background='none'; this.style.color='#6b7280';">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div style="padding: 40px; text-align: center;">
+        <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #6b7280; margin-bottom: 10px;"></i>
+        <p style="color: #6b7280; margin: 0;">Loading students...</p>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Fetch enrolled students
+  fetch(`get_enrolled_students.php?class_id=${classId}`)
+    .then(response => {
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) {
+        return response.text().then(text => {
+          console.error('Non-JSON response:', text.substring(0, 500));
+          throw new Error('Server returned non-JSON response');
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success && data.data) {
+        renderEnrolledStudentsList(modal, data.data, fontFamily);
+      } else {
+        showEnrolledStudentsError(modal, data.message || 'Failed to load students', fontFamily);
+      }
+    })
+    .catch(error => {
+      console.error('Error loading enrolled students:', error);
+      showEnrolledStudentsError(modal, 'Failed to load students: ' + error.message, fontFamily);
+    });
+  
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+function renderEnrolledStudentsList(modal, students, fontFamily) {
+  if (!students || students.length === 0) {
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
+        <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
+          <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
+                  style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; font-family: ${fontFamily};"
+                  onmouseover="this.style.background='#f3f4f6'; this.style.color='#111827';"
+                  onmouseout="this.style.background='none'; this.style.color='#6b7280';">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div style="padding: 40px; text-align: center;">
+          <i class="fas fa-users" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
+          <p style="color: #6b7280; margin: 0; font-family: ${fontFamily};">No students enrolled yet.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  let studentsHTML = '';
+  students.forEach((student, index) => {
+    const enrolledDate = formatDate(student.enrolled_at);
+    studentsHTML += `
+      <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.2s; font-family: ${fontFamily};" 
+          onmouseover="this.style.background='#f9fafb';" 
+          onmouseout="this.style.background='white';">
+        <td style="padding: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; font-family: ${fontFamily};">
+              ${student.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div style="font-weight: 600; color: #111827; font-size: 14px; font-family: ${fontFamily};">${escapeHtml(student.name)}</div>
+              <div style="font-size: 12px; color: #6b7280; font-family: ${fontFamily};">${student.email || 'No email'}</div>
+            </div>
+          </div>
+        </td>
+        <td style="padding: 16px; color: #6b7280; font-size: 14px; font-family: ${fontFamily};">
+          ${student.id_number || '-'}
+        </td>
+        <td style="padding: 16px; color: #6b7280; font-size: 14px; font-family: ${fontFamily};">
+          ${enrolledDate}
+        </td>
+      </tr>
+    `;
+  });
+  
+  modal.innerHTML = `
+    <div style="background: white; border-radius: 12px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
+      <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="margin: 0 0 4px 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
+          <p style="margin: 0; color: #6b7280; font-size: 14px; font-family: ${fontFamily};">${students.length} ${students.length === 1 ? 'student' : 'students'} enrolled</p>
+        </div>
+        <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
+                style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; font-family: ${fontFamily};"
+                onmouseover="this.style.background='#f3f4f6'; this.style.color='#111827';"
+                onmouseout="this.style.background='none'; this.style.color='#6b7280';">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div style="padding: 24px;">
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-family: ${fontFamily};">
+            <thead>
+              <tr style="background: #f8f9fa; border-bottom: 2px solid #e5e7eb;">
+                <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Student</th>
+                <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">ID Number</th>
+                <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Enrolled</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${studentsHTML}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showEnrolledStudentsError(modal, message, fontFamily) {
+  modal.innerHTML = `
+    <div style="background: white; border-radius: 12px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
+      <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
+        <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
+                style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; font-family: ${fontFamily};"
+                onmouseover="this.style.background='#f3f4f6'; this.style.color='#111827';"
+                onmouseout="this.style.background='none'; this.style.color='#6b7280';">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div style="padding: 40px; text-align: center; color: #dc3545;">
+        <i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 10px;"></i>
+        <p style="margin: 0; font-family: ${fontFamily};">${escapeHtml(message)}</p>
+      </div>
+    </div>
+  `;
+}
 
 

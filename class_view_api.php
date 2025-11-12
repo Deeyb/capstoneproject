@@ -85,9 +85,11 @@ try {
                         
                         // Ensure 'type' field exists in result (default to 'multiple_choice' if column doesn't exist)
                         foreach ($activities as &$act) {
-                            if (!isset($act['type'])) {
+                            if (!isset($act['type']) || empty($act['type'])) {
                                 $act['type'] = 'multiple_choice';
                             }
+                            // CRITICAL: Log activity type for debugging
+                            error_log("🔍 [API] Activity {$act['id']} ({$act['title']}) - type: " . ($act['type'] ?? 'NULL'));
                         }
                         error_log("🔍 [API] Lesson {$lesson['id']} has " . count($activities) . " activities");
                         // Add availability status for each activity (but DON'T filter them out - show all activities)

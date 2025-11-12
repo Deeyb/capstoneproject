@@ -75,12 +75,17 @@ if ($userRole === 'student') {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Class Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     /* Prevent layout jumps by setting initial dimensions */
+    * {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
     body {
       margin: 0;
       padding: 0;
       overflow-x: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     }
     .class-page {
       min-height: 100vh;
@@ -237,9 +242,9 @@ if ($userRole === 'student') {
             <div class="card-header-row">
               <h3><?php echo $userRole === 'student' ? 'My Progress' : 'Class Record'; ?></h3>
             </div>
-            <div style="padding: 12px; color:#6b7280;">
+            <div style="padding: 20px;">
               <?php if ($userRole === 'student'): ?>
-                <p>Track your progress and see your achievements in this class.</p>
+                <p style="color:#6b7280; margin-bottom: 20px;">Track your progress and see your achievements in this class.</p>
                 <div style="margin-top: 20px;">
                   <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #1d9b3e;">
                     <h4 style="margin: 0 0 10px 0; color: #1d9b3e;">Your Progress</h4>
@@ -247,11 +252,38 @@ if ($userRole === 'student') {
                   </div>
                 </div>
               <?php else: ?>
-                <p>View and manage student records and grades.</p>
-                <div style="margin-top: 20px;">
-                  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #1d9b3e;">
-                    <h4 style="margin: 0 0 10px 0; color: #1d9b3e;">Class Management</h4>
-                    <p style="margin: 0; color: #666;">Monitor student performance and manage class records.</p>
+                <!-- Statistics Cards -->
+                <div id="classStatisticsCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 24px;">
+                  <!-- Loading state -->
+                  <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+                    <p>Loading statistics...</p>
+                  </div>
+                </div>
+                
+                <!-- Student Performance Table -->
+                <div style="margin-top: 32px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h4 style="margin: 0; color: #1d9b3e; font-size: 18px; font-weight: 600;">Student Performance</h4>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                      <input type="text" id="studentSearchInput" placeholder="Search students..." 
+                             style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; width: 200px;"
+                             onkeyup="filterStudents()">
+                      <select id="sortStudentsSelect" onchange="sortStudents()" 
+                              style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; cursor: pointer;">
+                        <option value="name">Sort by Name</option>
+                        <option value="grade">Sort by Grade</option>
+                        <option value="completed">Sort by Completion</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div id="studentPerformanceTable" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <!-- Loading state -->
+                    <div style="padding: 40px; text-align: center; color: #6b7280;">
+                      <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+                      <p>Loading student performance data...</p>
+                    </div>
                   </div>
                 </div>
               <?php endif; ?>

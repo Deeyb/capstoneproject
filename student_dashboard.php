@@ -309,8 +309,11 @@ $current_section = $_GET['section'] ?? 'myclasses';
       <div class="section-header">
         <h2 class="section-title">Certification</h2>
       </div>
-      <div class="certification-content">
-        <p>Certification content will be here...</p>
+      <div class="certification-content" id="certificationContent">
+        <div style="text-align:center;padding:40px;color:#6b7280;">
+          <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#1d9b3e;margin-bottom:16px;"></i>
+          <p style="font-size:16px;margin:0;">Loading certifications...</p>
+        </div>
       </div>
     </div>
 

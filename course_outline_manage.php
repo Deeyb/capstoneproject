@@ -670,7 +670,12 @@ try {
             echo json_encode(['success'=>(bool)$ok]);
             break;
         case 'run_activity':
-            if (!$isCoordinator && !$isAdmin && !$isTeacher) { echo json_encode(['success'=>false,'message'=>'Forbidden']); break; }
+            // CRITICAL: Allow students to run code for testing (they need this for coding activities)
+            // Only block if user is not authenticated
+            if (empty($_SESSION['user_id'])) { 
+                echo json_encode(['success'=>false,'message'=>'Forbidden - Not authenticated']); 
+                break; 
+            }
             
             // Rate limiting for run_activity
             $rateLimiter = new RateLimiter($db);
@@ -709,19 +714,23 @@ try {
                 $tests = $svc->listTestCases($activityId);
                 
                 // CRITICAL: For "Test All Cases" (quick=false), use ALL test cases
-                // For "Run Code" (quick=true), use sample test cases if available, otherwise first test case
+                // For "Run Code" (quick=true), use ONLY ONE sample test case (or first test case) to save JDoodle credits
                 if ($quick) {
-                    // Quick mode: Use sample test cases if available, otherwise first test case
+                    // Quick mode: Use ONLY THE FIRST sample test case (if available), otherwise first test case
+                    // This saves JDoodle credits - only 1 API call instead of multiple
                     $sample = array_values(array_filter($tests, function($t){ return !empty($t['is_sample']); }));
-                    $cases = $sample ?: ($tests ? [ $tests[0] ] : []);
+                    // Get only the FIRST sample test case (not all samples)
+                    $firstSample = !empty($sample) ? $sample[0] : null;
+                    $cases = $firstSample ? [ $firstSample ] : ($tests ? [ $tests[0] ] : []);
                     
                     // If user provided stdin (from interactive terminal), use it instead of test case input
                     $userStdin = (string)($_POST['stdin'] ?? '');
                     if ($userStdin !== '' && !empty($cases)) {
                         // Override first test case input with user input
                         $cases = [['input_text' => $userStdin, 'expected_output_text' => $cases[0]['expected_output_text'] ?? '', 'is_sample' => $cases[0]['is_sample'] ?? false]];
-                    } else if (!empty($cases)) {
-                        // Use only first test case for quick mode
+                    }
+                    // Ensure only ONE test case for quick mode (save credits!)
+                    if (count($cases) > 1) {
                         $cases = [ $cases[0] ];
                     }
                 } else {
@@ -733,13 +742,15 @@ try {
             $endTime = microtime(true);
             $duration = round(($endTime - $startTime) * 1000, 2);
             
-            // Structured logging
+            // Structured logging (include credit usage info for monitoring)
             error_log(sprintf(
-                "COORDINATOR_RUN: userId=%s, action=run_activity, activityId=%d, language=%s, cases_run=%d, duration=%sms, status=success",
+                "COORDINATOR_RUN: userId=%s, action=run_activity, activityId=%d, language=%s, quick=%s, cases_run=%d, credits_used=%d, duration=%sms, status=success",
                 $_SESSION['user_id'] ?? 'unknown',
                 $activityId,
                 $jdoodleLanguage,
+                $quick ? 'yes' : 'no',
                 count($cases),
+                count($cases), // Each test case = 1 JDoodle credit
                 $duration
             ));
             

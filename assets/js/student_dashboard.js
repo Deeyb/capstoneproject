@@ -836,6 +836,244 @@ function openFullLeaderboard(activityId) {
     });
 }
 
+// ===== CERTIFICATION FUNCTIONALITY =====
+
+async function loadCertifications() {
+  const contentDiv = document.getElementById('certificationContent');
+  if (!contentDiv) return;
+  
+  try {
+    // Show loading state
+    contentDiv.innerHTML = `
+      <div style="text-align:center;padding:40px;color:#6b7280;">
+        <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#1d9b3e;margin-bottom:16px;"></i>
+        <p style="font-size:16px;margin:0;">Loading certifications...</p>
+      </div>
+    `;
+    
+    console.log('🏅 [Certification] Fetching certification data...');
+    const response = await fetch('get_certification_data.php', {
+      credentials: 'same-origin'
+    });
+    
+    console.log('🏅 [Certification] Response status:', response.status, response.statusText);
+    console.log('🏅 [Certification] Response headers:', response.headers.get('content-type'));
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('🏅 [Certification] HTTP Error:', response.status, errorText.substring(0, 500));
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('🏅 [Certification] Non-JSON response:', text.substring(0, 500));
+      throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+    }
+    
+    const data = await response.json();
+    console.log('🏅 [Certification] Response data:', data);
+    
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to load certifications');
+    }
+    
+    const certifications = data.certifications || [];
+    
+    if (certifications.length === 0) {
+      contentDiv.innerHTML = `
+        <div style="text-align:center;padding:60px 40px;color:#6b7280;">
+          <i class="fas fa-certificate" style="font-size:64px;color:#d1d5db;margin-bottom:20px;"></i>
+          <h3 style="font-size:20px;font-weight:600;color:#374151;margin:0 0 12px 0;">No Certifications Available</h3>
+          <p style="font-size:16px;margin:0 0 24px 0;color:#6b7280;">
+            You need to be enrolled in a class with activities to track your certification progress.
+          </p>
+          <p style="font-size:14px;margin:0;color:#9ca3af;">
+            Join a class from "My Classes" to get started.
+          </p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Render certification cards
+    renderCertificationCards(certifications, contentDiv);
+    
+  } catch (error) {
+    console.error('Error loading certifications:', error);
+    contentDiv.innerHTML = `
+      <div style="text-align:center;padding:60px 40px;color:#ef4444;">
+        <i class="fas fa-exclamation-circle" style="font-size:48px;margin-bottom:16px;"></i>
+        <h3 style="font-size:18px;font-weight:600;margin:0 0 8px 0;">Error Loading Certifications</h3>
+        <p style="font-size:14px;margin:0;color:#6b7280;">${escapeHtml(error.message || 'Unknown error')}</p>
+      </div>
+    `;
+  }
+}
+
+function renderCertificationCards(certifications, container) {
+  const cardsHTML = certifications.map(cert => {
+    const progressColor = cert.progress >= 100 ? '#10b981' : cert.progress >= 50 ? '#f59e0b' : '#ef4444';
+    const progressBg = cert.progress >= 100 ? '#d1fae5' : cert.progress >= 50 ? '#fef3c7' : '#fee2e2';
+    
+    // Get language icon/emoji
+    const languageIcon = getLanguageIcon(cert.language);
+    
+    return `
+      <div class="certification-card" 
+           style="background:white;border-radius:16px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:all 0.3s ease;border:2px solid #e5e7eb;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
+           onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 16px rgba(0,0,0,0.15)';this.style.borderColor='#1d9b3e';"
+           onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)';this.style.borderColor='#e5e7eb';">
+        <!-- Header -->
+        <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:20px;">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+              <div style="width:48px;height:48px;background:linear-gradient(135deg, #1d9b3e 0%, #16a34a 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;font-weight:700;flex-shrink:0;">
+                ${languageIcon}
+              </div>
+              <div style="flex:1;">
+                <h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;color:#111827;font-family:inherit;">
+                  ${escapeHtml(cert.course_title || cert.language)}
+                </h3>
+                <p style="margin:0;font-size:13px;color:#6b7280;font-family:inherit;">
+                  ${escapeHtml(cert.class_name)} • ${escapeHtml(cert.course_code || '')}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:24px;font-weight:700;color:${progressColor};font-family:inherit;">
+              ${cert.progress}%
+            </div>
+            <div style="font-size:12px;color:#9ca3af;margin-top:4px;font-family:inherit;">
+              ${cert.progress_text}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div style="margin-bottom:16px;">
+          <div style="width:100%;height:12px;background:#f3f4f6;border-radius:6px;overflow:hidden;">
+            <div style="width:${cert.progress}%;height:100%;background:linear-gradient(90deg, ${progressColor} 0%, ${progressColor}dd 100%);border-radius:6px;transition:width 0.5s ease;box-shadow:0 2px 4px rgba(0,0,0,0.1);"></div>
+          </div>
+        </div>
+        
+        <!-- Stats -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid #f3f4f6;">
+          <div style="text-align:center;flex:1;">
+            <div style="font-size:20px;font-weight:700;color:#111827;font-family:inherit;">
+              ${cert.completed_activities}
+            </div>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;font-family:inherit;">
+              Completed
+            </div>
+          </div>
+          <div style="width:1px;height:32px;background:#e5e7eb;"></div>
+          <div style="text-align:center;flex:1;">
+            <div style="font-size:20px;font-weight:700;color:#111827;font-family:inherit;">
+              ${cert.total_activities}
+            </div>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;font-family:inherit;">
+              Total
+            </div>
+          </div>
+          <div style="width:1px;height:32px;background:#e5e7eb;"></div>
+          <div style="text-align:center;flex:1;">
+            <div style="font-size:20px;font-weight:700;color:#111827;font-family:inherit;">
+              ${cert.total_activities - cert.completed_activities}
+            </div>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;font-family:inherit;">
+              Remaining
+            </div>
+          </div>
+        </div>
+        
+        <!-- Completion Badge and Download Certificate Button -->
+        ${cert.progress >= 100 ? `
+          <div style="margin-top:16px;padding:16px;background:#d1fae5;border-radius:8px;text-align:center;">
+            <div style="margin-bottom:12px;">
+              <i class="fas fa-check-circle" style="color:#10b981;margin-right:8px;font-size:18px;"></i>
+              <span style="font-size:14px;font-weight:600;color:#065f46;font-family:inherit;">Course Completed!</span>
+            </div>
+            <button onclick="downloadCertificate(${cert.class_id}, ${cert.course_id}, '${escapeHtml(cert.course_title || cert.language)}', event, true, false)" 
+                    style="background:#10b981;color:white;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:inherit;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;"
+                    onmouseover="this.style.background='#059669';this.style.transform='scale(1.02)';"
+                    onmouseout="this.style.background='#10b981';this.style.transform='scale(1)';">
+              <i class="fas fa-download"></i>
+              Download Certificate
+            </button>
+          </div>
+        ` : `
+          <div style="margin-top:16px;padding:16px;background:#fef3c7;border-radius:8px;text-align:center;">
+            <div style="margin-bottom:12px;">
+              <i class="fas fa-info-circle" style="color:#f59e0b;margin-right:8px;font-size:18px;"></i>
+              <span style="font-size:14px;font-weight:600;color:#92400e;font-family:inherit;">Progress: ${cert.progress}%</span>
+            </div>
+            <p style="margin:0;font-size:13px;color:#78350f;font-family:inherit;">
+              Complete all activities to earn your certificate
+            </p>
+          </div>
+        `}
+      </div>
+    `;
+  }).join('');
+  
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(380px, 1fr));gap:24px;padding:24px;">
+      ${cardsHTML}
+    </div>
+  `;
+}
+
+function getLanguageIcon(language) {
+  const lang = (language || '').toLowerCase();
+  if (lang.includes('c++') || lang.includes('cpp')) return 'C++';
+  if (lang.includes('python')) return '🐍';
+  if (lang.includes('java')) return '☕';
+  if (lang.includes('javascript') || lang.includes('js')) return 'JS';
+  if (lang.includes('html')) return '🌐';
+  if (lang.includes('css')) return '🎨';
+  if (lang.includes('php')) return '🐘';
+  if (lang.includes('sql')) return '🗄️';
+  return '📜'; // Default icon
+}
+
+async function downloadCertificate(classId, courseId, courseTitle, event, isComplete = true) {
+  if (event) {
+    event.stopPropagation();
+  }
+  
+  try {
+    // Show loading state
+    const button = event?.target?.closest('button') || event?.target;
+    if (button) {
+      const originalHTML = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+      
+      // Generate and download certificate
+      const url = `generate_certificate.php?class_id=${classId}&course_id=${courseId}`;
+      
+      // Open in new window for download (since it's an image)
+      window.open(url, '_blank');
+      
+      // Restore button after a delay
+      setTimeout(() => {
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+      }, 2000);
+    } else {
+      // Fallback: direct download
+      const url = `generate_certificate.php?class_id=${classId}&course_id=${courseId}`;
+      window.location.href = url;
+    }
+  } catch (error) {
+    console.error('Error downloading certificate:', error);
+    alert('Failed to download certificate. Please try again.');
+  }
+}
+
 // ===== INITIALIZATION =====
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -863,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Leaderboards are per-class, shown in the class dashboard
   } else if (section === 'certification') {
     console.log('🏅 Loading Certification section...');
-    // Certification content will be loaded here
+    loadCertifications();
   } else if (section === 'profile') {
     console.log('👤 Loading Profile section...');
     // Initialize shared profile functionality
