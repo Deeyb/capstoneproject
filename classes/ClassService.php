@@ -94,6 +94,9 @@ class ClassService {
             return ['success' => false, 'message' => 'Failed to create class'];
         }
         $id = (int)$this->db->lastInsertId();
+        if ($courseId) {
+            $this->initializeActivitySchedulesForClass($id, $courseId);
+        }
         return ['success' => true, 'id' => $id, 'code' => $code, 'name' => $name];
     }
 
@@ -207,6 +210,27 @@ class ClassService {
             $stmt->execute([$classId, $ownerUserId]);
             return $stmt->rowCount() > 0;
         } catch (Throwable $e) { return false; }
+    }
+
+    private function initializeActivitySchedulesForClass(int $classId, int $courseId): void {
+        try {
+            $check = $this->db->query("SHOW TABLES LIKE 'class_activity_schedules'");
+            if ($check->rowCount() === 0) {
+                return;
+            }
+            $stmt = $this->db->prepare("SELECT la.id FROM lesson_activities la INNER JOIN course_lessons cl ON cl.id = la.lesson_id INNER JOIN course_modules cm ON cm.id = cl.module_id WHERE cm.course_id = ?");
+            $stmt->execute([$courseId]);
+            $activityIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!$activityIds) {
+                return;
+            }
+            $insertStmt = $this->db->prepare("INSERT IGNORE INTO class_activity_schedules (class_id, activity_id, start_at, due_at) VALUES (?, ?, NULL, NULL)");
+            foreach ($activityIds as $activityId) {
+                $insertStmt->execute([$classId, $activityId]);
+            }
+        } catch (Throwable $e) {
+            error_log('Failed to initialize class activity schedules: ' . $e->getMessage());
+        }
     }
 }
 

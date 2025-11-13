@@ -1,11 +1,13 @@
 <?php
 // CRITICAL: Set session path BEFORE any session_start() calls
-$sessionPath = __DIR__ . '/sessions';
-if (!is_dir($sessionPath)) {
-    @mkdir($sessionPath, 0777, true);
-}
-if (is_dir($sessionPath) && is_writable($sessionPath)) {
-    ini_set('session.save_path', $sessionPath);
+if (session_status() === PHP_SESSION_NONE) {
+    $sessionPath = __DIR__ . '/sessions';
+    if (!is_dir($sessionPath)) {
+        @mkdir($sessionPath, 0777, true);
+    }
+    if (is_dir($sessionPath) && is_writable($sessionPath)) {
+        ini_set('session.save_path', $sessionPath);
+    }
 }
 
 // Set session name before starting
@@ -31,6 +33,7 @@ try {
         exit;
     }
     require_once __DIR__ . '/config/Database.php';
+    require_once __DIR__ . '/classes/ActivityAttemptService.php';
     require_once __DIR__ . '/classes/CourseService.php';
     $db = (new Database())->getConnection();
     $svc = new CourseService($db);

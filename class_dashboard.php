@@ -26,9 +26,10 @@ require_once __DIR__ . '/classes/auth_helpers.php';
 Auth::requireAuth();
 
 $classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
+$userRoleRaw = $_SESSION['user_role'] ?? 'student';
+$userRole = strtolower((string)$userRoleRaw);
 if ($classId <= 0) { 
     // Redirect based on user role
-    $userRole = $_SESSION['user_role'] ?? 'student';
     if ($userRole === 'teacher') {
         header('Location: teacher_dashboard.php'); 
     } else {
@@ -38,7 +39,6 @@ if ($classId <= 0) {
 }
 
 $embedded = isset($_GET['embedded']) ? (int)$_GET['embedded'] : 0;
-$userRole = $_SESSION['user_role'] ?? 'student';
 $userId = $_SESSION['user_id'];
 
 // If embedded, set proper headers to allow iframe loading
@@ -50,12 +50,46 @@ if ($embedded) {
 // Check if user has access to this class
 $db = (new Database())->getConnection();
 if ($userRole === 'student') {
-    // Check if student is enrolled in this class
-    $stmt = $db->prepare("SELECT id FROM class_students WHERE class_id = ? AND student_user_id = ?");
-    $stmt->execute([$classId, $userId]);
-    if (!$stmt->fetch()) {
-        header('Location: student_dashboard.php?section=myclasses&error=not_enrolled');
-        exit;
+    // Check if student is enrolled in this class and if status column exists
+    $hasStatus = false;
+    try {
+        $checkStmt = $db->query("SHOW COLUMNS FROM class_students LIKE 'status'");
+        $hasStatus = $checkStmt->rowCount() > 0;
+    } catch (Exception $e) {
+        // Column doesn't exist
+    }
+    
+    if ($hasStatus) {
+        // Check enrollment and status (must be accepted to access)
+        $stmt = $db->prepare("SELECT id, status FROM class_students WHERE class_id = ? AND student_user_id = ?");
+        $stmt->execute([$classId, $userId]);
+        $enrollment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$enrollment) {
+            header('Location: student_dashboard.php?section=myclasses&error=not_enrolled');
+            exit;
+        }
+        
+        // Store enrollment status for frontend
+        $studentStatus = $enrollment['status'] ?? 'accepted';
+        // CRITICAL: Log status for debugging
+        error_log("🔍 [class_dashboard.php] Student {$userId} in class {$classId} - Status: {$studentStatus}");
+        error_log("🔍 [class_dashboard.php] Raw enrollment data: " . json_encode($enrollment));
+        if ($studentStatus !== 'accepted') {
+            // Student is pending or rejected - show full-page notification
+            error_log("🔒 [class_dashboard.php] Student {$userId} is {$studentStatus} - Will show locked sections");
+        } else {
+            error_log("🔓 [class_dashboard.php] Student {$userId} is {$studentStatus} - Will show normal content");
+        }
+    } else {
+        // Fallback for old schema - just check enrollment
+        $stmt = $db->prepare("SELECT id FROM class_students WHERE class_id = ? AND student_user_id = ?");
+        $stmt->execute([$classId, $userId]);
+        if (!$stmt->fetch()) {
+            header('Location: student_dashboard.php?section=myclasses&error=not_enrolled');
+            exit;
+        }
+        $studentStatus = 'accepted'; // Default to accepted for old schema
     }
 } else if ($userRole === 'teacher') {
     // Check if teacher owns this class
@@ -65,6 +99,8 @@ if ($userRole === 'student') {
         header('Location: teacher_dashboard.php?error=not_authorized');
         exit;
     }
+    // Teacher doesn't have studentStatus
+    $studentStatus = null;
 }
 
 // Basic page scaffold; data for header can be fetched later
@@ -86,6 +122,19 @@ if ($userRole === 'student') {
       padding: 0;
       overflow-x: hidden;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    /* Full-page lock overlay - ensure it covers everything */
+    .full-page-lock {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background: #000000 !important;
+      z-index: 999999 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
     }
     .class-page {
       min-height: 100vh;
@@ -195,12 +244,14 @@ if ($userRole === 'student') {
       
       <div class="nav-center">
         <div class="nav-tabs">
+          <?php if (!($userRole === 'student' && isset($studentStatus) && $studentStatus !== 'accepted')): ?>
           <button class="nav-tab active" data-tab="activities">Activities</button>
           <?php if (strtolower($userRole) !== 'student'): ?>
           <button class="nav-tab" data-tab="classrecord">Class Record</button>
           <?php endif; ?>
           <button class="nav-tab" data-tab="newsfeed">Newsfeed</button>
           <button class="nav-tab" data-tab="leaderboards">Leaderboards</button>
+          <?php endif; ?>
         </div>
       </div>
       
@@ -237,6 +288,41 @@ if ($userRole === 'student') {
     <div class="dashboard-layout">
       <!-- Main Content Area -->
       <div class="main-content">
+        <?php 
+        // CRITICAL: Debug logging and ensure variable is set
+        if ($userRole === 'student') {
+            // Ensure studentStatus is always set for students
+            if (!isset($studentStatus)) {
+                error_log("⚠️ [class_dashboard.php] WARNING: studentStatus not set for student {$userId} in class {$classId}");
+                // Try to get it again
+                try {
+                    $checkStmt = $db->query("SHOW COLUMNS FROM class_students LIKE 'status'");
+                    $hasStatus = $checkStmt->rowCount() > 0;
+                    if ($hasStatus) {
+                        $stmt = $db->prepare("SELECT status FROM class_students WHERE class_id = ? AND student_user_id = ?");
+                        $stmt->execute([$classId, $userId]);
+                        $enrollment = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $studentStatus = $enrollment['status'] ?? 'accepted';
+                    } else {
+                        $studentStatus = 'accepted';
+                    }
+                } catch (Exception $e) {
+                    $studentStatus = 'accepted';
+                }
+            }
+            error_log("🔍 [class_dashboard.php] Rendering check - userRole: {$userRole}, studentStatus: " . ($studentStatus ?? 'NOT SET'));
+            error_log("🔍 [class_dashboard.php] Condition check - userRole === 'student': " . ($userRole === 'student' ? 'YES' : 'NO'));
+            error_log("🔍 [class_dashboard.php] Condition check - isset(studentStatus): " . (isset($studentStatus) ? 'YES' : 'NO'));
+            error_log("🔍 [class_dashboard.php] Condition check - studentStatus !== 'accepted': " . (($studentStatus ?? '') !== 'accepted' ? 'YES' : 'NO'));
+        }
+        // Note: We'll show locked content in each section instead of full-page lock
+        $isStudentPending = ($userRole === 'student' && isset($studentStatus) && $studentStatus !== 'accepted');
+        
+        // CRITICAL: Debug output
+        if ($userRole === 'student') {
+            error_log("🔍 [FINAL CHECK] userRole: {$userRole}, studentStatus: " . ($studentStatus ?? 'NOT SET') . ", isStudentPending: " . ($isStudentPending ? 'YES' : 'NO'));
+        }
+        ?>
         <section id="tab-classrecord" class="tab-section">
           <div class="card">
             <div class="card-header-row">
@@ -292,11 +378,35 @@ if ($userRole === 'student') {
         </section>
 
         <section id="tab-activities" class="tab-section active">
+          <?php if ($isStudentPending): ?>
+          <!-- Locked content for pending/rejected students -->
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; padding: 60px 20px; text-align: center;">
+            <div style="width: 100px; height: 100px; margin: 0 auto 30px; background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);">
+              <i class="fas fa-lock" style="font-size: 50px; color: white;"></i>
+            </div>
+            <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 28px; font-weight: 600;">
+              <?php echo $studentStatus === 'pending' ? 'Activities Locked' : 'Access Denied'; ?>
+            </h2>
+            <p style="margin: 0 0 30px 0; color: #6b7280; font-size: 16px; line-height: 1.6; max-width: 500px;">
+              <?php if ($studentStatus === 'pending'): ?>
+                Your enrollment is pending approval from the teacher. Once accepted, you will be able to access all activities.
+              <?php else: ?>
+                Your enrollment has been rejected. Please contact the teacher for assistance.
+              <?php endif; ?>
+            </p>
+            <div style="background: <?php echo $studentStatus === 'pending' ? '#fef3c7' : '#fee2e2'; ?>; border-left: 4px solid <?php echo $studentStatus === 'pending' ? '#f59e0b' : '#ef4444'; ?>; padding: 16px 20px; border-radius: 8px; max-width: 500px;">
+              <p style="margin: 0; color: <?php echo $studentStatus === 'pending' ? '#92400e' : '#991b1b'; ?>; font-size: 14px; line-height: 1.5;">
+                <i class="fas fa-<?php echo $studentStatus === 'pending' ? 'info-circle' : 'exclamation-triangle'; ?>" style="margin-right: 8px;"></i>
+                <?php echo $studentStatus === 'pending' ? 'Please wait for the teacher to accept your enrollment request.' : 'You do not have access to this class\'s content.'; ?>
+              </p>
+            </div>
+          </div>
+          <?php else: ?>
           <!-- Dynamic Modules Section -->
           <div class="lesson-topics">
             <!-- Modules and lessons will be loaded dynamically here -->
           </div>
-
+          <?php endif; ?>
           <!-- Exercises Section removed per request -->
         </section>
 
@@ -338,7 +448,34 @@ if ($userRole === 'student') {
             <div class="card-header-row">
               <h3>Newsfeed</h3>
             </div>
-            <div style="padding: 12px; color:#6b7280;">Coming soon.</div>
+            <?php 
+            // CRITICAL: Re-check condition here to ensure it's correct
+            // DEBUG: Log all variables before condition check
+            error_log("🔍 [NEWSFEED CHECK] userRole: " . ($userRole ?? 'NOT SET') . ", studentStatus: " . ($studentStatus ?? 'NOT SET') . ", isset(studentStatus): " . (isset($studentStatus) ? 'YES' : 'NO'));
+            $newsfeedIsLocked = ($userRole === 'student' && isset($studentStatus) && $studentStatus !== 'accepted');
+            error_log("🔍 [NEWSFEED CHECK] newsfeedIsLocked result: " . ($newsfeedIsLocked ? 'TRUE (WILL LOCK)' : 'FALSE (WILL NOT LOCK)'));
+            if ($newsfeedIsLocked): 
+                error_log("🔒 [NEWSFEED] Rendering locked content - Status: " . ($studentStatus ?? 'NOT SET'));
+            ?>
+            <!-- DEBUG: This section should be visible for pending students -->
+            <!-- Status: <?php echo htmlspecialchars($studentStatus ?? 'NOT SET'); ?> | Locked: YES -->
+            <!-- Locked content for pending/rejected students -->
+            <div id="newsfeed-locked-content" data-locked="true" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; padding: 60px 20px; text-align: center;">
+              <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);">
+                <i class="fas fa-lock" style="font-size: 40px; color: white;"></i>
+              </div>
+              <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 22px; font-weight: 600;">Newsfeed Locked</h3>
+              <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.6; max-width: 400px;">
+                <?php echo $studentStatus === 'pending' ? 'Your enrollment is pending approval. Once accepted, you will be able to access the newsfeed.' : 'Your enrollment has been rejected. Please contact the teacher.'; ?>
+              </p>
+            </div>
+            <?php else: 
+                error_log("🔓 [NEWSFEED] Rendering normal content - Status: " . ($studentStatus ?? 'NOT SET'));
+            ?>
+            <!-- DEBUG: This section should be visible for accepted students -->
+            <!-- Status: <?php echo htmlspecialchars($studentStatus ?? 'NOT SET'); ?> | Locked: NO -->
+            <div id="newsfeed-content" style="padding: 32px; color:#6b7280;">Coming soon.</div>
+            <?php endif; ?>
           </div>
         </section>
         
@@ -348,10 +485,37 @@ if ($userRole === 'student') {
               <h3>Leaderboards</h3>
             </div>
             <div id="class-leaderboards-content" style="padding: 12px;">
-              <div style="text-align:center;padding:40px;color:#6b7280;">
+              <?php 
+              // CRITICAL: Re-check condition here to ensure it's correct
+              // DEBUG: Log all variables before condition check
+              error_log("🔍 [LEADERBOARDS CHECK] userRole: " . ($userRole ?? 'NOT SET') . ", studentStatus: " . ($studentStatus ?? 'NOT SET') . ", isset(studentStatus): " . (isset($studentStatus) ? 'YES' : 'NO'));
+              $leaderboardsIsLocked = ($userRole === 'student' && isset($studentStatus) && $studentStatus !== 'accepted');
+              error_log("🔍 [LEADERBOARDS CHECK] leaderboardsIsLocked result: " . ($leaderboardsIsLocked ? 'TRUE (WILL LOCK)' : 'FALSE (WILL NOT LOCK)'));
+              if ($leaderboardsIsLocked): 
+                  error_log("🔒 [LEADERBOARDS] Rendering locked content - Status: " . ($studentStatus ?? 'NOT SET'));
+              ?>
+              <!-- DEBUG: This section should be visible for pending students -->
+              <!-- Status: <?php echo htmlspecialchars($studentStatus ?? 'NOT SET'); ?> | Locked: YES -->
+              <!-- Locked content for pending/rejected students -->
+              <div id="leaderboards-locked-content" data-locked="true" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; padding: 60px 20px; text-align: center;">
+                <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);">
+                  <i class="fas fa-lock" style="font-size: 40px; color: white;"></i>
+                </div>
+                <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 22px; font-weight: 600;">Leaderboards Locked</h3>
+                <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.6; max-width: 400px;">
+                  <?php echo $studentStatus === 'pending' ? 'Your enrollment is pending approval. Once accepted, you will be able to view the leaderboards.' : 'Your enrollment has been rejected. Please contact the teacher.'; ?>
+                </p>
+              </div>
+              <?php else: 
+                  error_log("🔓 [LEADERBOARDS] Rendering normal content - Status: " . ($studentStatus ?? 'NOT SET'));
+              ?>
+              <!-- DEBUG: This section should be visible for accepted students -->
+              <!-- Status: <?php echo htmlspecialchars($studentStatus ?? 'NOT SET'); ?> | Locked: NO -->
+              <div id="leaderboards-loading" style="text-align:center;padding:40px;color:#6b7280;">
                 <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#1d9b3e;margin-bottom:16px;"></i>
                 <p style="color:#6b7280;font-size:14px;">Loading leaderboards...</p>
               </div>
+              <?php endif; ?>
             </div>
           </div>
         </section>
@@ -362,6 +526,30 @@ if ($userRole === 'student') {
   <script>window.__CLASS_ID__ = <?php echo json_encode($classId); ?>;</script>
   <script>window.__USER_ROLE__ = <?php echo json_encode($userRole); ?>;</script>
   <script>window.__USER_ID__ = <?php echo json_encode($userId); ?>;</script>
+  <?php
+  // Get user's name for newsfeed
+  $userNameStmt = $db->prepare("SELECT firstname, middlename, lastname FROM users WHERE id = ?");
+  $userNameStmt->execute([$userId]);
+  $userNameData = $userNameStmt->fetch(PDO::FETCH_ASSOC);
+  $userFirstName = $userNameData['firstname'] ?? '';
+  $userFullName = trim(($userNameData['firstname'] ?? '') . ' ' . ($userNameData['middlename'] ?? '') . ' ' . ($userNameData['lastname'] ?? ''));
+  if (empty(trim($userFullName))) {
+    $userFullName = 'User';
+  }
+  ?>
+  <script>window.__USER_FIRSTNAME__ = <?php echo json_encode($userFirstName); ?>;</script>
+  <script>window.__USER_FULLNAME__ = <?php echo json_encode($userFullName); ?>;</script>
+  <?php 
+  // CRITICAL: Always set studentStatus for students, default to 'accepted' for others
+  if ($userRole === 'student') {
+      $jsStudentStatus = isset($studentStatus) ? $studentStatus : 'accepted';
+      error_log("🔍 [class_dashboard.php] Setting window.__STUDENT_STATUS__ = " . $jsStudentStatus);
+  ?>
+  <script>window.__STUDENT_STATUS__ = <?php echo json_encode($jsStudentStatus); ?>;</script>
+  <script>console.log('🔍 [JS] window.__STUDENT_STATUS__ =', window.__STUDENT_STATUS__);</script>
+  <?php } else { ?>
+  <script>window.__STUDENT_STATUS__ = 'accepted';</script>
+  <?php } ?>
   <script>console.log('🔍 PHP DEBUG - User Role:', <?php echo json_encode($userRole); ?>);</script>
   <script>console.log('🔍 PHP DEBUG - User Role Type:', <?php echo json_encode(gettype($userRole)); ?>);</script>
   <script>console.log('🔍 PHP DEBUG - Is Student Check:', <?php echo json_encode(strtolower($userRole) === 'student'); ?>);</script>

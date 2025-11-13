@@ -2,6 +2,8 @@
 
 class CourseService {
     private $db;
+    private $attemptService;
+    private $scheduleTableExists = null;
     
     // JDoodle language mapping configuration
     private static $jdoodleConfig = [
@@ -28,12 +30,26 @@ class CourseService {
     private $jdoodleClientId;
     private $jdoodleClientSecret;
 
-    public function __construct($db) {
-        $this->db = $db;
+    public function __construct($database) {
+        $this->db = $database;
         $this->ensureSchema();
+        $this->attemptService = new ActivityAttemptService($database);
         // JDoodle config via env
         $this->jdoodleClientId = getenv('JDOODLE_CLIENT_ID') ?: '';
         $this->jdoodleClientSecret = getenv('JDOODLE_CLIENT_SECRET') ?: '';
+    }
+
+    private function scheduleTableExists(): bool {
+        if ($this->scheduleTableExists === null) {
+            try {
+                $stmt = $this->db->query("SHOW TABLES LIKE 'class_activity_schedules'");
+                $this->scheduleTableExists = $stmt->rowCount() > 0;
+            } catch (Throwable $e) {
+                error_log('⚠️ [CourseService] Failed to check class_activity_schedules table: ' . $e->getMessage());
+                $this->scheduleTableExists = false;
+            }
+        }
+        return (bool)$this->scheduleTableExists;
     }
     
     /**
@@ -221,6 +237,24 @@ class CourseService {
                 INDEX idx_attempts_student (student_user_id),
                 FOREIGN KEY (activity_id) REFERENCES lesson_activities(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            try {
+                $this->db->exec("CREATE TABLE IF NOT EXISTS class_activity_schedules (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    class_id INT NOT NULL,
+                    activity_id INT NOT NULL,
+                    start_at DATETIME NULL,
+                    due_at DATETIME NULL,
+                    UNIQUE KEY uniq_class_activity (class_id, activity_id),
+                    INDEX idx_activity_id (activity_id),
+                    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+                    FOREIGN KEY (activity_id) REFERENCES lesson_activities(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                $this->scheduleTableExists = true;
+            } catch (Throwable $e) {
+                error_log('⚠️ Failed to ensure class_activity_schedules table: ' . $e->getMessage());
+                $this->scheduleTableExists = false;
+            }
         } catch (Throwable $e) {
             // Fail silently in ensure step
         }
@@ -632,14 +666,46 @@ class CourseService {
     }
 
     // === Activities (Coding) ===
-    public function listActivities(int $lessonId): array {
-        $stmt = $this->db->prepare("SELECT * FROM lesson_activities WHERE lesson_id=? ORDER BY position ASC, id ASC");
-        $stmt->execute([$lessonId]);
-        $activities = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        error_log("🔍 [listActivities] Lesson $lessonId - Found " . count($activities) . " activities");
-        foreach ($activities as $idx => $act) {
-            error_log("🔍 [listActivities] Activity $idx: id={$act['id']}, title={$act['title']}, start_at=" . ($act['start_at'] ?? 'NULL') . ", due_at=" . ($act['due_at'] ?? 'NULL'));
+    public function listActivities(int $lessonId, ?int $classId = null): array {
+        // Try to use class-specific schedules if classId is provided and table exists
+        if ($classId !== null && $this->scheduleTableExists()) {
+            try {
+                $stmt = $this->db->prepare("
+                    SELECT la.*, cas.start_at AS class_start_at, cas.due_at AS class_due_at, cas.class_id AS schedule_class_id
+                    FROM lesson_activities la
+                    LEFT JOIN class_activity_schedules cas ON cas.activity_id = la.id AND cas.class_id = ?
+                    WHERE la.lesson_id=?
+                    ORDER BY la.position ASC, la.id ASC
+                ");
+                $stmt->execute([$classId, $lessonId]);
+                $activities = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                
+                // Merge class-specific schedules into activity data
+                foreach ($activities as &$act) {
+                    if (!empty($act['schedule_class_id'])) {
+                        // Class-specific schedule exists, use it
+                        $act['original_start_at'] = $act['start_at'] ?? null;
+                        $act['original_due_at'] = $act['due_at'] ?? null;
+                        $act['start_at'] = $act['class_start_at'];
+                        $act['due_at'] = $act['class_due_at'];
+                    }
+                    unset($act['class_start_at'], $act['class_due_at'], $act['schedule_class_id']);
+                }
+            } catch (Throwable $e) {
+                error_log('⚠️ [listActivities] Error with class schedule, falling back to global: ' . $e->getMessage());
+                // Fallback to global schedule
+                $stmt = $this->db->prepare("SELECT * FROM lesson_activities WHERE lesson_id=? ORDER BY position ASC, id ASC");
+                $stmt->execute([$lessonId]);
+                $activities = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
+        } else {
+            // No classId or table doesn't exist, use global schedule
+            $stmt = $this->db->prepare("SELECT * FROM lesson_activities WHERE lesson_id=? ORDER BY position ASC, id ASC");
+            $stmt->execute([$lessonId]);
+            $activities = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         }
+        
+        error_log("🔍 [listActivities] Lesson $lessonId" . ($classId ? " (Class: $classId)" : "") . " - Found " . count($activities) . " activities");
         if (!$activities) return [];
         $caseStmt = $this->db->prepare("SELECT * FROM activity_test_cases WHERE activity_id=? ORDER BY position ASC, id ASC");
         $qStmt = $this->db->prepare("SELECT * FROM activity_questions WHERE activity_id=? ORDER BY position ASC, id ASC");
@@ -664,17 +730,42 @@ class CourseService {
      * Check if activity is available for students based on start_at and due_at dates
      * Returns: ['available' => bool, 'reason' => string, 'status' => 'locked'|'open'|'closed']
      */
-    public function checkActivityAvailability(int $activityId): array {
-        $stmt = $this->db->prepare("SELECT start_at, due_at FROM lesson_activities WHERE id=?");
-        $stmt->execute([$activityId]);
-        $a = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$a) {
-            return ['available' => false, 'reason' => 'Activity not found', 'status' => 'locked'];
+    public function checkActivityAvailability(int $activityId, ?int $classId = null): array {
+        $startAtRaw = null;
+        $dueAtRaw = null;
+        $hasSchedule = false;
+        
+        // Try to use class-specific schedule if classId is provided and table exists
+        if ($classId !== null && $this->scheduleTableExists()) {
+            try {
+                $scheduleStmt = $this->db->prepare("SELECT start_at, due_at FROM class_activity_schedules WHERE class_id = ? AND activity_id = ? LIMIT 1");
+                $scheduleStmt->execute([$classId, $activityId]);
+                $schedule = $scheduleStmt->fetch(PDO::FETCH_ASSOC);
+                if ($schedule) {
+                    $hasSchedule = true;
+                    $startAtRaw = $schedule['start_at'] ?? null;
+                    $dueAtRaw = $schedule['due_at'] ?? null;
+                }
+            } catch (Throwable $e) {
+                error_log('⚠️ [checkActivityAvailability] Error fetching class schedule, falling back to global: ' . $e->getMessage());
+            }
+        }
+        
+        // Fallback to global schedule if no class-specific schedule found
+        if (!$hasSchedule) {
+            $stmt = $this->db->prepare("SELECT start_at, due_at FROM lesson_activities WHERE id=?");
+            $stmt->execute([$activityId]);
+            $a = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$a) {
+                return ['available' => false, 'reason' => 'Activity not found', 'status' => 'locked'];
+            }
+            $startAtRaw = $a['start_at'] ?? null;
+            $dueAtRaw = $a['due_at'] ?? null;
         }
         
         $now = new DateTime();
-        $startAt = $a['start_at'] ? new DateTime($a['start_at']) : null;
-        $dueAt = $a['due_at'] ? new DateTime($a['due_at']) : null;
+        $startAt = $startAtRaw ? new DateTime($startAtRaw) : null;
+        $dueAt = $dueAtRaw ? new DateTime($dueAtRaw) : null;
         
         // CRITICAL: If start_at is NULL, activity is LOCKED by default (teacher hasn't opened it yet)
         if (!$startAt) {
@@ -1179,6 +1270,33 @@ class CourseService {
                 'message' => 'Failed to update course status: ' . $e->getMessage()
             ];
         }
+    }
+
+    public function setActivitySchedule(int $classId, int $activityId, ?string $startAt, ?string $dueAt): bool {
+        if (!$this->scheduleTableExists()) {
+            // Fallback: update global lesson_activities
+            $stmt = $this->db->prepare("UPDATE lesson_activities SET start_at = ?, due_at = ? WHERE id = ?");
+            return $stmt->execute([$startAt ?: null, $dueAt ?: null, $activityId]);
+        }
+        $stmt = $this->db->prepare("INSERT INTO class_activity_schedules (class_id, activity_id, start_at, due_at)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE start_at = VALUES(start_at), due_at = VALUES(due_at)");
+        return $stmt->execute([
+            $classId,
+            $activityId,
+            $startAt ?: null,
+            $dueAt ?: null
+        ]);
+    }
+    
+    public function getActivitySchedule(int $classId, int $activityId): ?array {
+        if (!$this->scheduleTableExists()) {
+            return null;
+        }
+        $stmt = $this->db->prepare("SELECT start_at, due_at FROM class_activity_schedules WHERE class_id = ? AND activity_id = ? LIMIT 1");
+        $stmt->execute([$classId, $activityId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
     }
 }
 

@@ -1,13 +1,43 @@
 <?php
-// Lightweight ping to keep the session alive (used by editors)
-if (isset($_GET['ping'])) {
-    if (session_status() === PHP_SESSION_NONE) { session_start(); }
-    // Extend server-side session GC lifetime a bit to avoid premature cleanup
-    @ini_set('session.gc_maxlifetime', 7200); // 2 hours
-    $_SESSION['last_activity'] = time();
-    header('Content-Type: application/json');
-    echo json_encode(['ok' => true, 'ts' => time()]);
-    exit;
+// Lightweight ping to keep the session alive (used by keep-alive mechanism)
+if (isset($_GET['ping']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest')) {
+    // Set session path if not already set
+    if (session_status() === PHP_SESSION_NONE) {
+        $sessionPath = __DIR__ . '/sessions';
+        if (!is_dir($sessionPath)) {
+            @mkdir($sessionPath, 0777, true);
+        }
+        if (is_dir($sessionPath) && is_writable($sessionPath)) {
+            ini_set('session.save_path', $sessionPath);
+        }
+        
+        // Set session name
+        $preferred = 'CodeRegalSession';
+        $legacy = 'PHPSESSID';
+        if (!empty($_COOKIE[$preferred])) { 
+            session_name($preferred); 
+        } elseif (!empty($_COOKIE[$legacy])) { 
+            session_name($legacy); 
+        } else { 
+            session_name($preferred); 
+        }
+        @session_start();
+    }
+    
+    // Extend server-side session GC lifetime to prevent premature cleanup
+    ini_set('session.gc_maxlifetime', 7200); // 2 hours
+    
+    // Update last activity to keep session alive
+    if (isset($_SESSION) && session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['last_activity'] = time();
+    }
+    
+    // If ping request, return JSON and exit
+    if (isset($_GET['ping'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => true, 'ts' => time(), 'last_activity' => $_SESSION['last_activity'] ?? null]);
+        exit;
+    }
 }
 
 // COMPREHENSIVE USER LOGIN CHECKER

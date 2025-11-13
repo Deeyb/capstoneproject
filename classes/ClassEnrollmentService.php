@@ -118,18 +118,60 @@ class ClassEnrollmentService {
      * Enroll student in class
      */
     private function enrollStudent($class) {
-        $stmt = $this->db->prepare("
-            INSERT INTO class_students (class_id, student_user_id, joined_at) 
-            VALUES (?, ?, NOW())
-        ");
-        $result = $stmt->execute([$class['id'], $this->studentId]);
+        // Check if status column exists, if not, use default
+        $hasStatus = false;
+        try {
+            $checkStmt = $this->db->query("SHOW COLUMNS FROM class_students LIKE 'status'");
+            $hasStatus = $checkStmt->rowCount() > 0;
+        } catch (Exception $e) {
+            // Column doesn't exist yet
+        }
+        
+        if ($hasStatus) {
+            // CRITICAL: Insert with pending status (requires teacher approval)
+            // Explicitly set status to 'pending' - do not rely on DEFAULT
+            $stmt = $this->db->prepare("
+                INSERT INTO class_students (class_id, student_user_id, status, joined_at) 
+                VALUES (?, ?, 'pending', NOW())
+            ");
+            $result = $stmt->execute([$class['id'], $this->studentId]);
+            
+            // Verify the status was set correctly
+            if ($result) {
+                $verifyStmt = $this->db->prepare("
+                    SELECT status FROM class_students 
+                    WHERE class_id = ? AND student_user_id = ?
+                ");
+                $verifyStmt->execute([$class['id'], $this->studentId]);
+                $enrollment = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+                $actualStatus = $enrollment['status'] ?? 'unknown';
+                
+                if ($actualStatus !== 'pending') {
+                    // Force update to pending if somehow it's not pending
+                    $fixStmt = $this->db->prepare("
+                        UPDATE class_students 
+                        SET status = 'pending' 
+                        WHERE class_id = ? AND student_user_id = ?
+                    ");
+                    $fixStmt->execute([$class['id'], $this->studentId]);
+                    error_log("WARNING: Student {$this->studentId} status was '{$actualStatus}', forced to 'pending'");
+                }
+            }
+        } else {
+            // Fallback for old schema
+            $stmt = $this->db->prepare("
+                INSERT INTO class_students (class_id, student_user_id, joined_at) 
+                VALUES (?, ?, NOW())
+            ");
+            $result = $stmt->execute([$class['id'], $this->studentId]);
+        }
         
         if (!$result) {
             throw new RuntimeException('Failed to enroll in class');
         }
         
         // Log the enrollment
-        error_log("Student {$this->studentId} joined class {$class['id']} ({$class['code']})");
+        error_log("Student {$this->studentId} joined class {$class['id']} ({$class['code']}) - Status: pending");
     }
     
     /**

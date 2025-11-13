@@ -6,10 +6,19 @@
 document.addEventListener('DOMContentLoaded', function() {
   const userRole = window.__USER_ROLE__ || 'student';
   const classId = window.__CLASS_ID__;
+  const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
   
-  console.log('Class Dashboard initialized for role:', userRole);
+  console.log('🔍 [INIT] Class Dashboard initialized for role:', userRole);
+  console.log('🔍 [INIT] Student status:', studentStatus);
   
+  // Note: Content locking is now handled in PHP - no need to block here
   if (userRole && userRole.toLowerCase() === 'student') {
+    if (studentStatus === 'pending' || studentStatus === 'rejected') {
+      console.log('🔒 [INIT] Student is pending/rejected - Content sections are locked');
+      // Don't load activities, but allow page structure to show
+      initializeStudentView();
+      return;
+    }
     initializeStudentView();
     // Initialize improvements after a delay to ensure content is loaded
     setTimeout(function() {
@@ -22,6 +31,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initializeStudentView() {
   console.log('Initializing student view for class:', window.__CLASS_ID__);
+  
+  // CRITICAL: Check if student is pending/rejected
+  const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+  const isStudentPending = studentStatus === 'pending';
+  const isStudentRejected = studentStatus === 'rejected';
+  
+  if (isStudentPending || isStudentRejected) {
+    console.log('🔒 Student enrollment is pending/rejected. Starting real-time status polling...');
+    // Start polling for status updates
+    startStudentStatusPolling();
+    return; // Exit early - don't initialize student view yet
+  }
   
   // Hide teacher-only elements
   const teacherOnlyElements = document.querySelectorAll('[data-teacher-only]');
@@ -40,6 +61,270 @@ function initializeStudentView() {
   
   // Load student-specific data
   loadStudentProgress();
+}
+
+// Real-time status polling for students
+function startStudentStatusPolling() {
+  const classId = window.__CLASS_ID__ || getClassIdFromURL();
+  if (!classId) {
+    console.warn('⚠️ [AVG SCORE] No class ID set, returning 0');
+    return 0;
+  }
+  
+  let currentStatus = window.__STUDENT_STATUS__ || 'pending';
+  let pollCount = 0;
+  const maxPolls = 300; // Poll for 5 minutes (300 * 1 second)
+  
+  console.log('🔄 Starting real-time status polling for class:', classId);
+  
+  const pollInterval = setInterval(() => {
+    pollCount++;
+    
+    // Stop polling after max attempts
+    if (pollCount > maxPolls) {
+      console.log('⏹️ Status polling stopped after maximum attempts');
+      clearInterval(pollInterval);
+      return;
+    }
+    
+    // Check status
+    fetch(`get_student_enrollment_status.php?class_id=${classId}`, {
+      credentials: 'same-origin',
+      cache: 'no-cache'
+    })
+    .then(response => {
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) {
+        return response.text().then(text => {
+          console.error('Non-JSON response:', text.substring(0, 500));
+          throw new Error('Server returned non-JSON response');
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success && data.status) {
+        const newStatus = data.status;
+        
+        // If status changed from pending/rejected to accepted
+        if ((currentStatus === 'pending' || currentStatus === 'rejected') && newStatus === 'accepted') {
+          console.log('✅ Status changed to ACCEPTED! Unlocking content...');
+          
+          // Stop polling
+          clearInterval(pollInterval);
+          
+          // Update global status
+          window.__STUDENT_STATUS__ = 'accepted';
+          
+          // Show success notification
+          if (typeof showNotification === 'function') {
+            showNotification('success', 'Enrollment Accepted!', 'Your enrollment has been accepted. You can now access all activities.');
+          } else if (typeof showSuccess === 'function') {
+            showSuccess('Enrollment Accepted!', 'Your enrollment has been accepted. You can now access all activities.');
+          } else {
+            alert('✅ Your enrollment has been accepted! The page will now refresh.');
+          }
+          
+          // Unlock and reload content WITHOUT page refresh
+          unlockStudentContent();
+        } else if (currentStatus !== newStatus) {
+          // Status changed but not to accepted (e.g., accepted -> rejected)
+          console.log('⚠️ Status changed from', currentStatus, 'to', newStatus);
+          currentStatus = newStatus;
+          window.__STUDENT_STATUS__ = newStatus;
+          
+          if (newStatus === 'rejected') {
+            if (typeof showNotification === 'function') {
+              showNotification('error', 'Enrollment Rejected', 'Your enrollment has been rejected. Please contact the teacher.');
+            } else if (typeof showError === 'function') {
+              showError('Enrollment Rejected', 'Your enrollment has been rejected. Please contact the teacher.');
+            } else {
+              alert('⚠️ Your enrollment has been rejected. Please contact the teacher.');
+            }
+          }
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error polling student status:', error);
+      // Don't stop polling on error - continue trying
+    });
+  }, 1000); // Poll every 1 second
+  
+  // Store interval ID so it can be cleared if needed
+  window.__studentStatusPollInterval__ = pollInterval;
+}
+
+// Function to unlock student content when status changes to accepted
+function unlockStudentContent() {
+  console.log('🔓 Unlocking student content - NO PAGE RELOAD...');
+  
+  // Update global status FIRST
+  window.__STUDENT_STATUS__ = 'accepted';
+  
+  // 1. Remove locked content from Activities section
+  const activitiesSection = document.getElementById('tab-activities');
+  if (activitiesSection) {
+    console.log('🔓 Processing Activities section...');
+    
+    // Find and remove ALL locked content divs (the one with lock icon and centered content)
+    const allDivs = activitiesSection.querySelectorAll('div');
+    allDivs.forEach(div => {
+      // Check if this div has the lock icon (indicating it's the locked message)
+      const hasLockIcon = div.querySelector('.fas.fa-lock');
+      const isCentered = div.style.display === 'flex' || 
+                         div.style.cssText.includes('flex-direction') ||
+                         div.style.cssText.includes('align-items: center');
+      
+      if (hasLockIcon && isCentered) {
+        console.log('🔓 Found and removing locked content div from Activities');
+        div.remove();
+      }
+    });
+    
+    // Create or show the lesson-topics container
+    let lessonTopics = activitiesSection.querySelector('.lesson-topics');
+    if (!lessonTopics) {
+      console.log('🔓 Creating lesson-topics container');
+      lessonTopics = document.createElement('div');
+      lessonTopics.className = 'lesson-topics';
+      activitiesSection.appendChild(lessonTopics);
+    } else {
+      console.log('🔓 Found existing lesson-topics container');
+    }
+    lessonTopics.style.display = 'block';
+    lessonTopics.style.visibility = 'visible';
+    console.log('🔓 lesson-topics container ready');
+  } else {
+    console.error('⚠️ Activities section not found!');
+  }
+  
+  // 2. Remove locked content from Newsfeed section
+  const newsfeedLocked = document.getElementById('newsfeed-locked-content');
+  if (newsfeedLocked) {
+    console.log('🔓 Removing locked content from Newsfeed section');
+    newsfeedLocked.remove();
+  }
+  
+  // Show normal newsfeed content
+  let newsfeedContent = document.getElementById('newsfeed-content');
+  if (!newsfeedContent) {
+    const newsfeedSection = document.getElementById('tab-newsfeed');
+    if (newsfeedSection) {
+      newsfeedContent = document.createElement('div');
+      newsfeedContent.id = 'newsfeed-content';
+      newsfeedContent.style.cssText = 'padding: 12px; color:#6b7280;';
+      newsfeedContent.textContent = 'Coming soon.';
+      newsfeedSection.appendChild(newsfeedContent);
+    }
+  }
+  if (newsfeedContent) {
+    newsfeedContent.style.display = 'block';
+  }
+  
+  // 3. Remove locked content from Leaderboards section
+  const leaderboardsLocked = document.getElementById('leaderboards-locked-content');
+  if (leaderboardsLocked) {
+    console.log('🔓 Removing locked content from Leaderboards section');
+    leaderboardsLocked.remove();
+  }
+  
+  // Show normal leaderboards loading/content
+  let leaderboardsLoading = document.getElementById('leaderboards-loading');
+  if (!leaderboardsLoading) {
+    const leaderboardsSection = document.getElementById('tab-leaderboards');
+    if (leaderboardsSection) {
+      leaderboardsLoading = document.createElement('div');
+      leaderboardsLoading.id = 'leaderboards-loading';
+      leaderboardsLoading.style.cssText = 'text-align:center;padding:40px;color:#6b7280;';
+      leaderboardsLoading.innerHTML = `
+        <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#1d9b3e;margin-bottom:16px;"></i>
+        <p style="color:#6b7280;font-size:14px;">Loading leaderboards...</p>
+      `;
+      leaderboardsSection.appendChild(leaderboardsLoading);
+    }
+  }
+  if (leaderboardsLoading) {
+    leaderboardsLoading.style.display = 'block';
+  }
+  
+  // 4. Show Activities tab if it was hidden
+  const activitiesTab = document.querySelector('.nav-tab[data-tab="activities"]');
+  if (activitiesTab) {
+    activitiesTab.style.display = '';
+  }
+  
+  // 5. Load actual content now that status is accepted
+  console.log('🔓 Loading topics and content...');
+  console.log('🔓 Current window.__STUDENT_STATUS__:', window.__STUDENT_STATUS__);
+  
+  // CRITICAL: Set a flag to force unlock even if API returns locked
+  window.__FORCE_UNLOCK__ = true;
+  
+  // CRITICAL: Wait a bit for DOM to update before loading content
+  setTimeout(() => {
+    // Verify status is set correctly
+    if (window.__STUDENT_STATUS__ !== 'accepted') {
+      console.warn('⚠️ Status not set to accepted yet, forcing update...');
+      window.__STUDENT_STATUS__ = 'accepted';
+    }
+    
+    // Load class details and overview
+    if (typeof loadDetails === 'function') {
+      console.log('🔓 Calling loadDetails()...');
+      loadDetails();
+    }
+    if (typeof loadOverview === 'function') {
+      console.log('🔓 Calling loadOverview()...');
+      loadOverview();
+    }
+    
+    // Load topics/activities - THIS IS THE KEY FUNCTION
+    if (typeof loadTopicsFromCourse === 'function') {
+      console.log('🔓 Calling loadTopicsFromCourse()...');
+      console.log('🔓 Status before call:', window.__STUDENT_STATUS__);
+      console.log('🔓 Force unlock flag:', window.__FORCE_UNLOCK__);
+      loadTopicsFromCourse();
+    } else {
+      console.error('⚠️ loadTopicsFromCourse function not found');
+    }
+    
+    // Load leaderboards
+    if (typeof loadClassLeaderboards === 'function') {
+      console.log('🔓 Calling loadClassLeaderboards()...');
+      loadClassLeaderboards();
+    }
+    
+    // Load student progress
+    if (typeof loadStudentProgress === 'function') {
+      console.log('🔓 Calling loadStudentProgress()...');
+      loadStudentProgress();
+    }
+    
+    // Initialize student view UI (bypassing status check to avoid polling)
+    console.log('🔓 Setting up student view UI (status already accepted)...');
+    const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+    if (userRole === 'student') {
+      // Hide teacher-only elements
+      const teacherOnlyElements = document.querySelectorAll('[data-teacher-only]');
+      teacherOnlyElements.forEach(el => {
+        if (el) el.style.display = 'none';
+      });
+      
+      // Show student-specific elements
+      const studentElements = document.querySelectorAll('[data-student-only]');
+      studentElements.forEach(el => {
+        if (el) el.style.display = 'block';
+      });
+      
+      // Update page title
+      document.title = 'Class - Student View';
+      
+      // Note: loadStudentProgress already called above, no need to call again
+    }
+    
+    console.log('✅ Content unlocked and loaded - NO PAGE RELOAD needed!');
+  }, 800); // Increased delay to ensure API has time to update
 }
 
 function initializeTeacherView() {
@@ -107,7 +392,6 @@ function detectConstructUsage(source, language, required) {
     return { ok: true, used: {} };
   }
 }
-
 // ======================== ACTIVITY MANAGER CLASS (OOP) ========================
 
 class ActivityManager {
@@ -375,6 +659,7 @@ class ActivityManager {
       formData.append('action', 'activity_update');
       formData.append('id', this.currentActivity.id);
       formData.append('due_at', dueDateTime);
+      formData.append('class_id', window.__CLASS_ID__ || '');
       formData.append('csrf_token', csrfToken);
 
       const response = await fetch('course_outline_manage.php', {
@@ -554,15 +839,11 @@ class CleanActivitySystem {
         });
     }
 }
-
 // Create global clean system
 window.cleanActivitySystem = new CleanActivitySystem();
-
 // Create global instance
 window.activityManager = new ActivityManager();
-
 // ======================== END ACTIVITY MANAGER CLASS ========================
-
 // ======================== ACTIVITY TESTER CLASS (OOP) ========================
 
 class ActivityTester {
@@ -1000,12 +1281,11 @@ class ActivityTester {
     };
     return labels[type] || type;
   }
-
   // Get real activity data from API (same as student test interface)
   async getActivityQuestions(activityId) {
     try {
       // Try using the universal activity API first
-      const response = await fetch(`universal_activity_api.php?action=get_activity&id=${activityId}`, {
+      const response = await fetch(`universal_activity_api.php?action=get_activity&id=${activityId}&class_id=${encodeURIComponent(window.__CLASS_ID__ || '')}`, {
         method: 'GET',
         credentials: 'same-origin',
         headers: {
@@ -1061,7 +1341,6 @@ class ActivityTester {
       throw new Error('Unable to load activity data. Please check if the activity has been properly configured.');
     }
   }
-
   // Handle progress display based on activity type
   handleProgressDisplay() {
     const progressSection = document.getElementById('progress-section');
@@ -1374,7 +1653,7 @@ class ActivityTester {
           <div style="font-size:48px;color:#333;margin-bottom:15px;">📎</div>
           
           <!-- Main Text -->
-          <h3 style="margin:0 0 8px 0;color:#333;font-size:18px;font-weight:600;">Upload Your File</h3>
+          <h3 style="margin:0 0 8px 0;color:#374151;font-size:18px;font-weight:600;">Upload Your File</h3>
           
           <!-- File Info -->
           <div style="margin:16px 0;font-size:14px;color:#6b7280;">
@@ -1491,7 +1770,6 @@ class ActivityTester {
     };
     return icons[type] || 'tasks';
   }
-
   // Render upload-based activity - EXACT STUDENT INTERFACE
   renderUploadBasedActivity(activity) {
     // Parse activity instructions
@@ -1542,7 +1820,6 @@ class ActivityTester {
       </div>
     `;
   }
-
   // Render laboratory activity
   renderLaboratoryActivity(activity) {
     return `
@@ -1984,7 +2261,6 @@ class ActivityTester {
     this.answers['code'] = code;
     this.showNotification('success', 'Code saved locally for this preview.');
   }
-
   initializeCodingPreview(activity) {
     const ctx = this.buildCodingContext(activity || this.currentActivity);
     if (!ctx) return;
@@ -2037,7 +2313,6 @@ class ActivityTester {
 
     return this.codingContext;
   }
-
   ensureCodingContext(activity) {
     if (!this.currentActivity && activity) {
       this.currentActivity = activity;
@@ -2473,7 +2748,6 @@ class ActivityTester {
       </div>
     `;
   }
-
   // Render laboratory question
   renderLaboratory(question) {
     return `
@@ -2506,7 +2780,6 @@ class ActivityTester {
       </div>
     `;
   }
-
   // Render coding question
   renderCoding(question) {
     return `
@@ -2729,8 +3002,8 @@ class ActivityTester {
         console.log('🔍 DEBUG: File uploaded for upload-based activity:', file.name);
       } else {
         // For other activity types, save to question_id key (legacy behavior)
-        this.saveAnswer(questionIndex, file.name);
-        console.log('🔍 DEBUG: File uploaded for question', questionIndex, ':', file.name);
+      this.saveAnswer(questionIndex, file.name);
+      console.log('🔍 DEBUG: File uploaded for question', questionIndex, ':', file.name);
       }
     } else {
       if (fileStatus) {
@@ -2748,7 +3021,7 @@ class ActivityTester {
         delete this.answers['upload'];
       } else {
         // Clear question_id key
-        this.saveAnswer(questionIndex, '');
+      this.saveAnswer(questionIndex, '');
       }
     }
   }
@@ -2941,7 +3214,6 @@ class ActivityTester {
       this.saveProgressToDatabase();
     }, this.debounceDelay);
   }
-  
   // Save progress to database (draft storage - activity_progress table)
   async saveProgressToDatabase() {
     try {
@@ -3008,7 +3280,6 @@ class ActivityTester {
       console.error('❌ Error adding to retry queue:', error);
     }
   }
-  
   // Clear retry queue
   clearRetryQueue() {
     try {
@@ -3332,7 +3603,6 @@ class ActivityTester {
       this.showNotification('error', 'Failed to save progress. Please try again.');
     }
   }
-
   // Submit activity (FINAL SUBMISSION - moves from draft to final)
   async submitActivity() {
     try {
@@ -3551,7 +3821,7 @@ class ActivityTester {
         this.clearRetryQueue();
         
         // Close activity modal
-        this.closeModal();
+      this.closeModal();
         
         // CRITICAL: For upload-based and essay activities, show submission confirmation instead of test results
         if (activityType === 'upload_based' || activityType === 'essay') {
@@ -3695,7 +3965,6 @@ class ActivityTester {
     }
   }
 }
-
 // Create global instance
 window.activityTester = new ActivityTester();
 // ======================== END ACTIVITY TESTER CLASS ========================
@@ -3711,24 +3980,89 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-tab');
+      
+      // Always allow tab switching for UI
       document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.querySelectorAll('.tab-section').forEach(sec => sec.classList.remove('active'));
       const target = document.getElementById('tab-' + tab);
       if (target) target.classList.add('active');
 
+      // CRITICAL: Check if student is pending/rejected - don't load dynamic content
+      const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+      const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+      const isStudentPending = userRole === 'student' && (studentStatus === 'pending' || studentStatus === 'rejected');
+
       if (tab === 'lessons') {
+        if (isStudentPending) {
+          console.log('🔒 Lessons tab - Student is pending/rejected, not loading content');
+          return; // PHP already rendered locked content for activities
+        }
         loadLessons();
       }
       if (tab === 'classrecord') {
+        if (isStudentPending) {
+          console.log('🔒 Class Record tab - Student is pending/rejected, not loading content');
+          return; // Students don't have access to class record
+        }
         loadClassStatistics();
         loadStudentPerformance();
+        // Start real-time polling for Class Record
+        startClassRecordPolling();
+      } else {
+        // Stop polling when switching away from Class Record tab
+        stopClassRecordPolling();
       }
       if (tab === 'newsfeed') {
-        // placeholder
+        // CRITICAL: Check if PHP already rendered locked content
+        const newsfeedLocked = document.getElementById('newsfeed-locked-content');
+        if (newsfeedLocked && newsfeedLocked.getAttribute('data-locked') === 'true') {
+          console.log('🔒 Newsfeed is locked by PHP (data-locked=true) - not loading content');
+          return; // PHP already rendered locked content, don't override
+        }
+        // Double-check student status - if pending but PHP didn't render locked content, show it now
+        if (isStudentPending) {
+          console.log('🔒 Newsfeed blocked - Student status:', studentStatus);
+          // Ensure locked content is shown
+          const newsfeedContent = document.getElementById('newsfeed-content');
+          if (newsfeedContent && !newsfeedLocked) {
+            newsfeedContent.innerHTML = `
+              <div id="newsfeed-locked-content" data-locked="true" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; padding: 60px 20px; text-align: center;">
+                <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);">
+                  <i class="fas fa-lock" style="font-size: 40px; color: white;"></i>
+                </div>
+                <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 22px; font-weight: 600;">Newsfeed Locked</h3>
+                <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.6; max-width: 400px;">
+                  Your enrollment is pending approval. Once accepted, you will be able to access the newsfeed.
+                </p>
+              </div>
+            `;
+          }
+          return; // Don't load anything
+        }
+        // Stop polling for other tabs first
+        stopNewsfeedPolling();
+        // Reset loading flag when switching to newsfeed
+        newsfeedIsLoading = false;
+        // Load newsfeed posts
+        loadNewsfeedPosts();
       }
       if (tab === 'leaderboards') {
+        // Stop newsfeed polling when switching away
+        stopNewsfeedPolling();
+        // CRITICAL: Check if PHP already rendered locked content
+        const leaderboardsLocked = document.getElementById('leaderboards-locked-content');
+        if (leaderboardsLocked && leaderboardsLocked.getAttribute('data-locked') === 'true') {
+          console.log('🔒 Leaderboards is locked by PHP (data-locked=true) - not loading content');
+          return; // PHP already rendered locked content, don't override
+        }
+        // If pending but PHP didn't render locked content, loadClassLeaderboards will handle it
         loadClassLeaderboards();
+      }
+      
+      // Stop newsfeed polling when switching to any other tab
+      if (tab !== 'newsfeed') {
+        stopNewsfeedPolling();
       }
     });
   });
@@ -3755,6 +4089,18 @@ document.addEventListener('DOMContentLoaded', () => {
   click('startLessonBtn', () => switchToTab('lessons'));
   click('openGradesBtn', () => switchToTab('classrecord'));
   click('reviewDraftsBtn', () => switchToTab('activities'));
+
+  // CRITICAL: Check if student is pending/rejected - don't load content if so
+  const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+  const isStudentPending = studentStatus === 'pending';
+  const isStudentRejected = studentStatus === 'rejected';
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  
+  if (userRole === 'student' && (isStudentPending || isStudentRejected)) {
+    console.log('🔒 Student enrollment is pending/rejected. Content sections are locked in PHP.');
+    // Don't load activities content - PHP already shows locked message
+    return; // Exit early - don't load any content
+  }
 
   // fetch class details and populate header
   loadDetails();
@@ -3823,12 +4169,23 @@ function loadDetails() {
 
 // Populate all modules and their lessons from the teacher's selected course
 function loadTopicsFromCourse() {
+  // CRITICAL: Block loading if student is pending/rejected
+  const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  if (userRole === 'student' && studentStatus !== 'accepted') {
+    console.log('🔒 loadTopicsFromCourse blocked - Student status:', studentStatus);
+    console.log('🔒 window.__STUDENT_STATUS__ value:', window.__STUDENT_STATUS__);
+    return; // Exit early - don't load content
+  }
+  
+  console.log('✅ loadTopicsFromCourse proceeding - Status:', studentStatus, 'Role:', userRole);
+  
   const id = window.__CLASS_ID__;
   if (!id) {
     return;
   }
   
-  fetch('class_view_api.php?action=list_topics&id=' + encodeURIComponent(id), { credentials: 'same-origin' })
+  fetch(`class_view_api.php?action=list_topics&id=${window.__CLASS_ID__}&class_id=${window.__CLASS_ID__}`, { credentials: 'same-origin' })
     .then(r => r.json())
     .then(res => {
       if (!res || !res.success) {
@@ -3909,18 +4266,47 @@ function loadTopicsFromCourse() {
               console.log('🎓 SUPER DEBUG - GENERATING STUDENT FORMAT for:', activityTitle);
               
               // Check availability - CRITICAL: Ensure availability object is properly structured
-              const availability = activity.availability || { 
+              let availability = activity.availability || { 
                 available: false, 
                 status: 'locked', 
                 reason: 'Activity is locked. Teacher will open it soon.' 
               };
+              
+              // CRITICAL: Check if student is accepted (not pending/rejected) - OVERRIDE availability if needed
+              const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+              const isStudentPending = studentStatus === 'pending';
+              const isStudentRejected = studentStatus === 'rejected';
+              const forceUnlock = window.__FORCE_UNLOCK__ === true;
+              
+              // If force unlock is set (just accepted), override API lock
+              if (forceUnlock && (availability.status === 'locked' || !availability.available)) {
+                console.log(`🔓 loadTopicsFromCourse: Activity ${activity.id} FORCE UNLOCKED - Overriding API lock`);
+                availability = {
+                  available: true,
+                  status: 'available',
+                  reason: ''
+                };
+              }
+              
+              // If student is pending or rejected, force lock regardless of API availability (unless force unlock)
+              if (!forceUnlock && (isStudentPending || isStudentRejected)) {
+                availability = {
+                  available: false,
+                  status: 'locked',
+                  reason: isStudentPending 
+                    ? '⏳ Your enrollment is pending approval. Please wait for the teacher to accept your request.'
+                    : '❌ Your enrollment has been rejected. Please contact the teacher.'
+                };
+                console.log(`🔒 loadTopicsFromCourse: Activity ${activity.id} FORCED LOCKED - Student status: ${studentStatus}`);
+              }
+              
               // Double-check: If availability object exists but missing properties, fill them
               const isAvailable = availability.available === true;
               const isLocked = availability.status === 'locked' || !isAvailable;
               const isClosed = availability.status === 'closed';
               
               console.log(`🎓 loadTopicsFromCourse: Activity ${activity.id} - availability:`, availability);
-              console.log(`🎓 loadTopicsFromCourse: Activity ${activity.id} - isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
+              console.log(`🎓 loadTopicsFromCourse: Student status: ${studentStatus}, isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
               
               // Format dates - show "-" if not set (like in the reference image)
               // CRITICAL: Treat dates as Manila time (UTC+8) if no timezone info
@@ -4075,24 +4461,47 @@ function loadTopicsFromCourse() {
               // Determine activity status (closed/open) - Functional check
               let activityStatus = 'Open';
               let activityStatusTime = '00:00';
+              let activityStartAt = null;
+              let activityDueAt = null;
+              
               if (activity.due_at && activity.start_at) {
                 // Parse dates with Manila timezone
+                let startDateFixed = activity.start_at;
+                if (startDateFixed && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(startDateFixed)) {
+                  startDateFixed = startDateFixed.replace(' ', 'T') + '+08:00';
+                }
+                activityStartAt = new Date(startDateFixed);
+                
                 let dueDateFixed = activity.due_at;
                 if (dueDateFixed && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dueDateFixed)) {
                   dueDateFixed = dueDateFixed.replace(' ', 'T') + '+08:00';
                 }
-                const dueDateObj = new Date(dueDateFixed);
+                activityDueAt = new Date(dueDateFixed);
                 const now = new Date();
                 
-                if (now > dueDateObj) {
+                if (now > activityDueAt) {
                   activityStatus = 'Closed';
                   // Show the time when it closed (due date time)
-                  const hours = String(dueDateObj.getHours()).padStart(2, '0');
-                  const minutes = String(dueDateObj.getMinutes()).padStart(2, '0');
+                  const hours = String(activityDueAt.getHours()).padStart(2, '0');
+                  const minutes = String(activityDueAt.getMinutes()).padStart(2, '0');
                   activityStatusTime = `${hours}:${minutes}`;
-                } else {
-                  // Still open - show current time or "00:00"
+                } else if (now >= activityStartAt) {
+                  // Still open - calculate time elapsed since start
                   activityStatus = 'Open';
+                  const elapsedMs = now - activityStartAt;
+                  const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
+                  const elapsedMinutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+                  
+                  // Format as HH:MM (max 99:59, then show days)
+                  if (elapsedHours >= 24) {
+                    const days = Math.floor(elapsedHours / 24);
+                    activityStatusTime = `${days}d`;
+                  } else {
+                    activityStatusTime = `${String(elapsedHours).padStart(2, '0')}:${String(elapsedMinutes).padStart(2, '0')}`;
+                  }
+                } else {
+                  // Not yet started
+                  activityStatus = 'Locked';
                   activityStatusTime = '00:00';
                 }
               } else if (!activity.start_at) {
@@ -4133,7 +4542,7 @@ function loadTopicsFromCourse() {
                         <div class="stat-value">0/${maxScore}</div>
                         <div class="stat-label">Avg. overall score</div>
                       </div>
-                      <div class="stat-circle activity-status">
+                      <div class="stat-circle activity-status" data-activity-id="${activity.id}" data-start-at="${activity.start_at || ''}" data-due-at="${activity.due_at || ''}">
                         <div class="stat-value">${activityStatusTime}</div>
                         <div class="stat-label">Activity ${activityStatus.toLowerCase()}</div>
                       </div>
@@ -4461,7 +4870,6 @@ function loadTopicsFromCourse() {
 function escapeHtml(str) {
   return String(str).replace(/[&<>"]+/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
 }
-
 function toggleTopic(item) {
   if (!item) {
     return;
@@ -4511,7 +4919,7 @@ function loadTopicContent(item, lessonId) {
     return; 
   }
   
-  fetch('class_view_api.php?action=get_lesson_details&lesson_id=' + encodeURIComponent(lessonId), { credentials: 'same-origin' })
+  fetch('class_view_api.php?action=get_lesson_details&lesson_id=' + encodeURIComponent(lessonId) + '&class_id=' + encodeURIComponent(window.__CLASS_ID__ || ''), { credentials: 'same-origin' })
     .then(r=>r.json()).then(res => {
       if (!res || !res.success) { 
         body.innerHTML = '<div style="color:#ef4444;">Failed to load lesson details.</div>'; 
@@ -4580,6 +4988,34 @@ function loadTopicContent(item, lessonId) {
             
             console.log(`🎓 loadTopicContent: Activity ${activity.id} - availability:`, availability);
             console.log(`🎓 loadTopicContent: Activity ${activity.id} - isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
+            
+            // CRITICAL: Check if student is accepted (not pending/rejected)
+            const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+            const isStudentPending = studentStatus === 'pending';
+            const isStudentRejected = studentStatus === 'rejected';
+            const forceUnlock = window.__FORCE_UNLOCK__ === true;
+            
+            // If force unlock is set (just accepted), override API lock
+            if (forceUnlock && (isLocked || !isAvailable)) {
+              console.log(`🔓 loadTopicContent: Activity ${activity.id} FORCE UNLOCKED - Overriding API lock`);
+              isLocked = false;
+              isAvailable = true;
+              availability.status = 'available';
+              availability.available = true;
+              availability.reason = '';
+            }
+            
+            // If student is pending or rejected, force lock (unless force unlock)
+            if (!forceUnlock && (isStudentPending || isStudentRejected)) {
+              isLocked = true;
+              isAvailable = false;
+              availability.status = 'locked';
+              if (isStudentPending) {
+                availability.reason = '⏳ Your enrollment is pending approval. Please wait for the teacher to accept your request.';
+              } else {
+                availability.reason = '❌ Your enrollment has been rejected. Please contact the teacher.';
+              }
+            }
             
             // Determine status badge
             let statusBadge = '';
@@ -4809,7 +5245,6 @@ function loadTopicContent(item, lessonId) {
       body.innerHTML = '<div style="color:#ef4444;">Failed to load lesson details.</div>';
     });
 }
-
 function bindTopicContentEvents(item, materials, activities) {
   // Bind topic content link - make entire row clickable
   const contentRow = item.querySelector('.topic-content-row');
@@ -5305,7 +5740,6 @@ function openMaterialViewer(material) {
     if (typeof window.showError === 'function') { window.showError('Preview error', 'Unable to open material preview.'); }
   }
 }
-
 function loadOverview() {
   const id = window.__CLASS_ID__;
   fetch('class_view_api.php?action=get_overview&id=' + encodeURIComponent(id), { credentials: 'same-origin' })
@@ -5574,7 +6008,7 @@ function transformActivityCard(card) {
     if (!activityId) return;
 
     // CRITICAL: Check availability BEFORE transforming
-    fetch(`class_view_api.php?action=get_activity&id=${activityId}`, { credentials: 'same-origin' })
+    fetch(`class_view_api.php?action=get_activity&id=${activityId}&class_id=${encodeURIComponent(window.__CLASS_ID__ || '')}`, { credentials: 'same-origin' })
       .then(r => r.json())
       .then(res => {
         if (!res || !res.success || !res.data) {
@@ -5585,7 +6019,7 @@ function transformActivityCard(card) {
         const activity = res.data;
         
         // Get availability status
-        fetch(`class_view_api.php?action=list_topics&id=${window.__CLASS_ID__}`, { credentials: 'same-origin' })
+        fetch(`class_view_api.php?action=list_topics&id=${window.__CLASS_ID__}&class_id=${window.__CLASS_ID__}`, { credentials: 'same-origin' })
           .then(r => r.json())
           .then(topicsRes => {
             let availability = { available: false, status: 'locked', reason: 'Activity is locked. Teacher will open it soon.' };
@@ -5624,12 +6058,29 @@ function transformActivityCard(card) {
               }
             }
             
+            // CRITICAL: Check if student is accepted (not pending/rejected) - OVERRIDE availability if needed
+            const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+            const isStudentPending = studentStatus === 'pending';
+            const isStudentRejected = studentStatus === 'rejected';
+            
+            // If student is pending or rejected, force lock regardless of API availability
+            if (isStudentPending || isStudentRejected) {
+              availability = {
+                available: false,
+                status: 'locked',
+                reason: isStudentPending 
+                  ? '⏳ Your enrollment is pending approval. Please wait for the teacher to accept your request.'
+                  : '❌ Your enrollment has been rejected. Please contact the teacher.'
+              };
+              console.log(`🔒 transformActivityCard: Activity ${activityId} FORCED LOCKED - Student status: ${studentStatus}`);
+            }
+            
             const isAvailable = availability.available === true;
             const isLocked = availability.status === 'locked' || !isAvailable;
             const isClosed = availability.status === 'closed';
             
             console.log(`🎓 transformActivityCard: Activity ${activityId} - availability:`, availability);
-            console.log(`🎓 transformActivityCard: isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
+            console.log(`🎓 transformActivityCard: Student status: ${studentStatus}, isAvailable:`, isAvailable, 'isLocked:', isLocked, 'isClosed:', isClosed);
 
             // Remove teacher stats/menu if present
             const statCircles = card.querySelectorAll('.stat-circle');
@@ -5729,11 +6180,11 @@ function transformActivityCard(card) {
                   </button>` :
                   isAvailable ? 
                     `<button class="start-activity-btn" onclick="startStudentActivity(${activityId})" style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10;">
-                      <i class="fas fa-play"></i> Start
-                    </button>` :
+                    <i class="fas fa-play"></i> Start
+                  </button>` :
                     `<button class="start-activity-btn" disabled style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10;">
-                      <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
-                    </button>`
+                    <i class="fas fa-lock"></i> ${isLocked ? 'Locked' : isClosed ? 'Closed' : 'Unavailable'}
+                  </button>`
                 }`;
               
               // Add status message if not available (text only, no background)
@@ -5771,13 +6222,25 @@ function transformActivityCard(card) {
       });
   } catch(e) { console.error('transformActivityCard error', e); }
 }
-
 async function startStudentActivity(activityId) {
   console.log('🎯 Student starting activity:', activityId);
   
   // Check if activity exists and is available
   if (!activityId) {
     alert('Error: Activity not found');
+    return;
+  }
+  
+  // CRITICAL: Check if student is accepted (not pending/rejected)
+  const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+  if (studentStatus !== 'accepted') {
+    if (studentStatus === 'pending') {
+      alert('⏳ Your enrollment is pending approval. Please wait for the teacher to accept your request. You cannot access activities until you are accepted.');
+    } else if (studentStatus === 'rejected') {
+      alert('❌ Your enrollment has been rejected. Please contact the teacher for more information.');
+    } else {
+      alert('⏳ You do not have access to this activity. Please wait for teacher approval.');
+    }
     return;
   }
   
@@ -5809,7 +6272,7 @@ async function startStudentActivity(activityId) {
     }
     
     // Fetch activity availability
-    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}&class_id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
     const topicsData = await topicsRes.json();
     
     let availability = { available: false, status: 'locked', reason: 'Activity is locked. Teacher will open it soon.' };
@@ -5830,7 +6293,7 @@ async function startStudentActivity(activityId) {
     
     // If still locked, check activity directly
     if (availability.status === 'locked') {
-      const actRes = await fetch(`class_view_api.php?action=get_activity&id=${activityId}`, { credentials: 'same-origin' });
+      const actRes = await fetch(`class_view_api.php?action=get_activity&id=${activityId}&class_id=${encodeURIComponent(window.__CLASS_ID__ || '')}`, { credentials: 'same-origin' });
       const actData = await actRes.json();
       
       if (actData && actData.success && actData.data) {
@@ -5963,7 +6426,7 @@ async function getActivityMaxPoints(activityId) {
       }
     }
     // Fallback to full activity API
-    const r = await fetch('class_view_api.php?action=get_activity&id=' + encodeURIComponent(activityId), { credentials: 'same-origin' });
+    const r = await fetch('class_view_api.php?action=get_activity&id=' + encodeURIComponent(activityId) + '&class_id=' + encodeURIComponent(window.__CLASS_ID__ || ''), { credentials: 'same-origin' });
     const j = await r.json();
     if (!j || !j.success || !j.activity) return 0;
     const a = j.activity;
@@ -5984,7 +6447,7 @@ async function getActivityMaxPoints(activityId) {
     // Fallback 1: look up from list_topics (has max_score)
     try {
       if (window.__CLASS_ID__) {
-        const rr = await fetch('class_view_api.php?action=list_topics&id=' + encodeURIComponent(window.__CLASS_ID__), { credentials: 'same-origin' });
+        const rr = await fetch('class_view_api.php?action=list_topics&id=' + encodeURIComponent(window.__CLASS_ID__) + '&class_id=' + encodeURIComponent(window.__CLASS_ID__), { credentials: 'same-origin' });
         const jj = await rr.json();
         if (jj && jj.success && Array.isArray(jj.modules)) {
           for (var i = 0; i < jj.modules.length; i++) {
@@ -6060,6 +6523,7 @@ async function lockActivity(activityId, activityTitle) {
   formData.append('id', activityId);
   formData.append('start_at', ''); // Empty string = NULL in database (locks activity)
   formData.append('due_at', ''); // Also clear due_at when locking
+  formData.append('class_id', window.__CLASS_ID__ || '');
   formData.append('csrf_token', csrfToken); // Add CSRF token
   
   fetch('course_outline_manage.php', {
@@ -6080,11 +6544,11 @@ async function lockActivity(activityId, activityTitle) {
         if (typeof checkAndUpdateActivityStatuses === 'function') {
           checkAndUpdateActivityStatuses();
         }
-        if (typeof loadTopicsFromCourse === 'function') {
-          loadTopicsFromCourse();
-        } else {
-          location.reload();
-        }
+      if (typeof loadTopicsFromCourse === 'function') {
+        loadTopicsFromCourse();
+      } else {
+        location.reload();
+      }
       }, 500); // Small delay to ensure database is updated
     } else {
       alert(`Failed to lock activity: ${res?.message || 'Unknown error'}`);
@@ -6105,7 +6569,7 @@ async function unlockActivity(activityId, activityTitle) {
   try {
     const classId = window.__CLASS_ID__;
     if (classId) {
-      const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+      const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}&class_id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
       const topicsData = await topicsRes.json();
       
       if (topicsData && topicsData.success && topicsData.modules) {
@@ -6251,7 +6715,6 @@ function formatDateForInput(dateStr) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
-
 // Helper function to format time for input
 function formatTimeForInput(dateStr) {
   if (!dateStr) return '';
@@ -6261,7 +6724,6 @@ function formatTimeForInput(dateStr) {
   const minutes = String(d.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
 }
-
 // Save unlock activity with start and due dates
 async function saveUnlockActivity(activityId, activityTitle, modal) {
   const startDate = document.getElementById('unlockStartDate').value;
@@ -6328,6 +6790,7 @@ async function saveUnlockActivity(activityId, activityTitle, modal) {
     formData.append('id', activityId);
     formData.append('start_at', startDateTime);
     formData.append('due_at', dueDateTime);
+    formData.append('class_id', window.__CLASS_ID__ || '');
     formData.append('csrf_token', csrfToken);
     
     const response = await fetch('course_outline_manage.php', {
@@ -6370,7 +6833,7 @@ async function saveUnlockActivity(activityId, activityTitle, modal) {
           // Fetch fresh activity data and update just this card
           const classId = window.__CLASS_ID__;
           if (classId) {
-            fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' })
+            fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}&class_id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' })
               .then(r => r.json())
               .then(res => {
                 if (res && res.success && res.modules) {
@@ -6398,8 +6861,8 @@ async function saveUnlockActivity(activityId, activityTitle, modal) {
               .catch(err => {
                 console.error('Error updating activity card:', err);
                 // Fallback to full reload if update fails
-                if (typeof loadTopicsFromCourse === 'function') {
-                  loadTopicsFromCourse();
+      if (typeof loadTopicsFromCourse === 'function') {
+        loadTopicsFromCourse();
                   // Restore expanded topics after reload (wait for DOM to update)
                   setTimeout(() => {
                     expandedTopics.forEach(topicId => {
@@ -6427,9 +6890,9 @@ async function saveUnlockActivity(activityId, activityTitle, modal) {
                 }
               });
             }, 1000);
-          } else {
-            location.reload();
-          }
+      } else {
+        location.reload();
+      }
         }
       }, 500); // Small delay to ensure database is updated
     } else {
@@ -6550,7 +7013,7 @@ async function lockAllActivities() {
   
   try {
     // Get all activities for this class
-    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}&class_id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
     const res = await topicsRes.json();
     
     if (!res || !res.success || !res.modules) {
@@ -6598,6 +7061,8 @@ async function lockAllActivities() {
       formData.append('action', 'activity_update');
       formData.append('id', activity.id);
       formData.append('start_at', ''); // Empty string = NULL in database
+      formData.append('due_at', ''); // Also clear due_at when locking
+      formData.append('class_id', window.__CLASS_ID__ || '');
       formData.append('csrf_token', csrfToken); // Add CSRF token
       
       console.log(`🔒 Locking activity ${activity.id}: "${activity.title}"`);
@@ -6667,7 +7132,6 @@ async function lockAllActivities() {
     }
   }
 }
-
 // Unlock all activities for the current class (for testing purposes)
 async function unlockAllActivities() {
   const confirmed = await showCustomConfirm(
@@ -6683,8 +7147,8 @@ async function unlockAllActivities() {
   
   const classId = window.__CLASS_ID__;
   if (!classId) {
-    alert('Error: Class ID not found');
-    return;
+    console.warn('⚠️ [AVG SCORE] No class ID set, returning 0');
+    return 0;
   }
   
   // Show loading notification
@@ -6694,7 +7158,7 @@ async function unlockAllActivities() {
   
   try {
     // Get all activities for this class
-    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+    const topicsRes = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}&class_id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
     const res = await topicsRes.json();
     
     if (!res || !res.success || !res.modules) {
@@ -6784,6 +7248,7 @@ async function unlockAllActivities() {
       formData.append('id', activity.id);
       formData.append('start_at', startAt);
       formData.append('due_at', dueAt); // CRITICAL: Also set due_at (7 days from now)
+      formData.append('class_id', window.__CLASS_ID__ || '');
       formData.append('csrf_token', csrfToken); // Add CSRF token
       
       console.log(`🔓 Unlocking activity ${activity.id}: "${activity.title}"`);
@@ -6968,7 +7433,6 @@ window.testPreviewActivityTeacher = function(activityType) {
     let earnedPoints = 0;
     let correctAnswer = '';
     let explanation = '';
-    
     let studentAnswerDisplay = studentAnswer || '(No answer)'; // For display
     
     if (activityType === 'multiple_choice') {
@@ -7396,7 +7860,6 @@ window.testPreviewActivityTeacher = function(activityType) {
   
   console.log('🔍 [TEACHER TEST PREVIEW] Results:', { totalScore, maxScore, percentage, results });
 };
-
 /**
  * Show Test Results modal for students after submission
  * Displays question-by-question breakdown with score, correct/incorrect answers, and explanations
@@ -7797,7 +8260,6 @@ function closeActivityDropdown(dropdown) {
   dropdown.classList.remove('dropdown-open');
   dropdown.style.display = 'none';
 }
-
 // Custom styled confirmation modal
 function showCustomConfirm(title, message, confirmText = 'OK', cancelText = 'Cancel', confirmColor = '#1d9b3e') {
   return new Promise((resolve) => {
@@ -8248,7 +8710,6 @@ async function loadAllStudentScores() {
   await Promise.all(promises);
   console.log('✅ [loadAllStudentScores] Finished loading all student scores');
 }
-
 // Initialize countdown timers for all activities
 function initializeCountdownTimers() {
   const countdownElements = document.querySelectorAll('.time-remaining[data-due-date]');
@@ -8367,7 +8828,12 @@ function cleanupCountdownTimers() {
 // Get average score for an activity (for teachers)
 async function getActivityAvgScore(activityId) {
   try {
-    const response = await fetch(`get_activity_avg_score.php?activity_id=${activityId}`, {
+    const classId = window.__CLASS_ID__ || 0;
+    if (!classId) {
+      console.warn('⚠️ [AVG SCORE] No class ID set, returning 0');
+      return 0;
+    }
+    const response = await fetch(`get_activity_avg_score.php?activity_id=${activityId}&class_id=${classId}`, {
       credentials: 'same-origin'
     });
     
@@ -8378,10 +8844,10 @@ async function getActivityAvgScore(activityId) {
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       const data = await response.json();
-      if (data && data.success) {
-        return Number(data.avg_score || 0);
-      }
-      return 0;
+    if (data && data.success) {
+      return Number(data.avg_score || 0);
+    }
+    return 0;
     } else {
       const text = await response.text();
       throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
@@ -8488,6 +8954,13 @@ function initializeActivityImprovements() {
   
   // Start real-time activity status polling
   startActivityStatusPolling();
+  
+  // Start real-time polling for activity average scores (teachers only)
+  if (userRole === 'teacher' || userRole === 'coordinator') {
+    startActivityAvgScorePolling();
+    // Start real-time activity open timer updates
+    startActivityOpenTimerUpdates();
+  }
   
   // REMOVED: Leaderboard buttons should NOT be on activity cards
   // Leaderboards are only accessible from the Leaderboards tab/section
@@ -8720,7 +9193,6 @@ async function showLeaderboardModal(activityId, userScore = null) {
     });
     
     document.body.appendChild(modal);
-    
   } catch (error) {
     console.error('❌ Error showing leaderboard:', error);
     
@@ -8829,6 +9301,33 @@ function addLeaderboardButton(activityCard, activityId) {
  * Load leaderboards for the current class
  */
 async function loadClassLeaderboards() {
+  // CRITICAL: Check if student is pending/rejected - don't load if locked
+  const studentStatus = window.__STUDENT_STATUS__ || 'accepted';
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  if (userRole === 'student' && (studentStatus === 'pending' || studentStatus === 'rejected')) {
+    console.log('🔒 loadClassLeaderboards blocked - Student is pending/rejected');
+    // Check if PHP already rendered locked content - don't overwrite it
+    const leaderboardsContent = document.getElementById('class-leaderboards-content');
+    if (leaderboardsContent) {
+      const hasLockedContent = leaderboardsContent.querySelector('.fa-lock');
+      if (!hasLockedContent) {
+        // PHP didn't render locked content, show it now
+        leaderboardsContent.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; padding: 60px 20px; text-align: center;">
+            <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);">
+              <i class="fas fa-lock" style="font-size: 40px; color: white;"></i>
+            </div>
+            <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 22px; font-weight: 600;">Leaderboards Locked</h3>
+            <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.6; max-width: 400px;">
+              Your enrollment is pending approval. Once accepted, you will be able to view the leaderboards.
+            </p>
+          </div>
+        `;
+      }
+    }
+    return; // Exit early - don't load leaderboard data
+  }
+  
   const classId = window.__CLASS_ID__;
   console.log('🏆 loadClassLeaderboards called, classId:', classId);
   
@@ -8850,6 +9349,43 @@ async function loadClassLeaderboards() {
   if (!leaderboardsContent) {
     console.error('❌ Leaderboards content container not found');
     return;
+  }
+  
+  // CRITICAL: Check if PHP already rendered locked content - don't overwrite it
+  const leaderboardsLocked = document.getElementById('leaderboards-locked-content');
+  if (leaderboardsLocked) {
+    const isLocked = leaderboardsLocked.getAttribute('data-locked') === 'true';
+    if (isLocked) {
+      console.log('🔒 Leaderboards already locked by PHP (data-locked=true) - not loading');
+      return; // PHP already showed locked content, don't overwrite
+    }
+  }
+  
+  // Also check for lock icon as fallback
+  const hasLockedContent = leaderboardsContent.querySelector('.fa-lock');
+  if (hasLockedContent) {
+    console.log('🔒 Leaderboards has lock icon - not loading');
+    return; // PHP already showed locked content, don't overwrite
+  }
+  
+  // CRITICAL: Double-check student status (studentStatus already declared at function start)
+  if (userRole === 'student' && (studentStatus === 'pending' || studentStatus === 'rejected')) {
+    console.log('🔒 loadClassLeaderboards blocked - Student status:', studentStatus);
+    // Ensure locked content is shown
+    if (!leaderboardsLocked) {
+      leaderboardsContent.innerHTML = `
+        <div id="leaderboards-locked-content" data-locked="true" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; padding: 60px 20px; text-align: center;">
+          <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);">
+            <i class="fas fa-lock" style="font-size: 40px; color: white;"></i>
+          </div>
+          <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 22px; font-weight: 600;">Leaderboards Locked</h3>
+          <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.6; max-width: 400px;">
+            Your enrollment is pending approval. Once accepted, you will be able to view the leaderboards.
+          </p>
+        </div>
+      `;
+    }
+    return; // Exit early - don't load leaderboard data
   }
   
   // Show loading state
@@ -8965,7 +9501,7 @@ async function loadClassLeaderboards() {
     
     // Render course-level leaderboard
     let html = `
-      <div style="border:1px solid #e9ecef;border-radius:12px;padding:24px;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+      <div style="max-width: 95%; width: 100%; margin: 0 auto; border:1px solid #e9ecef;border-radius:12px;padding:24px;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e9ecef;">
           <h4 style="margin:0;font-size:20px;font-weight:700;color:#111827;">
             ${escapeHtml(className)}
@@ -9032,6 +9568,156 @@ async function loadClassLeaderboards() {
   }
 }
 
+// ==================== REAL-TIME ACTIVITY AVERAGE SCORE POLLING ====================
+let activityAvgScorePollInterval = null;
+
+function startActivityAvgScorePolling() {
+  // Clear any existing interval
+  if (activityAvgScorePollInterval) {
+    clearInterval(activityAvgScorePollInterval);
+  }
+  
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  if (userRole !== 'teacher' && userRole !== 'coordinator') {
+    return; // Only for teachers/coordinators
+  }
+  
+  console.log('🔄 Starting activity average score polling (every 5 seconds)');
+  
+  // Poll every 5 seconds to update average scores
+  activityAvgScorePollInterval = setInterval(function() {
+    // Only poll if we're on the Activities tab (not Class Record or other tabs)
+    const activitiesTab = document.querySelector('.nav-tab[data-tab="lessons"]');
+    const activitiesSection = document.getElementById('tab-activities');
+    
+    if (activitiesTab && activitiesTab.classList.contains('active') && 
+        activitiesSection && activitiesSection.classList.contains('active')) {
+      // Reload all average scores
+      if (typeof loadAllAvgScores === 'function') {
+        loadAllAvgScores();
+      }
+    }
+  }, 5000); // Poll every 5 seconds
+  
+  // Also load immediately
+  setTimeout(function() {
+    if (typeof loadAllAvgScores === 'function') {
+      loadAllAvgScores();
+    }
+  }, 1000);
+  
+  // Store interval ID
+  window.__activityAvgScorePollInterval__ = activityAvgScorePollInterval;
+}
+
+function stopActivityAvgScorePolling() {
+  if (activityAvgScorePollInterval) {
+    clearInterval(activityAvgScorePollInterval);
+    activityAvgScorePollInterval = null;
+    window.__activityAvgScorePollInterval__ = null;
+    console.log('⏹️ Stopped activity average score polling');
+  }
+}
+
+// ==================== REAL-TIME ACTIVITY OPEN TIMER ====================
+let activityOpenTimerInterval = null;
+
+function startActivityOpenTimerUpdates() {
+  // Clear any existing interval
+  if (activityOpenTimerInterval) {
+    clearInterval(activityOpenTimerInterval);
+  }
+  
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  if (userRole !== 'teacher' && userRole !== 'coordinator') {
+    return; // Only for teachers/coordinators
+  }
+  
+  console.log('🔄 Starting activity open timer updates (every 1 minute)');
+  
+  // Update every 1 minute
+  activityOpenTimerInterval = setInterval(function() {
+    updateAllActivityOpenTimers();
+  }, 60000); // Every 1 minute
+  
+  // Update immediately
+  updateAllActivityOpenTimers();
+  
+  // Store interval ID
+  window.__activityOpenTimerInterval__ = activityOpenTimerInterval;
+}
+
+function stopActivityOpenTimerUpdates() {
+  if (activityOpenTimerInterval) {
+    clearInterval(activityOpenTimerInterval);
+    activityOpenTimerInterval = null;
+    window.__activityOpenTimerInterval__ = null;
+    console.log('⏹️ Stopped activity open timer updates');
+  }
+}
+function updateAllActivityOpenTimers() {
+  const activityStatusElements = document.querySelectorAll('.stat-circle.activity-status[data-activity-id]');
+  
+  activityStatusElements.forEach(function(statusEl) {
+    const activityId = statusEl.getAttribute('data-activity-id');
+    const startAt = statusEl.getAttribute('data-start-at');
+    const dueAt = statusEl.getAttribute('data-due-at');
+    
+    if (!startAt || !dueAt) {
+      return; // Skip if dates not available
+    }
+    
+    try {
+      // Parse dates
+      let startDateFixed = startAt;
+      if (startDateFixed && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(startDateFixed)) {
+        startDateFixed = startDateFixed.replace(' ', 'T') + '+08:00';
+      }
+      const startDateObj = new Date(startDateFixed);
+      
+      let dueDateFixed = dueAt;
+      if (dueDateFixed && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dueDateFixed)) {
+        dueDateFixed = dueDateFixed.replace(' ', 'T') + '+08:00';
+      }
+      const dueDateObj = new Date(dueDateFixed);
+      
+      const now = new Date();
+      const statValueEl = statusEl.querySelector('.stat-value');
+      const statLabelEl = statusEl.querySelector('.stat-label');
+      
+      if (!statValueEl || !statLabelEl) return;
+      
+      if (now > dueDateObj) {
+        // Closed - show closing time
+        const hours = String(dueDateObj.getHours()).padStart(2, '0');
+        const minutes = String(dueDateObj.getMinutes()).padStart(2, '0');
+        statValueEl.textContent = `${hours}:${minutes}`;
+        statLabelEl.textContent = 'Activity closed';
+      } else if (now >= startDateObj) {
+        // Open - calculate time elapsed since start
+        const elapsedMs = now - startDateObj;
+        const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
+        const elapsedMinutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        // Format as HH:MM (max 99:59, then show days)
+        if (elapsedHours >= 24) {
+          const days = Math.floor(elapsedHours / 24);
+          statValueEl.textContent = `${days}d`;
+        } else {
+          statValueEl.textContent = `${String(elapsedHours).padStart(2, '0')}:${String(elapsedMinutes).padStart(2, '0')}`;
+        }
+        statLabelEl.textContent = 'Activity open';
+      } else {
+        // Not yet started
+        statValueEl.textContent = '00:00';
+        statLabelEl.textContent = 'Activity locked';
+      }
+    } catch (error) {
+      console.error('Error updating activity open timer for activity', activityId, ':', error);
+    }
+  });
+}
+
 // ==================== REAL-TIME ACTIVITY STATUS POLLING ====================
 let activityStatusPollingInterval = null;
 
@@ -9071,7 +9757,7 @@ async function checkAndUpdateActivityStatuses() {
   
   try {
     // Fetch latest activity statuses from API
-    const response = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}`, { 
+    const response = await fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}&class_id=${encodeURIComponent(classId)}`, { 
       credentials: 'same-origin' 
     });
     
@@ -9305,7 +9991,6 @@ function updateStudentActivityCard(card, newStatus) {
     statusMessage.innerHTML = `<i class="fas fa-info-circle"></i> ${reason}`;
   }
 }
-
 // ===== GRADING MODAL FOR UPLOAD-BASED AND ESSAY ACTIVITIES =====
 async function showGradingModal(activityId, activityTitle) {
   console.log('🔍 [GRADING MODAL] showGradingModal called:', { activityId, activityTitle });
@@ -9332,7 +10017,7 @@ async function showGradingModal(activityId, activityTitle) {
     console.log('🔍 [GRADING MODAL] Fetching submissions for activity:', activityId);
     
     // Fetch submissions
-    const response = await fetch(`get_activity_submissions.php?activity_id=${encodeURIComponent(activityId)}`, {
+    const response = await fetch(`get_activity_submissions.php?activity_id=${encodeURIComponent(activityId)}&class_id=${encodeURIComponent(window.__CLASS_ID__ || '')}`, {
       credentials: 'same-origin'
     });
     
@@ -9645,7 +10330,6 @@ function closeGradingModal() {
     modal.remove();
   }
 }
-
 async function saveGrade(attemptId, maxScore) {
   // Find the Save Grade button for this attempt
   const saveButton = document.querySelector(`button[onclick*="saveGrade(${attemptId}"]`);
@@ -10038,6 +10722,136 @@ function updateTeacherActivityCard(card, newStatus) {
   }
 }
 
+// ===== CLASS RECORD REAL-TIME POLLING =====
+
+let classRecordPollInterval = null;
+let lastStatisticsHash = null;
+let lastPerformanceHash = null;
+
+function startClassRecordPolling() {
+  // Stop any existing polling
+  stopClassRecordPolling();
+  
+  const classId = window.__CLASS_ID__ || getClassIdFromURL();
+  if (!classId) {
+    console.warn('⚠️ [AVG SCORE] No class ID set, returning 0');
+    return 0;
+  }
+  
+  console.log('🔄 Starting Class Record real-time polling for class:', classId);
+  
+  // Poll every 3 seconds (adjustable)
+  classRecordPollInterval = setInterval(() => {
+    // Check if Class Record tab is still active
+    const classRecordTab = document.querySelector('.nav-tab[data-tab="classrecord"]');
+    const classRecordSection = document.getElementById('tab-classrecord');
+    
+    if (!classRecordTab || !classRecordTab.classList.contains('active') || 
+        !classRecordSection || !classRecordSection.classList.contains('active')) {
+      console.log('⏹️ Class Record tab not active, stopping polling');
+      stopClassRecordPolling();
+      return;
+    }
+    
+    // Poll for updated statistics
+    pollClassStatistics(classId);
+    
+    // Poll for updated student performance
+    pollStudentPerformance(classId);
+  }, 3000); // Poll every 3 seconds
+  
+  // Store interval ID
+  window.__classRecordPollInterval__ = classRecordPollInterval;
+}
+
+function stopClassRecordPolling() {
+  if (classRecordPollInterval) {
+    console.log('⏹️ Stopping Class Record polling');
+    clearInterval(classRecordPollInterval);
+    classRecordPollInterval = null;
+    window.__classRecordPollInterval__ = null;
+  }
+}
+
+function pollClassStatistics(classId) {
+  fetch(`get_class_statistics.php?class_id=${classId}`, {
+    credentials: 'same-origin',
+    cache: 'no-cache'
+  })
+  .then(response => {
+    const contentType = response.headers.get('Content-Type') || '';
+    if (!contentType.includes('application/json')) {
+      return response.text().then(text => {
+        console.error('Non-JSON response in statistics polling:', text.substring(0, 200));
+        throw new Error('Server returned non-JSON response');
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.success && data.data) {
+      // Create hash of current statistics
+      const currentHash = JSON.stringify(data.data);
+      
+      // Only update if data has changed
+      if (currentHash !== lastStatisticsHash) {
+        console.log('🔄 Statistics updated - refreshing display');
+        lastStatisticsHash = currentHash;
+        renderStatisticsCards(data.data);
+      }
+    }
+  })
+  .catch(error => {
+    console.error('Error polling class statistics:', error);
+    // Don't stop polling on error - continue trying
+  });
+}
+function pollStudentPerformance(classId) {
+  fetch(`get_student_performance.php?class_id=${classId}`, {
+    credentials: 'same-origin',
+    cache: 'no-cache'
+  })
+  .then(response => {
+    const contentType = response.headers.get('Content-Type') || '';
+    if (!contentType.includes('application/json')) {
+      return response.text().then(text => {
+        console.error('Non-JSON response in performance polling:', text.substring(0, 200));
+        throw new Error('Server returned non-JSON response');
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.success && data.data) {
+      // Create hash of current performance data
+      const currentHash = JSON.stringify(data.data);
+      
+      // Only update if data has changed
+      if (currentHash !== lastPerformanceHash) {
+        console.log('🔄 Student performance updated - refreshing display');
+        lastPerformanceHash = currentHash;
+        allStudentsData = data.data;
+        filteredStudentsData = [...allStudentsData];
+        renderStudentPerformanceTable(data.data, data.summary);
+        
+        // Re-apply current search and sort filters
+        const searchInput = document.getElementById('studentSearchInput');
+        const sortSelect = document.getElementById('sortStudentsSelect');
+        if (searchInput && searchInput.value) {
+          filterStudents();
+        }
+        if (sortSelect && sortSelect.value) {
+          sortStudents();
+        }
+      }
+    }
+  })
+  .catch(error => {
+    console.error('Error polling student performance:', error);
+    // Don't stop polling on error - continue trying
+  });
+}
+
 // ===== CLASS STATISTICS =====
 
 function loadClassStatistics() {
@@ -10062,9 +10876,20 @@ function loadClassStatistics() {
   `;
   
   fetch(`get_class_statistics.php?class_id=${classId}`)
-    .then(response => response.json())
+    .then(response => {
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) {
+        return response.text().then(text => {
+          console.error('Non-JSON response:', text.substring(0, 500));
+          throw new Error('Server returned non-JSON response');
+        });
+      }
+      return response.json();
+    })
     .then(data => {
       if (data.success && data.data) {
+        // Store hash for polling comparison
+        lastStatisticsHash = JSON.stringify(data.data);
         renderStatisticsCards(data.data);
       } else {
         showStatisticsError(data.message || 'Failed to load statistics');
@@ -10086,9 +10911,9 @@ function renderStatisticsCards(stats) {
   
   cardsContainer.innerHTML = `
     <div onclick="showEnrolledStudentsModal()" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 16px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;" 
-         onmouseover="this.style.borderColor='#9333ea'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(147, 51, 234, 0.2)';" 
+         onmouseover="this.style.borderColor='#28a745'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(40, 167, 69, 0.2)';" 
          onmouseout="this.style.borderColor='transparent'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
-      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
         <i class="fas fa-users" style="font-size: 24px; color: white;"></i>
       </div>
       <div style="flex: 1;">
@@ -10102,7 +10927,7 @@ function renderStatisticsCards(stats) {
     </div>
     
     <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 16px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
         <i class="fas fa-graduation-cap" style="font-size: 24px; color: white;"></i>
       </div>
       <div style="flex: 1;">
@@ -10116,7 +10941,7 @@ function renderStatisticsCards(stats) {
     </div>
     
     <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 16px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
         <i class="fas fa-book-open" style="font-size: 24px; color: white;"></i>
       </div>
       <div style="flex: 1;">
@@ -10194,6 +11019,8 @@ function loadStudentPerformance() {
       console.log('Student Performance Data:', data);
       
       if (data.success && data.data) {
+        // Store hash for polling comparison
+        lastPerformanceHash = JSON.stringify(data.data);
         allStudentsData = data.data;
         filteredStudentsData = [...allStudentsData];
         renderStudentPerformanceTable(data.data, data.summary);
@@ -10256,7 +11083,7 @@ function renderStudentPerformanceTable(students, summary) {
           onmouseout="this.style.background='white';">
         <td style="padding: 12px 16px; font-family: ${fontFamily};">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; font-family: ${fontFamily};">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; font-family: ${fontFamily};">
               ${student.name.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -10282,9 +11109,9 @@ function renderStudentPerformanceTable(students, summary) {
         </td>
         <td style="padding: 12px 16px; text-align: center; font-family: ${fontFamily};">
           <button onclick="viewStudentDetails(${student.student_id}, '${escapeHtml(student.name)}')" 
-                  style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: ${fontFamily};"
-                  onmouseover="this.style.background='#2563eb'; this.style.transform='scale(1.05)';"
-                  onmouseout="this.style.background='#3b82f6'; this.style.transform='scale(1)';">
+                  style="background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: ${fontFamily}; box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);"
+                  onmouseover="this.style.background='linear-gradient(135deg, #1d9b3e 0%, #168a36 100%)'; this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 8px rgba(40, 167, 69, 0.3)';"
+                  onmouseout="this.style.background='linear-gradient(135deg, #28a745 0%, #1d9b3e 100%)'; this.style.transform='scale(1)'; this.style.boxShadow='0 2px 4px rgba(40, 167, 69, 0.2)';">
             <i class="fas fa-eye"></i> View Details
           </button>
         </td>
@@ -10473,14 +11300,13 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
-
 // ===== ENROLLED STUDENTS MODAL =====
 
 function showEnrolledStudentsModal() {
   const classId = window.__CLASS_ID__ || getClassIdFromURL();
   if (!classId) {
-    console.error('Class ID not found');
-    return;
+    console.warn('⚠️ [AVG SCORE] No class ID set, returning 0');
+    return 0;
   }
   
   const fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
@@ -10497,7 +11323,7 @@ function showEnrolledStudentsModal() {
   
   // Show loading state
   modal.innerHTML = `
-    <div style="background: white; border-radius: 12px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
+    <div style="background: white; border-radius: 12px; max-width: 1000px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
       <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
         <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
@@ -10548,38 +11374,50 @@ function showEnrolledStudentsModal() {
   });
 }
 
-function renderEnrolledStudentsList(modal, students, fontFamily) {
-  if (!students || students.length === 0) {
-    modal.innerHTML = `
-      <div style="background: white; border-radius: 12px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
-        <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
-          <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
-                  style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; font-family: ${fontFamily};"
-                  onmouseover="this.style.background='#f3f4f6'; this.style.color='#111827';"
-                  onmouseout="this.style.background='none'; this.style.color='#6b7280';">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div style="padding: 40px; text-align: center;">
-          <i class="fas fa-users" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
-          <p style="color: #6b7280; margin: 0; font-family: ${fontFamily};">No students enrolled yet.</p>
-        </div>
-      </div>
-    `;
-    return;
+function renderEnrolledStudentsList(container, students, fontFamily) {
+  const classId = window.__CLASS_ID__ || getClassIdFromURL();
+  
+  // Group students by status
+  const grouped = {
+    accepted: [],
+    pending: [],
+    rejected: []
+  };
+  
+  if (students && students.length > 0) {
+    students.forEach(student => {
+      const status = (student.status || 'accepted').toLowerCase();
+      if (grouped[status]) {
+        grouped[status].push(student);
+      } else {
+        grouped.accepted.push(student);
+      }
+    });
   }
   
-  let studentsHTML = '';
-  students.forEach((student, index) => {
+  const totalCount = students ? students.length : 0;
+  const acceptedCount = grouped.accepted.length;
+  const pendingCount = grouped.pending.length;
+  const rejectedCount = grouped.rejected.length;
+  
+  // Function to render student row
+  const renderStudentRow = (student) => {
     const enrolledDate = formatDate(student.enrolled_at);
-    studentsHTML += `
+    const status = student.status || 'accepted';
+    const statusColors = {
+      'pending': { bg: '#fef3c7', text: '#d97706', label: 'Pending', icon: 'clock' },
+      'accepted': { bg: '#d1fae5', text: '#059669', label: 'Accepted', icon: 'check-circle' },
+      'rejected': { bg: '#fee2e2', text: '#dc2626', label: 'Rejected', icon: 'times-circle' }
+    };
+    const statusInfo = statusColors[status] || statusColors['accepted'];
+    
+    return `
       <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.2s; font-family: ${fontFamily};" 
           onmouseover="this.style.background='#f9fafb';" 
           onmouseout="this.style.background='white';">
         <td style="padding: 16px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; font-family: ${fontFamily};">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; font-family: ${fontFamily};">
               ${student.name.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -10594,16 +11432,113 @@ function renderEnrolledStudentsList(modal, students, fontFamily) {
         <td style="padding: 16px; color: #6b7280; font-size: 14px; font-family: ${fontFamily};">
           ${enrolledDate}
         </td>
+        <td style="padding: 16px;">
+          <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 12px; background: ${statusInfo.bg}; color: ${statusInfo.text}; font-size: 12px; font-weight: 500; font-family: ${fontFamily};">
+            <i class="fas fa-${statusInfo.icon}"></i>
+            ${statusInfo.label}
+          </span>
+        </td>
+        <td style="padding: 16px;">
+          <div style="display: flex; gap: 8px;">
+            ${status === 'pending' ? `
+              <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'accepted', this)" 
+                      style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
+                      onmouseover="this.style.background='#059669';"
+                      onmouseout="this.style.background='#10b981';">
+                <i class="fas fa-check"></i> Accept
+              </button>
+              <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'rejected', this)" 
+                      style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
+                      onmouseover="this.style.background='#dc2626';"
+                      onmouseout="this.style.background='#ef4444';">
+                <i class="fas fa-times"></i> Reject
+              </button>
+            ` : status === 'rejected' ? `
+              <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'accepted', this)" 
+                      style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
+                      onmouseover="this.style.background='#059669';"
+                      onmouseout="this.style.background='#10b981';">
+                <i class="fas fa-check"></i> Accept
+              </button>
+            ` : `
+              <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'rejected', this)" 
+                      style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
+                      onmouseover="this.style.background='#dc2626';"
+                      onmouseout="this.style.background='#ef4444';">
+                <i class="fas fa-times"></i> Reject
+              </button>
+            `}
+          </div>
+        </td>
       </tr>
     `;
-  });
+  };
   
-  modal.innerHTML = `
-    <div style="background: white; border-radius: 12px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
-      <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+  // Function to render table for a status group
+  const renderTable = (studentList, emptyMessage, emptyIcon) => {
+    if (!studentList || studentList.length === 0) {
+      return `
+        <div style="padding: 60px 24px; text-align: center;">
+          <i class="fas fa-${emptyIcon}" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
+          <p style="color: #6b7280; margin: 0; font-family: ${fontFamily}; font-size: 14px;">${emptyMessage}</p>
+        </div>
+      `;
+    }
+    
+    const rowsHTML = studentList.map(renderStudentRow).join('');
+    return `
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-family: ${fontFamily};">
+          <thead>
+            <tr style="background: #f8f9fa; border-bottom: 2px solid #e5e7eb;">
+              <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Student</th>
+              <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">ID Number</th>
+              <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Enrolled</th>
+              <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Status</th>
+              <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHTML}
+          </tbody>
+        </table>
+      </div>
+    `;
+  };
+  
+  // Generate unique IDs for tabs and content
+  const tabId = 'enrolledStudentsTab_' + Date.now();
+  const acceptedTabId = tabId + '_accepted';
+  const pendingTabId = tabId + '_pending';
+  const rejectedTabId = tabId + '_rejected';
+  const acceptedContentId = tabId + '_accepted_content';
+  const pendingContentId = tabId + '_pending_content';
+  const rejectedContentId = tabId + '_rejected_content';
+  
+  // Determine if container is modal overlay or inner content div
+  const isModalOverlay = container.id === 'enrolledStudentsModal';
+  let innerContent;
+  
+  if (isModalOverlay) {
+    // If it's the modal overlay, find or create the inner white div
+    innerContent = container.querySelector('div[style*="background: white"][style*="border-radius"]');
+    if (!innerContent) {
+      innerContent = document.createElement('div');
+      innerContent.style.cssText = 'background: white; border-radius: 12px; max-width: 1000px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);';
+      container.innerHTML = '';
+      container.appendChild(innerContent);
+    }
+  } else {
+    // If it's already the inner content div, use it directly
+    innerContent = container;
+  }
+  
+  innerContent.innerHTML = `
+    <div style="background: white; border-radius: 12px; max-width: 1000px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
+      <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
         <div>
           <h3 style="margin: 0 0 4px 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
-          <p style="margin: 0; color: #6b7280; font-size: 14px; font-family: ${fontFamily};">${students.length} ${students.length === 1 ? 'student' : 'students'} enrolled</p>
+          <p style="margin: 0; color: #6b7280; font-size: 14px; font-family: ${fontFamily};">${totalCount} ${totalCount === 1 ? 'student' : 'students'} total</p>
         </div>
         <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
                 style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; font-family: ${fontFamily};"
@@ -10612,29 +11547,224 @@ function renderEnrolledStudentsList(modal, students, fontFamily) {
           <i class="fas fa-times"></i>
         </button>
       </div>
-      <div style="padding: 24px;">
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-family: ${fontFamily};">
-            <thead>
-              <tr style="background: #f8f9fa; border-bottom: 2px solid #e5e7eb;">
-                <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Student</th>
-                <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">ID Number</th>
-                <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; font-size: 14px; font-family: ${fontFamily};">Enrolled</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${studentsHTML}
-            </tbody>
-          </table>
+      
+      <!-- Tabs -->
+      <div style="display: flex; border-bottom: 2px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
+        <button id="${acceptedTabId}" onclick="switchEnrolledTab('accepted', '${tabId}')" 
+                style="flex: 1; padding: 16px; background: #10b981; color: white; border: none; border-bottom: 3px solid #059669; cursor: pointer; font-size: 14px; font-weight: 600; font-family: ${fontFamily}; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <i class="fas fa-check-circle"></i>
+          <span>Enrolled</span>
+          <span style="background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">${acceptedCount}</span>
+        </button>
+        <button id="${pendingTabId}" onclick="switchEnrolledTab('pending', '${tabId}')" 
+                style="flex: 1; padding: 16px; background: #f9fafb; color: #d97706; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-size: 14px; font-weight: 600; font-family: ${fontFamily}; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;"
+                onmouseover="this.style.background='#f3f4f6';"
+                onmouseout="this.style.background='#f9fafb';">
+          <i class="fas fa-clock"></i>
+          <span>Pending</span>
+          <span style="background: #fef3c7; color: #d97706; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">${pendingCount}</span>
+        </button>
+        <button id="${rejectedTabId}" onclick="switchEnrolledTab('rejected', '${tabId}')" 
+                style="flex: 1; padding: 16px; background: #f9fafb; color: #dc2626; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-size: 14px; font-weight: 600; font-family: ${fontFamily}; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;"
+                onmouseover="this.style.background='#f3f4f6';"
+                onmouseout="this.style.background='#f9fafb';">
+          <i class="fas fa-times-circle"></i>
+          <span>Rejected</span>
+          <span style="background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">${rejectedCount}</span>
+        </button>
+      </div>
+      
+      <!-- Tab Content -->
+      <div style="flex: 1; overflow-y: auto; padding: 24px;">
+        <div id="${acceptedContentId}" style="display: block;">
+          ${renderTable(grouped.accepted, 'No enrolled students yet.', 'users')}
+        </div>
+        <div id="${pendingContentId}" style="display: none;">
+          ${renderTable(grouped.pending, 'No pending enrollments.', 'clock')}
+        </div>
+        <div id="${rejectedContentId}" style="display: none;">
+          ${renderTable(grouped.rejected, 'No rejected students.', 'times-circle')}
         </div>
       </div>
     </div>
   `;
 }
 
+// Function to switch between tabs (must be global for onclick handlers)
+window.switchEnrolledTab = function(tab, tabId) {
+  const acceptedTab = document.getElementById(tabId + '_accepted');
+  const pendingTab = document.getElementById(tabId + '_pending');
+  const rejectedTab = document.getElementById(tabId + '_rejected');
+  const acceptedContent = document.getElementById(tabId + '_accepted_content');
+  const pendingContent = document.getElementById(tabId + '_pending_content');
+  const rejectedContent = document.getElementById(tabId + '_rejected_content');
+  
+  // Reset all tabs
+  [acceptedTab, pendingTab, rejectedTab].forEach(btn => {
+    if (btn) {
+      btn.style.background = '#f9fafb';
+      btn.style.color = btn.id.includes('accepted') ? '#10b981' : btn.id.includes('pending') ? '#d97706' : '#dc2626';
+      btn.style.borderBottom = '3px solid transparent';
+    }
+  });
+  
+  // Hide all content
+  [acceptedContent, pendingContent, rejectedContent].forEach(content => {
+    if (content) content.style.display = 'none';
+  });
+  
+  // Activate selected tab
+  if (tab === 'accepted' && acceptedTab && acceptedContent) {
+    acceptedTab.style.background = '#10b981';
+    acceptedTab.style.color = 'white';
+    acceptedTab.style.borderBottom = '3px solid #059669';
+    acceptedContent.style.display = 'block';
+  } else if (tab === 'pending' && pendingTab && pendingContent) {
+    pendingTab.style.background = '#fef3c7';
+    pendingTab.style.color = '#d97706';
+    pendingTab.style.borderBottom = '3px solid #d97706';
+    pendingContent.style.display = 'block';
+  } else if (tab === 'rejected' && rejectedTab && rejectedContent) {
+    rejectedTab.style.background = '#fee2e2';
+    rejectedTab.style.color = '#dc2626';
+    rejectedTab.style.borderBottom = '3px solid #dc2626';
+    rejectedContent.style.display = 'block';
+  }
+}
+
+async function updateStudentStatus(classId, studentId, status, buttonElement) {
+  const originalHTML = buttonElement.innerHTML;
+  buttonElement.disabled = true;
+  buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+  
+  // Get current active tab before updating
+  const modal = document.getElementById('enrolledStudentsModal');
+  if (!modal) {
+    alert('Modal not found. Please refresh the page.');
+    buttonElement.disabled = false;
+    buttonElement.innerHTML = originalHTML;
+    return;
+  }
+  
+  // Find current active tab by checking which content is visible
+  let currentActiveTab = 'accepted';
+  const acceptedContent = modal.querySelector('[id$="_accepted_content"]');
+  const pendingContent = modal.querySelector('[id$="_pending_content"]');
+  const rejectedContent = modal.querySelector('[id$="_rejected_content"]');
+  
+  if (pendingContent && pendingContent.style.display !== 'none' && getComputedStyle(pendingContent).display !== 'none') {
+    currentActiveTab = 'pending';
+  } else if (rejectedContent && rejectedContent.style.display !== 'none' && getComputedStyle(rejectedContent).display !== 'none') {
+    currentActiveTab = 'rejected';
+  } else {
+    currentActiveTab = 'accepted';
+  }
+  
+  // Get tabId from modal - find it from any tab button
+  const anyTab = modal.querySelector('[id^="enrolledStudentsTab_"][id$="_accepted"], [id^="enrolledStudentsTab_"][id$="_pending"], [id^="enrolledStudentsTab_"][id$="_rejected"]');
+  let tabId = 'enrolledStudentsTab_' + Date.now();
+  if (anyTab) {
+    const tabIdMatch = anyTab.id.match(/^(enrolledStudentsTab_\d+)_/);
+    if (tabIdMatch) {
+      tabId = tabIdMatch[1];
+    }
+  }
+  
+  try {
+    const response = await fetch('update_student_status.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        class_id: classId,
+        student_id: studentId,
+        status: status
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Refresh modal content in-place (real-time update)
+      refreshEnrolledStudentsModal(modal, classId, currentActiveTab, tabId);
+    } else {
+      alert('Error: ' + (data.message || 'Failed to update student status'));
+      buttonElement.disabled = false;
+      buttonElement.innerHTML = originalHTML;
+    }
+  } catch (error) {
+    console.error('Error updating student status:', error);
+    alert('Failed to update student status. Please try again.');
+    buttonElement.disabled = false;
+    buttonElement.innerHTML = originalHTML;
+  }
+}
+
+// Function to refresh modal content in-place
+function refreshEnrolledStudentsModal(modal, classId, activeTab, tabId) {
+  const fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  
+  // Find the inner content div (the white box inside the modal overlay)
+  const innerContent = modal.querySelector('div[style*="background: white"]');
+  if (!innerContent) {
+    console.error('Could not find modal content area');
+    return;
+  }
+  
+  // Show loading state
+  innerContent.innerHTML = `
+    <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
+      <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
+              style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; font-family: ${fontFamily};"
+              onmouseover="this.style.background='#f3f4f6'; this.style.color='#111827';"
+              onmouseout="this.style.background='none'; this.style.color='#6b7280';">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div style="padding: 40px; text-align: center;">
+      <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #6b7280; margin-bottom: 10px;"></i>
+      <p style="color: #6b7280; margin: 0; font-family: ${fontFamily};">Updating...</p>
+    </div>
+  `;
+  
+  // Fetch updated students data
+  fetch(`get_enrolled_students.php?class_id=${classId}`)
+    .then(response => {
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) {
+        return response.text().then(text => {
+          console.error('Non-JSON response:', text.substring(0, 500));
+          throw new Error('Server returned non-JSON response');
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success && data.data) {
+        // Re-render the modal content - renderEnrolledStudentsList updates innerContent.innerHTML
+        renderEnrolledStudentsList(innerContent, data.data, fontFamily);
+        // Restore active tab after re-render
+        setTimeout(() => {
+          if (activeTab && tabId) {
+            window.switchEnrolledTab(activeTab, tabId);
+          }
+        }, 150);
+      } else {
+        showEnrolledStudentsError(innerContent, data.message || 'Failed to load students', fontFamily);
+      }
+    })
+    .catch(error => {
+      console.error('Error refreshing enrolled students:', error);
+      showEnrolledStudentsError(innerContent, 'Failed to refresh students: ' + error.message, fontFamily);
+    });
+}
+
 function showEnrolledStudentsError(modal, message, fontFamily) {
   modal.innerHTML = `
-    <div style="background: white; border-radius: 12px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
+    <div style="background: white; border-radius: 12px; max-width: 1000px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: ${fontFamily};">
       <div style="padding: 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0; color: #111827; font-size: 20px; font-weight: 600; font-family: ${fontFamily};">Enrolled Students</h3>
         <button onclick="document.getElementById('enrolledStudentsModal').remove()" 
@@ -10651,5 +11781,763 @@ function showEnrolledStudentsError(modal, message, fontFamily) {
     </div>
   `;
 }
+// ==================== NEWSFEED FUNCTIONALITY ====================
+let newsfeedPollInterval = null;
+let lastNewsfeedHash = null;
+let lastNewsfeedClassId = null;
+let newsfeedIsLoading = false; // Prevent multiple simultaneous loads
 
+function loadNewsfeedPosts() {
+  console.log('📰 [NEWSFEED] loadNewsfeedPosts() called');
+  const classId = window.__CLASS_ID__;
+  console.log('📰 [NEWSFEED] Class ID:', classId);
+  console.log('📰 [NEWSFEED] Current loading state:', newsfeedIsLoading);
+  
+  // Reset caches when class changes
+  if (lastNewsfeedClassId !== classId) {
+    console.log('🔄 [NEWSFEED] Class changed from', lastNewsfeedClassId, 'to', classId, '- resetting state');
+    lastNewsfeedClassId = classId;
+    lastNewsfeedHash = null;
+    newsfeedIsLoading = false; // allow new load for new class
+    stopNewsfeedPolling();
+  }
+  
+  // Prevent multiple simultaneous loads
+  if (newsfeedIsLoading) {
+    console.log('⏸️ [NEWSFEED] Already loading, skipping duplicate call');
+    return;
+  }
+  
+  if (!classId) {
+    console.error('❌ [NEWSFEED] Class ID not found');
+    const newsfeedContent = document.getElementById('newsfeed-content');
+    if (newsfeedContent) {
+      newsfeedContent.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #dc3545;">
+          <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 16px;"></i>
+          <p style="margin: 0; font-size: 16px;">Error: Class ID not found</p>
+        </div>
+      `;
+    }
+    return;
+  }
+  
+  const newsfeedContent = document.getElementById('newsfeed-content');
+  if (!newsfeedContent) {
+    console.error('❌ [NEWSFEED] Newsfeed content container not found');
+    return;
+  }
+  
+  // Set loading flag
+  newsfeedIsLoading = true;
+  console.log('📰 [NEWSFEED] Setting loading flag to true');
+  
+  console.log('📰 [NEWSFEED] Showing loading state...');
+  // Show loading state
+  newsfeedContent.innerHTML = `
+    <div style="text-align: center; padding: 40px; color: #6b7280;">
+      <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 16px;"></i>
+      <p style="margin: 0; font-size: 16px;">Loading newsfeed...</p>
+    </div>
+  `;
+  
+  const url = `get_newsfeed_posts.php?class_id=${classId}`;
+  console.log('📰 [NEWSFEED] Fetching from:', url);
+  
+  // Add timestamp to prevent caching issues
+  const cacheBuster = `&_t=${Date.now()}`;
+  
+  fetch(url + cacheBuster, { 
+    credentials: 'same-origin',
+    cache: 'no-cache',
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    }
+  })
+    .then(response => {
+      console.log('📰 [NEWSFEED] Response status:', response.status);
+      console.log('📰 [NEWSFEED] Response headers:', response.headers.get('Content-Type'));
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) {
+        return response.text().then(text => {
+          console.error('❌ [NEWSFEED] Non-JSON response:', text.substring(0, 500));
+          throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('📰 [NEWSFEED] Response data:', data);
+      
+      // Clear loading flag
+      newsfeedIsLoading = false;
+      console.log('📰 [NEWSFEED] Setting loading flag to false');
+      
+      if (data && data.success !== false) {
+        // Check if message indicates missing tables
+        if (data.message && data.message.includes('tables not created')) {
+          console.warn('⚠️ [NEWSFEED] Tables not created:', data.message);
+          const newsfeedContent = document.getElementById('newsfeed-content');
+          if (newsfeedContent) {
+            newsfeedContent.innerHTML = `
+              <div style="text-align: center; padding: 40px; color: #f59e0b;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 16px;"></i>
+                <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">Newsfeed Setup Required</p>
+                <p style="margin: 0; font-size: 14px; color: #6b7280;">Please run the database migration:</p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                  <a href="create_newsfeed_tables.php" target="_blank" style="color: #3b82f6; text-decoration: underline;">
+                    create_newsfeed_tables.php
+                  </a>
+                </p>
+              </div>
+            `;
+          }
+          return;
+        }
+        
+        // Success - render posts (even if empty array)
+        const posts = data.posts || [];
+        console.log('✅ [NEWSFEED] Success! Posts count:', posts.length);
+        renderNewsfeedPosts(posts);
+        // Start polling for updates (only if tab is active)
+        const newsfeedTab = document.querySelector('.nav-tab[data-tab="newsfeed"]');
+        const newsfeedSection = document.getElementById('tab-newsfeed');
+        if (newsfeedTab && newsfeedTab.classList.contains('active') && 
+            newsfeedSection && newsfeedSection.classList.contains('active')) {
+          startNewsfeedPolling();
+        }
+      } else {
+        console.error('❌ [NEWSFEED] API returned error:', data.message || 'Unknown error');
+        showNewsfeedError(data.message || 'Failed to load posts');
+      }
+    })
+    .catch(error => {
+      console.error('❌ [NEWSFEED] Error loading newsfeed posts:', error);
+      console.error('❌ [NEWSFEED] Error stack:', error.stack);
+      
+      // Clear loading flag on error
+      newsfeedIsLoading = false;
+      console.log('📰 [NEWSFEED] Setting loading flag to false (error)');
+      
+      showNewsfeedError('Failed to load newsfeed: ' + error.message);
+    });
+}
 
+function renderNewsfeedPosts(posts) {
+  console.log('📰 [NEWSFEED] renderNewsfeedPosts() called with', posts.length, 'posts');
+  
+  const classId = window.__CLASS_ID__;
+  const userId = window.__USER_ID__;
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  const fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  
+  const newsfeedContent = document.getElementById('newsfeed-content');
+  if (!newsfeedContent) {
+    console.error('❌ [NEWSFEED] Newsfeed content container not found in renderNewsfeedPosts');
+    return;
+  }
+  
+  // Create hash for comparison (only for polling, not for initial load)
+  const postsHash = JSON.stringify(posts.map(p => ({ id: p.id, like_count: p.like_count, heart_count: p.heart_count, comment_count: p.comment_count })));
+  
+  // Only skip re-render if this is a polling update AND hash hasn't changed
+  // Always render on manual load (when lastNewsfeedHash is null or different)
+  if (lastNewsfeedHash !== null && postsHash === lastNewsfeedHash) {
+    console.log('⏭️ [NEWSFEED] No changes detected, skipping re-render');
+    return; // No changes, skip re-render
+  }
+  
+  console.log('🔄 [NEWSFEED] Rendering posts (hash changed or initial load)');
+  lastNewsfeedHash = postsHash;
+  
+  // Get user's first name for placeholder
+  const userFirstName = window.__USER_FIRSTNAME__ || 'User';
+  const userFullName = window.__USER_FULLNAME__ || 'User';
+  const userInitials = userFullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  
+  let html = `
+    <div style="width: 100%; margin: 0; padding: 32px; font-family: ${fontFamily};">
+      <!-- Post Creation Form -->
+      <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <!-- Profile Picture -->
+          <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 16px; flex-shrink: 0;">
+            ${userInitials}
+          </div>
+          
+          <!-- Text Input Container -->
+          <div style="flex: 1; position: relative; min-width: 0;">
+            <!-- Textarea -->
+            <textarea id="newsfeed-post-input" 
+                      placeholder="What's on your mind, ${escapeHtml(userFirstName)}?" 
+                      style="width: 100%; height: 42px; min-height: 42px; max-height: 150px; padding: 12px 42px 28px 42px; border: 1.5px solid #d1d5db; border-radius: 24px; font-size: 14px; font-family: ${fontFamily}; resize: none; overflow-y: auto; background: #ffffff; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); line-height: 1.5; box-sizing: border-box; outline: none; color: #1f2937;"
+                      maxlength="5000"
+                      onfocus="this.style.background='#ffffff'; this.style.borderColor='#28a745'; this.style.boxShadow='0 0 0 4px rgba(40, 167, 69, 0.12)';"
+                      onblur="this.style.background='#ffffff'; this.style.borderColor='#d1d5db'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';"
+                      oninput="this.style.height='42px'; this.style.height=Math.min(Math.max(this.scrollHeight, 42), 150)+'px'; const charCount = document.getElementById('newsfeed-char-count'); if(charCount) charCount.textContent=this.value.length+'/5000';"></textarea>
+            
+            <!-- Character Counter -->
+            <span id="newsfeed-char-count" style="position: absolute; bottom: 10px; left: 16px; font-size: 11px; color: #9ca3af; pointer-events: none; font-weight: 500; z-index: 1; background: rgba(255,255,255,0.9); padding: 2px 6px; border-radius: 4px;">0/5000</span>
+            
+            <!-- Emoji Button - Left Side -->
+            <button onclick="toggleEmojiPicker()" 
+                    id="emoji-picker-btn"
+                    type="button"
+                    style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); color: #6b7280; z-index: 10; outline: none; font-size: 20px; line-height: 1; padding: 0;"
+                    onmouseover="this.style.background='rgba(40, 167, 69, 0.12)'; this.style.color='#28a745'; this.style.transform='translateY(-50%) scale(1.1)';"
+                    onmouseout="this.style.background='transparent'; this.style.color='#6b7280'; this.style.transform='translateY(-50%) scale(1)';"
+                    onfocus="this.style.background='rgba(40, 167, 69, 0.12)'; this.style.color='#28a745'; this.style.outline='2px solid rgba(40, 167, 69, 0.3)'; this.style.outlineOffset='2px';"
+                    onblur="this.style.background='transparent'; this.style.color='#6b7280'; this.style.outline='none';"
+                    title="Add Emoji">
+              😊
+            </button>
+            
+            <!-- Emoji Picker Popup -->
+            <div id="emoji-picker-popup" style="display: none; position: absolute; top: calc(100% + 10px); left: 0; background: white; border: 1px solid #e5e7eb; border-radius: 20px; box-shadow: 0 12px 32px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.1); padding: 20px; z-index: 1000; width: 320px; max-height: 360px; overflow-y: auto; backdrop-filter: blur(10px);">
+              <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px;">
+                ${['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '👋', '🤚', '🖐', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁', '👅', '👄', '💋', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤'].map(emoji => `
+                  <button onclick="insertEmoji('${emoji}')" 
+                          type="button"
+                          style="width: 36px; height: 36px; border: none; background: transparent; cursor: pointer; border-radius: 10px; font-size: 22px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); padding: 0; outline: none;"
+                          onmouseover="this.style.background='#f3f4f6'; this.style.transform='scale(1.15)';"
+                          onmouseout="this.style.background='transparent'; this.style.transform='scale(1)';"
+                          onfocus="this.style.background='#f3f4f6'; this.style.outline='2px solid rgba(40, 167, 69, 0.3)'; this.style.outlineOffset='2px';"
+                          onblur="this.style.background='transparent'; this.style.outline='none';"
+                          title="${emoji}">
+                    ${emoji}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+            
+            <!-- Post Button - Right Side -->
+            <button onclick="createNewsfeedPost()" 
+                    id="newsfeed-post-btn"
+                    type="button"
+                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; font-family: ${fontFamily}; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 3px 8px rgba(40, 167, 69, 0.35), 0 1px 3px rgba(0,0,0,0.1); z-index: 10; outline: none; padding: 0;"
+                    onmouseover="this.style.background='linear-gradient(135deg, #1d9b3e 0%, #157a2e 100%)'; this.style.transform='translateY(-50%) scale(1.08)'; this.style.boxShadow='0 5px 14px rgba(40, 167, 69, 0.45), 0 2px 6px rgba(0,0,0,0.15)';"
+                    onmouseout="this.style.background='linear-gradient(135deg, #28a745 0%, #1d9b3e 100%)'; this.style.transform='translateY(-50%) scale(1)'; this.style.boxShadow='0 3px 8px rgba(40, 167, 69, 0.35), 0 1px 3px rgba(0,0,0,0.1)';"
+                    onfocus="this.style.boxShadow='0 0 0 4px rgba(40, 167, 69, 0.25), 0 3px 8px rgba(40, 167, 69, 0.35)';"
+                    onblur="this.style.boxShadow='0 3px 8px rgba(40, 167, 69, 0.35), 0 1px 3px rgba(0,0,0,0.1)';"
+                    title="Post">
+              <i class="fas fa-paper-plane" style="font-size: 14px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Posts List -->
+      <div id="newsfeed-posts-container">
+  `;
+  
+  if (posts.length === 0) {
+    html += `
+      <div style="text-align: center; padding: 60px 20px; color: #6b7280;">
+        <i class="fas fa-newspaper" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+        <p style="margin: 0; font-size: 16px;">No posts yet. Be the first to share something!</p>
+      </div>
+    `;
+  } else {
+    posts.forEach(post => {
+      const isAuthor = post.user_id === userId;
+      const userInitials = post.user_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+      const roleBadge = post.user_role === 'teacher' ? '<span style="background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-left: 8px;">Teacher</span>' : '';
+      const timeAgo = formatTimeAgo(post.created_at);
+      
+      html += `
+        <div class="newsfeed-post" data-post-id="${post.id}" style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <!-- Post Header -->
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; margin-right: 12px;">
+              ${userInitials}
+            </div>
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center;">
+                <strong style="color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(post.user_name)}</strong>
+                ${roleBadge}
+              </div>
+              <span style="color: #6b7280; font-size: 12px;">${timeAgo}</span>
+            </div>
+          </div>
+          
+          <!-- Post Content -->
+          <div style="color: #374151; font-size: 14px; line-height: 1.6; margin-bottom: 16px; white-space: pre-wrap;">${escapeHtml(post.content)}</div>
+          
+          <!-- Post Actions -->
+          <div style="display: flex; align-items: center; gap: 4px; padding-top: 16px; margin-top: 16px; border-top: 1px solid #f3f4f6;">
+            <!-- Like Button -->
+            <button onclick="togglePostReaction(${post.id}, 'like')" 
+                    class="newsfeed-reaction-btn"
+                    data-post-id="${post.id}"
+                    data-reaction="like"
+                    style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: ${post.user_reaction === 'like' ? '#d1fae5' : '#f9fafb'}; color: ${post.user_reaction === 'like' ? '#28a745' : '#6b7280'}; border: 1px solid ${post.user_reaction === 'like' ? '#a7f3d0' : '#e5e7eb'}; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); outline: none;"
+                    onmouseover="if('${post.user_reaction}' !== 'like') { this.style.background='#f0fdf4'; this.style.borderColor='#bbf7d0'; this.style.color='#16a34a'; this.style.transform='translateY(-1px)'; } else { this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 8px rgba(40, 167, 69, 0.2)'; }"
+                    onmouseout="this.style.background='${post.user_reaction === 'like' ? '#d1fae5' : '#f9fafb'}'; this.style.borderColor='${post.user_reaction === 'like' ? '#a7f3d0' : '#e5e7eb'}'; this.style.color='${post.user_reaction === 'like' ? '#28a745' : '#6b7280'}'; this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+                    onfocus="this.style.outline='2px solid rgba(40, 167, 69, 0.3)'; this.style.outlineOffset='2px';"
+                    onblur="this.style.outline='none';"
+                    title="Like">
+              <i class="fas fa-thumbs-up" style="font-size: 15px; ${post.user_reaction === 'like' ? 'filter: drop-shadow(0 1px 2px rgba(40, 167, 69, 0.3));' : ''}"></i>
+              <span class="like-count-${post.id}" style="font-weight: 600; min-width: 16px; text-align: center;">${post.like_count || 0}</span>
+            </button>
+            
+            <!-- Heart Button -->
+            <button onclick="togglePostReaction(${post.id}, 'heart')" 
+                    class="newsfeed-reaction-btn"
+                    data-post-id="${post.id}"
+                    data-reaction="heart"
+                    style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: ${post.user_reaction === 'heart' ? '#fce7f3' : '#f9fafb'}; color: ${post.user_reaction === 'heart' ? '#ec4899' : '#6b7280'}; border: 1px solid ${post.user_reaction === 'heart' ? '#fbcfe8' : '#e5e7eb'}; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); outline: none;"
+                    onmouseover="if('${post.user_reaction}' !== 'heart') { this.style.background='#fef2f2'; this.style.borderColor='#fecdd3'; this.style.color='#f43f5e'; this.style.transform='translateY(-1px)'; } else { this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 8px rgba(236, 72, 153, 0.2)'; }"
+                    onmouseout="this.style.background='${post.user_reaction === 'heart' ? '#fce7f3' : '#f9fafb'}'; this.style.borderColor='${post.user_reaction === 'heart' ? '#fbcfe8' : '#e5e7eb'}'; this.style.color='${post.user_reaction === 'heart' ? '#ec4899' : '#6b7280'}'; this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+                    onfocus="this.style.outline='2px solid rgba(236, 72, 153, 0.3)'; this.style.outlineOffset='2px';"
+                    onblur="this.style.outline='none';"
+                    title="Love">
+              <i class="fas fa-heart" style="font-size: 15px; ${post.user_reaction === 'heart' ? 'filter: drop-shadow(0 1px 2px rgba(236, 72, 153, 0.3));' : ''}"></i>
+              <span class="heart-count-${post.id}" style="font-weight: 600; min-width: 16px; text-align: center;">${post.heart_count || 0}</span>
+            </button>
+            
+            <!-- Comment Button -->
+            <button onclick="togglePostComments(${post.id})" 
+                    id="comment-btn-${post.id}"
+                    style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); outline: none;"
+                    onmouseover="this.style.background='#f0f9ff'; this.style.borderColor='#bae6fd'; this.style.color='#0284c7'; this.style.transform='translateY(-1px)';"
+                    onmouseout="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb'; this.style.color='#6b7280'; this.style.transform='translateY(0)';"
+                    onfocus="this.style.outline='2px solid rgba(2, 132, 199, 0.3)'; this.style.outlineOffset='2px';"
+                    onblur="this.style.outline='none';"
+                    title="Comment">
+              <i class="fas fa-comment" style="font-size: 15px;"></i>
+              <span class="comment-count-${post.id}" style="font-weight: 600; min-width: 16px; text-align: center;">${post.comment_count || 0}</span>
+            </button>
+          </div>
+          
+          <!-- Comments Section (initially hidden) -->
+          <div id="comments-${post.id}" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <div id="comments-list-${post.id}" style="margin-bottom: 12px; max-height: 400px; overflow-y: auto;">
+              <!-- Comments will be loaded here -->
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <textarea id="comment-input-${post.id}" 
+                        placeholder="Write a comment..." 
+                        style="flex: 1; min-height: 60px; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px; font-family: ${fontFamily}; resize: vertical;"
+                        maxlength="2000"></textarea>
+              <button onclick="createPostComment(${post.id})" 
+                      style="padding: 8px 16px; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; font-family: ${fontFamily}; align-self: flex-end; transition: all 0.2s;"
+                      onmouseover="this.style.background='linear-gradient(135deg, #1d9b3e 0%, #157a2e 100%)';"
+                      onmouseout="this.style.background='linear-gradient(135deg, #28a745 0%, #1d9b3e 100%)';">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+  }
+  
+  html += `
+      </div>
+    </div>
+  `;
+  
+  newsfeedContent.innerHTML = html;
+  
+  // Auto-resize textarea
+  const postInput = document.getElementById('newsfeed-post-input');
+  if (postInput) {
+    // Character count is handled inline in oninput
+    // Auto-resize is also handled inline
+  }
+}
+
+function showNewsfeedError(message) {
+  const newsfeedContent = document.getElementById('newsfeed-content');
+  if (!newsfeedContent) return;
+  
+  newsfeedContent.innerHTML = `
+    <div style="text-align: center; padding: 40px; color: #dc3545;">
+      <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 16px;"></i>
+      <p style="margin: 0; font-size: 16px;">${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
+async function createNewsfeedPost() {
+  const classId = window.__CLASS_ID__;
+  if (!classId) {
+    alert('Class ID not found');
+    return;
+  }
+  
+  const postInput = document.getElementById('newsfeed-post-input');
+  if (!postInput) return;
+  
+  const content = postInput.value.trim();
+  if (!content) {
+    alert('Please enter some content');
+    return;
+  }
+  
+  const postBtn = document.getElementById('newsfeed-post-btn');
+  if (!postBtn) return;
+  
+  const originalHTML = postBtn.innerHTML;
+  postBtn.disabled = true;
+  postBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:14px;"></i>';
+  
+  try {
+    const response = await fetch('create_newsfeed_post.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ class_id: classId, content: content })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      postInput.value = '';
+      document.getElementById('newsfeed-char-count').textContent = '0/5000';
+      // Reload posts
+      loadNewsfeedPosts();
+    } else {
+      alert('Error: ' + (data.message || 'Failed to create post'));
+    }
+  } catch (error) {
+    console.error('Error creating post:', error);
+    alert('Failed to create post. Please try again.');
+  } finally {
+    postBtn.disabled = false;
+    postBtn.innerHTML = originalHTML;
+  }
+}
+
+async function togglePostReaction(postId, reactionType) {
+  try {
+    const response = await fetch('toggle_post_reaction.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ post_id: postId, reaction_type: reactionType })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Update UI immediately
+      const likeCountEl = document.querySelector(`.like-count-${postId}`);
+      const heartCountEl = document.querySelector(`.heart-count-${postId}`);
+      const likeBtn = document.querySelector(`.newsfeed-reaction-btn[data-post-id="${postId}"][data-reaction="like"]`);
+      const heartBtn = document.querySelector(`.newsfeed-reaction-btn[data-post-id="${postId}"][data-reaction="heart"]`);
+      
+      if (likeCountEl) likeCountEl.textContent = data.like_count || 0;
+      if (heartCountEl) heartCountEl.textContent = data.heart_count || 0;
+      
+      // Update button styles with improved styling
+      if (likeBtn) {
+        if (data.user_reaction === 'like') {
+          likeBtn.style.background = '#d1fae5';
+          likeBtn.style.borderColor = '#a7f3d0';
+          likeBtn.style.color = '#28a745';
+          likeBtn.querySelector('i').style.filter = 'drop-shadow(0 1px 2px rgba(40, 167, 69, 0.3))';
+        } else {
+          likeBtn.style.background = '#f9fafb';
+          likeBtn.style.borderColor = '#e5e7eb';
+          likeBtn.style.color = '#6b7280';
+          likeBtn.querySelector('i').style.filter = 'none';
+        }
+      }
+      
+      if (heartBtn) {
+        if (data.user_reaction === 'heart') {
+          heartBtn.style.background = '#fce7f3';
+          heartBtn.style.borderColor = '#fbcfe8';
+          heartBtn.style.color = '#ec4899';
+          heartBtn.querySelector('i').style.filter = 'drop-shadow(0 1px 2px rgba(236, 72, 153, 0.3))';
+        } else {
+          heartBtn.style.background = '#f9fafb';
+          heartBtn.style.borderColor = '#e5e7eb';
+          heartBtn.style.color = '#6b7280';
+          heartBtn.querySelector('i').style.filter = 'none';
+        }
+      }
+    } else {
+      alert('Error: ' + (data.message || 'Failed to update reaction'));
+    }
+  } catch (error) {
+    console.error('Error toggling reaction:', error);
+    alert('Failed to update reaction. Please try again.');
+  }
+}
+
+async function togglePostComments(postId) {
+  const commentsDiv = document.getElementById(`comments-${postId}`);
+  if (!commentsDiv) return;
+  
+  const commentBtn = document.getElementById(`comment-btn-${postId}`);
+  const isVisible = commentsDiv.style.display !== 'none';
+  
+  if (!isVisible) {
+    commentsDiv.style.display = 'block';
+    await loadPostComments(postId);
+    // Update comment button active state
+    if (commentBtn) {
+      commentBtn.style.background = '#eff6ff';
+      commentBtn.style.borderColor = '#93c5fd';
+      commentBtn.style.color = '#2563eb';
+    }
+  } else {
+    commentsDiv.style.display = 'none';
+    // Reset comment button state
+    if (commentBtn) {
+      commentBtn.style.background = '#f9fafb';
+      commentBtn.style.borderColor = '#e5e7eb';
+      commentBtn.style.color = '#6b7280';
+    }
+  }
+}
+
+async function loadPostComments(postId) {
+  const commentsList = document.getElementById(`comments-list-${postId}`);
+  if (!commentsList) return;
+  
+  // Show loading
+  commentsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Loading comments...</div>';
+  
+  try {
+    const response = await fetch(`get_post_comments.php?post_id=${postId}`, { credentials: 'same-origin' });
+    const data = await response.json();
+    
+    if (data.success && data.comments) {
+      renderPostComments(postId, data.comments);
+    } else {
+      commentsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;">No comments yet.</div>';
+    }
+  } catch (error) {
+    console.error('Error loading comments:', error);
+    commentsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Failed to load comments.</div>';
+  }
+}
+function renderPostComments(postId, comments) {
+  const commentsList = document.getElementById(`comments-list-${postId}`);
+  if (!commentsList) return;
+  
+  const fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  
+  if (comments.length === 0) {
+    commentsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;">No comments yet.</div>';
+    return;
+  }
+  
+  let html = '';
+  comments.forEach(comment => {
+    const userInitials = comment.user_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    const roleBadge = comment.user_role === 'teacher' ? '<span style="background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 6px;">Teacher</span>' : '';
+    const timeAgo = formatTimeAgo(comment.created_at);
+    
+    html += `
+      <div style="display: flex; gap: 12px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f3f4f6;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px; flex-shrink: 0;">
+          ${userInitials}
+        </div>
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; margin-bottom: 4px;">
+            <strong style="color: #111827; font-size: 13px; font-weight: 600;">${escapeHtml(comment.user_name)}</strong>
+            ${roleBadge}
+            <span style="color: #6b7280; font-size: 11px; margin-left: 8px;">${timeAgo}</span>
+          </div>
+          <div style="color: #374151; font-size: 13px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(comment.content)}</div>
+        </div>
+      </div>
+    `;
+  });
+  
+  commentsList.innerHTML = html;
+}
+
+async function createPostComment(postId) {
+  const commentInput = document.getElementById(`comment-input-${postId}`);
+  if (!commentInput) return;
+  
+  const content = commentInput.value.trim();
+  if (!content) {
+    alert('Please enter a comment');
+    return;
+  }
+  
+  try {
+    const response = await fetch('create_post_comment.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ post_id: postId, content: content })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      commentInput.value = '';
+      // Reload comments
+      await loadPostComments(postId);
+      // Update comment count
+      const commentCountEl = document.querySelector(`.comment-count-${postId}`);
+      if (commentCountEl) {
+        const currentCount = parseInt(commentCountEl.textContent) || 0;
+        commentCountEl.textContent = currentCount + 1;
+      }
+      // Reload posts to update counts
+      loadNewsfeedPosts();
+    } else {
+      alert('Error: ' + (data.message || 'Failed to add comment'));
+    }
+  } catch (error) {
+    console.error('Error creating comment:', error);
+    alert('Failed to add comment. Please try again.');
+  }
+}
+
+// Emoji Picker Functions
+function toggleEmojiPicker() {
+  const popup = document.getElementById('emoji-picker-popup');
+  if (!popup) return;
+  
+  const isVisible = popup.style.display !== 'none';
+  popup.style.display = isVisible ? 'none' : 'block';
+  
+  // Close on outside click
+  if (!isVisible) {
+    setTimeout(() => {
+      document.addEventListener('click', closeEmojiPickerOnOutsideClick, true);
+    }, 0);
+  } else {
+    document.removeEventListener('click', closeEmojiPickerOnOutsideClick, true);
+  }
+}
+
+function closeEmojiPickerOnOutsideClick(event) {
+  const popup = document.getElementById('emoji-picker-popup');
+  const btn = document.getElementById('emoji-picker-btn');
+  
+  if (popup && btn && !popup.contains(event.target) && !btn.contains(event.target)) {
+    popup.style.display = 'none';
+    document.removeEventListener('click', closeEmojiPickerOnOutsideClick, true);
+  }
+}
+
+function insertEmoji(emoji) {
+  const postInput = document.getElementById('newsfeed-post-input');
+  if (!postInput) return;
+  
+  const cursorPos = postInput.selectionStart || postInput.value.length;
+  const textBefore = postInput.value.substring(0, cursorPos);
+  const textAfter = postInput.value.substring(postInput.selectionEnd || cursorPos);
+  
+  postInput.value = textBefore + emoji + textAfter;
+  
+  // Set cursor position after inserted emoji
+  const newCursorPos = cursorPos + emoji.length;
+  postInput.setSelectionRange(newCursorPos, newCursorPos);
+  postInput.focus();
+  
+  // Trigger input event to update character count and auto-resize
+  postInput.dispatchEvent(new Event('input', { bubbles: true }));
+  
+  // Close emoji picker
+  const popup = document.getElementById('emoji-picker-popup');
+  if (popup) {
+    popup.style.display = 'none';
+    document.removeEventListener('click', closeEmojiPickerOnOutsideClick, true);
+  }
+}
+
+function startNewsfeedPolling() {
+  // Clear any existing interval first
+  stopNewsfeedPolling();
+  
+  console.log('🔄 [NEWSFEED] Starting polling interval');
+  
+  // Poll every 10 seconds
+  newsfeedPollInterval = setInterval(function() {
+    const newsfeedTab = document.querySelector('.nav-tab[data-tab="newsfeed"]');
+    const newsfeedSection = document.getElementById('tab-newsfeed');
+    
+    // Only poll if newsfeed tab is active AND not currently loading
+    if (newsfeedTab && newsfeedTab.classList.contains('active') && 
+        newsfeedSection && newsfeedSection.classList.contains('active') &&
+        !newsfeedIsLoading) {
+      const classId = window.__CLASS_ID__;
+      if (classId) {
+        console.log('🔄 [NEWSFEED] Polling for updates...');
+        fetch(`get_newsfeed_posts.php?class_id=${classId}&_t=${Date.now()}`, { 
+          credentials: 'same-origin',
+          cache: 'no-cache'
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            if (data && data.success !== false && data.posts) {
+              // Create hash and compare
+              const postsHash = JSON.stringify(data.posts.map(p => ({ id: p.id, like_count: p.like_count, heart_count: p.heart_count, comment_count: p.comment_count })));
+              if (postsHash !== lastNewsfeedHash || classId !== lastNewsfeedClassId) {
+                console.log('🔄 [NEWSFEED] Data changed, updating UI');
+                renderNewsfeedPosts(data.posts);
+                lastNewsfeedHash = postsHash;
+                lastNewsfeedClassId = classId;
+              } else {
+                console.log('⏭️ [NEWSFEED] No changes in polling update');
+              }
+            }
+          })
+          .catch(error => {
+            console.error('❌ [NEWSFEED] Error polling newsfeed:', error);
+            // Don't stop polling on error, just log it
+          });
+      }
+    } else {
+      console.log('⏸️ [NEWSFEED] Tab not active or loading, skipping poll');
+    }
+  }, 10000); // Every 10 seconds
+  
+  window.__newsfeedPollInterval__ = newsfeedPollInterval;
+  console.log('✅ [NEWSFEED] Polling started, interval ID:', newsfeedPollInterval);
+}
+
+function stopNewsfeedPolling() {
+  if (newsfeedPollInterval) {
+    console.log('⏹️ [NEWSFEED] Stopping polling interval:', newsfeedPollInterval);
+    clearInterval(newsfeedPollInterval);
+    newsfeedPollInterval = null;
+    window.__newsfeedPollInterval__ = null;
+  } else {
+    console.log('⏹️ [NEWSFEED] No polling interval to stop');
+  }
+}
+
+function formatTimeAgo(dateString) {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+// Make functions global
+window.createNewsfeedPost = createNewsfeedPost;
+window.togglePostReaction = togglePostReaction;
+window.togglePostComments = togglePostComments;
+window.createPostComment = createPostComment;

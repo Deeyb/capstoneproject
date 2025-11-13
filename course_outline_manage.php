@@ -168,6 +168,7 @@ try {
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['success'=>false,'message'=>'Invalid request']); exit; }
     require_once __DIR__ . '/config/Database.php';
+    require_once __DIR__ . '/classes/ActivityAttemptService.php';
     require_once __DIR__ . '/classes/CourseService.php';
     $db = (new Database())->getConnection();
     // Enable exceptions for deeper debugging and reliable error handling
@@ -324,6 +325,7 @@ try {
             $path = $dir . DIRECTORY_SEPARATOR . $unique;
             $ok = @file_put_contents($path, $content);
             if ($ok === false) { echo json_encode(['success'=>false,'message'=>'Failed to save page']); break; }
+            require_once __DIR__ . '/classes/ActivityAttemptService.php';
             require_once __DIR__ . '/classes/CourseService.php';
             require_once __DIR__ . '/config/Database.php';
             $db2 = (new Database())->getConnection();
@@ -468,9 +470,14 @@ try {
                 echo json_encode(['success'=>false,'message'=>'Invalid activity ID']);
                 break;
             }
+            $classIdForUpdate = isset($_POST['class_id']) ? (int)$_POST['class_id'] : 0;
             
             // If teacher, verify they own the class that contains this activity
             if ($isTeacher && !$isCoordinator && !$isAdmin) {
+                if ($classIdForUpdate <= 0) {
+                    echo json_encode(['success'=>false,'message'=>'Class ID is required']);
+                    break;
+                }
                 try {
                     $checkStmt = $db->prepare("
                         SELECT c.id 
@@ -478,12 +485,12 @@ try {
                         INNER JOIN course_modules cm ON cm.course_id = c.course_id
                         INNER JOIN course_lessons cl ON cl.module_id = cm.id
                         INNER JOIN lesson_activities la ON la.lesson_id = cl.id
-                        WHERE la.id = ? AND c.owner_user_id = ? AND c.status = 'active'
+                        WHERE la.id = ? AND c.id = ? AND c.owner_user_id = ? AND c.status = 'active'
                         LIMIT 1
                     ");
-                    $checkStmt->execute([$actId, $_SESSION['user_id']]);
+                    $checkStmt->execute([$actId, $classIdForUpdate, $_SESSION['user_id']]);
                     if (!$checkStmt->fetch()) {
-                        echo json_encode(['success'=>false,'message'=>'You do not have permission to update this activity']);
+                        echo json_encode(['success'=>false,'message'=>'You do not have permission to update this activity for this class']);
                         break;
                     }
                 } catch (Throwable $e) {
@@ -532,6 +539,10 @@ try {
                 ];
             } else {
                 // Teachers can only update start_at and due_at (for unlocking/scheduling)
+                if ($classIdForUpdate <= 0) {
+                    echo json_encode(['success'=>false,'message'=>'Class ID is required for teachers']);
+                    break;
+                }
                 // Preserve other fields by fetching current values
                 try {
                     $currentStmt = $db->prepare('SELECT title, instructions, type, max_score, required_construct FROM lesson_activities WHERE id=?');
@@ -556,6 +567,12 @@ try {
                     echo json_encode(['success'=>false,'message'=>'Failed to fetch activity data']);
                     break;
                 }
+            }
+            
+            if ($isTeacher && !$isCoordinator && !$isAdmin) {
+                $ok = $svc->setActivitySchedule($classIdForUpdate, $actId, $startAt, $dueAt);
+                echo json_encode(['success' => (bool)$ok]);
+                break;
             }
             
             $ok = $svc->updateActivity($actId, $updateData);

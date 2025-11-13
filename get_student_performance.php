@@ -117,19 +117,46 @@ try {
     
     // Get all students in class
     try {
-        $studentsStmt = $db->prepare("
-            SELECT 
-                u.id as student_id,
-                u.firstname,
-                u.middlename,
-                u.lastname,
-                u.id_number,
-                cs.joined_at as enrolled_at
-            FROM class_students cs
-            INNER JOIN users u ON cs.student_user_id = u.id
-            WHERE cs.class_id = ? AND u.status = 'active'
-            ORDER BY u.lastname, u.firstname
-        ");
+        // Check if status column exists in class_students
+        $hasStatusColumn = false;
+        try {
+            $checkStmt = $db->query("SHOW COLUMNS FROM class_students LIKE 'status'");
+            $hasStatusColumn = $checkStmt->rowCount() > 0;
+        } catch (Exception $e) {
+            // Column doesn't exist
+        }
+        
+        // Fetch all ACCEPTED students in the class only
+        if ($hasStatusColumn) {
+            $studentsStmt = $db->prepare("
+                SELECT 
+                    u.id as student_id,
+                    u.firstname,
+                    u.middlename,
+                    u.lastname,
+                    u.id_number,
+                    cs.joined_at as enrolled_at
+                FROM class_students cs
+                INNER JOIN users u ON cs.student_user_id = u.id
+                WHERE cs.class_id = ? AND u.status = 'active' AND cs.status = 'accepted'
+                ORDER BY u.lastname, u.firstname
+            ");
+        } else {
+            // Fallback for old schema - include all students
+            $studentsStmt = $db->prepare("
+                SELECT 
+                    u.id as student_id,
+                    u.firstname,
+                    u.middlename,
+                    u.lastname,
+                    u.id_number,
+                    cs.joined_at as enrolled_at
+                FROM class_students cs
+                INNER JOIN users u ON cs.student_user_id = u.id
+                WHERE cs.class_id = ? AND u.status = 'active'
+                ORDER BY u.lastname, u.firstname
+            ");
+        }
         $studentsStmt->execute([$classId]);
         $students = $studentsStmt->fetchAll(PDO::FETCH_ASSOC);
         error_log("get_student_performance.php - Found " . count($students) . " students");

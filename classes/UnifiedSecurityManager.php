@@ -322,5 +322,11 @@ class UnifiedSecurityManager {
         ini_set('session.cookie_httponly', 1);
         ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
         ini_set('session.use_strict_mode', 1);
+        ini_set('session.gc_maxlifetime', 7200); // 2 hours - prevent premature session deletion
+        
+        // Update last activity on every request to keep session alive
+        if (isset($_SESSION)) {
+            $_SESSION['last_activity'] = time();
+        }
     }
 }

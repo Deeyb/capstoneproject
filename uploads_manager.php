@@ -21,6 +21,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/classes/auth_helpers.php';
 require_once __DIR__ . '/config/Database.php';
+require_once __DIR__ . '/classes/ActivityAttemptService.php';
 require_once __DIR__ . '/classes/CourseService.php';
 
 // Manual auth check to avoid HTML redirects

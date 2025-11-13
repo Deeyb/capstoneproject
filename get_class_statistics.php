@@ -95,13 +95,32 @@ try {
         exit;
     }
     
-    // 1. Count Students Enrolled
-    $studentsStmt = $db->prepare("
-        SELECT COUNT(DISTINCT cs.student_user_id) as total_students
-        FROM class_students cs
-        INNER JOIN users u ON cs.student_user_id = u.id
-        WHERE cs.class_id = ? AND u.status = 'active'
-    ");
+    // Check if status column exists in class_students
+    $hasStatusColumn = false;
+    try {
+        $checkStmt = $db->query("SHOW COLUMNS FROM class_students LIKE 'status'");
+        $hasStatusColumn = $checkStmt->rowCount() > 0;
+    } catch (Exception $e) {
+        // Column doesn't exist
+    }
+    
+    // 1. Count Students Enrolled (ACCEPTED only)
+    if ($hasStatusColumn) {
+        $studentsStmt = $db->prepare("
+            SELECT COUNT(DISTINCT cs.student_user_id) as total_students
+            FROM class_students cs
+            INNER JOIN users u ON cs.student_user_id = u.id
+            WHERE cs.class_id = ? AND u.status = 'active' AND cs.status = 'accepted'
+        ");
+    } else {
+        // Fallback for old schema
+        $studentsStmt = $db->prepare("
+            SELECT COUNT(DISTINCT cs.student_user_id) as total_students
+            FROM class_students cs
+            INNER JOIN users u ON cs.student_user_id = u.id
+            WHERE cs.class_id = ? AND u.status = 'active'
+        ");
+    }
     $studentsStmt->execute([$classId]);
     $studentsCount = (int)$studentsStmt->fetchColumn();
     
@@ -120,13 +139,23 @@ try {
     
     $averageGrade = null;
     if (!empty($activities)) {
-        // Get all students in class
-        $classStudentsStmt = $db->prepare("
-            SELECT DISTINCT cs.student_user_id
-            FROM class_students cs
-            INNER JOIN users u ON cs.student_user_id = u.id
-            WHERE cs.class_id = ? AND u.status = 'active'
-        ");
+        // Get all ACCEPTED students in class only
+        if ($hasStatusColumn) {
+            $classStudentsStmt = $db->prepare("
+                SELECT DISTINCT cs.student_user_id
+                FROM class_students cs
+                INNER JOIN users u ON cs.student_user_id = u.id
+                WHERE cs.class_id = ? AND u.status = 'active' AND cs.status = 'accepted'
+            ");
+        } else {
+            // Fallback for old schema
+            $classStudentsStmt = $db->prepare("
+                SELECT DISTINCT cs.student_user_id
+                FROM class_students cs
+                INNER JOIN users u ON cs.student_user_id = u.id
+                WHERE cs.class_id = ? AND u.status = 'active'
+            ");
+        }
         $classStudentsStmt->execute([$classId]);
         $studentIds = $classStudentsStmt->fetchAll(PDO::FETCH_COLUMN);
         
@@ -192,13 +221,23 @@ try {
     
     $averageTopicsCompleted = null;
     if (!empty($lessons)) {
-        // Get all students in class
-        $classStudentsStmt = $db->prepare("
-            SELECT DISTINCT cs.student_user_id
-            FROM class_students cs
-            INNER JOIN users u ON cs.student_user_id = u.id
-            WHERE cs.class_id = ? AND u.status = 'active'
-        ");
+        // Get all ACCEPTED students in class only
+        if ($hasStatusColumn) {
+            $classStudentsStmt = $db->prepare("
+                SELECT DISTINCT cs.student_user_id
+                FROM class_students cs
+                INNER JOIN users u ON cs.student_user_id = u.id
+                WHERE cs.class_id = ? AND u.status = 'active' AND cs.status = 'accepted'
+            ");
+        } else {
+            // Fallback for old schema
+            $classStudentsStmt = $db->prepare("
+                SELECT DISTINCT cs.student_user_id
+                FROM class_students cs
+                INNER JOIN users u ON cs.student_user_id = u.id
+                WHERE cs.class_id = ? AND u.status = 'active'
+            ");
+        }
         $classStudentsStmt->execute([$classId]);
         $studentIds = $classStudentsStmt->fetchAll(PDO::FETCH_COLUMN);
         

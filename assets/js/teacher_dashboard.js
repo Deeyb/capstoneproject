@@ -6253,6 +6253,37 @@ function ensureLessonButtons(){
 loadRecentSnippets();
 
 // Ensure lesson buttons are properly set up
+// ===== SESSION KEEP-ALIVE MECHANISM =====
+// Prevent session timeout by updating last_activity every 60 seconds
+(function initSessionKeepAlive() {
+    function keepSessionAlive() {
+        // Make a lightweight request to update session activity
+        fetch('check_login_status.php?ping=1', {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-cache'
+        }).catch(function(err) {
+            console.warn('Session keep-alive failed:', err);
+        });
+    }
+    
+    // Start keep-alive every 60 seconds (before 2-3 minute timeout)
+    setInterval(keepSessionAlive, 60000);
+    
+    // Also update on user activity (mouse movement, clicks, keyboard)
+    let activityTimeout;
+    function onUserActivity() {
+        clearTimeout(activityTimeout);
+        activityTimeout = setTimeout(keepSessionAlive, 30000); // Update after 30 seconds of activity
+    }
+    
+    document.addEventListener('mousemove', onUserActivity);
+    document.addEventListener('click', onUserActivity);
+    document.addEventListener('keypress', onUserActivity);
+    
+    console.log('✅ Session keep-alive mechanism initialized');
+})();
+
 document.addEventListener('DOMContentLoaded', function(){
     ensureLessonButtons();
 });

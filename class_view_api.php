@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/unified_bootstrap.php';
 require_once __DIR__ . '/config/Database.php';
+require_once __DIR__ . '/classes/ActivityAttemptService.php';
 require_once __DIR__ . '/classes/ClassService.php';
 require_once __DIR__ . '/classes/CourseService.php';
 
@@ -25,6 +26,7 @@ try {
     
     // Accept either id or class_id; do not hard-require globally
     $classId = isset($_GET['id']) ? (int)$_GET['id'] : (isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0);
+    $classId = max(0, $classId);
 
     switch ($action) {
         case 'get_details':
@@ -50,6 +52,8 @@ try {
             if (!$cls) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Class not found']); exit; }
             $courseId = (int)($cls['course_id'] ?? 0);
             if ($courseId <= 0) { echo json_encode(['success'=>true,'modules'=>[]]); break; }
+            // Initialize CourseService once for this request
+            $courseSvc = new CourseService($db);
             try {
                 // Get all modules for the course
                 $mStmt = $db->prepare("SELECT id, title, position FROM course_modules WHERE course_id=? ORDER BY position ASC, id ASC");
@@ -81,7 +85,7 @@ try {
                         
                         $aStmt = $db->prepare("SELECT " . implode(', ', $selectFields) . " FROM lesson_activities WHERE lesson_id=? ORDER BY id ASC");
                         $aStmt->execute([$lesson['id']]);
-                        $activities = $aStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                        $activities = $courseSvc->listActivities($lesson['id'], $classId);
                         
                         // Ensure 'type' field exists in result (default to 'multiple_choice' if column doesn't exist)
                         foreach ($activities as &$act) {
@@ -93,9 +97,48 @@ try {
                         }
                         error_log("🔍 [API] Lesson {$lesson['id']} has " . count($activities) . " activities");
                         // Add availability status for each activity (but DON'T filter them out - show all activities)
-                        $courseSvc = new CourseService($db);
+                        
+                        // CRITICAL: Check student enrollment status if user is a student
+                        $studentStatus = null;
+                        $userId = $_SESSION['user_id'] ?? null;
+                        $userRole = strtolower($_SESSION['user_role'] ?? '');
+                        
+                        if ($userId && $userRole === 'student') {
+                            // Check if status column exists
+                            $hasStatus = false;
+                            try {
+                                $checkStmt = $db->query("SHOW COLUMNS FROM class_students LIKE 'status'");
+                                $hasStatus = $checkStmt->rowCount() > 0;
+                            } catch (Exception $e) {
+                                // Column doesn't exist
+                            }
+                            
+                            if ($hasStatus) {
+                                $statusStmt = $db->prepare("SELECT status FROM class_students WHERE class_id = ? AND student_user_id = ?");
+                                $statusStmt->execute([$classId, $userId]);
+                                $enrollment = $statusStmt->fetch(PDO::FETCH_ASSOC);
+                                $studentStatus = $enrollment['status'] ?? 'accepted';
+                                error_log("🔍 [API] Student {$userId} status in class {$classId}: {$studentStatus}");
+                            } else {
+                                $studentStatus = 'accepted'; // Default for old schema
+                            }
+                        }
+                        
                         foreach ($activities as &$act) {
-                            $availability = $courseSvc->checkActivityAvailability($act['id']);
+                            $availability = $courseSvc->checkActivityAvailability($act['id'], $classId);
+                            
+                            // CRITICAL: If student is pending or rejected, force lock regardless of dates
+                            if ($studentStatus && $studentStatus !== 'accepted') {
+                                $availability = [
+                                    'available' => false,
+                                    'status' => 'locked',
+                                    'reason' => $studentStatus === 'pending' 
+                                        ? '⏳ Your enrollment is pending approval. Please wait for the teacher to accept your request.'
+                                        : '❌ Your enrollment has been rejected. Please contact the teacher.'
+                                ];
+                                error_log("🔍 [API] Activity {$act['id']} LOCKED due to student status: {$studentStatus}");
+                            }
+                            
                             $act['availability'] = $availability;
                             error_log("🔍 [API] Activity {$act['id']} ({$act['title']}) - status: {$availability['status']}, available: " . ($availability['available'] ? 'true' : 'false'));
                         }
@@ -112,7 +155,10 @@ try {
                 
                 echo json_encode(['success'=>true,'modules'=>$modulesWithLessons]);
             } catch (Throwable $e) {
-                echo json_encode(['success'=>true,'modules'=>[]]);
+                error_log("❌ [list_topics] Error: " . $e->getMessage());
+                error_log("❌ [list_topics] Stack trace: " . $e->getTraceAsString());
+                http_response_code(500);
+                echo json_encode(['success'=>false,'message'=>'Failed to load topics: ' . $e->getMessage(),'modules'=>[]]);
             }
             break;
         case 'get_lesson_details':
@@ -133,11 +179,50 @@ try {
                 $materials = []; 
             }
             try { 
-                $activities = $courseSvc->listActivities($lessonId); 
+                $activities = $courseSvc->listActivities($lessonId, $classId);
                 error_log("✅ Activities found: " . count($activities));
-                // CRITICAL: Add availability status for each activity (same as in get_details)
+                
+                // CRITICAL: Check student enrollment status if user is a student
+                $studentStatus = null;
+                $userId = $_SESSION['user_id'] ?? null;
+                $userRole = strtolower($_SESSION['user_role'] ?? '');
+                
+                if ($userId && $userRole === 'student') {
+                    // Check if status column exists
+                    $hasStatus = false;
+                    try {
+                        $checkStmt = $db->query("SHOW COLUMNS FROM class_students LIKE 'status'");
+                        $hasStatus = $checkStmt->rowCount() > 0;
+                    } catch (Exception $e) {
+                        // Column doesn't exist
+                    }
+                    
+                    if ($hasStatus) {
+                        $statusStmt = $db->prepare("SELECT status FROM class_students WHERE class_id = ? AND student_user_id = ?");
+                        $statusStmt->execute([$classId, $userId]);
+                        $enrollment = $statusStmt->fetch(PDO::FETCH_ASSOC);
+                        $studentStatus = $enrollment['status'] ?? 'accepted';
+                        error_log("🔍 [get_lesson_details] Student {$userId} status in class {$classId}: {$studentStatus}");
+                    } else {
+                        $studentStatus = 'accepted'; // Default for old schema
+                    }
+                }
+                
                 foreach ($activities as &$act) {
-                    $availability = $courseSvc->checkActivityAvailability($act['id']);
+                    $availability = $courseSvc->checkActivityAvailability($act['id'], $classId);
+                    
+                    // CRITICAL: If student is pending or rejected, force lock regardless of dates
+                    if ($studentStatus && $studentStatus !== 'accepted') {
+                        $availability = [
+                            'available' => false,
+                            'status' => 'locked',
+                            'reason' => $studentStatus === 'pending' 
+                                ? '⏳ Your enrollment is pending approval. Please wait for the teacher to accept your request.'
+                                : '❌ Your enrollment has been rejected. Please contact the teacher.'
+                        ];
+                        error_log("🔍 [get_lesson_details] Activity {$act['id']} LOCKED due to student status: {$studentStatus}");
+                    }
+                    
                     $act['availability'] = $availability;
                     error_log("🔍 [get_lesson_details] Activity {$act['id']} ({$act['title']}) - status: {$availability['status']}, available: " . ($availability['available'] ? 'true' : 'false'));
                 }
@@ -167,6 +252,7 @@ try {
             break;
         case 'get_activity':
             $activityId = (int)($_GET['id'] ?? 0);
+            $classIdParam = isset($_GET['class_id']) ? (int)$_GET['class_id'] : $classId;
             error_log("🔍 DEBUG: get_activity called with ID: " . $activityId);
             
             if ($activityId <= 0) { 
@@ -184,12 +270,35 @@ try {
                 
                 // Try lesson_activities table first
                 $stmt = $db->prepare("
-                    SELECT la.id, la.title, la.type, la.max_score, la.instructions
+                    SELECT la.id, la.title, la.type, la.max_score, la.instructions, la.start_at, la.due_at
                     FROM lesson_activities la 
                     WHERE la.id = ?
                 ");
                 $stmt->execute([$activityId]);
                 $activity = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($activity && $classIdParam > 0) {
+                    // Check if class_activity_schedules table exists first
+                    try {
+                        $tableCheck = $db->query("SHOW TABLES LIKE 'class_activity_schedules'");
+                        $tableExists = $tableCheck->rowCount() > 0;
+                        
+                        if ($tableExists) {
+                            $scheduleStmt = $db->prepare("SELECT start_at, due_at FROM class_activity_schedules WHERE class_id = ? AND activity_id = ? LIMIT 1");
+                            $scheduleStmt->execute([$classIdParam, $activityId]);
+                            $schedule = $scheduleStmt->fetch(PDO::FETCH_ASSOC);
+                            if ($schedule) {
+                                $activity['original_start_at'] = $activity['start_at'] ?? null;
+                                $activity['original_due_at'] = $activity['due_at'] ?? null;
+                                $activity['start_at'] = $schedule['start_at'];
+                                $activity['due_at'] = $schedule['due_at'];
+                            }
+                        }
+                    } catch (Throwable $e) {
+                        error_log('⚠️ [get_activity] Failed to fetch class schedule: ' . $e->getMessage());
+                        // Continue with global schedule - no error thrown
+                    }
+                }
                 
                 // If not found, try activities table
                 if (!$activity) {

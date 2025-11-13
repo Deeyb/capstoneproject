@@ -111,12 +111,14 @@ class LeaderboardController {
                     AND aa1.score IS NOT NULL
                 GROUP BY aa1.user_id, aa1.activity_id
             ) best
-            JOIN users u ON best.user_id = u.id
+            JOIN class_students cs ON cs.student_user_id = best.user_id
+            JOIN users u ON cs.student_user_id = u.id
+            WHERE cs.class_id = ?
             GROUP BY best.user_id, u.firstname, u.lastname, u.middlename
             ORDER BY total_score DESC
             LIMIT " . (int)$limit . "
         ");
-        $stmt->execute($activityIds);
+        $stmt->execute(array_merge($activityIds, [$classId]));
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Add rank and format
@@ -166,8 +168,10 @@ class LeaderboardController {
                         AND aa1.score IS NOT NULL
                     GROUP BY aa1.user_id, aa1.activity_id
                 ) best
+                JOIN class_students cs ON cs.student_user_id = best.user_id
+                WHERE cs.class_id = ?
             ");
-            $userStmt->execute(array_merge($activityIds, [$userId]));
+            $userStmt->execute(array_merge($activityIds, [$userId, $classId]));
             $userData = $userStmt->fetch(PDO::FETCH_ASSOC);
             $userTotalScore = (float)($userData['total_score'] ?? 0);
             
@@ -191,11 +195,13 @@ class LeaderboardController {
                             AND aa2.score IS NOT NULL
                         GROUP BY aa2.user_id, aa2.activity_id
                     ) best
+                    JOIN class_students cs ON cs.student_user_id = best.user_id
+                    WHERE cs.class_id = ?
                     GROUP BY best.user_id
                     HAVING total_score > ?
                 ) ranked
             ");
-            $rankStmt->execute(array_merge($activityIds, [$userTotalScore]));
+            $rankStmt->execute(array_merge($activityIds, [$classId, $userTotalScore]));
             $rankData = $rankStmt->fetch(PDO::FETCH_ASSOC);
             $userRank = (int)($rankData['rank'] ?? null);
         }

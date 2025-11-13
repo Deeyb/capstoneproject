@@ -93,21 +93,56 @@ try {
         exit;
     }
     
-    // Get all enrolled students
-    $studentsStmt = $db->prepare("
-        SELECT 
-            u.id as student_id,
-            u.firstname,
-            u.middlename,
-            u.lastname,
-            u.id_number,
-            u.email,
-            cs.joined_at as enrolled_at
-        FROM class_students cs
-        INNER JOIN users u ON cs.student_user_id = u.id
-        WHERE cs.class_id = ? AND u.status = 'active'
-        ORDER BY u.lastname, u.firstname
-    ");
+    // Get all enrolled students with status
+    // Check if status column exists
+    $hasStatus = false;
+    try {
+        $checkStmt = $db->query("SHOW COLUMNS FROM class_students LIKE 'status'");
+        $hasStatus = $checkStmt->rowCount() > 0;
+    } catch (Exception $e) {
+        // Column doesn't exist
+    }
+    
+    if ($hasStatus) {
+        $studentsStmt = $db->prepare("
+            SELECT 
+                u.id as student_id,
+                u.firstname,
+                u.middlename,
+                u.lastname,
+                u.id_number,
+                u.email,
+                cs.joined_at as enrolled_at,
+                cs.status
+            FROM class_students cs
+            INNER JOIN users u ON cs.student_user_id = u.id
+            WHERE cs.class_id = ? AND u.status = 'active'
+            ORDER BY 
+                CASE cs.status 
+                    WHEN 'pending' THEN 1 
+                    WHEN 'accepted' THEN 2 
+                    WHEN 'rejected' THEN 3 
+                END,
+                u.lastname, u.firstname
+        ");
+    } else {
+        // Fallback for old schema
+        $studentsStmt = $db->prepare("
+            SELECT 
+                u.id as student_id,
+                u.firstname,
+                u.middlename,
+                u.lastname,
+                u.id_number,
+                u.email,
+                cs.joined_at as enrolled_at,
+                'accepted' as status
+            FROM class_students cs
+            INNER JOIN users u ON cs.student_user_id = u.id
+            WHERE cs.class_id = ? AND u.status = 'active'
+            ORDER BY u.lastname, u.firstname
+        ");
+    }
     $studentsStmt->execute([$classId]);
     $students = $studentsStmt->fetchAll(PDO::FETCH_ASSOC);
     
@@ -123,7 +158,8 @@ try {
             'name' => $studentName,
             'id_number' => $student['id_number'] ?? '',
             'email' => $student['email'] ?? '',
-            'enrolled_at' => $student['enrolled_at']
+            'enrolled_at' => $student['enrolled_at'],
+            'status' => $student['status'] ?? 'accepted' // Default to accepted if column doesn't exist
         ];
     }
     

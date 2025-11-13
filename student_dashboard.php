@@ -36,7 +36,13 @@ session_set_cookie_params([
     'samesite' => 'Lax'
 ]);
 
+// Set session lifetime BEFORE starting session (must be before session_start)
+ini_set('session.gc_maxlifetime', 7200); // 2 hours
 @session_start();
+// Update last activity to keep session alive
+if (isset($_SESSION)) {
+    $_SESSION['last_activity'] = time();
+}
 require_once 'config.php';
 require_once 'classes/auth_helpers.php';
 require_once __DIR__ . '/config/Database.php';

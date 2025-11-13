@@ -67,6 +67,7 @@ class SecurityConfig {
             ini_set('session.cookie_samesite', 'Lax');
             ini_set('session.use_strict_mode', 1);
             ini_set('session.cookie_lifetime', 0); // Session cookie
+            ini_set('session.gc_maxlifetime', 7200); // 2 hours - prevent premature session deletion
 
             // Start session (suppress warnings for permission issues)
             @session_start();

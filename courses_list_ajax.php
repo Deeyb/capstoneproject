@@ -34,6 +34,7 @@ try {
     }
 
     require_once __DIR__ . '/config/Database.php';
+    require_once __DIR__ . '/classes/ActivityAttemptService.php';
     require_once __DIR__ . '/classes/CourseService.php';
 
     $db = (new Database())->getConnection();
