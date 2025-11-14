@@ -55,10 +55,19 @@ function testSMTPConnection() {
     $password = EnvironmentLoader::get('SMTP_PASSWORD');
     $encryption = EnvironmentLoader::get('SMTP_ENCRYPTION', 'tls');
     
+    // Debug: Log what we're getting (but don't log password)
+    error_log("SMTP Test - Host: {$host}, Port: {$port}, Username: {$username}, Encryption: {$encryption}, Password length: " . strlen($password ?? ''));
+    
     if (empty($username) || empty($password)) {
         return [
             'success' => false,
-            'message' => 'SMTP credentials not configured'
+            'message' => 'SMTP credentials not configured. Please check your .env file.',
+            'debug' => [
+                'username_empty' => empty($username),
+                'password_empty' => empty($password),
+                'host' => $host,
+                'port' => $port
+            ]
         ];
     }
     
@@ -68,14 +77,33 @@ function testSMTPConnection() {
         require_once __DIR__ . '/PHPMailer/src/SMTP.php';
         
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        
+        // Enable verbose debugging
+        $mail->SMTPDebug = 0; // 0 = off, 1 = client messages, 2 = client and server messages
+        $mail->Debugoutput = function($str, $level) {
+            error_log("PHPMailer Debug: " . $str);
+        };
+        
         $mail->isSMTP();
         $mail->Host = $host;
         $mail->SMTPAuth = true;
         $mail->Username = $username;
+        
+        // CRITICAL: Remove any spaces from App Password (Gmail App Passwords sometimes have spaces)
+        $password = trim($password);
+        $password = str_replace(' ', '', $password); // Remove spaces from App Password
         $mail->Password = $password;
+        
         $mail->SMTPSecure = $encryption;
         $mail->Port = $port;
-        $mail->Timeout = 10; // 10 second timeout
+        $mail->Timeout = 15; // Increase timeout to 15 seconds
+        $mail->SMTPOptions = [
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            ]
+        ];
         
         // Test connection without sending
         $mail->smtpConnect();
@@ -92,10 +120,43 @@ function testSMTPConnection() {
             ]
         ];
         
-    } catch (Exception $e) {
+    } catch (\PHPMailer\PHPMailer\Exception $e) {
+        $errorMessage = $e->getMessage();
+        error_log("PHPMailer Exception: " . $errorMessage);
+        error_log("PHPMailer Error Info: " . $e->getErrorInfo());
+        
+        // Provide more helpful error messages
+        if (strpos($errorMessage, 'Authentication failed') !== false || strpos($errorMessage, '535') !== false) {
+            return [
+                'success' => false,
+                'message' => 'Authentication failed. Please check: 1) Your email and App Password are correct, 2) 2-Step Verification is enabled, 3) App Password was generated correctly.',
+                'error' => $errorMessage
+            ];
+        } elseif (strpos($errorMessage, 'Connection refused') !== false || strpos($errorMessage, 'Could not connect') !== false) {
+            return [
+                'success' => false,
+                'message' => 'Cannot connect to SMTP server. Check: 1) SMTP_HOST is correct, 2) SMTP_PORT is correct, 3) Firewall is not blocking the connection.',
+                'error' => $errorMessage
+            ];
+        } elseif (strpos($errorMessage, 'timeout') !== false) {
+            return [
+                'success' => false,
+                'message' => 'Connection timeout. The SMTP server may be unreachable or blocked.',
+                'error' => $errorMessage
+            ];
+        }
+        
         return [
             'success' => false,
-            'message' => 'SMTP connection failed: ' . $e->getMessage()
+            'message' => 'SMTP connection failed: ' . $errorMessage,
+            'error' => $errorMessage
+        ];
+    } catch (Exception $e) {
+        error_log("General Exception in SMTP test: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'SMTP connection failed: ' . $e->getMessage(),
+            'error' => $e->getMessage()
         ];
     }
 }

@@ -683,14 +683,64 @@ let reportsModule = null;
 
 // Initialize when Reports section is shown
 function initReportsModule() {
-    if (!reportsModule) {
+    console.log('📊 [Reports] Initializing Reports Module...');
+    
+    // Check if Reports section elements exist
+    const reportTypeFilter = document.getElementById('reportTypeFilter');
+    if (!reportTypeFilter) {
+        console.warn('📊 [Reports] reportTypeFilter not found, Reports section may not be loaded yet');
+        return false;
+    }
+    
+    // If module already exists, re-initialize it (in case section was hidden/shown)
+    if (reportsModule) {
+        console.log('📊 [Reports] Re-initializing existing Reports Module...');
+        try {
+            reportsModule.setup();
+            return true;
+        } catch (e) {
+            console.error('📊 [Reports] Error re-initializing:', e);
+            // Fall through to create new instance
+        }
+    }
+    
+    // Create new instance
+    try {
         reportsModule = new ReportsModule();
+        console.log('✅ [Reports] Reports Module initialized successfully');
+        return true;
+    } catch (e) {
+        console.error('❌ [Reports] Error initializing Reports Module:', e);
+        return false;
     }
 }
 
-// Auto-initialize if Reports section exists
-if (document.getElementById('reportTypeFilter')) {
-    initReportsModule();
+// Auto-initialize if Reports section exists and is visible
+function autoInitReportsModule() {
+    const reportTypeFilter = document.getElementById('reportTypeFilter');
+    const reportsSection = document.getElementById('reports');
+    
+    if (reportTypeFilter && reportsSection) {
+        // Check if section is visible
+        const isVisible = reportsSection.style.display !== 'none' && 
+                         !reportsSection.classList.contains('hidden') &&
+                         window.getComputedStyle(reportsSection).display !== 'none';
+        
+        if (isVisible) {
+            console.log('📊 [Reports] Auto-initializing (section is visible)...');
+            initReportsModule();
+        } else {
+            console.log('📊 [Reports] Section exists but is hidden, will initialize when shown');
+        }
+    }
+}
+
+// Try auto-initialization on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInitReportsModule);
+} else {
+    // DOM already loaded
+    setTimeout(autoInitReportsModule, 100);
 }
 
 // Export for manual initialization

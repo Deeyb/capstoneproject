@@ -248,6 +248,8 @@ function showSection(sectionName, clickedElement = null) {
   // Initialize section-specific functionality
   if (sectionName === 'profile') {
     console.log('👤 Loading Profile section...');
+    // Stop certification polling when switching away
+    stopCertificationPolling();
     // Initialize shared profile functionality
     if (typeof initSharedProfile === 'function') {
       try { 
@@ -261,8 +263,19 @@ function showSection(sectionName, clickedElement = null) {
     }
   } else if (sectionName === 'leaderboards') {
     console.log('🏆 Loading Leaderboards section...');
+    // Stop certification polling when switching away
+    stopCertificationPolling();
     // Leaderboards are per-class, so we just show a message directing users to select a class
     // The actual leaderboards are shown in the class dashboard's Leaderboards tab
+  } else if (sectionName === 'certification') {
+    console.log('🏅 Loading Certification section...');
+    // Load certifications immediately when section is shown
+    loadCertifications();
+    // Start real-time polling for certification progress
+    startCertificationPolling();
+  } else {
+    // Stop certification polling when switching to any other section
+    stopCertificationPolling();
   }
 }
 
@@ -952,26 +965,62 @@ function openFullLeaderboard(activityId) {
 
 // ===== CERTIFICATION FUNCTIONALITY =====
 
-async function loadCertifications() {
+// Cache for certification data to avoid unnecessary reloads
+let certificationCache = {
+  data: null,
+  timestamp: 0,
+  cacheDuration: 30000 // 30 seconds cache
+};
+
+// Polling interval for real-time updates
+let certificationPollInterval = null;
+
+async function loadCertifications(forceRefresh = false) {
   const contentDiv = document.getElementById('certificationContent');
-  if (!contentDiv) return;
+  if (!contentDiv) {
+    console.warn('🏅 [Certification] Content div not found');
+    return;
+  }
   
-  try {
-    // Show loading state
+  // Check cache first (unless force refresh)
+  const now = Date.now();
+  if (!forceRefresh && certificationCache.data && (now - certificationCache.timestamp) < certificationCache.cacheDuration) {
+    console.log('🏅 [Certification] Using cached data');
+    renderCertificationCards(certificationCache.data, contentDiv);
+    return;
+  }
+  
+  // Only show loading if content is empty or we're forcing refresh
+  if (!contentDiv.innerHTML || contentDiv.innerHTML.trim() === '' || forceRefresh) {
     contentDiv.innerHTML = `
       <div style="text-align:center;padding:40px;color:#6b7280;">
         <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#1d9b3e;margin-bottom:16px;"></i>
         <p style="font-size:16px;margin:0;">Loading certifications...</p>
       </div>
     `;
-    
+  }
+  
+  try {
     console.log('🏅 [Certification] Fetching certification data...');
-    const response = await fetch('get_certification_data.php', {
-      credentials: 'same-origin'
+    
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    const response = await fetch('get_certification_data.php?_t=' + Date.now(), {
+      credentials: 'same-origin',
+      cache: 'no-cache',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      },
+      signal: controller.signal
     });
     
+    clearTimeout(timeoutId);
+    
     console.log('🏅 [Certification] Response status:', response.status, response.statusText);
-    console.log('🏅 [Certification] Response headers:', response.headers.get('content-type'));
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -995,6 +1044,10 @@ async function loadCertifications() {
     
     const certifications = data.certifications || [];
     
+    // Update cache
+    certificationCache.data = certifications;
+    certificationCache.timestamp = now;
+    
     if (certifications.length === 0) {
       contentDiv.innerHTML = `
         <div style="text-align:center;padding:60px 40px;color:#6b7280;">
@@ -1015,16 +1068,63 @@ async function loadCertifications() {
     renderCertificationCards(certifications, contentDiv);
     
   } catch (error) {
-    console.error('Error loading certifications:', error);
-    contentDiv.innerHTML = `
-      <div style="text-align:center;padding:60px 40px;color:#ef4444;">
-        <i class="fas fa-exclamation-circle" style="font-size:48px;margin-bottom:16px;"></i>
-        <h3 style="font-size:18px;font-weight:600;margin:0 0 8px 0;">Error Loading Certifications</h3>
-        <p style="font-size:14px;margin:0;color:#6b7280;">${escapeHtml(error.message || 'Unknown error')}</p>
-      </div>
-    `;
+    console.error('🏅 [Certification] Error loading certifications:', error);
+    
+    // Only show error if it's a real error (not timeout during background refresh)
+    if (forceRefresh || !certificationCache.data) {
+      contentDiv.innerHTML = `
+        <div style="text-align:center;padding:60px 40px;color:#ef4444;">
+          <i class="fas fa-exclamation-circle" style="font-size:48px;margin-bottom:16px;"></i>
+          <h3 style="font-size:18px;font-weight:600;margin:0 0 8px 0;">Error Loading Certifications</h3>
+          <p style="font-size:14px;margin:0;color:#6b7280;">${escapeHtml(error.message || 'Unknown error')}</p>
+          <button onclick="loadCertifications(true)" style="margin-top:16px;padding:8px 16px;background:#1d9b3e;color:white;border:none;border-radius:6px;cursor:pointer;">
+            <i class="fas fa-redo"></i> Retry
+          </button>
+        </div>
+      `;
+    } else {
+      // If we have cached data, keep showing it even if refresh fails
+      console.log('🏅 [Certification] Refresh failed, keeping cached data');
+    }
   }
 }
+
+// Start real-time polling for certification progress
+function startCertificationPolling() {
+  // Clear any existing polling
+  if (certificationPollInterval) {
+    clearInterval(certificationPollInterval);
+    certificationPollInterval = null;
+  }
+  
+  console.log('🏅 [Certification] Starting real-time polling...');
+  
+  // Poll every 30 seconds for updates
+  certificationPollInterval = setInterval(() => {
+    const contentDiv = document.getElementById('certificationContent');
+    const certificationSection = document.getElementById('certification');
+    
+    // Only poll if certification section is visible
+    if (contentDiv && certificationSection && certificationSection.style.display !== 'none') {
+      console.log('🏅 [Certification] Background refresh...');
+      loadCertifications(true); // Force refresh
+    } else {
+      console.log('🏅 [Certification] Section not visible, skipping poll');
+    }
+  }, 30000); // Poll every 30 seconds
+}
+
+// Stop polling when leaving certification section
+function stopCertificationPolling() {
+  if (certificationPollInterval) {
+    console.log('🏅 [Certification] Stopping polling...');
+    clearInterval(certificationPollInterval);
+    certificationPollInterval = null;
+  }
+}
+
+// Make loadCertifications globally accessible for retry button
+window.loadCertifications = loadCertifications;
 
 function renderCertificationCards(certifications, container) {
   const cardsHTML = certifications.map(cert => {
@@ -1216,6 +1316,8 @@ document.addEventListener('DOMContentLoaded', function() {
   } else if (section === 'certification') {
     console.log('🏅 Loading Certification section...');
     loadCertifications();
+    // Start real-time polling for certification progress
+    startCertificationPolling();
   } else if (section === 'profile') {
     console.log('👤 Loading Profile section...');
     // Initialize shared profile functionality

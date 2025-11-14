@@ -65,94 +65,164 @@ function initializeStudentView() {
 
 // Real-time status polling for students
 function startStudentStatusPolling() {
-  const classId = window.__CLASS_ID__ || getClassIdFromURL();
-  if (!classId) {
-    console.warn('⚠️ [AVG SCORE] No class ID set, returning 0');
-    return 0;
+  // Clear any existing polling first
+  if (window.__studentStatusPollInterval__) {
+    console.log('🔄 Clearing existing polling interval');
+    clearInterval(window.__studentStatusPollInterval__);
+    window.__studentStatusPollInterval__ = null;
   }
   
-  let currentStatus = window.__STUDENT_STATUS__ || 'pending';
+  const classId = window.__CLASS_ID__ || getClassIdFromURL();
+  if (!classId) {
+    console.error('❌ [POLLING] No class ID set, cannot start polling');
+    return;
+  }
+  
+  let currentStatus = String(window.__STUDENT_STATUS__ || 'pending').toLowerCase().trim();
   let pollCount = 0;
-  const maxPolls = 300; // Poll for 5 minutes (300 * 1 second)
+  const maxPolls = 600; // Poll for 10 minutes (600 * 2 seconds) - increased time limit
+  const pollIntervalMs = 2000; // Poll every 2 seconds (balanced: fast enough for real-time, not too heavy on server)
   
-  console.log('🔄 Starting real-time status polling for class:', classId);
+  console.log('🔄 [POLLING] Starting real-time enrollment status polling');
+  console.log('🔄 [POLLING] Class ID:', classId);
+  console.log('🔄 [POLLING] Initial status:', currentStatus);
+  console.log('🔄 [POLLING] Poll interval:', pollIntervalMs, 'ms (every', pollIntervalMs/1000, 'seconds)');
+  console.log('🔄 [POLLING] Max polls:', maxPolls, '(will run for', (maxPolls * pollIntervalMs / 1000 / 60).toFixed(1), 'minutes)');
   
-  const pollInterval = setInterval(() => {
+  // Shared function to check status
+  const checkStatus = () => {
     pollCount++;
     
     // Stop polling after max attempts
     if (pollCount > maxPolls) {
-      console.log('⏹️ Status polling stopped after maximum attempts');
-      clearInterval(pollInterval);
+      console.log('⏹️ [POLLING] Status polling stopped after maximum attempts (10 minutes)');
+      if (window.__studentStatusPollInterval__) {
+        clearInterval(window.__studentStatusPollInterval__);
+        window.__studentStatusPollInterval__ = null;
+      }
+      // Show message that polling stopped
+      if (currentStatus === 'pending' || currentStatus === 'rejected') {
+        if (typeof window.showNotification === 'function') {
+          window.showNotification('info', 'Status Check Stopped', 'Real-time status checking has stopped. Please refresh the page to check your enrollment status.');
+        }
+      }
       return;
     }
     
+    console.log(`🔍 [POLL #${pollCount}] Checking status - Current: "${currentStatus}"`);
+    
     // Check status
-    fetch(`get_student_enrollment_status.php?class_id=${classId}`, {
+    fetch(`get_student_enrollment_status.php?class_id=${classId}&_t=${Date.now()}`, {
       credentials: 'same-origin',
-      cache: 'no-cache'
+      cache: 'no-cache',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
     })
     .then(response => {
+      console.log(`🔍 [POLL #${pollCount}] Response status:`, response.status, response.statusText);
       const contentType = response.headers.get('Content-Type') || '';
       if (!contentType.includes('application/json')) {
         return response.text().then(text => {
-          console.error('Non-JSON response:', text.substring(0, 500));
+          console.error(`❌ [POLL #${pollCount}] Non-JSON response:`, text.substring(0, 500));
           throw new Error('Server returned non-JSON response');
         });
       }
       return response.json();
     })
     .then(data => {
-      if (data.success && data.status) {
-        const newStatus = data.status;
+      console.log(`🔍 [POLL #${pollCount}] Status check response:`, data);
+      
+      if (data && data.success && data.status) {
+        const newStatus = String(data.status).toLowerCase().trim();
+        const oldStatus = String(currentStatus).toLowerCase().trim();
+        
+        console.log(`🔍 [POLL #${pollCount}] Status comparison - Old: "${oldStatus}", New: "${newStatus}"`);
         
         // If status changed from pending/rejected to accepted
-        if ((currentStatus === 'pending' || currentStatus === 'rejected') && newStatus === 'accepted') {
-          console.log('✅ Status changed to ACCEPTED! Unlocking content...');
+        if ((oldStatus === 'pending' || oldStatus === 'rejected') && newStatus === 'accepted') {
+          console.log('✅✅✅ [POLLING] STATUS CHANGED TO ACCEPTED! Unlocking content...');
+          console.log('✅ [POLLING] Old status:', oldStatus, 'New status:', newStatus);
           
-          // Stop polling
-          clearInterval(pollInterval);
+          // Stop polling immediately
+          if (window.__studentStatusPollInterval__) {
+            clearInterval(window.__studentStatusPollInterval__);
+            window.__studentStatusPollInterval__ = null;
+          }
           
           // Update global status
           window.__STUDENT_STATUS__ = 'accepted';
+          currentStatus = 'accepted';
           
           // Show success notification
-          if (typeof showNotification === 'function') {
-            showNotification('success', 'Enrollment Accepted!', 'Your enrollment has been accepted. You can now access all activities.');
+          if (typeof window.showNotification === 'function') {
+            window.showNotification('success', '🎉 Enrollment Accepted!', 'Your enrollment has been accepted. You can now access all activities!');
           } else if (typeof showSuccess === 'function') {
             showSuccess('Enrollment Accepted!', 'Your enrollment has been accepted. You can now access all activities.');
           } else {
-            alert('✅ Your enrollment has been accepted! The page will now refresh.');
+            alert('✅ Your enrollment has been accepted! Loading activities...');
           }
           
           // Unlock and reload content WITHOUT page refresh
           unlockStudentContent();
-        } else if (currentStatus !== newStatus) {
+        } else if (oldStatus !== newStatus) {
           // Status changed but not to accepted (e.g., accepted -> rejected)
-          console.log('⚠️ Status changed from', currentStatus, 'to', newStatus);
+          console.log(`⚠️ [POLL #${pollCount}] Status changed from "${oldStatus}" to "${newStatus}"`);
           currentStatus = newStatus;
           window.__STUDENT_STATUS__ = newStatus;
           
           if (newStatus === 'rejected') {
-            if (typeof showNotification === 'function') {
-              showNotification('error', 'Enrollment Rejected', 'Your enrollment has been rejected. Please contact the teacher.');
+            // Stop polling if rejected
+            if (window.__studentStatusPollInterval__) {
+              clearInterval(window.__studentStatusPollInterval__);
+              window.__studentStatusPollInterval__ = null;
+            }
+            
+            if (typeof window.showNotification === 'function') {
+              window.showNotification('error', 'Enrollment Rejected', 'Your enrollment has been rejected. Please contact the teacher.');
             } else if (typeof showError === 'function') {
               showError('Enrollment Rejected', 'Your enrollment has been rejected. Please contact the teacher.');
             } else {
               alert('⚠️ Your enrollment has been rejected. Please contact the teacher.');
             }
           }
+        } else {
+          // Status hasn't changed - log every 10th poll to avoid spam
+          if (pollCount % 10 === 0) {
+            console.log(`🔍 [POLL #${pollCount}] Status unchanged: "${newStatus}"`);
+          }
         }
+      } else {
+        console.warn(`⚠️ [POLL #${pollCount}] Invalid response:`, data);
       }
     })
     .catch(error => {
-      console.error('Error polling student status:', error);
+      console.error(`❌ [POLL #${pollCount}] Error polling student status:`, error);
       // Don't stop polling on error - continue trying
+      // But log the error for debugging
+      if (pollCount % 10 === 0) { // Log every 10th error to avoid spam
+        console.warn('⚠️ Status polling error (continuing):', error.message);
+        console.warn('⚠️ Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      }
     });
-  }, 1000); // Poll every 1 second
+  };
+  
+  // Do an immediate check first (don't wait for first interval)
+  console.log('🔄 [POLLING] Performing immediate status check...');
+  checkStatus();
+  
+  // Then set up interval for regular polling
+  const pollInterval = setInterval(checkStatus, pollIntervalMs);
   
   // Store interval ID so it can be cleared if needed
   window.__studentStatusPollInterval__ = pollInterval;
+  console.log('✅ [POLLING] Polling started, interval ID:', pollInterval);
 }
 
 // Function to unlock student content when status changes to accepted
@@ -261,70 +331,71 @@ function unlockStudentContent() {
   // CRITICAL: Set a flag to force unlock even if API returns locked
   window.__FORCE_UNLOCK__ = true;
   
-  // CRITICAL: Wait a bit for DOM to update before loading content
-  setTimeout(() => {
-    // Verify status is set correctly
-    if (window.__STUDENT_STATUS__ !== 'accepted') {
-      console.warn('⚠️ Status not set to accepted yet, forcing update...');
-      window.__STUDENT_STATUS__ = 'accepted';
-    }
+  // CRITICAL: Verify status is set correctly BEFORE loading
+  if (window.__STUDENT_STATUS__ !== 'accepted') {
+    console.warn('⚠️ [UNLOCK] Status not set to accepted yet, forcing update...');
+    window.__STUDENT_STATUS__ = 'accepted';
+  }
+  
+  // CRITICAL: Set force unlock flag BEFORE loading
+  window.__FORCE_UNLOCK__ = true;
+  console.log('🔓 [UNLOCK] Force unlock flag set:', window.__FORCE_UNLOCK__);
+  console.log('🔓 [UNLOCK] Current status:', window.__STUDENT_STATUS__);
+  
+  // Load content immediately (no delay needed - status is already updated in DB)
+  // Load class details and overview
+  if (typeof loadDetails === 'function') {
+    console.log('🔓 [UNLOCK] Calling loadDetails()...');
+    loadDetails();
+  }
+  if (typeof loadOverview === 'function') {
+    console.log('🔓 [UNLOCK] Calling loadOverview()...');
+    loadOverview();
+  }
+  
+  // Load topics/activities - THIS IS THE KEY FUNCTION
+  if (typeof loadTopicsFromCourse === 'function') {
+    console.log('🔓 [UNLOCK] Calling loadTopicsFromCourse()...');
+    console.log('🔓 [UNLOCK] Status before call:', window.__STUDENT_STATUS__);
+    console.log('🔓 [UNLOCK] Force unlock flag:', window.__FORCE_UNLOCK__);
+    loadTopicsFromCourse();
+  } else {
+    console.error('❌ [UNLOCK] loadTopicsFromCourse function not found');
+  }
+  
+  // Load leaderboards
+  if (typeof loadClassLeaderboards === 'function') {
+    console.log('🔓 [UNLOCK] Calling loadClassLeaderboards()...');
+    loadClassLeaderboards();
+  }
+  
+  // Load student progress
+  if (typeof loadStudentProgress === 'function') {
+    console.log('🔓 [UNLOCK] Calling loadStudentProgress()...');
+    loadStudentProgress();
+  }
+  
+  // Initialize student view UI (bypassing status check to avoid polling)
+  console.log('🔓 [UNLOCK] Setting up student view UI (status already accepted)...');
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  if (userRole === 'student') {
+    // Hide teacher-only elements
+    const teacherOnlyElements = document.querySelectorAll('[data-teacher-only]');
+    teacherOnlyElements.forEach(el => {
+      if (el) el.style.display = 'none';
+    });
     
-    // Load class details and overview
-    if (typeof loadDetails === 'function') {
-      console.log('🔓 Calling loadDetails()...');
-      loadDetails();
-    }
-    if (typeof loadOverview === 'function') {
-      console.log('🔓 Calling loadOverview()...');
-      loadOverview();
-    }
+    // Show student-specific elements
+    const studentElements = document.querySelectorAll('[data-student-only]');
+    studentElements.forEach(el => {
+      if (el) el.style.display = 'block';
+    });
     
-    // Load topics/activities - THIS IS THE KEY FUNCTION
-    if (typeof loadTopicsFromCourse === 'function') {
-      console.log('🔓 Calling loadTopicsFromCourse()...');
-      console.log('🔓 Status before call:', window.__STUDENT_STATUS__);
-      console.log('🔓 Force unlock flag:', window.__FORCE_UNLOCK__);
-      loadTopicsFromCourse();
-    } else {
-      console.error('⚠️ loadTopicsFromCourse function not found');
-    }
-    
-    // Load leaderboards
-    if (typeof loadClassLeaderboards === 'function') {
-      console.log('🔓 Calling loadClassLeaderboards()...');
-      loadClassLeaderboards();
-    }
-    
-    // Load student progress
-    if (typeof loadStudentProgress === 'function') {
-      console.log('🔓 Calling loadStudentProgress()...');
-      loadStudentProgress();
-    }
-    
-    // Initialize student view UI (bypassing status check to avoid polling)
-    console.log('🔓 Setting up student view UI (status already accepted)...');
-    const userRole = (window.__USER_ROLE__ || '').toLowerCase();
-    if (userRole === 'student') {
-      // Hide teacher-only elements
-      const teacherOnlyElements = document.querySelectorAll('[data-teacher-only]');
-      teacherOnlyElements.forEach(el => {
-        if (el) el.style.display = 'none';
-      });
-      
-      // Show student-specific elements
-      const studentElements = document.querySelectorAll('[data-student-only]');
-      studentElements.forEach(el => {
-        if (el) el.style.display = 'block';
-      });
-      
-      // Update page title
-      document.title = 'Class - Student View';
-      
-      // Note: loadStudentProgress already called above, no need to call again
-    }
-    
-    console.log('✅ Content unlocked and loaded - NO PAGE RELOAD needed!');
-  }, 800); // Increased delay to ensure API has time to update
+    // Update page title
+    document.title = 'Class - Student View';
+  }
+  
+  console.log('✅ [UNLOCK] Content unlocked and loaded - NO PAGE RELOAD needed!');
 }
 
 function initializeTeacherView() {
@@ -6832,10 +6903,22 @@ async function saveUnlockActivity(activityId, activityTitle, modal) {
       csrfToken = data.token || null;
     }
     if (!csrfToken) {
+      // Check if session might have expired
+      const checkSession = await fetch('check_login_status.php', { credentials: 'same-origin' }).catch(() => null);
+      let sessionMessage = 'Failed to get security token.';
+      if (checkSession) {
+        const sessionData = await checkSession.json().catch(() => null);
+        if (sessionData && !sessionData.valid) {
+          sessionMessage = 'Your session has expired. Please refresh the page and log in again.';
+        } else {
+          sessionMessage = 'Failed to get security token. Please refresh the page and try again.';
+        }
+      }
+      
       if (typeof window.showNotification === 'function') {
-        window.showNotification('error', 'Error', 'Failed to get security token. Please refresh the page and try again.');
+        window.showNotification('error', 'Error', sessionMessage);
       } else {
-        alert('Error: Failed to get security token. Please refresh the page and try again.');
+        alert(sessionMessage);
       }
       saveBtn.innerHTML = originalText;
       saveBtn.disabled = false;
@@ -6867,92 +6950,110 @@ async function saveUnlockActivity(activityId, activityTitle, modal) {
       }
       modal.remove();
       
-      // Preserve expanded topics before reloading
-      const expandedTopics = new Set();
-      document.querySelectorAll('.topic-item').forEach(topic => {
-        const body = topic.querySelector('.topic-body');
-        if (body && body.style.display !== 'none' && body.innerHTML.trim() !== '') {
-          const topicId = topic.getAttribute('data-topic-id') || topic.getAttribute('data-lesson-id');
-          if (topicId) {
-            expandedTopics.add(topicId);
+      // IMMEDIATE UI UPDATE - No waiting for API
+      const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
+      if (activityCard) {
+        // Format dates for display
+        const formatDateForDisplay = (dateTimeStr) => {
+          if (!dateTimeStr) return 'Not set';
+          try {
+            const dt = new Date(dateTimeStr);
+            const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            return `${dateStr} ${timeStr}`;
+          } catch (e) {
+            return dateTimeStr;
+          }
+        };
+        
+        const formattedStartDate = formatDateForDisplay(startDateTime);
+        const formattedDueDate = formatDateForDisplay(dueDateTime);
+        
+        // Update dates immediately
+        const startDateValue = activityCard.querySelector('.activity-date.start .date-value');
+        const dueDateValue = activityCard.querySelector('.activity-date.end .date-value');
+        if (startDateValue) startDateValue.textContent = formattedStartDate;
+        if (dueDateValue) dueDateValue.textContent = formattedDueDate;
+        
+        // Replace unlock button with menu immediately
+        const unlockBtn = activityCard.querySelector('.btn-unlock');
+        const activityStats = activityCard.querySelector('.activity-stats');
+        
+        if (unlockBtn && activityStats) {
+          // Check if menu already exists
+          let activityMenu = activityCard.querySelector('.activity-menu');
+          
+          if (!activityMenu) {
+            // Create the menu if it doesn't exist
+            const cardTitle = activityCard.querySelector('.activity-title')?.textContent || activityTitle || 'Activity';
+            const escapedTitle = cardTitle.replace(/"/g, '&quot;');
+            const activityType = activityCard.getAttribute('data-type') || '';
+            const isManualGrading = activityType === 'essay' || activityType === 'upload_based';
+            
+            activityMenu = document.createElement('div');
+            activityMenu.className = 'activity-menu';
+            activityMenu.innerHTML = `
+              <i class="fas fa-ellipsis-v"></i>
+              <div class="activity-dropdown" style="display: none;" data-activity-id="${activityId}">
+                <div class="dropdown-item" onclick="lockActivity(${activityId}, '${escapedTitle}')">
+                  <i class="fas fa-lock"></i> Lock Activity
+                </div>
+                <div class="dropdown-item" onclick="handleTryAnswering(${activityId})">
+                  <i class="fas fa-play"></i> Try answering
+                </div>
+                ${isManualGrading ? `
+                <div class="dropdown-item" onclick="if(typeof showGradingModal === 'function') { showGradingModal(${activityId}, '${escapedTitle}'); } else { console.error('showGradingModal function not found'); alert('Grading function not available. Please refresh the page.'); }">
+                  <i class="fas fa-check-circle"></i> Grade Submissions
+                </div>
+                ` : ''}
+              </div>
+            `;
+          }
+          
+          // Replace unlock button with menu
+          unlockBtn.replaceWith(activityMenu);
+          
+          // Update status classes
+          activityCard.classList.remove('activity-locked');
+          activityCard.classList.add('activity-open');
+          
+          const leftBorder = activityCard.querySelector('.activity-left-border');
+          if (leftBorder) {
+            leftBorder.classList.remove('border-locked');
+            leftBorder.classList.add('border-open');
+          }
+          
+          // Update status badge
+          let statusBadgeContainer = activityCard.querySelector('.activity-status-badge-top-right');
+          if (!statusBadgeContainer) {
+            statusBadgeContainer = document.createElement('div');
+            statusBadgeContainer.className = 'activity-status-badge-top-right';
+            const content = activityCard.querySelector('.activity-content');
+            if (content) {
+              content.insertBefore(statusBadgeContainer, content.firstChild);
+            } else {
+              activityCard.insertBefore(statusBadgeContainer, activityCard.firstChild);
+            }
+          }
+          statusBadgeContainer.innerHTML = '<span class="activity-status-badge badge-open"><i class="fas fa-check-circle"></i> Open</span>';
+          
+          // Update activity status circle
+          const activityStatusCircle = activityCard.querySelector('.stat-circle.activity-status');
+          if (activityStatusCircle) {
+            const statusValue = activityStatusCircle.querySelector('.stat-value');
+            const statusLabel = activityStatusCircle.querySelector('.stat-label');
+            if (statusValue) statusValue.textContent = '00:00';
+            if (statusLabel) statusLabel.textContent = 'Activity open';
           }
         }
-      });
+      }
       
-      // Force immediate status check and update only the specific activity card
+      // Also trigger API update in background to sync everything
       setTimeout(() => {
         if (typeof checkAndUpdateActivityStatuses === 'function') {
           checkAndUpdateActivityStatuses();
         }
-        
-        // Try to update just the specific activity card instead of reloading everything
-        const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
-        if (activityCard) {
-          // Fetch fresh activity data and update just this card
-          const classId = window.__CLASS_ID__;
-          if (classId) {
-            fetch(`class_view_api.php?action=list_topics&id=${encodeURIComponent(classId)}&class_id=${encodeURIComponent(classId)}`, { credentials: 'same-origin' })
-              .then(r => r.json())
-              .then(res => {
-                if (res && res.success && res.modules) {
-                  // Find the updated activity data
-                  for (const module of res.modules || []) {
-                    for (const lesson of module.lessons || []) {
-                      const activity = (lesson.activities || []).find(a => a.id == activityId);
-                      if (activity) {
-                        // Update just this activity card
-                        const availability = activity.availability || {};
-                        const newStatus = {
-                          status: availability.status || 'locked',
-                          startAt: activity.start_at || null,
-                          dueAt: activity.due_at || null
-                        };
-                        if (typeof updateActivityCardStatus === 'function') {
-                          updateActivityCardStatus(activityCard, newStatus);
-                        }
-                        break;
-                      }
-                    }
-                  }
-                }
-              })
-              .catch(err => {
-                console.error('Error updating activity card:', err);
-                // Fallback to full reload if update fails
-      if (typeof loadTopicsFromCourse === 'function') {
-        loadTopicsFromCourse();
-                  // Restore expanded topics after reload (wait for DOM to update)
-                  setTimeout(() => {
-                    expandedTopics.forEach(topicId => {
-                      const topic = document.querySelector(`[data-topic-id="${topicId}"], [data-lesson-id="${topicId}"]`);
-                      if (topic) {
-                        const header = topic.querySelector('.topic-header');
-                        if (header) header.click();
-                      }
-                    });
-                  }, 1000);
-                }
-              });
-          }
-        } else {
-          // If card not found, do full reload but preserve expanded state
-          if (typeof loadTopicsFromCourse === 'function') {
-            loadTopicsFromCourse();
-            // Restore expanded topics after reload (wait for DOM to update)
-            setTimeout(() => {
-              expandedTopics.forEach(topicId => {
-                const topic = document.querySelector(`[data-topic-id="${topicId}"], [data-lesson-id="${topicId}"]`);
-                if (topic) {
-                  const header = topic.querySelector('.topic-header');
-                  if (header) header.click();
-                }
-              });
-            }, 1000);
-      } else {
-        location.reload();
-      }
-        }
-      }, 500); // Small delay to ensure database is updated
+      }, 500);
     } else {
       throw new Error(result?.message || 'Failed to unlock activity');
     }
@@ -7024,9 +7125,34 @@ async function getCSRFToken() {
       body: fd,
       credentials: 'same-origin'
     });
+    
+    // Check if response is OK
+    if (!response.ok) {
+      console.error('CSRF token fetch failed with status:', response.status);
+      // If 401/403, session might have expired
+      if (response.status === 401 || response.status === 403) {
+        console.warn('⚠️ Session may have expired. User may need to refresh the page.');
+      }
+      return null;
+    }
+    
+    // Check content type
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('CSRF token response is not JSON:', text.substring(0, 200));
+      return null;
+    }
+    
     const data = await response.json();
     if (data.success && data.token) {
       return data.token;
+    } else if (data.message) {
+      console.error('CSRF token fetch error:', data.message);
+      // If authentication error, suggest refresh
+      if (data.message.includes('Not authenticated') || data.message.includes('Session')) {
+        console.warn('⚠️ Authentication issue detected. User should refresh the page.');
+      }
     }
   } catch (e) {
     console.error('Error fetching CSRF token:', e);
@@ -9789,18 +9915,25 @@ function startActivityStatusPolling() {
     clearInterval(activityStatusPollingInterval);
   }
   
-  // Poll every 30 seconds to check for activity unlock/lock status changes
-  // Reduced frequency to minimize unnecessary updates and console spam
+  // Determine polling interval based on user role
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  const isStudent = userRole === 'student';
+  
+  // Students need faster polling for real-time updates (5 seconds)
+  // Teachers/coordinators can use slower polling (30 seconds) to reduce server load
+  const pollingInterval = isStudent ? 5000 : 30000; // 5 seconds for students, 30 seconds for teachers
+  
+  // Poll to check for activity unlock/lock status changes
   activityStatusPollingInterval = setInterval(function() {
     checkAndUpdateActivityStatuses();
-  }, 30000); // 30 seconds (balanced between responsiveness and performance)
+  }, pollingInterval);
   
   // Also check immediately on page load
   setTimeout(function() {
     checkAndUpdateActivityStatuses();
   }, 2000); // Wait 2 seconds after page load
   
-  console.log('✅ Started real-time activity status polling (every 30 seconds)');
+  console.log(`✅ Started real-time activity status polling (every ${pollingInterval / 1000} seconds)`);
 }
 
 function stopActivityStatusPolling() {
@@ -9864,12 +9997,31 @@ async function checkAndUpdateActivityStatuses() {
       const storedStatus = card.getAttribute('data-last-status');
       const currentStatus = storedStatus || getCurrentActivityStatus(card);
       
-      // Only update if status actually changed (prevents unnecessary UI updates and console spam)
-      if (currentStatus !== latestStatus.status) {
-        console.log(`🔄 Activity ${activityId} status changed: ${currentStatus || 'unknown'} → ${latestStatus.status}`);
+      // Get stored dates from card
+      const storedStartAt = card.getAttribute('data-last-start-at') || '';
+      const storedDueAt = card.getAttribute('data-last-due-at') || '';
+      const latestStartAt = latestStatus.start_at || '';
+      const latestDueAt = latestStatus.due_at || '';
+      
+      // Check if status or dates changed
+      const statusChanged = currentStatus !== latestStatus.status;
+      const datesChanged = storedStartAt !== latestStartAt || storedDueAt !== latestDueAt;
+      
+      // Update if status or dates changed
+      if (statusChanged || datesChanged) {
+        if (statusChanged) {
+          console.log(`🔄 Activity ${activityId} status changed: ${currentStatus || 'unknown'} → ${latestStatus.status}`);
+        }
+        if (datesChanged) {
+          console.log(`🔄 Activity ${activityId} dates updated`);
+        }
         updateActivityCardStatus(card, latestStatus);
+        
+        // Store current dates for next comparison
+        card.setAttribute('data-last-start-at', latestStartAt);
+        card.setAttribute('data-last-due-at', latestDueAt);
       }
-      // If status hasn't changed, skip the update to avoid unnecessary DOM manipulation
+      // If nothing changed, skip the update to avoid unnecessary DOM manipulation
     });
     
   } catch (error) {
@@ -9988,6 +10140,46 @@ function updateActivityCardStatus(card, newStatus) {
 }
 
 function updateStudentActivityCard(card, newStatus) {
+  const activityId = parseInt(card.getAttribute('data-activity-id'));
+  const previousStatus = card.getAttribute('data-last-status') || getCurrentActivityStatus(card) || 'unknown';
+  const statusChanged = previousStatus !== newStatus.status;
+  const justUnlocked = statusChanged && newStatus.status === 'open' && newStatus.available && previousStatus === 'locked';
+  
+  // Update dates if provided
+  if (newStatus.startAt || newStatus.start_at) {
+    const startDateValue = card.querySelector('.activity-date.start .date-value');
+    if (startDateValue) {
+      const dateTimeStr = newStatus.startAt || newStatus.start_at;
+      if (dateTimeStr) {
+        try {
+          const dt = new Date(dateTimeStr);
+          const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          startDateValue.textContent = `${dateStr} ${timeStr}`;
+        } catch (e) {
+          startDateValue.textContent = dateTimeStr;
+        }
+      }
+    }
+  }
+  
+  if (newStatus.dueAt || newStatus.due_at) {
+    const dueDateValue = card.querySelector('.activity-date.end .date-value');
+    if (dueDateValue) {
+      const dateTimeStr = newStatus.dueAt || newStatus.due_at;
+      if (dateTimeStr) {
+        try {
+          const dt = new Date(dateTimeStr);
+          const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          dueDateValue.textContent = `${dateStr} ${timeStr}`;
+        } catch (e) {
+          dueDateValue.textContent = dateTimeStr;
+        }
+      }
+    }
+  }
+  
   // Update status badge (top right) - same structure as teacher view
   let statusBadgeContainer = card.querySelector('.activity-status-badge-top-right');
   if (!statusBadgeContainer) {
@@ -10042,16 +10234,45 @@ function updateStudentActivityCard(card, newStatus) {
     }
   }
   
-  // Update status message
+  // Update status message - remove it if activity is now open
   const statusMessage = card.querySelector('.activity-status-message');
-  if (statusMessage && newStatus.status !== 'open') {
-    const reason = newStatus.status === 'locked' 
-      ? 'Activity is locked. Teacher will open it soon.'
-      : newStatus.status === 'closed'
-      ? 'Deadline has passed.'
-      : 'Activity not available.';
-    statusMessage.innerHTML = `<i class="fas fa-info-circle"></i> ${reason}`;
+  if (statusMessage) {
+    if (newStatus.status === 'open') {
+      // Remove status message when activity is open
+      statusMessage.remove();
+    } else {
+      const reason = newStatus.status === 'locked' 
+        ? 'Activity is locked. Teacher will open it soon.'
+        : newStatus.status === 'closed'
+        ? 'Deadline has passed.'
+        : 'Activity not available.';
+      statusMessage.innerHTML = `<i class="fas fa-info-circle"></i> ${reason}`;
+    }
   }
+  
+  // Show notification if activity was just unlocked
+  if (justUnlocked) {
+    // Use a global map to track which activities have already shown notifications (prevents duplicates)
+    if (!window.__activityNotificationShown) {
+      window.__activityNotificationShown = new Map();
+    }
+    
+    const lastNotificationTime = window.__activityNotificationShown.get(activityId) || 0;
+    const now = Date.now();
+    const timeSinceLastNotification = now - lastNotificationTime;
+    
+    // Only show if we haven't shown a notification for this activity in the last 5 seconds
+    if (timeSinceLastNotification > 5000) {
+      const activityTitle = card.querySelector('.activity-title')?.textContent || 'Activity';
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('success', 'Activity Unlocked!', `"${activityTitle}" is now available. You can start working on it!`);
+        window.__activityNotificationShown.set(activityId, now);
+      }
+    }
+  }
+  
+  // Store current status in data attribute for next comparison
+  card.setAttribute('data-last-status', newStatus.status);
 }
 // ===== GRADING MODAL FOR UPLOAD-BASED AND ESSAY ACTIVITIES =====
 async function showGradingModal(activityId, activityTitle) {
@@ -10714,6 +10935,41 @@ window.closeSubmissionConfirmationModal = closeSubmissionConfirmationModal;
 function updateTeacherActivityCard(card, newStatus) {
   const activityId = parseInt(card.getAttribute('data-activity-id'));
   const isLocked = newStatus.status === 'locked';
+  
+  // Update dates if provided
+  if (newStatus.startAt || newStatus.start_at) {
+    const startDateValue = card.querySelector('.activity-date.start .date-value');
+    if (startDateValue) {
+      const dateTimeStr = newStatus.startAt || newStatus.start_at;
+      if (dateTimeStr) {
+        try {
+          const dt = new Date(dateTimeStr);
+          const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          startDateValue.textContent = `${dateStr} ${timeStr}`;
+        } catch (e) {
+          startDateValue.textContent = dateTimeStr;
+        }
+      }
+    }
+  }
+  
+  if (newStatus.dueAt || newStatus.due_at) {
+    const dueDateValue = card.querySelector('.activity-date.end .date-value');
+    if (dueDateValue) {
+      const dateTimeStr = newStatus.dueAt || newStatus.due_at;
+      if (dateTimeStr) {
+        try {
+          const dt = new Date(dateTimeStr);
+          const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          dueDateValue.textContent = `${dateStr} ${timeStr}`;
+        } catch (e) {
+          dueDateValue.textContent = dateTimeStr;
+        }
+      }
+    }
+  }
   
   // Update unlock/lock button visibility
   const unlockBtn = card.querySelector('.btn-unlock');

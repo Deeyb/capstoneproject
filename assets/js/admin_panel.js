@@ -2412,15 +2412,36 @@
                 initSettings();
             }, 100);
         } else if (sectionId === 'reports') {
+            console.log('📊 [Admin] Loading Reports section...');
             setTimeout(() => {
+                // Try multiple initialization methods
                 if (typeof initReportsModule === 'function') {
-                    initReportsModule();
-                } else if (window.ReportsModule) {
-                    if (!window.reportsModule) {
-                        window.reportsModule = new window.ReportsModule();
+                    console.log('📊 [Admin] Calling initReportsModule()...');
+                    const success = initReportsModule();
+                    if (!success) {
+                        console.warn('📊 [Admin] initReportsModule returned false, trying alternative...');
+                        // Fallback: try creating new instance
+                        if (window.ReportsModule) {
+                            try {
+                                window.reportsModule = new window.ReportsModule();
+                                console.log('✅ [Admin] Reports Module created via fallback');
+                            } catch (e) {
+                                console.error('❌ [Admin] Failed to create Reports Module:', e);
+                            }
+                        }
                     }
+                } else if (window.ReportsModule) {
+                    console.log('📊 [Admin] Creating Reports Module directly...');
+                    try {
+                        window.reportsModule = new window.ReportsModule();
+                        console.log('✅ [Admin] Reports Module created directly');
+                    } catch (e) {
+                        console.error('❌ [Admin] Failed to create Reports Module:', e);
+                    }
+                } else {
+                    console.error('❌ [Admin] Reports Module not available! Check if reports_module.js is loaded.');
                 }
-            }, 100);
+            }, 200); // Increased timeout to ensure DOM is ready
         }
     }
 
@@ -4829,13 +4850,27 @@ function testSMTPConnection() {
       }
     } else {
       indicator.style.background = '#dc3545';
-      text.textContent = data.message || 'Connection failed';
+      const errorMsg = data.message || 'Connection failed';
+      text.textContent = errorMsg;
+      
+      // Log detailed error to console
+      console.error('SMTP Test Failed:', {
+        message: errorMsg,
+        error: data.error,
+        debug: data.debug
+      });
+      
+      // Show alert with detailed error for debugging
+      if (data.error) {
+        console.error('Detailed Error:', data.error);
+      }
     }
   })
   .catch(error => {
     console.error('SMTP test error:', error);
     indicator.style.background = '#dc3545';
     text.textContent = 'Test failed - check console for details';
+    console.error('Network/Parse Error:', error);
   })
   .finally(() => {
     btn.disabled = false;

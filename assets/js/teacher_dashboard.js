@@ -206,12 +206,30 @@
 			</div>
 		`;
 		
-		tile.addEventListener('click', function(){ 
+		// Prevent duplicate clicks on create tile
+		var tileClickHandled = false;
+		tile.addEventListener('click', function(e){ 
+			e.stopPropagation(); // Prevent event bubbling
+			
+			// Prevent rapid double-clicks
+			if (tileClickHandled) {
+				console.log('[renderCreateTile] Click already handled, ignoring');
+				return;
+			}
+			
+			tileClickHandled = true;
 			console.log('[renderCreateTile] Create tile clicked');
+			
+			// Re-enable after a short delay
+			setTimeout(function() {
+				tileClickHandled = false;
+			}, 500);
+			
 			if (typeof openForm === 'function') {
 				openForm(); 
 			} else {
 				console.error('[renderCreateTile] ❌ openForm function not available!');
+				tileClickHandled = false; // Re-enable if function not available
 			}
 		});
 		grid.appendChild(tile);
@@ -591,18 +609,43 @@ function bindCreateClassControls(){
     });
   }
   if (createBtn) {
+		// Prevent duplicate submissions
+		var isSubmitting = false;
+		
 		createBtn.addEventListener('click', function(e){
 			e.preventDefault();
+			e.stopPropagation(); // Prevent event bubbling
+			
+			// CRITICAL: Prevent double-click/duplicate submissions
+			if (isSubmitting) {
+				console.log('[createClass] Already submitting, ignoring click');
+				return;
+			}
+			
 			var name = nameInput ? nameInput.value.trim() : '';
 			var courseId = courseHidden && courseHidden.value ? parseInt(courseHidden.value, 10) : null;
 			var useCustom = customizeToggle ? customizeToggle.checked : false;
 			var code = (codeInput && useCustom) ? (codeInput.value || '').trim().toUpperCase() : null;
-			if (!name) { showWarning('Validation Error', 'Please enter a class name.'); return; }
+			
+			if (!name) { 
+				showWarning('Validation Error', 'Please enter a class name.'); 
+				return; 
+			}
+			
+			// Set submitting flag and disable button
+			isSubmitting = true;
+			var originalHTML = createBtn.innerHTML;
+			createBtn.disabled = true;
+			createBtn.style.opacity = '0.6';
+			createBtn.style.cursor = 'not-allowed';
+			createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+			
 			var fd = new FormData();
 			fd.append('action','create');
 			fd.append('name', name);
 			if (courseId !== null && !isNaN(courseId)) fd.append('course_id', String(courseId));
 			if (code) fd.append('code', code);
+			
 			fetch('class_manage.php', { method:'POST', body: fd, credentials: 'same-origin' })
 				.then(r => r.json())
 				.then(d => {
@@ -623,10 +666,27 @@ function bindCreateClassControls(){
 							window.location.reload();
 						}, 1500);
 					} else {
+						// Re-enable button on error
+						isSubmitting = false;
+						createBtn.disabled = false;
+						createBtn.style.opacity = '1';
+						createBtn.style.cursor = 'pointer';
+						createBtn.innerHTML = originalHTML;
+						
 						showError('Class Creation Failed', (d && d.message) || 'Failed to create class');
 					}
 				})
-				.catch(function(){ showError('Network Error', 'Network error occurred.'); });
+				.catch(function(err){ 
+					// Re-enable button on error
+					isSubmitting = false;
+					createBtn.disabled = false;
+					createBtn.style.opacity = '1';
+					createBtn.style.cursor = 'pointer';
+					createBtn.innerHTML = originalHTML;
+					
+					console.error('[createClass] Network error:', err);
+					showError('Network Error', 'Network error occurred.'); 
+				});
 		});
 	}
 }

@@ -304,18 +304,6 @@ function initCoordinatorTabs() {
 
 // Function to show a specific section
 function showSection(sectionId) {
-    // Initialize Reports module when Reports section is shown
-    if (sectionId === 'reports') {
-        setTimeout(() => {
-            if (typeof initReportsModule === 'function') {
-                initReportsModule();
-            } else if (window.ReportsModule) {
-                if (!window.reportsModule) {
-                    window.reportsModule = new window.ReportsModule();
-                }
-            }
-        }, 100);
-    }
   // Hide all sections
   document.querySelectorAll('.section-content').forEach(section => {
     section.classList.remove('active');
@@ -341,15 +329,36 @@ function showSection(sectionId) {
         try { initSharedProfile(); } catch (e) { }
       }
     } else if (sectionId === 'reports') {
+      console.log('📊 [Coordinator] Loading Reports section...');
       setTimeout(() => {
+        // Try multiple initialization methods
         if (typeof initReportsModule === 'function') {
-          initReportsModule();
-        } else if (window.ReportsModule) {
-          if (!window.reportsModule) {
-            window.reportsModule = new window.ReportsModule();
+          console.log('📊 [Coordinator] Calling initReportsModule()...');
+          const success = initReportsModule();
+          if (!success) {
+            console.warn('📊 [Coordinator] initReportsModule returned false, trying alternative...');
+            // Fallback: try creating new instance
+            if (window.ReportsModule) {
+              try {
+                window.reportsModule = new window.ReportsModule();
+                console.log('✅ [Coordinator] Reports Module created via fallback');
+              } catch (e) {
+                console.error('❌ [Coordinator] Failed to create Reports Module:', e);
+              }
+            }
           }
+        } else if (window.ReportsModule) {
+          console.log('📊 [Coordinator] Creating Reports Module directly...');
+          try {
+            window.reportsModule = new window.ReportsModule();
+            console.log('✅ [Coordinator] Reports Module created directly');
+          } catch (e) {
+            console.error('❌ [Coordinator] Failed to create Reports Module:', e);
+          }
+        } else {
+          console.error('❌ [Coordinator] Reports Module not available! Check if reports_module.js is loaded.');
         }
-      }, 100);
+      }, 200); // Increased timeout to ensure DOM is ready
     }
   } else {
   }

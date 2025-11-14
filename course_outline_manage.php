@@ -119,7 +119,8 @@ if (function_exists('ob_get_level')) { while (ob_get_level() > 0) { @ob_end_clea
 
 // Manual auth check to avoid HTML redirects
 if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['success'=>false,'message'=>'Not authenticated - Session user_id missing']);
+    http_response_code(401);
+    echo json_encode(['success'=>false,'message'=>'Not authenticated - Session expired. Please refresh the page and log in again.']);
     exit;
 }
 
@@ -569,13 +570,73 @@ try {
                 }
             }
             
+            // Check if activity is being unlocked (start_at was null, now it's set)
+            $wasLocked = false;
+            $currentActivity = $svc->getActivity($actId);
+            if ($currentActivity) {
+                // For teachers: check class-specific schedule
+                if ($isTeacher && !$isCoordinator && !$isAdmin && $classIdForUpdate > 0) {
+                    $currentSchedule = $svc->getActivitySchedule($classIdForUpdate, $actId);
+                    $wasLocked = ($currentSchedule === null || $currentSchedule['start_at'] === null);
+                } else {
+                    // For coordinators/admins: check global start_at
+                    $wasLocked = ($currentActivity['start_at'] === null || $currentActivity['start_at'] === '');
+                }
+            }
+            
             if ($isTeacher && !$isCoordinator && !$isAdmin) {
                 $ok = $svc->setActivitySchedule($classIdForUpdate, $actId, $startAt, $dueAt);
+                
+                // Send email notification if activity was just unlocked
+                if ($ok && $wasLocked && $startAt !== null && $startAt !== '') {
+                    try {
+                        require_once __DIR__ . '/classes/ActivityNotificationService.php';
+                        $notificationService = new ActivityNotificationService($db);
+                        $notificationResult = $notificationService->notifyActivityUnlocked($actId, $classIdForUpdate, $startAt, $dueAt);
+                        error_log("Activity unlock notification result: " . json_encode($notificationResult));
+                    } catch (Exception $e) {
+                        // Don't fail the unlock if email fails - just log it
+                        error_log("Failed to send activity unlock notification: " . $e->getMessage());
+                    }
+                }
+                
                 echo json_encode(['success' => (bool)$ok]);
                 break;
             }
             
             $ok = $svc->updateActivity($actId, $updateData);
+            
+            // Send email notification if activity was just unlocked (for coordinators/admins)
+            if ($ok && $wasLocked && $startAt !== null && $startAt !== '') {
+                // For coordinators/admins, we need to determine which class to notify
+                // Get the first active class that uses this activity's course
+                try {
+                    $classStmt = $db->prepare("
+                        SELECT DISTINCT c.id 
+                        FROM classes c
+                        INNER JOIN course_modules cm ON cm.course_id = c.course_id
+                        INNER JOIN course_lessons cl ON cl.module_id = cm.id
+                        INNER JOIN lesson_activities la ON la.lesson_id = cl.id
+                        WHERE la.id = ? AND c.status = 'active'
+                        LIMIT 1
+                    ");
+                    $classStmt->execute([$actId]);
+                    $classRow = $classStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($classRow) {
+                        require_once __DIR__ . '/classes/ActivityNotificationService.php';
+                        $notificationService = new ActivityNotificationService($db);
+                        // Note: For coordinators/admins, we notify all classes that use this activity
+                        // For now, we'll notify the first class found. Could be enhanced to notify all classes.
+                        $notificationResult = $notificationService->notifyActivityUnlocked($actId, $classRow['id'], $startAt, $dueAt);
+                        error_log("Activity unlock notification result (coordinator/admin): " . json_encode($notificationResult));
+                    }
+                } catch (Exception $e) {
+                    // Don't fail the unlock if email fails - just log it
+                    error_log("Failed to send activity unlock notification (coordinator/admin): " . $e->getMessage());
+                }
+            }
+            
             if ($audit) { $audit->log($_SESSION['user_id'] ?? null, 'activity.update', 'lesson_activity', (string)$actId, ['keys'=>array_keys($_POST), 'role'=>$role]); }
             echo json_encode(['success' => (bool)$ok]);
             break;
