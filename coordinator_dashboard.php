@@ -37,6 +37,7 @@ require_once 'config.php';
 require_once 'classes/auth_helpers.php';
 require_once __DIR__ . '/config/Database.php';
 require_once __DIR__ . '/classes/ProfileService.php';
+require_once __DIR__ . '/classes/UIHelpers.php';
 
 // Use original auth system
 Auth::requireAuth();
@@ -75,7 +76,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <!-- Header (match Teacher/Admin exactly) -->
   <div class="header">
     <div class="logo">
-      <img src="Photos/CodeRegal.svg" alt="CodeRegal" style="height: 80px; width: auto;">
+      <?php echo UIHelpers::getLogo(); ?>
     </div>
     <div class="settings">
       <div class="badge"><?php echo strtoupper(htmlspecialchars($user_role)); ?></div>
@@ -198,6 +199,11 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
       </div>
     </div>
 
+    <!-- Reports Section -->
+    <div id="reports" class="section-content" style="display: none;">
+      <?php include 'includes/reports_section.php'; ?>
+    </div>
+
     <!-- Import/Export Section - Hidden -->
     <div id="importExport" class="section-content" style="display: none;">
       <h2 class="section-title">Import/Export</h2>
@@ -239,6 +245,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
   <script>window.__CR_COORDINATOR_V2 = true;</script>
   <script src="assets/js/coordinator.js?v=<?php echo time(); ?>"></script>
+  <script src="assets/js/reports_module.js?v=<?php echo time(); ?>"></script>
   <script>
     // Initialize coordinator dashboard when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {

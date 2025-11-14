@@ -139,10 +139,10 @@ try {
     
     $averageGrade = null;
     if (!empty($activities)) {
-        // Get all ACCEPTED students in class only
+        // Get all ACCEPTED students in class only (with joined_at date)
         if ($hasStatusColumn) {
             $classStudentsStmt = $db->prepare("
-                SELECT DISTINCT cs.student_user_id
+                SELECT DISTINCT cs.student_user_id, cs.joined_at
                 FROM class_students cs
                 INNER JOIN users u ON cs.student_user_id = u.id
                 WHERE cs.class_id = ? AND u.status = 'active' AND cs.status = 'accepted'
@@ -150,20 +150,23 @@ try {
         } else {
             // Fallback for old schema
             $classStudentsStmt = $db->prepare("
-                SELECT DISTINCT cs.student_user_id
+                SELECT DISTINCT cs.student_user_id, cs.joined_at
                 FROM class_students cs
                 INNER JOIN users u ON cs.student_user_id = u.id
                 WHERE cs.class_id = ? AND u.status = 'active'
             ");
         }
         $classStudentsStmt->execute([$classId]);
-        $studentIds = $classStudentsStmt->fetchAll(PDO::FETCH_COLUMN);
+        $students = $classStudentsStmt->fetchAll(PDO::FETCH_ASSOC);
         
-        if (!empty($studentIds)) {
+        if (!empty($students)) {
             $totalScores = [];
             $totalMaxScores = [];
             
-            foreach ($studentIds as $studentId) {
+            foreach ($students as $studentRow) {
+                $studentId = (int)$studentRow['student_user_id'];
+                $joinedAt = $studentRow['joined_at'] ?? null;
+                
                 $studentTotalScore = 0;
                 $studentMaxScore = 0;
                 
@@ -172,17 +175,29 @@ try {
                     $maxScore = (int)$activity['max_score'];
                     
                     // Get best attempt score for this student and activity (use user_id, role='student', is_preview=0)
-                    $scoreStmt = $db->prepare("
-                        SELECT MAX(score) as best_score
-                        FROM activity_attempts
+                    // CRITICAL: Only count attempts submitted AFTER the student joined this class
+                    $scoreParams = [$activityId, $studentId];
+                    $scoreWhere = "
                         WHERE activity_id = ? 
                         AND user_id = ? 
                         AND role = 'student' 
                         AND is_preview = 0
                         AND submitted_at IS NOT NULL
                         AND score IS NOT NULL
+                    ";
+                    
+                    // Filter by joined_at date if available
+                    if ($joinedAt) {
+                        $scoreWhere .= " AND DATE(submitted_at) >= DATE(?)";
+                        $scoreParams[] = $joinedAt;
+                    }
+                    
+                    $scoreStmt = $db->prepare("
+                        SELECT MAX(score) as best_score
+                        FROM activity_attempts
+                        $scoreWhere
                     ");
-                    $scoreStmt->execute([$activityId, $studentId]);
+                    $scoreStmt->execute($scoreParams);
                     $bestScore = $scoreStmt->fetchColumn();
                     
                     // Always count max score (even if no attempt, student gets 0)
@@ -221,10 +236,10 @@ try {
     
     $averageTopicsCompleted = null;
     if (!empty($lessons)) {
-        // Get all ACCEPTED students in class only
+        // Get all ACCEPTED students in class only (with joined_at date)
         if ($hasStatusColumn) {
             $classStudentsStmt = $db->prepare("
-                SELECT DISTINCT cs.student_user_id
+                SELECT DISTINCT cs.student_user_id, cs.joined_at
                 FROM class_students cs
                 INNER JOIN users u ON cs.student_user_id = u.id
                 WHERE cs.class_id = ? AND u.status = 'active' AND cs.status = 'accepted'
@@ -232,35 +247,50 @@ try {
         } else {
             // Fallback for old schema
             $classStudentsStmt = $db->prepare("
-                SELECT DISTINCT cs.student_user_id
+                SELECT DISTINCT cs.student_user_id, cs.joined_at
                 FROM class_students cs
                 INNER JOIN users u ON cs.student_user_id = u.id
                 WHERE cs.class_id = ? AND u.status = 'active'
             ");
         }
         $classStudentsStmt->execute([$classId]);
-        $studentIds = $classStudentsStmt->fetchAll(PDO::FETCH_COLUMN);
+        $students = $classStudentsStmt->fetchAll(PDO::FETCH_ASSOC);
         
-        if (!empty($studentIds)) {
+        if (!empty($students)) {
             $completionPercentages = [];
             
-            foreach ($studentIds as $studentId) {
+            foreach ($students as $studentRow) {
+                $studentId = (int)$studentRow['student_user_id'];
+                $joinedAt = $studentRow['joined_at'] ?? null;
+                
                 $completedLessons = 0;
                 
                 foreach ($lessons as $lessonId) {
                     // Check if student has completed at least one activity in this lesson
-                    $completedStmt = $db->prepare("
-                        SELECT COUNT(DISTINCT la.id) as completed
-                        FROM lesson_activities la
-                        INNER JOIN activity_attempts aa ON la.id = aa.activity_id
+                    // CRITICAL: Only count activities completed AFTER the student joined this class
+                    $completedParams = [$lessonId, $studentId];
+                    $completedWhere = "
                         WHERE la.lesson_id = ? 
                         AND aa.user_id = ? 
                         AND aa.role = 'student' 
                         AND aa.is_preview = 0
                         AND aa.submitted_at IS NOT NULL
                         AND (aa.score IS NOT NULL OR la.type IN ('essay', 'upload_based'))
+                    ";
+                    
+                    // Filter by joined_at date if available
+                    if ($joinedAt) {
+                        $completedWhere .= " AND DATE(aa.submitted_at) >= DATE(?)";
+                        $completedParams[] = $joinedAt;
+                    }
+                    
+                    $completedStmt = $db->prepare("
+                        SELECT COUNT(DISTINCT la.id) as completed
+                        FROM lesson_activities la
+                        INNER JOIN activity_attempts aa ON la.id = aa.activity_id
+                        $completedWhere
                     ");
-                    $completedStmt->execute([$lessonId, $studentId]);
+                    $completedStmt->execute($completedParams);
                     $completed = (int)$completedStmt->fetchColumn();
                     
                     if ($completed > 0) {

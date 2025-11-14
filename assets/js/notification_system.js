@@ -49,19 +49,22 @@ class NotificationSystem {
         const style = document.createElement('style');
         style.textContent = `
             .notification {
-                background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                border-radius: 12px;
-                padding: 12px 16px;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-                backdrop-filter: blur(10px);
-                max-width: 400px;
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                width: auto;
                 min-width: 300px;
-                position: relative;
-                overflow: hidden;
+                padding: 16px 20px;
+                border-radius: 8px;
+                background: #fff;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                z-index: 10001;
                 transform: translateX(100%);
                 opacity: 0;
-                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
                 pointer-events: auto;
                 cursor: pointer;
             }
@@ -71,46 +74,54 @@ class NotificationSystem {
                 opacity: 1;
             }
 
-            .notification::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 4px;
-                border-radius: 12px 12px 0 0;
+            .notification.success {
+                border-left: 4px solid #1d9b3e;
             }
 
-            .notification.success::before {
-                background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            .notification.error {
+                border-left: 4px solid #dc3545;
             }
 
-            .notification.error::before {
-                background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+            .notification.warning {
+                border-left: 4px solid #f59e0b;
             }
 
-            .notification.warning::before {
-                background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            .notification.info {
+                border-left: 4px solid #3b82f6;
             }
 
-            .notification.info::before {
-                background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+            .notification i {
+                font-size: 20px;
+            }
+
+            .notification.success i {
+                color: #1d9b3e;
+            }
+
+            .notification.error i {
+                color: #dc3545;
+            }
+
+            .notification.warning i {
+                color: #f59e0b;
+            }
+
+            .notification.info i {
+                color: #3b82f6;
             }
 
             .notification-header {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                margin-bottom: 8px;
+                margin-bottom: 0;
             }
 
             .notification-title {
                 font-weight: 600;
-                font-size: 13px;
-                color: #1e293b;
-                display: flex;
-                align-items: center;
-                gap: 8px;
+                font-size: 14px;
+                margin-bottom: 2px;
+                color: #333;
                 font-family: 'Inter', sans-serif;
             }
 
@@ -123,6 +134,7 @@ class NotificationSystem {
                 border-radius: 4px;
                 transition: all 0.2s;
                 font-size: 16px;
+                margin-left: 12px;
             }
 
             .notification-close:hover {
@@ -130,62 +142,16 @@ class NotificationSystem {
                 color: #374151;
             }
 
+            .notification-content {
+                flex: 1;
+            }
+
             .notification-message {
-                font-size: 12px;
-                color: #64748b;
+                font-size: 13px;
+                color: #666;
                 line-height: 1.5;
                 margin: 0;
                 font-family: 'Inter', sans-serif;
-            }
-
-            .notification-icon {
-                width: 20px;
-                height: 20px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 50%;
-                font-size: 12px;
-                color: white;
-                font-weight: 600;
-            }
-
-            .notification.success .notification-icon {
-                background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-            }
-
-            .notification.error .notification-icon {
-                background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
-            }
-
-            .notification.warning .notification-icon {
-                background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-            }
-
-            .notification.info .notification-icon {
-                background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-            }
-
-            @keyframes slideInRight {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-
-            @keyframes slideOutRight {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
             }
         `;
         document.head.appendChild(style);
@@ -222,31 +188,13 @@ class NotificationSystem {
             this.show('info', 'Alert', message);
         };
 
-        // Override console.error for better UX (but skip background polling errors)
+        // Override console.error - LOG ONLY, NO NOTIFICATIONS
+        // User wants to see errors only in F12 console, not as notifications
         const originalConsoleError = console.error;
         console.error = (...args) => {
+            // Always log to console (F12)
             originalConsoleError.apply(console, args);
-            const message = args.join(' ');
-            
-            // Skip notifications for background polling/API errors that are handled gracefully
-            const silentErrors = [
-                'active students count',
-                'tracking student activity',
-                'Error fetching active students',
-                'Error tracking student activity',
-                'Error updating stats',
-                'dashboard stats',
-                '403',
-                'Forbidden'
-            ];
-            
-            const shouldShowNotification = !silentErrors.some(silent => 
-                message.toLowerCase().includes(silent.toLowerCase())
-            );
-            
-            if (shouldShowNotification && (message.includes('error') || message.includes('Error') || message.includes('failed'))) {
-                this.show('error', 'Error', message);
-            }
+            // DO NOT show notification - user wants errors only in console
         };
     }
 
@@ -313,22 +261,21 @@ class NotificationSystem {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         
+        // Font Awesome icons (Admin Panel style)
         const iconMap = {
-            success: '✓',
-            error: '✕',
-            warning: '⚠',
-            info: 'ℹ'
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
         };
 
         notification.innerHTML = `
-            <div class="notification-header">
-                <div class="notification-title">
-                    <div class="notification-icon">${iconMap[type] || 'ℹ'}</div>
-                    ${title}
-                </div>
-                <button class="notification-close" onclick="this.parentElement.parentElement.parentElement.remove()">×</button>
+            <i class="fas ${iconMap[type] || 'fa-info-circle'}"></i>
+            <div class="notification-content">
+                <div class="notification-title">${title}</div>
+                <div class="notification-message">${message}</div>
             </div>
-            <p class="notification-message">${message}</p>
+            <button class="notification-close" onclick="this.parentElement.remove()">×</button>
         `;
 
         this.container.appendChild(notification);
@@ -369,7 +316,10 @@ class NotificationSystem {
     }
 
     error(title, message, duration = 7000) {
-        return this.show('error', title, message, duration);
+        // HIDDEN: Don't show error notifications, only log to console
+        // User wants to see errors only in F12 console
+        console.error(`[Error Notification Hidden] ${title}: ${message}`);
+        return null; // Return null instead of showing notification
     }
 
     warning(title, message, duration = 6000) {
@@ -399,7 +349,10 @@ window.showSuccess = (title, message, duration) => {
 };
 
 window.showError = (title, message, duration) => {
-    return window.notificationSystem.error(title, message, duration);
+    // HIDDEN: Don't show error notifications, only log to console
+    // User wants to see errors only in F12 console
+    console.error(`[Error Notification Hidden] ${title}: ${message}`);
+    return null; // Return null instead of showing notification
 };
 
 window.showWarning = (title, message, duration) => {

@@ -364,10 +364,9 @@ require_once 'includes/sidebar.php';
     <h2 class="section-title">Assessments</h2>
     <!-- Assessments content will go here -->
   </div>
-  <!-- Reports Section - Hidden -->
+  <!-- Reports Section -->
   <div id="reports" class="section-content" style="display: none;">
-    <h2 class="section-title">Reports</h2>
-    <!-- Reports content will go here -->
+    <?php include 'includes/reports_section.php'; ?>
   </div>
   <div id="audit" class="section-content">
     <h2 class="section-title">Audit Logs</h2>
@@ -570,4 +569,5 @@ require_once 'includes/sidebar.php';
 <?php require_once 'includes/footer.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<script src="assets/js/reports_module.js?v=<?php echo time(); ?>"></script>
 

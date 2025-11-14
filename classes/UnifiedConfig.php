@@ -19,7 +19,8 @@ class UnifiedConfig {
     const PASSWORD_REQUIRE_SPECIAL = true;
     
     // Session Configuration
-    const SESSION_LIFETIME = 3600; // 1 hour
+    const SESSION_LIFETIME = 3600; // 1 hour of inactivity
+    const SESSION_TIMEOUT = 3600; // 1 hour (3600 seconds)
     const SESSION_REGENERATE_INTERVAL = 300; // 5 minutes
     const SESSION_SECURE_COOKIE = true;
     const SESSION_HTTP_ONLY = true;

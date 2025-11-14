@@ -113,6 +113,22 @@ try {
             continue; // Skip if no course found
         }
         
+        // Get when the student joined this specific class
+        $enrollmentStmt = $db->prepare("
+            SELECT joined_at, status
+            FROM class_students
+            WHERE class_id = ? AND student_user_id = ?
+            LIMIT 1
+        ");
+        $enrollmentStmt->execute([$classId, $userId]);
+        $enrollment = $enrollmentStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$enrollment || $enrollment['status'] !== 'accepted') {
+            continue; // Skip if student not properly enrolled
+        }
+        
+        $joinedAt = $enrollment['joined_at'] ?? null;
+        
         // Count total activities in this course (for this class)
         // Get course_id from class first, then count activities
         $totalActivitiesStmt = $db->prepare("
@@ -127,7 +143,24 @@ try {
         $totalActivities = (int)$totalActivitiesStmt->fetchColumn();
         
         // Count completed activities (submitted attempts with score)
-        // Use same logic as get_student_performance.php: role='student', is_preview=0, submitted_at IS NOT NULL, score IS NOT NULL
+        // CRITICAL: Only count activities completed AFTER the student joined this specific class
+        // This ensures progress is per-class, not shared across classes with the same course
+        $completedActivitiesParams = [$classId, $userId];
+        $completedActivitiesWhere = "
+            WHERE c.id = ? 
+            AND aa.user_id = ?
+            AND aa.role = 'student'
+            AND aa.is_preview = 0
+            AND aa.submitted_at IS NOT NULL
+            AND aa.score IS NOT NULL
+        ";
+        
+        // Only count activities completed after joining this class
+        if ($joinedAt) {
+            $completedActivitiesWhere .= " AND DATE(aa.submitted_at) >= DATE(?)";
+            $completedActivitiesParams[] = $joinedAt;
+        }
+        
         $completedActivitiesStmt = $db->prepare("
             SELECT COUNT(DISTINCT aa.activity_id) as completed
             FROM activity_attempts aa
@@ -135,17 +168,12 @@ try {
             INNER JOIN course_lessons cl ON la.lesson_id = cl.id
             INNER JOIN course_modules cm ON cl.module_id = cm.id
             INNER JOIN classes c ON cm.course_id = c.course_id
-            WHERE c.id = ? 
-            AND aa.user_id = ?
-            AND aa.role = 'student'
-            AND aa.is_preview = 0
-            AND aa.submitted_at IS NOT NULL
-            AND aa.score IS NOT NULL
+            $completedActivitiesWhere
         ");
-        $completedActivitiesStmt->execute([$classId, $userId]);
+        $completedActivitiesStmt->execute($completedActivitiesParams);
         $completedActivities = (int)$completedActivitiesStmt->fetchColumn();
         
-        error_log("get_certification_data.php - Class $classId, User $userId: Total activities: $totalActivities, Completed: $completedActivities");
+        error_log("get_certification_data.php - Class $classId, User $userId, Joined: $joinedAt - Total activities: $totalActivities, Completed: $completedActivities");
         
         // Calculate progress percentage
         $progress = $totalActivities > 0 ? round(($completedActivities / $totalActivities) * 100, 1) : 0;

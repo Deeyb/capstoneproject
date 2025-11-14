@@ -141,11 +141,11 @@ if (isset($_SESSION['last_activity'])) {
     $timeSinceActivity = time() - $_SESSION['last_activity'];
     echo "Time since last activity: " . $timeSinceActivity . " seconds<br>";
     
-    if ($timeSinceActivity < 1800) { // 30 minutes
-        echo "✅ Session is still valid (less than 30 minutes)<br>";
+    if ($timeSinceActivity < 3600) { // 1 hour
+        echo "✅ Session is still valid (less than 1 hour)<br>";
         $userInfo['session_valid'] = true;
     } else {
-        echo "⚠️ Session might be expired (more than 30 minutes)<br>";
+        echo "⚠️ Session might be expired (more than 1 hour)<br>";
         $userInfo['session_valid'] = false;
     }
 } else {

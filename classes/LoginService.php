@@ -341,7 +341,7 @@ class LoginService {
     }
     
     /**
-     * Check if session has expired (30 minutes of inactivity)
+     * Check if session has expired (1 hour of inactivity)
      * @return bool
      */
     public function isSessionExpired() {
@@ -350,7 +350,7 @@ class LoginService {
         }
         
         $lastActivity = $_SESSION['last_activity'] ?? 0;
-        $timeout = 30 * 60; // 30 minutes
+        $timeout = 60 * 60; // 1 hour (3600 seconds)
         
         return (time() - $lastActivity) > $timeout;
     }

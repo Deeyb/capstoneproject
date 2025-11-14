@@ -3637,14 +3637,32 @@ class ActivityTester {
           const file = this.answers['upload'].file;
           
           // Get CSRF token from course_outline_manage.php
-          const tokenResponse = await fetch('course_outline_manage.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            credentials: 'same-origin',
-            body: 'action=get_csrf_token'
-          });
-          const tokenData = await tokenResponse.json();
-          const csrfToken = tokenData.csrf_token || tokenData.token || '';
+          let csrfToken = '';
+          try {
+            const tokenResponse = await fetch('course_outline_manage.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              credentials: 'same-origin',
+              body: 'action=get_csrf_token'
+            });
+            
+            if (!tokenResponse.ok) {
+              console.warn('⚠️ CSRF token fetch failed, continuing without token');
+            } else {
+              const contentType = tokenResponse.headers.get('content-type') || '';
+              if (contentType.includes('application/json')) {
+                const tokenData = await tokenResponse.json();
+                csrfToken = tokenData.csrf_token || tokenData.token || '';
+                console.log('✅ CSRF token obtained:', csrfToken ? 'yes' : 'no');
+              } else {
+                const text = await tokenResponse.text();
+                console.warn('⚠️ CSRF token response is not JSON:', text.substring(0, 100));
+              }
+            }
+          } catch (tokenError) {
+            console.warn('⚠️ Error fetching CSRF token:', tokenError);
+            // Continue without token - server will handle validation
+          }
           
           // Upload file
           const formData = new FormData();
@@ -3659,6 +3677,14 @@ class ActivityTester {
             body: formData,
             credentials: 'same-origin'
           });
+          
+          // Check response content type before parsing
+          const contentType = uploadResponse.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            const text = await uploadResponse.text();
+            console.error('❌ Upload response is not JSON:', text.substring(0, 500));
+            throw new Error('Server returned invalid response: ' + text.substring(0, 200));
+          }
           
           if (!uploadResponse.ok) {
             const errorData = await uploadResponse.json().catch(() => ({ message: 'Upload failed' }));
@@ -4038,14 +4064,38 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             `;
           }
+          // CRITICAL: Reset loading flag when locked
+          newsfeedIsLoading = false;
           return; // Don't load anything
         }
         // Stop polling for other tabs first
         stopNewsfeedPolling();
-        // Reset loading flag when switching to newsfeed
+        
+        // CRITICAL: Debounce rapid clicks to prevent spam-loading
+        if (newsfeedDebounceTimer) {
+          clearTimeout(newsfeedDebounceTimer);
+          console.log('⏸️ [NEWSFEED] Debouncing rapid click');
+        }
+        
+        // Abort any in-flight request
+        if (currentNewsfeedController) {
+          console.log('🛑 [NEWSFEED] Aborting in-flight request due to tab click');
+          currentNewsfeedController.abort();
+          currentNewsfeedController = null;
+        }
+        
+        // CRITICAL: Always reset loading flag when switching to newsfeed tab
+        // This ensures we can load again even if previous load got stuck
         newsfeedIsLoading = false;
-        // Load newsfeed posts
-        loadNewsfeedPosts();
+        window.newsfeedLoadStartTime = null;
+        console.log('🔄 [NEWSFEED] Tab clicked - resetting loading flag');
+        
+        // Debounce: Wait 300ms before loading (prevents spam-clicking)
+        newsfeedDebounceTimer = setTimeout(() => {
+          newsfeedDebounceTimer = null;
+          // Load newsfeed posts
+          loadNewsfeedPosts();
+        }, 300);
       }
       if (tab === 'leaderboards') {
         // Stop newsfeed polling when switching away
@@ -6121,7 +6171,11 @@ function transformActivityCard(card) {
               let isPending = false;
               let actualScore = safeScore;
               try {
-                const scoreResponse = await fetch(`get_student_score.php?activity_id=${activityId}`, {
+                // CRITICAL: Pass class_id to filter attempts by joined_at date
+                const classId = window.__CLASS_ID__ || '';
+                const scoreUrl = classId ? `get_student_score.php?activity_id=${activityId}&class_id=${classId}` : `get_student_score.php?activity_id=${activityId}`;
+                console.log('🔍 [transformActivityCard] Fetching score for activity', activityId, 'with class_id:', classId);
+                const scoreResponse = await fetch(scoreUrl, {
                   credentials: 'same-origin'
                 });
                 if (scoreResponse.ok) {
@@ -6246,7 +6300,10 @@ async function startStudentActivity(activityId) {
   
   // CRITICAL: Check if student has already submitted this activity
   try {
-    const scoreResponse = await fetch(`get_student_score.php?activity_id=${activityId}`, {
+    // CRITICAL: Pass class_id to filter attempts by joined_at date
+    const classId = window.__CLASS_ID__ || '';
+    const scoreUrl = classId ? `get_student_score.php?activity_id=${activityId}&class_id=${classId}` : `get_student_score.php?activity_id=${activityId}`;
+    const scoreResponse = await fetch(scoreUrl, {
       credentials: 'same-origin'
     });
     
@@ -6365,8 +6422,11 @@ async function getStudentScore(activityId) {
     console.log('🔍 Getting student score for activity:', activityId);
     
     // Try new endpoint first (gets score from activity_attempts - final submissions)
+    // CRITICAL: Pass class_id to filter attempts by joined_at date
     try {
-      const response = await fetch(`get_student_score.php?activity_id=${activityId}`, {
+      const classId = window.__CLASS_ID__ || '';
+      const scoreUrl = classId ? `get_student_score.php?activity_id=${activityId}&class_id=${classId}` : `get_student_score.php?activity_id=${activityId}`;
+      const response = await fetch(scoreUrl, {
         credentials: 'same-origin'
       });
       
@@ -8632,7 +8692,11 @@ async function loadAllStudentScores() {
     console.log('🔍 [loadAllStudentScores] Processing activity', activityId, 'maxScore:', maxScore);
     
     // Fetch score data with pending status
-    const promise = fetch(`get_student_score.php?activity_id=${activityId}`, {
+    // CRITICAL: Pass class_id to filter attempts by joined_at date
+    const classId = window.__CLASS_ID__ || '';
+    const scoreUrl = classId ? `get_student_score.php?activity_id=${activityId}&class_id=${classId}` : `get_student_score.php?activity_id=${activityId}`;
+    console.log('🔍 [loadAllStudentScores] Fetching score for activity', activityId, 'with class_id:', classId);
+    const promise = fetch(scoreUrl, {
       credentials: 'same-origin'
     }).then(async function(response) {
       if (!response.ok) {
@@ -11786,6 +11850,8 @@ let newsfeedPollInterval = null;
 let lastNewsfeedHash = null;
 let lastNewsfeedClassId = null;
 let newsfeedIsLoading = false; // Prevent multiple simultaneous loads
+let currentNewsfeedController = null; // AbortController for current request
+let newsfeedDebounceTimer = null; // Debounce timer for rapid clicks
 
 function loadNewsfeedPosts() {
   console.log('📰 [NEWSFEED] loadNewsfeedPosts() called');
@@ -11793,23 +11859,66 @@ function loadNewsfeedPosts() {
   console.log('📰 [NEWSFEED] Class ID:', classId);
   console.log('📰 [NEWSFEED] Current loading state:', newsfeedIsLoading);
   
+  // CRITICAL: Abort any previous request first
+  if (currentNewsfeedController) {
+    console.log('🛑 [NEWSFEED] Aborting previous request');
+    currentNewsfeedController.abort();
+    currentNewsfeedController = null;
+  }
+  
   // Reset caches when class changes
   if (lastNewsfeedClassId !== classId) {
     console.log('🔄 [NEWSFEED] Class changed from', lastNewsfeedClassId, 'to', classId, '- resetting state');
     lastNewsfeedClassId = classId;
     lastNewsfeedHash = null;
     newsfeedIsLoading = false; // allow new load for new class
+    window.newsfeedLoadStartTime = null; // Reset load start time
+    
+    // Clear debounce timer
+    if (newsfeedDebounceTimer) {
+      clearTimeout(newsfeedDebounceTimer);
+      newsfeedDebounceTimer = null;
+    }
+    
+    // Abort any in-flight request
+    if (currentNewsfeedController) {
+      currentNewsfeedController.abort();
+      currentNewsfeedController = null;
+    }
+    
     stopNewsfeedPolling();
   }
   
   // Prevent multiple simultaneous loads
+  // CRITICAL: But allow if it's been loading for more than 10 seconds (stuck)
   if (newsfeedIsLoading) {
-    console.log('⏸️ [NEWSFEED] Already loading, skipping duplicate call');
-    return;
+    // Check if we have a timestamp for when loading started
+    if (!window.newsfeedLoadStartTime) {
+      window.newsfeedLoadStartTime = Date.now();
+      console.log('⏸️ [NEWSFEED] Already loading, skipping duplicate call');
+      return;
+    }
+    
+    const loadDuration = Date.now() - window.newsfeedLoadStartTime;
+    if (loadDuration > 10000) {
+      // Been loading for more than 10 seconds - likely stuck, reset and allow
+      console.warn('⚠️ [NEWSFEED] Loading flag stuck for', loadDuration, 'ms - resetting');
+      newsfeedIsLoading = false;
+      window.newsfeedLoadStartTime = null;
+    } else {
+      console.log('⏸️ [NEWSFEED] Already loading (', loadDuration, 'ms), skipping duplicate call');
+      return;
+    }
   }
+  
+  // Set load start time
+  window.newsfeedLoadStartTime = Date.now();
   
   if (!classId) {
     console.error('❌ [NEWSFEED] Class ID not found');
+    // CRITICAL: Reset loading flag on error
+    newsfeedIsLoading = false;
+    window.newsfeedLoadStartTime = null;
     const newsfeedContent = document.getElementById('newsfeed-content');
     if (newsfeedContent) {
       newsfeedContent.innerHTML = `
@@ -11825,6 +11934,9 @@ function loadNewsfeedPosts() {
   const newsfeedContent = document.getElementById('newsfeed-content');
   if (!newsfeedContent) {
     console.error('❌ [NEWSFEED] Newsfeed content container not found');
+    // CRITICAL: Reset loading flag on error
+    newsfeedIsLoading = false;
+    window.newsfeedLoadStartTime = null;
     return;
   }
   
@@ -11847,15 +11959,28 @@ function loadNewsfeedPosts() {
   // Add timestamp to prevent caching issues
   const cacheBuster = `&_t=${Date.now()}`;
   
+  // CRITICAL: Create AbortController for timeout and store globally
+  currentNewsfeedController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    if (currentNewsfeedController) {
+      currentNewsfeedController.abort();
+      console.warn('⏱️ [NEWSFEED] Request timeout after 15 seconds');
+    }
+  }, 15000); // 15 second timeout
+  
   fetch(url + cacheBuster, { 
     credentials: 'same-origin',
     cache: 'no-cache',
+    signal: currentNewsfeedController.signal,
     headers: {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache'
     }
   })
     .then(response => {
+      // Clear timeout on successful response
+      clearTimeout(timeoutId);
+      
       console.log('📰 [NEWSFEED] Response status:', response.status);
       console.log('📰 [NEWSFEED] Response headers:', response.headers.get('Content-Type'));
       
@@ -11877,6 +12002,8 @@ function loadNewsfeedPosts() {
       
       // Clear loading flag
       newsfeedIsLoading = false;
+      window.newsfeedLoadStartTime = null;
+      currentNewsfeedController = null; // Clear controller reference
       console.log('📰 [NEWSFEED] Setting loading flag to false');
       
       if (data && data.success !== false) {
@@ -11918,11 +12045,32 @@ function loadNewsfeedPosts() {
       }
     })
     .catch(error => {
+      // Clear timeout on error
+      clearTimeout(timeoutId);
+      
+      // Clear controller reference on error (unless it was aborted by a new request)
+      if (error.name !== 'AbortError' || !currentNewsfeedController) {
+        currentNewsfeedController = null;
+      }
+      
       console.error('❌ [NEWSFEED] Error loading newsfeed posts:', error);
       console.error('❌ [NEWSFEED] Error stack:', error.stack);
       
+      // Don't show error if request was aborted (user clicked again or timeout)
+      if (error.name === 'AbortError') {
+        console.log('🛑 [NEWSFEED] Request was aborted (likely new request started)');
+        // Don't clear loading flag if a new request is starting
+        if (!currentNewsfeedController) {
+          newsfeedIsLoading = false;
+          window.newsfeedLoadStartTime = null;
+        }
+        return; // Don't show error message for aborted requests
+      }
+      
       // Clear loading flag on error
       newsfeedIsLoading = false;
+      window.newsfeedLoadStartTime = null;
+      currentNewsfeedController = null;
       console.log('📰 [NEWSFEED] Setting loading flag to false (error)');
       
       showNewsfeedError('Failed to load newsfeed: ' + error.message);
@@ -11962,12 +12110,12 @@ function renderNewsfeedPosts(posts) {
   const userInitials = userFullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   
   let html = `
-    <div style="width: 100%; margin: 0; padding: 32px; font-family: ${fontFamily};">
+    <div style="width: 100%; margin: 0; padding: 12px; font-family: ${fontFamily};">
       <!-- Post Creation Form -->
-      <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <div style="background: white; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #e5e7eb;">
+        <div style="display: flex; align-items: flex-start; gap: 10px;">
           <!-- Profile Picture -->
-          <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 16px; flex-shrink: 0;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 13px; flex-shrink: 0;">
             ${userInitials}
           </div>
           
@@ -11976,39 +12124,32 @@ function renderNewsfeedPosts(posts) {
             <!-- Textarea -->
             <textarea id="newsfeed-post-input" 
                       placeholder="What's on your mind, ${escapeHtml(userFirstName)}?" 
-                      style="width: 100%; height: 42px; min-height: 42px; max-height: 150px; padding: 12px 42px 28px 42px; border: 1.5px solid #d1d5db; border-radius: 24px; font-size: 14px; font-family: ${fontFamily}; resize: none; overflow-y: auto; background: #ffffff; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); line-height: 1.5; box-sizing: border-box; outline: none; color: #1f2937;"
+                      style="width: 100%; height: 40px; min-height: 40px; max-height: 120px; padding: 8px 50px 8px 38px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 15px; font-family: ${fontFamily}; resize: none; overflow-y: auto; background: #f0f2f5; transition: all 0.2s; line-height: 1.33; box-sizing: border-box; outline: none; color: #1f2937;"
                       maxlength="5000"
-                      onfocus="this.style.background='#ffffff'; this.style.borderColor='#28a745'; this.style.boxShadow='0 0 0 4px rgba(40, 167, 69, 0.12)';"
-                      onblur="this.style.background='#ffffff'; this.style.borderColor='#d1d5db'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';"
-                      oninput="this.style.height='42px'; this.style.height=Math.min(Math.max(this.scrollHeight, 42), 150)+'px'; const charCount = document.getElementById('newsfeed-char-count'); if(charCount) charCount.textContent=this.value.length+'/5000';"></textarea>
-            
-            <!-- Character Counter -->
-            <span id="newsfeed-char-count" style="position: absolute; bottom: 10px; left: 16px; font-size: 11px; color: #9ca3af; pointer-events: none; font-weight: 500; z-index: 1; background: rgba(255,255,255,0.9); padding: 2px 6px; border-radius: 4px;">0/5000</span>
+                      onfocus="this.style.background='#ffffff'; this.style.borderColor='#28a745'; this.style.boxShadow='0 0 0 2px rgba(40, 167, 69, 0.1)';"
+                      onblur="this.style.background='#f0f2f5'; this.style.borderColor='#e5e7eb'; this.style.boxShadow='none';"
+                      oninput="this.style.height='40px'; this.style.height=Math.min(Math.max(this.scrollHeight, 40), 120)+'px';"></textarea>
             
             <!-- Emoji Button - Left Side -->
             <button onclick="toggleEmojiPicker()" 
                     id="emoji-picker-btn"
                     type="button"
-                    style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); color: #6b7280; z-index: 10; outline: none; font-size: 20px; line-height: 1; padding: 0;"
-                    onmouseover="this.style.background='rgba(40, 167, 69, 0.12)'; this.style.color='#28a745'; this.style.transform='translateY(-50%) scale(1.1)';"
-                    onmouseout="this.style.background='transparent'; this.style.color='#6b7280'; this.style.transform='translateY(-50%) scale(1)';"
-                    onfocus="this.style.background='rgba(40, 167, 69, 0.12)'; this.style.color='#28a745'; this.style.outline='2px solid rgba(40, 167, 69, 0.3)'; this.style.outlineOffset='2px';"
-                    onblur="this.style.background='transparent'; this.style.color='#6b7280'; this.style.outline='none';"
+                    style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #65676b; z-index: 10; outline: none; font-size: 20px; line-height: 1; padding: 0;"
+                    onmouseover="this.style.background='rgba(0, 0, 0, 0.05)';"
+                    onmouseout="this.style.background='transparent';"
                     title="Add Emoji">
               😊
             </button>
             
             <!-- Emoji Picker Popup -->
-            <div id="emoji-picker-popup" style="display: none; position: absolute; top: calc(100% + 10px); left: 0; background: white; border: 1px solid #e5e7eb; border-radius: 20px; box-shadow: 0 12px 32px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.1); padding: 20px; z-index: 1000; width: 320px; max-height: 360px; overflow-y: auto; backdrop-filter: blur(10px);">
-              <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px;">
+            <div id="emoji-picker-popup" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; background: white; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 12px; z-index: 1000; width: 280px; max-height: 300px; overflow-y: auto;">
+              <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px;">
                 ${['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '👋', '🤚', '🖐', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁', '👅', '👄', '💋', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤'].map(emoji => `
                   <button onclick="insertEmoji('${emoji}')" 
                           type="button"
-                          style="width: 36px; height: 36px; border: none; background: transparent; cursor: pointer; border-radius: 10px; font-size: 22px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); padding: 0; outline: none;"
-                          onmouseover="this.style.background='#f3f4f6'; this.style.transform='scale(1.15)';"
+                          style="width: 32px; height: 32px; border: none; background: transparent; cursor: pointer; border-radius: 8px; font-size: 18px; transition: all 0.2s; padding: 0; outline: none;"
+                          onmouseover="this.style.background='#f3f4f6'; this.style.transform='scale(1.1)';"
                           onmouseout="this.style.background='transparent'; this.style.transform='scale(1)';"
-                          onfocus="this.style.background='#f3f4f6'; this.style.outline='2px solid rgba(40, 167, 69, 0.3)'; this.style.outlineOffset='2px';"
-                          onblur="this.style.background='transparent'; this.style.outline='none';"
                           title="${emoji}">
                     ${emoji}
                   </button>
@@ -12020,13 +12161,11 @@ function renderNewsfeedPosts(posts) {
             <button onclick="createNewsfeedPost()" 
                     id="newsfeed-post-btn"
                     type="button"
-                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; font-family: ${fontFamily}; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 3px 8px rgba(40, 167, 69, 0.35), 0 1px 3px rgba(0,0,0,0.1); z-index: 10; outline: none; padding: 0;"
-                    onmouseover="this.style.background='linear-gradient(135deg, #1d9b3e 0%, #157a2e 100%)'; this.style.transform='translateY(-50%) scale(1.08)'; this.style.boxShadow='0 5px 14px rgba(40, 167, 69, 0.45), 0 2px 6px rgba(0,0,0,0.15)';"
-                    onmouseout="this.style.background='linear-gradient(135deg, #28a745 0%, #1d9b3e 100%)'; this.style.transform='translateY(-50%) scale(1)'; this.style.boxShadow='0 3px 8px rgba(40, 167, 69, 0.35), 0 1px 3px rgba(0,0,0,0.1)';"
-                    onfocus="this.style.boxShadow='0 0 0 4px rgba(40, 167, 69, 0.25), 0 3px 8px rgba(40, 167, 69, 0.35)';"
-                    onblur="this.style.boxShadow='0 3px 8px rgba(40, 167, 69, 0.35), 0 1px 3px rgba(0,0,0,0.1)';"
+                    style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; background: #28a745; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.2s; z-index: 10; outline: none; padding: 0;"
+                    onmouseover="this.style.background='#1d9b3e'; this.style.transform='translateY(-50%) scale(1.05)';"
+                    onmouseout="this.style.background='#28a745'; this.style.transform='translateY(-50%) scale(1)';"
                     title="Post">
-              <i class="fas fa-paper-plane" style="font-size: 14px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));"></i>
+              <i class="fas fa-paper-plane"></i>
             </button>
           </div>
         </div>
@@ -12038,52 +12177,53 @@ function renderNewsfeedPosts(posts) {
   
   if (posts.length === 0) {
     html += `
-      <div style="text-align: center; padding: 60px 20px; color: #6b7280;">
-        <i class="fas fa-newspaper" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
-        <p style="margin: 0; font-size: 16px;">No posts yet. Be the first to share something!</p>
+      <div style="text-align: center; padding: 50px 20px; color: #9ca3af;">
+        <div style="width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center;">
+          <i class="fas fa-comments" style="font-size: 24px; color: #d1d5db;"></i>
+        </div>
+        <p style="margin: 0; font-size: 14px; font-weight: 500; color: #6b7280;">No posts yet</p>
+        <p style="margin: 6px 0 0 0; font-size: 12px; color: #9ca3af;">Be the first to share something!</p>
       </div>
     `;
   } else {
     posts.forEach(post => {
       const isAuthor = post.user_id === userId;
       const userInitials = post.user_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-      const roleBadge = post.user_role === 'teacher' ? '<span style="background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-left: 8px;">Teacher</span>' : '';
+      const roleBadge = post.user_role === 'teacher' ? '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500;">Teacher</span>' : '';
       const timeAgo = formatTimeAgo(post.created_at);
       
       html += `
-        <div class="newsfeed-post" data-post-id="${post.id}" style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div class="newsfeed-post" data-post-id="${post.id}" style="background: white; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #e5e7eb;">
           <!-- Post Header -->
-          <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; margin-right: 12px;">
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px; margin-right: 8px;">
               ${userInitials}
             </div>
             <div style="flex: 1;">
-              <div style="display: flex; align-items: center;">
-                <strong style="color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(post.user_name)}</strong>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <strong style="color: #111827; font-size: 13px; font-weight: 600;">${escapeHtml(post.user_name)}</strong>
                 ${roleBadge}
               </div>
-              <span style="color: #6b7280; font-size: 12px;">${timeAgo}</span>
+              <span style="color: #9ca3af; font-size: 11px;">${timeAgo}</span>
             </div>
           </div>
           
           <!-- Post Content -->
-          <div style="color: #374151; font-size: 14px; line-height: 1.6; margin-bottom: 16px; white-space: pre-wrap;">${escapeHtml(post.content)}</div>
+          <div style="color: #374151; font-size: 14px; line-height: 1.5; margin-bottom: 8px; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(post.content)}</div>
           
           <!-- Post Actions -->
-          <div style="display: flex; align-items: center; gap: 4px; padding-top: 16px; margin-top: 16px; border-top: 1px solid #f3f4f6;">
+          <div style="display: flex; align-items: center; gap: 6px; padding-top: 8px; margin-top: 8px; border-top: 1px solid #f3f4f6;">
             <!-- Like Button -->
             <button onclick="togglePostReaction(${post.id}, 'like')" 
                     class="newsfeed-reaction-btn"
                     data-post-id="${post.id}"
                     data-reaction="like"
-                    style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: ${post.user_reaction === 'like' ? '#d1fae5' : '#f9fafb'}; color: ${post.user_reaction === 'like' ? '#28a745' : '#6b7280'}; border: 1px solid ${post.user_reaction === 'like' ? '#a7f3d0' : '#e5e7eb'}; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); outline: none;"
-                    onmouseover="if('${post.user_reaction}' !== 'like') { this.style.background='#f0fdf4'; this.style.borderColor='#bbf7d0'; this.style.color='#16a34a'; this.style.transform='translateY(-1px)'; } else { this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 8px rgba(40, 167, 69, 0.2)'; }"
-                    onmouseout="this.style.background='${post.user_reaction === 'like' ? '#d1fae5' : '#f9fafb'}'; this.style.borderColor='${post.user_reaction === 'like' ? '#a7f3d0' : '#e5e7eb'}'; this.style.color='${post.user_reaction === 'like' ? '#28a745' : '#6b7280'}'; this.style.transform='translateY(0)'; this.style.boxShadow='none';"
-                    onfocus="this.style.outline='2px solid rgba(40, 167, 69, 0.3)'; this.style.outlineOffset='2px';"
-                    onblur="this.style.outline='none';"
+                    style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; background: ${post.user_reaction === 'like' ? '#e8f5e9' : 'transparent'}; color: ${post.user_reaction === 'like' ? '#28a745' : '#6b7280'}; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; outline: none;"
+                    onmouseover="this.style.background='${post.user_reaction === 'like' ? '#d1fae5' : '#f3f4f6'}';"
+                    onmouseout="this.style.background='${post.user_reaction === 'like' ? '#e8f5e9' : 'transparent'}';"
                     title="Like">
-              <i class="fas fa-thumbs-up" style="font-size: 15px; ${post.user_reaction === 'like' ? 'filter: drop-shadow(0 1px 2px rgba(40, 167, 69, 0.3));' : ''}"></i>
-              <span class="like-count-${post.id}" style="font-weight: 600; min-width: 16px; text-align: center;">${post.like_count || 0}</span>
+              <i class="fas fa-thumbs-up" style="font-size: 13px;"></i>
+              <span class="like-count-${post.id}">${post.like_count || 0}</span>
             </button>
             
             <!-- Heart Button -->
@@ -12091,44 +12231,42 @@ function renderNewsfeedPosts(posts) {
                     class="newsfeed-reaction-btn"
                     data-post-id="${post.id}"
                     data-reaction="heart"
-                    style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: ${post.user_reaction === 'heart' ? '#fce7f3' : '#f9fafb'}; color: ${post.user_reaction === 'heart' ? '#ec4899' : '#6b7280'}; border: 1px solid ${post.user_reaction === 'heart' ? '#fbcfe8' : '#e5e7eb'}; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); outline: none;"
-                    onmouseover="if('${post.user_reaction}' !== 'heart') { this.style.background='#fef2f2'; this.style.borderColor='#fecdd3'; this.style.color='#f43f5e'; this.style.transform='translateY(-1px)'; } else { this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 8px rgba(236, 72, 153, 0.2)'; }"
-                    onmouseout="this.style.background='${post.user_reaction === 'heart' ? '#fce7f3' : '#f9fafb'}'; this.style.borderColor='${post.user_reaction === 'heart' ? '#fbcfe8' : '#e5e7eb'}'; this.style.color='${post.user_reaction === 'heart' ? '#ec4899' : '#6b7280'}'; this.style.transform='translateY(0)'; this.style.boxShadow='none';"
-                    onfocus="this.style.outline='2px solid rgba(236, 72, 153, 0.3)'; this.style.outlineOffset='2px';"
-                    onblur="this.style.outline='none';"
+                    style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; background: ${post.user_reaction === 'heart' ? '#fce7f3' : 'transparent'}; color: ${post.user_reaction === 'heart' ? '#ec4899' : '#6b7280'}; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; outline: none;"
+                    onmouseover="this.style.background='${post.user_reaction === 'heart' ? '#fbcfe8' : '#f3f4f6'}';"
+                    onmouseout="this.style.background='${post.user_reaction === 'heart' ? '#fce7f3' : 'transparent'}';"
                     title="Love">
-              <i class="fas fa-heart" style="font-size: 15px; ${post.user_reaction === 'heart' ? 'filter: drop-shadow(0 1px 2px rgba(236, 72, 153, 0.3));' : ''}"></i>
-              <span class="heart-count-${post.id}" style="font-weight: 600; min-width: 16px; text-align: center;">${post.heart_count || 0}</span>
+              <i class="fas fa-heart" style="font-size: 13px;"></i>
+              <span class="heart-count-${post.id}">${post.heart_count || 0}</span>
             </button>
             
             <!-- Comment Button -->
             <button onclick="togglePostComments(${post.id})" 
                     id="comment-btn-${post.id}"
-                    style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); outline: none;"
-                    onmouseover="this.style.background='#f0f9ff'; this.style.borderColor='#bae6fd'; this.style.color='#0284c7'; this.style.transform='translateY(-1px)';"
-                    onmouseout="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb'; this.style.color='#6b7280'; this.style.transform='translateY(0)';"
-                    onfocus="this.style.outline='2px solid rgba(2, 132, 199, 0.3)'; this.style.outlineOffset='2px';"
-                    onblur="this.style.outline='none';"
+                    style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; background: transparent; color: #6b7280; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; outline: none;"
+                    onmouseover="this.style.background='#f3f4f6'; this.style.color='#0284c7';"
+                    onmouseout="this.style.background='transparent'; this.style.color='#6b7280';"
                     title="Comment">
-              <i class="fas fa-comment" style="font-size: 15px;"></i>
-              <span class="comment-count-${post.id}" style="font-weight: 600; min-width: 16px; text-align: center;">${post.comment_count || 0}</span>
+              <i class="fas fa-comment" style="font-size: 13px;"></i>
+              <span class="comment-count-${post.id}">${post.comment_count || 0}</span>
             </button>
           </div>
           
           <!-- Comments Section (initially hidden) -->
-          <div id="comments-${post.id}" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-            <div id="comments-list-${post.id}" style="margin-bottom: 12px; max-height: 400px; overflow-y: auto;">
+          <div id="comments-${post.id}" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f3f4f6;">
+            <div id="comments-list-${post.id}" style="margin-bottom: 8px; max-height: 250px; overflow-y: auto;">
               <!-- Comments will be loaded here -->
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 6px;">
               <textarea id="comment-input-${post.id}" 
                         placeholder="Write a comment..." 
-                        style="flex: 1; min-height: 60px; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px; font-family: ${fontFamily}; resize: vertical;"
-                        maxlength="2000"></textarea>
+                        style="flex: 1; min-height: 40px; padding: 8px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-family: ${fontFamily}; resize: vertical; background: #f9fafb;"
+                        maxlength="2000"
+                        onfocus="this.style.background='#ffffff'; this.style.borderColor='#28a745';"
+                        onblur="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb';"></textarea>
               <button onclick="createPostComment(${post.id})" 
-                      style="padding: 8px 16px; background: linear-gradient(135deg, #28a745 0%, #1d9b3e 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; font-family: ${fontFamily}; align-self: flex-end; transition: all 0.2s;"
-                      onmouseover="this.style.background='linear-gradient(135deg, #1d9b3e 0%, #157a2e 100%)';"
-                      onmouseout="this.style.background='linear-gradient(135deg, #28a745 0%, #1d9b3e 100%)';">
+                      style="padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 500; align-self: flex-end; transition: all 0.2s;"
+                      onmouseover="this.style.background='#1d9b3e';"
+                      onmouseout="this.style.background='#28a745';">
                 <i class="fas fa-paper-plane"></i>
               </button>
             </div>
@@ -12200,7 +12338,7 @@ async function createNewsfeedPost() {
     
     if (data.success) {
       postInput.value = '';
-      document.getElementById('newsfeed-char-count').textContent = '0/5000';
+      postInput.style.height = '40px';
       // Reload posts
       loadNewsfeedPosts();
     } else {
@@ -12236,32 +12374,24 @@ async function togglePostReaction(postId, reactionType) {
       if (likeCountEl) likeCountEl.textContent = data.like_count || 0;
       if (heartCountEl) heartCountEl.textContent = data.heart_count || 0;
       
-      // Update button styles with improved styling
+      // Update button styles
       if (likeBtn) {
         if (data.user_reaction === 'like') {
-          likeBtn.style.background = '#d1fae5';
-          likeBtn.style.borderColor = '#a7f3d0';
+          likeBtn.style.background = '#e8f5e9';
           likeBtn.style.color = '#28a745';
-          likeBtn.querySelector('i').style.filter = 'drop-shadow(0 1px 2px rgba(40, 167, 69, 0.3))';
         } else {
-          likeBtn.style.background = '#f9fafb';
-          likeBtn.style.borderColor = '#e5e7eb';
+          likeBtn.style.background = 'transparent';
           likeBtn.style.color = '#6b7280';
-          likeBtn.querySelector('i').style.filter = 'none';
         }
       }
       
       if (heartBtn) {
         if (data.user_reaction === 'heart') {
           heartBtn.style.background = '#fce7f3';
-          heartBtn.style.borderColor = '#fbcfe8';
           heartBtn.style.color = '#ec4899';
-          heartBtn.querySelector('i').style.filter = 'drop-shadow(0 1px 2px rgba(236, 72, 153, 0.3))';
         } else {
-          heartBtn.style.background = '#f9fafb';
-          heartBtn.style.borderColor = '#e5e7eb';
+          heartBtn.style.background = 'transparent';
           heartBtn.style.color = '#6b7280';
-          heartBtn.querySelector('i').style.filter = 'none';
         }
       }
     } else {
@@ -12517,6 +12647,19 @@ function stopNewsfeedPolling() {
     window.__newsfeedPollInterval__ = null;
   } else {
     console.log('⏹️ [NEWSFEED] No polling interval to stop');
+  }
+  
+  // Also clean up debounce timer and abort controller when stopping polling
+  if (newsfeedDebounceTimer) {
+    clearTimeout(newsfeedDebounceTimer);
+    newsfeedDebounceTimer = null;
+    console.log('⏹️ [NEWSFEED] Cleared debounce timer');
+  }
+  
+  if (currentNewsfeedController) {
+    currentNewsfeedController.abort();
+    currentNewsfeedController = null;
+    console.log('⏹️ [NEWSFEED] Aborted in-flight request');
   }
 }
 

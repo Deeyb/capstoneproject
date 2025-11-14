@@ -29,6 +29,89 @@
     console.log('✅ Session keep-alive mechanism initialized');
 })();
 
+// === Idle Timeout Warning (Coordinator) ===
+(function initIdleTimeout(){
+  var idleTimeout = 60 * 60 * 1000; // 1 hour (3600 seconds)
+  var warningTimeout = 5 * 60 * 1000; // 5 minutes before timeout
+  var warningShown = false;
+  var warningModal = null;
+  var lastActivity = Date.now();
+  
+  function resetTimer(){
+    lastActivity = Date.now();
+    warningShown = false;
+    if (warningModal) {
+      warningModal.remove();
+      warningModal = null;
+    }
+  }
+  
+  function showWarning(){
+    if (warningShown) return;
+    warningShown = true;
+    
+    warningModal = document.createElement('div');
+    warningModal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+      background: rgba(0,0,0,0.7); z-index: 9999; display: flex; 
+      align-items: center; justify-content: center;
+    `;
+    
+    warningModal.innerHTML = `
+      <div style="background: white; padding: 30px; border-radius: 10px; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        <h3 style="margin: 0 0 15px 0; color: #dc3545;">Session Timeout Warning</h3>
+        <p style="margin: 0 0 20px 0; color: #666;">Your session will expire in 5 minutes due to inactivity.</p>
+        <p style="margin: 0 0 20px 0; font-size: 14px; color: #888;">Click "Stay Logged In" to continue or you'll be automatically logged out.</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="stayLoggedInCoordinator" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Stay Logged In</button>
+          <button id="logoutNowCoordinator" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">Logout Now</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(warningModal);
+    
+    document.getElementById('stayLoggedInCoordinator').onclick = function(){
+      resetTimer();
+      // Send a ping to the server to refresh the session
+      fetch('check_login_status.php?ping=1', { 
+        method: 'GET', 
+        credentials: 'same-origin',
+        cache: 'no-cache'
+      }).catch(function(){});
+    };
+    
+    document.getElementById('logoutNowCoordinator').onclick = function(){
+      window.location.href = 'logout.php';
+    };
+  }
+  
+  function checkIdle(){
+    var now = Date.now();
+    var timeSinceActivity = now - lastActivity;
+    
+    if (timeSinceActivity >= idleTimeout) {
+      // Session expired, redirect to logout
+      window.location.href = 'logout.php?reason=timeout';
+    } else if (timeSinceActivity >= (idleTimeout - warningTimeout) && !warningShown) {
+      showWarning();
+    }
+  }
+  
+  function bind(){
+    // Track user activity
+    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(function(event){
+      document.addEventListener(event, resetTimer, true);
+    });
+    
+    // Check every minute
+    setInterval(checkIdle, 60000);
+  }
+  
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
 // ===== CSRF TOKEN MANAGEMENT =====
 
 // ===== Construct Usage Detection (language-agnostic heuristics) =====
@@ -221,6 +304,18 @@ function initCoordinatorTabs() {
 
 // Function to show a specific section
 function showSection(sectionId) {
+    // Initialize Reports module when Reports section is shown
+    if (sectionId === 'reports') {
+        setTimeout(() => {
+            if (typeof initReportsModule === 'function') {
+                initReportsModule();
+            } else if (window.ReportsModule) {
+                if (!window.reportsModule) {
+                    window.reportsModule = new window.ReportsModule();
+                }
+            }
+        }, 100);
+    }
   // Hide all sections
   document.querySelectorAll('.section-content').forEach(section => {
     section.classList.remove('active');
@@ -245,6 +340,16 @@ function showSection(sectionId) {
       if (typeof initSharedProfile === 'function') {
         try { initSharedProfile(); } catch (e) { }
       }
+    } else if (sectionId === 'reports') {
+      setTimeout(() => {
+        if (typeof initReportsModule === 'function') {
+          initReportsModule();
+        } else if (window.ReportsModule) {
+          if (!window.reportsModule) {
+            window.reportsModule = new window.ReportsModule();
+          }
+        }
+      }, 100);
     }
   } else {
   }

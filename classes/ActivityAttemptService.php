@@ -923,33 +923,62 @@ class ActivityAttemptService {
     
     /**
      * Get user's best attempt for an activity
+     * @param int $activityId
+     * @param int $userId
+     * @param int|null $classId Optional class ID to filter attempts by joined_at date
+     * @return array|null
      */
-    public function getUserBestAttempt($activityId, $userId) {
+    public function getUserBestAttempt($activityId, $userId, $classId = null) {
         $this->validateActivityId($activityId);
         $this->validateUserId($userId);
         
-        // Get best attempt - prioritize non-NULL scores, then by highest score
-        $stmt = $this->db->prepare("
-            SELECT * FROM activity_attempts 
+        $params = [$activityId, $userId];
+        $whereClause = "
             WHERE activity_id = ? 
                 AND user_id = ? 
                 AND role = 'student' 
                 AND is_preview = 0 
                 AND submitted_at IS NOT NULL
+        ";
+        
+        // CRITICAL: If class_id is provided, filter attempts by joined_at date
+        // Only count attempts submitted AFTER the student joined this class
+        if ($classId !== null && $classId > 0) {
+            // Get student's joined_at date for this class
+            $joinedStmt = $this->db->prepare("
+                SELECT joined_at 
+                FROM class_students 
+                WHERE class_id = ? AND student_user_id = ?
+                LIMIT 1
+            ");
+            $joinedStmt->execute([$classId, $userId]);
+            $joinedAt = $joinedStmt->fetchColumn();
+            
+            if ($joinedAt) {
+                $whereClause .= " AND DATE(submitted_at) >= DATE(?)";
+                $params[] = $joinedAt;
+                error_log("getUserBestAttempt - Activity {$activityId}, User {$userId}, Class {$classId}: Filtering by joined_at = {$joinedAt}");
+            }
+        }
+        
+        // Get best attempt - prioritize non-NULL scores, then by highest score
+        $stmt = $this->db->prepare("
+            SELECT * FROM activity_attempts 
+            $whereClause
             ORDER BY 
                 CASE WHEN score IS NULL THEN 1 ELSE 0 END,  -- NULL scores last
                 score DESC,  -- Highest score first
                 submitted_at DESC  -- Most recent first (if scores are equal)
             LIMIT 1
         ");
-        $stmt->execute([$activityId, $userId]);
+        $stmt->execute($params);
         $attempt = $stmt->fetch(PDO::FETCH_ASSOC);
         
         // Log for debugging
         if ($attempt) {
-            error_log("getUserBestAttempt - Activity {$activityId}, User {$userId}: Found attempt {$attempt['id']} with score = " . var_export($attempt['score'], true));
+            error_log("getUserBestAttempt - Activity {$activityId}, User {$userId}, Class " . ($classId ?? 'null') . ": Found attempt {$attempt['id']} with score = " . var_export($attempt['score'], true));
         } else {
-            error_log("getUserBestAttempt - Activity {$activityId}, User {$userId}: No submitted attempts found");
+            error_log("getUserBestAttempt - Activity {$activityId}, User {$userId}, Class " . ($classId ?? 'null') . ": No submitted attempts found");
         }
         
         return $attempt;

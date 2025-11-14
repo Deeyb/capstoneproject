@@ -47,6 +47,7 @@ require_once 'config.php';
 require_once 'classes/auth_helpers.php';
 require_once __DIR__ . '/config/Database.php';
 require_once __DIR__ . '/classes/ProfileService.php';
+require_once __DIR__ . '/classes/UIHelpers.php';
 require_once __DIR__ . '/classes/ClassEnrollmentService.php';
 
 // Use original auth system
@@ -119,7 +120,7 @@ $current_section = $_GET['section'] ?? 'myclasses';
   <!-- Header (match Teacher/Coordinator/Admin exactly) -->
   <div class="header">
     <div class="logo">
-      <img src="Photos/CodeRegal.svg" alt="CodeRegal" style="height: 80px; width: auto;">
+      <?php echo UIHelpers::getLogo(); ?>
     </div>
     <div class="settings">
       <div class="badge"><?php echo strtoupper(htmlspecialchars($user_role)); ?></div>

@@ -43,8 +43,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
     <!-- <li data-section="newsfeed">
       <i class="fas fa-bullhorn"></i> Announcement
     </li> -->
-    <!-- Reports - Hidden -->
-    <li data-section="reports" style="display: none;">
+    <li data-section="reports">
       <i class="fas fa-chart-bar"></i> Reports
     </li>
     <li data-section="audit">

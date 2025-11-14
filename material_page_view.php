@@ -55,6 +55,7 @@ $content = @file_get_contents($path) ?: '';
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/material_page_view.css?v=<?php echo time(); ?>">
+  <link rel="stylesheet" href="assets/css/play_area.css?v=<?php echo time(); ?>">
 </head>
 <body>
   <div class="container">
@@ -65,6 +66,7 @@ $content = @file_get_contents($path) ?: '';
   <script src="https://unpkg.com/marked@12.0.2/marked.min.js"></script>
   <script>window.Prism = window.Prism || {}; window.Prism.manual = true;</script>
   <script src="https://unpkg.com/prismjs@1.29.0/prism.js"></script>
+  <script src="assets/js/play_area_terminal.js?v=<?php echo time(); ?>"></script>
   <script>
     // Load Prism components sequentially and mark when ready
     window.__prismComponentsLoading = true;
@@ -220,65 +222,152 @@ $content = @file_get_contents($path) ?: '';
       return cppInput || pythonInput || javaInput;
     }
 
+    // Extract prompts from C++ code (cout statements before cin)
+    function extractPromptsAndInputs(code){
+      const prompts = [];
+      if (!code || typeof code !== 'string') return prompts;
+      const lines = code.split('\n');
+      for (let i = 0; i < lines.length; i++){
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        const cinMatch = trimmedLine.match(/cin\s*>>\s*(\w+)/);
+        if (cinMatch){
+          let prompt = '';
+          // Check if cout is on the same line
+          const sameLineCout = line.match(/cout\s*<<\s*["']([^"']+)["']/);
+          if (sameLineCout){
+            prompt = sameLineCout[1];
+          } else {
+            // Look for cout in previous lines (up to 5 lines back)
+            for (let j = Math.max(0, i - 5); j < i; j++){
+              const prevLine = lines[j];
+              const coutMatch = prevLine.match(/cout\s*<<\s*["']([^"']+)["']/);
+              if (coutMatch){
+                prompt = coutMatch[1];
+                break;
+              }
+            }
+          }
+          prompts.push({
+            prompt: prompt || 'Enter value:',
+            variable: cinMatch[1]
+          });
+        }
+      }
+      return prompts;
+    }
+
     function openTerminalAndRun(lang, source){
       const needsInput = hasInputStatements(source);
-      const modal = document.createElement('div');
-      modal.className = 'terminal-modal';
-      const outElId = 'terminalBody_' + Date.now();
-      modal.innerHTML = `
-        <div class="terminal-card" style="max-width: 700px;">
-          <div class="terminal-header"><div>CodeRegal Terminal</div><button class="terminal-close">✕</button></div>
-          ${needsInput ? `
-          <div style="padding: 12px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
-            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057; font-size: 13px;">Program Input (stdin):</label>
-            <textarea id="terminalStdin" placeholder="Enter input values here (one per line, e.g., for cin >> mark; enter: 85)" 
-              style="width: 100%; min-height: 60px; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-family: monospace; font-size: 13px; resize: vertical;"></textarea>
-            <div style="margin-top: 8px; display: flex; gap: 8px;">
-              <button id="runWithInputBtn" style="background: #28a745; color: white; border: none; padding: 6px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 500;">▶ Run with Input</button>
-              <div style="flex: 1; font-size: 11px; color: #6c757d; line-height: 1.5; padding-top: 6px;">Tip: Multiple inputs? Enter each value on a new line or separated by spaces.</div>
-            </div>
-          </div>
-          ` : ''}
-          <div class="terminal-body" id="${outElId}">${needsInput ? 'Enter input above and click "Run with Input" button.' : 'Running...'}</div>
-        </div>`;
-      document.body.appendChild(modal);
-      modal.querySelector('.terminal-close').onclick = function(){ modal.remove(); };
       
-      const stdinEl = modal.querySelector('#terminalStdin');
-      const outEl = modal.querySelector('#' + outElId);
-      const runBtn = modal.querySelector('#runWithInputBtn');
+      // Extract prompts for C++ code
+      let promptsAndInputs = [];
+      if (needsInput && (lang === 'cpp' || lang === 'c++')) {
+        promptsAndInputs = extractPromptsAndInputs(source);
+      }
       
-      if (needsInput) {
-        // Auto-focus input
-        setTimeout(() => stdinEl.focus(), 100);
+      // Use the same terminal as coding activities
+      if (window.PlayArea && typeof window.PlayArea.openTerminal === 'function') {
+        const modal = window.PlayArea.openTerminal(needsInput, promptsAndInputs);
+        const terminalBodyId = window.playTerminalBodyId;
         
-        // Run button click handler
-        if (runBtn) {
-          runBtn.onclick = function(){
-            runBtn.disabled = true;
-            runBtn.textContent = 'Running...';
-            outEl.textContent = 'Running...';
-            runSnippet(lang, source, outEl, stdinEl.value, function(){
-              runBtn.disabled = false;
-              runBtn.textContent = '▶ Run with Input';
-            });
-          };
+        // Create a hidden run button that the terminal can trigger
+        // The terminal looks for 'playRunBtn' specifically
+        let runBtn = document.getElementById('playRunBtn');
+        if (!runBtn) {
+          runBtn = document.createElement('button');
+          runBtn.id = 'playRunBtn';
+          runBtn.style.display = 'none';
+          document.body.appendChild(runBtn);
         }
         
-        // Ctrl+Enter to run
-        stdinEl.addEventListener('keydown', function(e){
-          if (e.ctrlKey && e.key === 'Enter') {
-            e.preventDefault();
-            if (runBtn) runBtn.click();
+        // Store current execution context
+        runBtn.dataset.lang = lang;
+        runBtn.dataset.source = source;
+        runBtn.dataset.terminalBodyId = terminalBodyId;
+        
+        // Set up click handler
+        runBtn.onclick = function() {
+          const stdin = window.playAreaTerminalInputValue || '';
+          const currentLang = runBtn.dataset.lang || lang;
+          const currentSource = runBtn.dataset.source || source;
+          const currentTerminalBodyId = runBtn.dataset.terminalBodyId || terminalBodyId;
+          const outEl = document.getElementById(currentTerminalBodyId);
+          if (outEl) {
+            outEl.textContent = 'Executing...';
           }
-        });
+          runSnippet(currentLang, currentSource, currentTerminalBodyId, stdin);
+        };
+        
+        if (!needsInput) {
+          // No input needed, run immediately
+          setTimeout(() => {
+            runSnippet(lang, source, terminalBodyId, '');
+          }, 100);
+        }
+        // If needs input, terminal will trigger runBtn click when user presses Enter
       } else {
-        // No input needed, run immediately
-        runSnippet(lang, source, outEl, '');
+        // Fallback to old terminal if PlayArea is not available
+        const modal = document.createElement('div');
+        modal.className = 'terminal-modal';
+        const outElId = 'terminalBody_' + Date.now();
+        modal.innerHTML = `
+          <div class="terminal-card" style="max-width: 700px;">
+            <div class="terminal-header"><div>CodeRegal Terminal</div><button class="terminal-close">✕</button></div>
+            ${needsInput ? `
+            <div style="padding: 12px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+              <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057; font-size: 13px;">Program Input (stdin):</label>
+              <textarea id="terminalStdin" placeholder="Enter input values here (one per line, e.g., for cin >> mark; enter: 85)" 
+                style="width: 100%; min-height: 60px; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-family: monospace; font-size: 13px; resize: vertical;"></textarea>
+              <div style="margin-top: 8px; display: flex; gap: 8px;">
+                <button id="runWithInputBtn" style="background: #28a745; color: white; border: none; padding: 6px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 500;">▶ Run with Input</button>
+                <div style="flex: 1; font-size: 11px; color: #6c757d; line-height: 1.5; padding-top: 6px;">Tip: Multiple inputs? Enter each value on a new line or separated by spaces.</div>
+              </div>
+            </div>
+            ` : ''}
+            <div class="terminal-body" id="${outElId}">${needsInput ? 'Enter input above and click "Run with Input" button.' : 'Running...'}</div>
+          </div>`;
+        document.body.appendChild(modal);
+        modal.querySelector('.terminal-close').onclick = function(){ modal.remove(); };
+        
+        const stdinEl = modal.querySelector('#terminalStdin');
+        const outEl = modal.querySelector('#' + outElId);
+        const runBtn = modal.querySelector('#runWithInputBtn');
+        
+        if (needsInput) {
+          setTimeout(() => stdinEl && stdinEl.focus(), 100);
+          if (runBtn) {
+            runBtn.onclick = function(){
+              runBtn.disabled = true;
+              runBtn.textContent = 'Running...';
+              outEl.textContent = 'Running...';
+              runSnippet(lang, source, outEl, stdinEl.value, function(){
+                runBtn.disabled = false;
+                runBtn.textContent = '▶ Run with Input';
+              });
+            };
+          }
+          if (stdinEl) {
+            stdinEl.addEventListener('keydown', function(e){
+              if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                if (runBtn) runBtn.click();
+              }
+            });
+          }
+        } else {
+          runSnippet(lang, source, outEl, '');
+        }
       }
     }
 
-    function showOutput(container, text){ container.textContent = text; }
+    function showOutput(container, text){ 
+      if (typeof container === 'string') {
+        // If container is an ID string, get the element
+        container = document.getElementById(container);
+      }
+      if (container) container.textContent = text; 
+    }
 
     async function runSnippet(lang, source, outEl, stdin, onComplete){
       let fd = new FormData();
@@ -291,17 +380,71 @@ $content = @file_get_contents($path) ?: '';
         const res = await fetch('course_outline_manage.php', { method:'POST', credentials:'same-origin', body: fd });
         const j = await res.json();
         if (!j || !j.success) { 
-          if (outEl) showOutput(outEl, 'Run failed: ' + (j && j.message || '')); 
+          const errorMsg = 'Run failed: ' + (j && j.message || '');
+          if (outEl) showOutput(outEl, errorMsg); 
           if (onComplete) onComplete();
           return;
         }
-        const r = (j.results && j.results[0]) || {};
-        const payload = r && (r.output || r.raw || r.error || r.data) ? (r.data || r) : r; // support both shapes
-        const stdout = (typeof payload === 'string') ? payload : (payload.output || payload.raw || payload.error || '');
-        if (outEl) showOutput(outEl, stdout || '(no output)');
+        // JDoodle response structure: {success: true, results: [{data: {output, error, statusCode, memory, cpuTime}}]}
+        // This is the SAME format as coding activities use
+        const firstResult = (j.results && j.results[0]) || {};
+        const jdoodleData = firstResult.data || firstResult;
+        
+        // Extract output directly from JDoodle response (same as coding activities)
+        let stdout = '';
+        let stderr = '';
+        let statusCode = jdoodleData.statusCode;
+        
+        // JDoodle returns output in 'output' field, errors in 'error' field
+        if (jdoodleData.output !== undefined && jdoodleData.output !== null) {
+          stdout = String(jdoodleData.output || '').trim();
+        }
+        if (jdoodleData.error !== undefined && jdoodleData.error !== null) {
+          stderr = String(jdoodleData.error || '').trim();
+        }
+        
+        // Also check for stderr field (some JDoodle responses use this)
+        if (!stderr && jdoodleData.stderr) {
+          stderr = String(jdoodleData.stderr || '').trim();
+        }
+        
+        // Clean up output formatting
+        let outputText = '';
+        
+        // If there's a compilation/runtime error, show it clearly
+        if (stderr || (statusCode && statusCode !== 200)) {
+          const errorMsg = stderr || 'Execution error';
+          outputText = '❌ Error:\n' + errorMsg;
+        } else if (stdout) {
+          // Clean up the output - remove extra whitespace and format nicely
+          stdout = stdout.trim();
+          
+          // Clean up concatenated prompts (e.g., "Enter grade 1: Enter grade 2:" -> separate lines)
+          // Split on common prompt patterns followed by colons
+          stdout = stdout.replace(/(Enter\s+\w+\s*\d*\s*:)\s+(?=Enter)/gi, '$1\n');
+          stdout = stdout.replace(/(Input\s+\w+\s*\d*\s*:)\s+(?=Input)/gi, '$1\n');
+          stdout = stdout.replace(/(Please\s+enter\s+\w+\s*\d*\s*:)\s+(?=Please)/gi, '$1\n');
+          
+          // Also handle cases where prompts are directly concatenated (no space)
+          stdout = stdout.replace(/(:\s*)(Enter|Input|Please)/gi, '$1\n$2');
+          
+          // Clean up multiple consecutive newlines
+          stdout = stdout.replace(/\n{3,}/g, '\n\n');
+          
+          outputText = stdout;
+        } else {
+          outputText = '(no output)';
+        }
+        
+        // Add termination message
+        if (outputText) {
+          outputText += '\n\n>>> Program Terminated';
+        }
+        
+        if (outEl) showOutput(outEl, outputText);
         if (onComplete) onComplete();
       } catch(e){ 
-        if (outEl) showOutput(outEl, 'Run failed'); 
+        if (outEl) showOutput(outEl, 'Run failed: ' + (e.message || '')); 
         if (onComplete) onComplete();
       }
     }

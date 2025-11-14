@@ -86,7 +86,7 @@ class SessionFix {
     /**
      * Check session timeout
      */
-    public static function checkSessionTimeout($timeoutMinutes = 30) {
+    public static function checkSessionTimeout($timeoutMinutes = 60) {
         self::init();
         
         if (isset($_SESSION['last_activity'])) {

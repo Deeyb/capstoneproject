@@ -37,6 +37,7 @@ require_once 'config.php';
 require_once 'classes/auth_helpers.php';
 require_once __DIR__ . '/config/Database.php';
 require_once __DIR__ . '/classes/ProfileService.php';
+require_once __DIR__ . '/classes/UIHelpers.php';
 
 // Use original auth system
 Auth::requireAuth();
@@ -79,7 +80,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <!-- Header (match Coordinator/Admin exactly) -->
   <div class="header">
     <div class="logo">
-      <img src="Photos/CodeRegal.svg" alt="CodeRegal" style="height: 80px; width: auto;">
+      <?php echo UIHelpers::getLogo(); ?>
     </div>
     <div class="settings">
       <div class="badge"><?php echo strtoupper(htmlspecialchars($user_role)); ?></div>
@@ -124,8 +125,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
         </li>
         
         
-        <!-- Reports - Hidden -->
-        <li class="nav-item" onclick="showSection('reports', this)" style="display: none;">
+        <li class="nav-item" onclick="showSection('reports', this)">
           <i class="fas fa-chart-bar"></i>
           <span>Reports</span>
         </li>
@@ -174,10 +174,9 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
 
     
 
-    <!-- Reports Section - Hidden -->
+    <!-- Reports Section -->
     <div id="reports" class="section-content" style="display: none;">
-      <div class="section-title">Reports</div>
-      <p>Reporting features will be implemented here.</p>
+      <?php include 'includes/reports_section.php'; ?>
     </div>
 
     <!-- Leaderboards Section -->
@@ -411,6 +410,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
         </script>
         <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
         <script src="assets/js/teacher_material_viewers.js?v=<?php echo time(); ?>"></script>
+        <script src="assets/js/reports_module.js?v=<?php echo time(); ?>"></script>
   <script>
     // Verify showSection AFTER scripts are loaded (using setTimeout to ensure scripts execute first)
     setTimeout(function() {

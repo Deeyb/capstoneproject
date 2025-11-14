@@ -2,12 +2,18 @@
 
 class ProfileService {
     private $db;
-    private $uploadDir = 'uploads/profile_photos/';
+    private $uploadDir;
     private $maxFileSize = 5242880; // 5MB
     private $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
 
     public function __construct($db) {
         $this->db = $db;
+        // Use absolute path based on project root (where this class file is located)
+        $baseDir = realpath(__DIR__ . '/..');
+        if ($baseDir === false) {
+            $baseDir = dirname(__DIR__);
+        }
+        $this->uploadDir = $baseDir . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'profile_photos' . DIRECTORY_SEPARATOR;
         $this->createUploadDirectory();
     }
 
@@ -16,7 +22,11 @@ class ProfileService {
      */
     private function createUploadDirectory() {
         if (!file_exists($this->uploadDir)) {
-            mkdir($this->uploadDir, 0755, true);
+            @mkdir($this->uploadDir, 0755, true);
+        }
+        // Ensure directory is writable
+        if (!is_writable($this->uploadDir)) {
+            @chmod($this->uploadDir, 0755);
         }
     }
 
@@ -231,7 +241,7 @@ class ProfileService {
     }
 
     /**
-     * Get profile photo URL
+     * Get profile photo URL (returns relative path for web access)
      */
     public function getProfilePhotoUrl($userId) {
         try {
@@ -240,7 +250,8 @@ class ProfileService {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($result && $result['profile_photo']) {
-                return $this->uploadDir . $result['profile_photo'];
+                // Return relative path for web access (not absolute file system path)
+                return 'uploads/profile_photos/' . $result['profile_photo'];
             }
 
             return null; // Return null if no photo

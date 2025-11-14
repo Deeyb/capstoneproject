@@ -2411,6 +2411,16 @@
             setTimeout(() => {
                 initSettings();
             }, 100);
+        } else if (sectionId === 'reports') {
+            setTimeout(() => {
+                if (typeof initReportsModule === 'function') {
+                    initReportsModule();
+                } else if (window.ReportsModule) {
+                    if (!window.reportsModule) {
+                        window.reportsModule = new window.ReportsModule();
+                    }
+                }
+            }, 100);
         }
     }
 
@@ -4236,7 +4246,7 @@
 
 // === Idle Timeout Warning (Admin) ===
 (function initIdleTimeout(){
-  var idleTimeout = 25 * 60 * 1000; // 25 minutes
+  var idleTimeout = 60 * 60 * 1000; // 1 hour (3600 seconds)
   var warningTimeout = 5 * 60 * 1000; // 5 minutes before timeout
   var warningShown = false;
   var warningModal = null;
@@ -4279,7 +4289,11 @@
     document.getElementById('stayLoggedIn').onclick = function(){
       resetTimer();
       // Send a ping to the server to refresh the session
-      fetch('login_process.php', { method: 'POST', body: new FormData() }).catch(function(){});
+      fetch('check_login_status.php?ping=1', { 
+        method: 'GET', 
+        credentials: 'same-origin',
+        cache: 'no-cache'
+      }).catch(function(){});
     };
     
     document.getElementById('logoutNow').onclick = function(){

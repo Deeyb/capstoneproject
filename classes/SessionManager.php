@@ -33,12 +33,17 @@ if (session_status() === PHP_SESSION_NONE) {
     // Update last activity
     $_SESSION["last_activity"] = time();
     
-    // Check for session timeout (30 minutes of inactivity)
-    if (isset($_SESSION["last_activity"]) && (time() - $_SESSION["last_activity"] > 1800)) {
-        // Session expired
+    // Check for session timeout (1 hour of inactivity)
+    // Allow 1 hour (3600 seconds) of inactivity before timeout
+    $sessionTimeout = 3600; // 1 hour
+    if (isset($_SESSION["last_activity"]) && (time() - $_SESSION["last_activity"] > $sessionTimeout)) {
+        // Session expired due to inactivity
         session_unset();
         session_destroy();
         session_start();
+    } else {
+        // Update last activity on every request to keep session alive
+        $_SESSION["last_activity"] = time();
     }
 }
 

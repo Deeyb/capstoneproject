@@ -1,5 +1,6 @@
 <?php
 // Header include for admin panel
+require_once __DIR__ . '/../classes/UIHelpers.php';
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,7 +25,7 @@
   </div>
   <div class="header">
     <div class="logo">
-      <img src="Photos/CodeRegal.svg" alt="CodeRegal" style="height: 80px; width: auto;">
+      <?php echo UIHelpers::getLogo(); ?>
     </div>
     <div class="settings">
       <div class="badge"><?php echo strtoupper(htmlspecialchars($user_role)); ?></div>

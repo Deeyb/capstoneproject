@@ -47,21 +47,27 @@ class ActivityProgressService {
             ];
         }
         
+        $progressData = [
+            'id' => $progress['id'],
+            'activity_id' => $progress['activity_id'],
+            'user_id' => $progress['user_id'],
+            'answers' => json_decode($progress['answers'], true),
+            'score' => $progress['score'],
+            'completed' => (bool)$progress['completed'],
+            'attempts' => $progress['attempts'],
+            'time_spent' => $progress['time_spent'],
+            'last_updated' => $progress['last_updated'],
+            'activity_title' => $progress['activity_title']
+        ];
+        
+        // Only include activity_type if it exists
+        if (isset($progress['activity_type'])) {
+            $progressData['activity_type'] = $progress['activity_type'];
+        }
+        
         return [
             'success' => true,
-            'progress' => [
-                'id' => $progress['id'],
-                'activity_id' => $progress['activity_id'],
-                'user_id' => $progress['user_id'],
-                'answers' => json_decode($progress['answers'], true),
-                'score' => $progress['score'],
-                'completed' => (bool)$progress['completed'],
-                'attempts' => $progress['attempts'],
-                'time_spent' => $progress['time_spent'],
-                'last_updated' => $progress['last_updated'],
-                'activity_title' => $progress['activity_title'],
-                'activity_type' => $progress['activity_type']
-            ]
+            'progress' => $progressData
         ];
     }
     

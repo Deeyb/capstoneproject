@@ -233,6 +233,9 @@ try {
                 (isset($student['middlename']) && $student['middlename'] ? substr($student['middlename'], 0, 1) . '. ' : '') . 
                 ($student['lastname'] ?? ''));
             
+            // Get student's joined_at date for this class (CRITICAL: Only count attempts after joining this class)
+            $joinedAt = $student['enrolled_at'] ?? null;
+            
             // Calculate overall grade
             $totalScore = 0;
             $totalMaxScore = 0;
@@ -246,18 +249,30 @@ try {
                 $activityType = $activity['type'];
                 
                 // Get best attempt score (use user_id, role='student', is_preview=0, and submitted_at IS NOT NULL)
+                // CRITICAL: Only count attempts submitted AFTER the student joined this class
                 try {
-                    $scoreStmt = $db->prepare("
-                        SELECT MAX(score) as best_score, COUNT(*) as attempt_count
-                        FROM activity_attempts
+                    $scoreParams = [$activityId, $studentId];
+                    $scoreWhere = "
                         WHERE activity_id = ? 
                         AND user_id = ? 
                         AND role = 'student' 
                         AND is_preview = 0
                         AND submitted_at IS NOT NULL
                         AND score IS NOT NULL
+                    ";
+                    
+                    // Filter by joined_at date if available
+                    if ($joinedAt) {
+                        $scoreWhere .= " AND DATE(submitted_at) >= DATE(?)";
+                        $scoreParams[] = $joinedAt;
+                    }
+                    
+                    $scoreStmt = $db->prepare("
+                        SELECT MAX(score) as best_score, COUNT(*) as attempt_count
+                        FROM activity_attempts
+                        $scoreWhere
                     ");
-                    $scoreStmt->execute([$activityId, $studentId]);
+                    $scoreStmt->execute($scoreParams);
                     $scoreData = $scoreStmt->fetch(PDO::FETCH_ASSOC);
                     
                     // Check if we have a valid result (even if score is 0, it's valid)
@@ -275,17 +290,29 @@ try {
                 }
                 
                 // Check if submitted (for manual grading) - use user_id, role='student', is_preview=0
+                // CRITICAL: Only count attempts submitted AFTER the student joined this class
                 try {
-                    $submittedStmt = $db->prepare("
-                        SELECT COUNT(*) as submitted_count
-                        FROM activity_attempts
+                    $submittedParams = [$activityId, $studentId];
+                    $submittedWhere = "
                         WHERE activity_id = ? 
                         AND user_id = ? 
                         AND role = 'student' 
                         AND is_preview = 0
                         AND submitted_at IS NOT NULL
+                    ";
+                    
+                    // Filter by joined_at date if available
+                    if ($joinedAt) {
+                        $submittedWhere .= " AND DATE(submitted_at) >= DATE(?)";
+                        $submittedParams[] = $joinedAt;
+                    }
+                    
+                    $submittedStmt = $db->prepare("
+                        SELECT COUNT(*) as submitted_count
+                        FROM activity_attempts
+                        $submittedWhere
                     ");
-                    $submittedStmt->execute([$activityId, $studentId]);
+                    $submittedStmt->execute($submittedParams);
                     $submittedData = $submittedStmt->fetch(PDO::FETCH_ASSOC);
                     $isSubmitted = $submittedData && (int)($submittedData['submitted_count'] ?? 0) > 0;
                 } catch (PDOException $e) {
@@ -331,22 +358,34 @@ try {
             }
             
             // Calculate topics completed
+            // CRITICAL: Only count activities completed AFTER the student joined this class
             $completedTopics = 0;
             foreach ($lessons as $lesson) {
                 try {
                     $lessonId = $lesson['lesson_id'];
-                    $completedStmt = $db->prepare("
-                        SELECT COUNT(DISTINCT la.id) as completed
-                        FROM lesson_activities la
-                        INNER JOIN activity_attempts aa ON la.id = aa.activity_id
+                    $completedParams = [$lessonId, $studentId];
+                    $completedWhere = "
                         WHERE la.lesson_id = ? 
                         AND aa.user_id = ? 
                         AND aa.role = 'student' 
                         AND aa.is_preview = 0
                         AND aa.submitted_at IS NOT NULL
                         AND (aa.score IS NOT NULL OR la.type IN ('essay', 'upload_based'))
+                    ";
+                    
+                    // Filter by joined_at date if available
+                    if ($joinedAt) {
+                        $completedWhere .= " AND DATE(aa.submitted_at) >= DATE(?)";
+                        $completedParams[] = $joinedAt;
+                    }
+                    
+                    $completedStmt = $db->prepare("
+                        SELECT COUNT(DISTINCT la.id) as completed
+                        FROM lesson_activities la
+                        INNER JOIN activity_attempts aa ON la.id = aa.activity_id
+                        $completedWhere
                     ");
-                    $completedStmt->execute([$lessonId, $studentId]);
+                    $completedStmt->execute($completedParams);
                     $completed = (int)$completedStmt->fetchColumn();
                     
                     if ($completed > 0) {

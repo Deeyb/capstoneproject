@@ -100,6 +100,12 @@ try {
         throw new Exception('Invalid activity ID');
     }
     
+    // Get optional class_id parameter (for filtering attempts by joined_at date)
+    $classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : null;
+    if ($classId !== null && $classId <= 0) {
+        $classId = null; // Treat invalid class_id as null
+    }
+    
     // Get activity type to check if it's manual grading
     // Also get title and instructions to help detect essay activities
     $activityStmt = $db->prepare("SELECT type, title, instructions FROM lesson_activities WHERE id = ? LIMIT 1");
@@ -193,8 +199,9 @@ try {
     error_log("get_student_score.php - Activity {$activityId}, User {$userId}: Type = '{$activityType}', Title = '{$activityTitle}', isEssay = " . ($isEssay ? 'true' : 'false') . ", isManualGrading = " . ($isManualGrading ? 'true' : 'false'));
     
     // Get best attempt score from ActivityAttemptService
+    // CRITICAL: Pass class_id to filter attempts by joined_at date (only count attempts after joining this class)
     $attemptService = new ActivityAttemptService($db);
-    $bestAttempt = $attemptService->getUserBestAttempt($activityId, $userId);
+    $bestAttempt = $attemptService->getUserBestAttempt($activityId, $userId, $classId);
     
     if ($bestAttempt) {
         $scoreValue = $bestAttempt['score'];

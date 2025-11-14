@@ -37,6 +37,17 @@
 			} else {
 				console.log('⚠️ initSharedProfile function not available');
 			}
+		} else if (sectionId === 'reports') {
+			console.log('📊 Loading Reports section...');
+			setTimeout(() => {
+				if (typeof initReportsModule === 'function') {
+					initReportsModule();
+				} else if (window.ReportsModule) {
+					if (!window.reportsModule) {
+						window.reportsModule = new window.ReportsModule();
+					}
+				}
+			}, 100);
 		}
 	};
 	
@@ -596,9 +607,22 @@ function bindCreateClassControls(){
 				.then(r => r.json())
 				.then(d => {
 					if (d && d.success) {
+						// Show success notification
+						var className = name || 'Class';
+						if (typeof showNotification === 'function') {
+							showNotification('success', 'Class Created', className + ' has been created successfully!');
+						} else if (typeof showSuccess === 'function') {
+							showSuccess('Class Created', className + ' has been created successfully!');
+						}
+						
+						// Close form
 						if (typeof closeForm === 'function') closeForm();
-						window.location.reload();
-  } else {
+						
+						// Reload after a short delay to show notification
+						setTimeout(function() {
+							window.location.reload();
+						}, 1500);
+					} else {
 						showError('Class Creation Failed', (d && d.message) || 'Failed to create class');
 					}
 				})
@@ -1241,17 +1265,42 @@ function openCourseOutlineModal(courseId, courseTitle){
     var content = document.getElementById('courseOutlineContent');
     if (title) title.textContent = 'Course Outline: ' + (courseTitle || '');
     if (content) content.textContent = 'Loading...';
-  modal.style.display = 'flex';
+    modal.style.display = 'flex';
+    
+    console.log('🔍 [openCourseOutlineModal] Fetching outline for course_id:', courseId);
+    
     fetch('course_outline.php?course_id=' + encodeURIComponent(courseId), { credentials:'same-origin' })
-        .then(function(r){ return r.text(); })
-        .then(function(t){
-            try {
-                var data = JSON.parse(t);
-                if (data && data.success) { content.innerHTML = renderCourseOutlineHTML(data.data); return; }
-            } catch(e) {}
-        content.innerHTML = '<div class="error">Failed to load course outline</div>';
+        .then(function(r){ 
+            console.log('🔍 [openCourseOutlineModal] Response status:', r.status, 'Content-Type:', r.headers.get('content-type'));
+            
+            // Check if response is JSON
+            const contentType = r.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                console.error('❌ [openCourseOutlineModal] Response is not JSON, Content-Type:', contentType);
+                return r.text().then(function(text) {
+                    console.error('❌ [openCourseOutlineModal] Response text (first 500 chars):', text.substring(0, 500));
+                    throw new Error('Response is not JSON: ' + text.substring(0, 200));
+                });
+            }
+            
+            return r.json();
         })
-        .catch(function(){ content.innerHTML = '<div class="error">Network error loading course outline</div>'; });
+        .then(function(data){
+            console.log('🔍 [openCourseOutlineModal] Parsed data:', data);
+            
+            if (data && data.success) { 
+                console.log('✅ [openCourseOutlineModal] Success, rendering outline with', (data.data || []).length, 'modules');
+                content.innerHTML = renderCourseOutlineHTML(data.data); 
+                return; 
+            }
+            
+            console.error('❌ [openCourseOutlineModal] API returned success=false:', data.message || 'Unknown error');
+            content.innerHTML = '<div class="error">Failed to load course outline: ' + (data.message || 'Unknown error') + '</div>';
+        })
+        .catch(function(error){ 
+            console.error('❌ [openCourseOutlineModal] Error:', error);
+            content.innerHTML = '<div class="error">Network error loading course outline: ' + (error.message || 'Unknown error') + '</div>'; 
+        });
 }
 
 function renderCourseOutlineHTML(outline){
@@ -6282,6 +6331,89 @@ loadRecentSnippets();
     document.addEventListener('keypress', onUserActivity);
     
     console.log('✅ Session keep-alive mechanism initialized');
+})();
+
+// === Idle Timeout Warning (Teacher) ===
+(function initIdleTimeout(){
+  var idleTimeout = 60 * 60 * 1000; // 1 hour (3600 seconds)
+  var warningTimeout = 5 * 60 * 1000; // 5 minutes before timeout
+  var warningShown = false;
+  var warningModal = null;
+  var lastActivity = Date.now();
+  
+  function resetTimer(){
+    lastActivity = Date.now();
+    warningShown = false;
+    if (warningModal) {
+      warningModal.remove();
+      warningModal = null;
+    }
+  }
+  
+  function showWarning(){
+    if (warningShown) return;
+    warningShown = true;
+    
+    warningModal = document.createElement('div');
+    warningModal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+      background: rgba(0,0,0,0.7); z-index: 9999; display: flex; 
+      align-items: center; justify-content: center;
+    `;
+    
+    warningModal.innerHTML = `
+      <div style="background: white; padding: 30px; border-radius: 10px; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        <h3 style="margin: 0 0 15px 0; color: #dc3545;">Session Timeout Warning</h3>
+        <p style="margin: 0 0 20px 0; color: #666;">Your session will expire in 5 minutes due to inactivity.</p>
+        <p style="margin: 0 0 20px 0; font-size: 14px; color: #888;">Click "Stay Logged In" to continue or you'll be automatically logged out.</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="stayLoggedInTeacher" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Stay Logged In</button>
+          <button id="logoutNowTeacher" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">Logout Now</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(warningModal);
+    
+    document.getElementById('stayLoggedInTeacher').onclick = function(){
+      resetTimer();
+      // Send a ping to the server to refresh the session
+      fetch('check_login_status.php?ping=1', { 
+        method: 'GET', 
+        credentials: 'same-origin',
+        cache: 'no-cache'
+      }).catch(function(){});
+    };
+    
+    document.getElementById('logoutNowTeacher').onclick = function(){
+      window.location.href = 'logout.php';
+    };
+  }
+  
+  function checkIdle(){
+    var now = Date.now();
+    var timeSinceActivity = now - lastActivity;
+    
+    if (timeSinceActivity >= idleTimeout) {
+      // Session expired, redirect to logout
+      window.location.href = 'logout.php?reason=timeout';
+    } else if (timeSinceActivity >= (idleTimeout - warningTimeout) && !warningShown) {
+      showWarning();
+    }
+  }
+  
+  function bind(){
+    // Track user activity
+    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(function(event){
+      document.addEventListener(event, resetTimer, true);
+    });
+    
+    // Check every minute
+    setInterval(checkIdle, 60000);
+  }
+  
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
 })();
 
 document.addEventListener('DOMContentLoaded', function(){
