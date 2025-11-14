@@ -220,10 +220,9 @@ try {
             }
         }
         
-        // Parse upload file info OR essay text OR identification answers from response_text
+        // Parse upload file info OR essay text from response_text
         $uploadInfo = null;
         $essayText = null;
-        $identificationAnswers = []; // Array of {question_id, question_text, student_answer, is_correct, points_awarded}
         
         if (!empty($items)) {
             // Try to find file info or essay text in any item
@@ -288,41 +287,12 @@ try {
                     }
                 }
             }
-            
-            // For identification activities, extract answers from items
-            if ($perSubmissionActivityType === 'identification' && !empty($items)) {
-                foreach ($items as $item) {
-                    $itemQuestionId = (int)($item['question_id'] ?? 0);
-                    $responseText = trim($item['response_text'] ?? '');
-                    $isCorrect = isset($item['is_correct']) ? (bool)$item['is_correct'] : null;
-                    $pointsAwarded = isset($item['points_awarded']) ? (float)$item['points_awarded'] : null;
-                    
-                    if ($itemQuestionId > 0 && !empty($responseText)) {
-                        // Get question text
-                        $qStmt = $db->prepare("SELECT question_text, points FROM activity_questions WHERE id = ? LIMIT 1");
-                        $qStmt->execute([$itemQuestionId]);
-                        $qData = $qStmt->fetch(PDO::FETCH_ASSOC);
-                        $questionText = $qData['question_text'] ?? '';
-                        $questionPoints = $qData['points'] ?? 0;
-                        
-                        $identificationAnswers[] = [
-                            'question_id' => $itemQuestionId,
-                            'question_text' => $questionText,
-                            'student_answer' => $responseText,
-                            'is_correct' => $isCorrect,
-                            'points_awarded' => $pointsAwarded,
-                            'max_points' => (float)$questionPoints
-                        ];
-                        error_log("Found identification answer for attempt {$attemptId}, question_id: {$itemQuestionId}, answer: " . substr($responseText, 0, 50));
-                    }
-                }
-            }
         } else {
             error_log("No items found for attempt {$attemptId}");
         }
         
-        if (!$uploadInfo && !$essayText && empty($identificationAnswers)) {
-            error_log("No upload info, essay text, or identification answers found for attempt {$attemptId} - items count: " . count($items) . ", activity type: {$perSubmissionActivityType}");
+        if (!$uploadInfo && !$essayText) {
+            error_log("No upload info or essay text found for attempt {$attemptId} - items count: " . count($items) . ", activity type: {$perSubmissionActivityType}");
         }
         
         $result[] = [
@@ -337,7 +307,6 @@ try {
             'upload_info' => $uploadInfo,
             'essay_text' => $essayText,
             'essay_question' => $questionText,
-            'identification_answers' => $identificationAnswers, // Array of identification Q&A
             'activity_instructions' => $parsedInstructions,
             'items' => $items
         ];
@@ -366,20 +335,15 @@ try {
         }
     }
     
-    // Get all questions for essay and identification activities (to show in all submissions)
+    // Get all questions for essay activities (to show in all submissions)
     $allQuestions = [];
     if ($activityType === 'essay') {
         $questionsStmt = $db->prepare("SELECT id, question_text, points FROM activity_questions WHERE activity_id = ? ORDER BY position ASC, id ASC");
         $questionsStmt->execute([$activityId]);
         $allQuestions = $questionsStmt->fetchAll(PDO::FETCH_ASSOC);
         error_log("Found " . count($allQuestions) . " essay questions for activity {$activityId}");
-    } elseif ($activityType === 'identification') {
-        $questionsStmt = $db->prepare("SELECT id, question_text, points, explanation, answer FROM activity_questions WHERE activity_id = ? ORDER BY position ASC, id ASC");
-        $questionsStmt->execute([$activityId]);
-        $allQuestions = $questionsStmt->fetchAll(PDO::FETCH_ASSOC);
-        error_log("Found " . count($allQuestions) . " identification questions for activity {$activityId}");
     } else {
-        error_log("Activity type is '{$activityType}' (not essay or identification) for activity {$activityId}");
+        error_log("Activity type is '{$activityType}' (not essay) for activity {$activityId}");
     }
     
     if ($maxScore !== false && $maxScore !== null) {
@@ -403,9 +367,7 @@ try {
         'success' => true,
         'submissions' => $result,
         'activity_instructions' => $parsedGlobalInstructions,
-        'essay_questions' => $allQuestions,
-        'identification_questions' => $allQuestions, // Same structure for identification
-        'activity_type' => $activityType
+        'essay_questions' => $allQuestions
     ]);
     
 } catch (Exception $e) {

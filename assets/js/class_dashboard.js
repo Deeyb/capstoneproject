@@ -10138,7 +10138,6 @@ async function showGradingModal(activityId, activityTitle) {
     
     // SUPER DEEP DEBUGGING: Log each submission's upload_info
     console.log('🔍 [GRADING MODAL] Total submissions:', submissions.length);
-    console.log('🔍 [GRADING MODAL] Activity type:', data.activity_type);
     submissions.forEach((sub, idx) => {
       console.log(`🔍 [GRADING MODAL] Submission ${idx + 1}:`, {
         attempt_id: sub.attempt_id,
@@ -10146,8 +10145,6 @@ async function showGradingModal(activityId, activityTitle) {
         upload_info: sub.upload_info,
         upload_info_type: typeof sub.upload_info,
         upload_info_null: sub.upload_info === null,
-        essay_text: sub.essay_text ? 'present' : 'null',
-        identification_answers: sub.identification_answers ? sub.identification_answers.length : 0,
         items_count: sub.items ? sub.items.length : 0,
         items: sub.items
       });
@@ -10299,45 +10296,6 @@ async function showGradingModal(activityId, activityTitle) {
                           <div style="font-weight:600;color:#111827;margin-bottom:12px;font-size:15px;font-family:inherit;">Student's Essay Response</div>
                           <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;max-height:400px;overflow-y:auto;font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap;word-wrap:break-word;font-family:inherit;">
                             ${escapeHtml(sub.essay_text)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ` : ''}
-                  
-                  <!-- Student's Identification Answers (for identification activities) -->
-                  ${sub.identification_answers && sub.identification_answers.length > 0 ? `
-                    <div style="margin-bottom:24px;padding:20px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;">
-                      <div style="display:flex;align-items:start;gap:12px;">
-                        <i class="fas fa-keyboard" style="font-size:20px;color:#8b5cf6;margin-top:2px;flex-shrink:0;"></i>
-                        <div style="flex:1;">
-                          <div style="font-weight:600;color:#111827;margin-bottom:16px;font-size:15px;font-family:inherit;">Student's Identification Answers</div>
-                          <div style="display:flex;flex-direction:column;gap:16px;">
-                            ${sub.identification_answers.map((ans, ansIdx) => `
-                              <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;font-family:inherit;">
-                                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
-                                  <div style="font-weight:600;color:#111827;font-size:14px;font-family:inherit;">Question ${ansIdx + 1}</div>
-                                  <div style="display:flex;align-items:center;gap:8px;">
-                                    ${ans.is_correct !== null ? `
-                                      <span style="padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;font-family:inherit;${ans.is_correct ? 'background:#d1fae5;color:#065f46;' : 'background:#fee2e2;color:#991b1b;'}">
-                                        ${ans.is_correct ? '✓ Correct' : '✗ Incorrect'}
-                                      </span>
-                                    ` : ''}
-                                    <span style="font-size:13px;color:#6b7280;font-family:inherit;">
-                                      ${ans.points_awarded !== null ? `${ans.points_awarded}` : '0'}/${ans.max_points} pts
-                                    </span>
-                                  </div>
-                                </div>
-                                <div style="margin-bottom:10px;">
-                                  <div style="font-size:13px;color:#6b7280;margin-bottom:6px;font-family:inherit;">Question:</div>
-                                  <div style="font-size:14px;color:#374151;line-height:1.5;font-family:inherit;">${escapeHtml(ans.question_text || 'N/A')}</div>
-                                </div>
-                                <div>
-                                  <div style="font-size:13px;color:#6b7280;margin-bottom:6px;font-family:inherit;">Student's Answer:</div>
-                                  <div style="font-size:14px;color:#111827;font-weight:500;line-height:1.5;padding:10px;background:#f3f4f6;border-radius:6px;font-family:inherit;">${escapeHtml(ans.student_answer || 'No answer')}</div>
-                                </div>
-                              </div>
-                            `).join('')}
                           </div>
                         </div>
                       </div>
