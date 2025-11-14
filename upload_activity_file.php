@@ -20,6 +20,9 @@ try {
         throw new Exception('User not authenticated');
     }
     
+    // Get activity ID first (needed for error logging)
+    $activityId = (int)($_POST['activity_id'] ?? 0);
+    
     // CSRF validation (only if token is provided)
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $csrfToken = $_POST[CSRFProtection::getTokenName()] ?? '';
@@ -36,11 +39,12 @@ try {
     
     // Check if file was uploaded
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-        throw new Exception('No file uploaded or upload error');
+        $uploadError = $_FILES['file']['error'] ?? 'unknown';
+        error_log("File upload error: Error code {$uploadError} for user {$userId}, activity {$activityId}");
+        throw new Exception('No file uploaded or upload error (code: ' . $uploadError . ')');
     }
     
     $file = $_FILES['file'];
-    $activityId = (int)($_POST['activity_id'] ?? 0);
     
     if ($activityId <= 0) {
         throw new Exception('Invalid activity ID');
@@ -53,13 +57,38 @@ try {
     }
     
     // Get activity to check accepted file types
-    $db = (new Database())->getConnection();
+    $db = null;
+    try {
+        $db = (new Database())->getConnection();
+    } catch (Throwable $dbError) {
+        error_log("Database connection error in upload: " . $dbError->getMessage() . " | Trace: " . $dbError->getTraceAsString());
+        throw new Exception('Database connection failed: ' . $dbError->getMessage());
+    }
+    
+    if (!$db) {
+        throw new Exception('Database connection returned null');
+    }
+    
     require_once __DIR__ . '/classes/CourseService.php';
-    $svc = new CourseService($db);
-    $activity = $svc->getActivity($activityId);
+    
+    $svc = null;
+    try {
+        $svc = new CourseService($db);
+    } catch (Throwable $svcError) {
+        error_log("CourseService initialization error: " . $svcError->getMessage() . " | Trace: " . $svcError->getTraceAsString());
+        throw new Exception('Failed to initialize CourseService: ' . $svcError->getMessage());
+    }
+    
+    $activity = null;
+    try {
+        $activity = $svc->getActivity($activityId);
+    } catch (Throwable $activityError) {
+        error_log("Get activity error: " . $activityError->getMessage() . " | Trace: " . $activityError->getTraceAsString());
+        throw new Exception('Failed to get activity: ' . $activityError->getMessage());
+    }
     
     if (!$activity) {
-        throw new Exception('Activity not found');
+        throw new Exception('Activity not found (ID: ' . $activityId . ')');
     }
     
     // Parse accepted file types from activity
@@ -98,18 +127,45 @@ try {
         $baseDir = __DIR__;
     }
     $uploadDir = $baseDir . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'activity_submissions';
+    
+    // Ensure directory exists
     if (!is_dir($uploadDir)) {
-        @mkdir($uploadDir, 0755, true);
+        $mkdirResult = @mkdir($uploadDir, 0755, true);
+        if (!$mkdirResult && !is_dir($uploadDir)) {
+            error_log("Failed to create upload directory: {$uploadDir}");
+            throw new Exception('Failed to create upload directory. Please check server permissions.');
+        }
+    }
+    
+    // Check if directory is writable
+    if (!is_writable($uploadDir)) {
+        error_log("Upload directory is not writable: {$uploadDir}");
+        throw new Exception('Upload directory is not writable. Please check server permissions.');
     }
     
     // Generate unique filename
     $safeBase = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', pathinfo($original, PATHINFO_FILENAME));
-    $unique = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '_' . $userId . '_' . $activityId . '_' . $safeBase . '.' . $ext;
+    try {
+        $unique = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '_' . $userId . '_' . $activityId . '_' . $safeBase . '.' . $ext;
+    } catch (Throwable $randomError) {
+        error_log("Random bytes generation error: " . $randomError->getMessage());
+        // Fallback to uniqid if random_bytes fails
+        $unique = date('Ymd_His') . '_' . uniqid() . '_' . $userId . '_' . $activityId . '_' . $safeBase . '.' . $ext;
+    }
+    
     $target = $uploadDir . DIRECTORY_SEPARATOR . $unique;
     
     // Move uploaded file
     if (!@move_uploaded_file($file['tmp_name'], $target)) {
-        throw new Exception('Failed to store file');
+        $moveError = error_get_last();
+        error_log("Failed to move uploaded file. Source: {$file['tmp_name']}, Target: {$target}, Error: " . ($moveError ? $moveError['message'] : 'unknown'));
+        throw new Exception('Failed to store file. Please check server permissions and disk space.');
+    }
+    
+    // Verify file was actually moved
+    if (!file_exists($target)) {
+        error_log("File move appeared successful but file does not exist: {$target}");
+        throw new Exception('File upload verification failed.');
     }
     
     // Return file info
@@ -126,10 +182,19 @@ try {
     ]);
     exit;
     
+} catch (InvalidArgumentException $e) {
+    ob_clean();
+    error_log("Upload activity file validation error: " . $e->getMessage() . " | Trace: " . $e->getTraceAsString());
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
+    exit;
 } catch (Exception $e) {
     ob_clean();
     error_log("Upload activity file error: " . $e->getMessage() . " | Trace: " . $e->getTraceAsString());
-    http_response_code(400);
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()
@@ -141,7 +206,16 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => 'Internal server error'
+        'message' => 'Internal server error: ' . $e->getMessage()
+    ]);
+    exit;
+} catch (Throwable $e) {
+    ob_clean();
+    error_log("Upload activity file throwable error: " . $e->getMessage() . " | Trace: " . $e->getTraceAsString());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Internal server error: ' . $e->getMessage()
     ]);
     exit;
 }

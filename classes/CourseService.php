@@ -1,5 +1,8 @@
 <?php
 
+// Load required dependencies
+require_once __DIR__ . '/ActivityAttemptService.php';
+
 class CourseService {
     private $db;
     private $attemptService;

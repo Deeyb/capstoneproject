@@ -12,7 +12,8 @@
  *   - All activity attempt items
  *   - Newsfeed posts for that class
  *   - Any other related records
- * 
+ * http://localhost/capstoneproject/test_delete_class.php
+ * NOTE: This script is for testing purposes only. Do not use it in production.
  * Usage:
  * - Teacher: Access via browser, select class to delete
  * - Student: Will automatically be removed from deleted class

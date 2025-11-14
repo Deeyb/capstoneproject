@@ -30,14 +30,22 @@ class ActivityProgressService {
             $selectFields[] = 'la.type as activity_type';
         }
         
-        $stmt = $this->db->prepare("
-            SELECT " . implode(', ', $selectFields) . "
-            FROM activity_progress ap
-            JOIN lesson_activities la ON ap.activity_id = la.id
-            WHERE ap.activity_id = ? AND ap.user_id = ?
-        ");
-        $stmt->execute([$activityId, $userId]);
-        $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->db->prepare("
+                SELECT " . implode(', ', $selectFields) . "
+                FROM activity_progress ap
+                JOIN lesson_activities la ON ap.activity_id = la.id
+                WHERE ap.activity_id = ? AND ap.user_id = ?
+            ");
+            $stmt->execute([$activityId, $userId]);
+            $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Database query error in getActivityProgress: " . $e->getMessage() . " | Activity ID: {$activityId}, User ID: {$userId}");
+            throw new RuntimeException('Failed to query activity progress: ' . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log("Unexpected error in getActivityProgress query: " . $e->getMessage() . " | Activity ID: {$activityId}, User ID: {$userId}");
+            throw new RuntimeException('Failed to query activity progress: ' . $e->getMessage());
+        }
         
         if (!$progress) {
             return [
