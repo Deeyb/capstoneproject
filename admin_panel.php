@@ -170,36 +170,133 @@ require_once 'includes/sidebar.php';
     </div>
   </div>
   <div id="users" class="section-content">
-    <h2 class="section-title">User Management</h2>
-    <div id="userSubTabs" style="display:flex; gap:8px; margin: -6px 0 12px; flex-wrap:wrap;">
-      <button id="tabUsers" class="action-btn" style="background:#1d9b3e;color:#fff;">Users</button>
-      <button id="tabUsersArchived" class="action-btn" style="background:#6c757d;color:#fff;">Archived Users</button>
-      <button id="tabAuthorized" class="action-btn" style="background:#6c757d;color:#fff;">Authorized IDs</button>
-      <button id="tabAuthorizedArchived" class="action-btn" style="background:#6c757d;color:#fff;">Archived IDs</button>
+    <div class="users-header">
+      <h2 class="section-title">User Management</h2>
+      <div class="users-actions">
+        <button onclick="document.getElementById('addUserModal').style.display='block'" class="users-btn users-btn-primary">
+          <i class="fas fa-plus"></i> Add User
+        </button>
+      </div>
     </div>
-    <div id="usersToolbar" style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
-      <form id="userFilterForm" method="get" style="display: flex; gap: 10px; align-items: center; flex-wrap:" onsubmit="return false;">
+
+    <!-- Tab Pills -->
+    <div class="users-tabs-pills">
+      <button id="tabUsers" class="users-tab-pill active">
+        <i class="fas fa-users"></i> Users
+      </button>
+      <button id="tabUsersArchived" class="users-tab-pill">
+        <i class="fas fa-archive"></i> Archived Users
+      </button>
+      <button id="tabAuthorized" class="users-tab-pill">
+        <i class="fas fa-id-card"></i> Authorized IDs
+      </button>
+      <button id="tabAuthorizedArchived" class="users-tab-pill">
+        <i class="fas fa-archive"></i> Archived IDs
+      </button>
+    </div>
+
+    <!-- Quick Filter Pills - Simplified -->
+    <div class="users-filters-pills">
+      <button id="userFilterAll" class="users-filter-pill active" data-role="" data-status="">
+        <i class="fas fa-list"></i> All
+      </button>
+      <button id="userFilterStudents" class="users-filter-pill" data-role="STUDENT" data-status="">
+        <i class="fas fa-user-graduate"></i> Students
+      </button>
+      <button id="userFilterTeachers" class="users-filter-pill" data-role="TEACHER" data-status="">
+        <i class="fas fa-chalkboard-teacher"></i> Teachers
+      </button>
+      <button id="userFilterCoordinators" class="users-filter-pill" data-role="COORDINATOR" data-status="">
+        <i class="fas fa-user-tie"></i> Coordinators
+      </button>
+      <button id="userFilterAdmins" class="users-filter-pill" data-role="ADMIN" data-status="">
+        <i class="fas fa-user-shield"></i> Admins
+      </button>
+    </div>
+
+    <!-- Search and Filters - Simplified -->
+    <div class="users-filters-advanced">
+      <form id="userFilterForm" method="get" onsubmit="return false;" style="display: contents;">
         <input type="hidden" name="section" value="users" />
-        <input id="userSearchInput" type="text" name="search" placeholder="Search user..." value="<?= htmlspecialchars($search) ?>" style="padding: 7px 12px; border: 1px solid #ccc; border-radius: 5px; min-width: 180px;">
-        <select id="userRoleSelect" name="role" style="padding: 7px 12px; border: 1px solid #ccc; border-radius: 5px;">
-          <option value="">All Roles</option>
-          <?php foreach ($roles as $role): $label = ucfirst(strtolower($role)); ?>
-            <option value="<?= htmlspecialchars($role) ?>" <?= $role_filter === $role ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <select id="userStatusSelect" name="status" style="padding: 7px 12px; border: 1px solid #ccc; border-radius: 5px;">
-          <option value="">All Status</option>
-          <option value="Active">Active</option>
-          <option value="Archived">Archived</option>
-        </select>
-        <button id="userFilterBtn" type="submit" style="padding: 7px 16px; background: #1d9b3e; color: #fff; border: none; border-radius: 5px; cursor: pointer;">Filter</button>
+        <div class="users-filter-group">
+          <i class="fas fa-search"></i>
+          <input id="userSearchInput" type="text" name="search" placeholder="Search user..." value="<?= htmlspecialchars($search) ?>" class="users-input">
+        </div>
+        <div class="users-filter-group">
+          <i class="fas fa-user-tag"></i>
+          <select id="userRoleSelect" name="role" class="users-select">
+            <option value="">All Roles</option>
+            <?php foreach ($roles as $role): $label = ucfirst(strtolower($role)); ?>
+              <option value="<?= htmlspecialchars($role) ?>" <?= $role_filter === $role ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="users-filter-group">
+          <i class="fas fa-info-circle"></i>
+          <select id="userStatusSelect" name="status" class="users-select">
+            <option value="">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Archived">Archived</option>
+          </select>
+        </div>
       </form>
-      <button onclick="document.getElementById('addUserModal').style.display='block'" style="margin-left: auto; padding: 7px 16px; background: #2196F3; color: #fff; border: none; border-radius: 5px; cursor: pointer;">+ Add User</button>
     </div>
-    <div id="userTableWrapper" style="overflow-x:auto; min-height: 120px;">
-      <!-- User table will be loaded here by JS -->
+
+    <!-- User Counts and Sorting - Simplified -->
+    <div class="users-controls-bar">
+      <div class="users-stats">
+        <div class="users-stat-badge active">
+          <i class="fas fa-check-circle"></i>
+          <span id="activeUsersCount">0</span> Active
+        </div>
+        <div class="users-stat-badge archived">
+          <i class="fas fa-archive"></i>
+          <span id="archivedUsersCount">0</span> Archived
+        </div>
+      </div>
+      <div class="users-sorting">
+        <select id="userSortBy" class="users-select-small">
+          <option value="firstname">Sort: First name</option>
+          <option value="lastname">Sort: Last name</option>
+          <option value="email">Sort: Email</option>
+          <option value="role">Sort: Role</option>
+          <option value="status">Sort: Status</option>
+        </select>
+        <select id="userSortDir" class="users-select-small">
+          <option value="ASC">↑ Asc</option>
+          <option value="DESC">↓ Desc</option>
+        </select>
+        <select id="userPageSize" class="users-select-small">
+          <option value="10">10/page</option>
+          <option value="20">20/page</option>
+          <option value="50">50/page</option>
+        </select>
+      </div>
     </div>
-    <div id="authIdsWrapper" style="display:none; overflow-x:auto; min-height: 120px;"></div>
+
+    <!-- Loading State -->
+    <div id="usersLoading" class="users-loading" style="display: none;">
+      <i class="fas fa-spinner fa-spin"></i>
+      <span>Loading users...</span>
+    </div>
+
+    <!-- Table Wrapper -->
+    <div id="userTableWrapper" class="users-table-wrapper"></div>
+    <div id="authIdsWrapper" class="users-table-wrapper" style="display:none;"></div>
+
+    <!-- Pagination -->
+    <div id="userPagination" class="users-pagination" style="display:none;">
+      <div id="userPaginationInfo" class="users-pagination-info"></div>
+      <div class="users-pagination-controls">
+        <button class="users-btn users-btn-small" id="userPrevPage" disabled>
+          <i class="fas fa-chevron-left"></i> Prev
+        </button>
+        <button class="users-btn users-btn-small" id="userNextPage" disabled>
+          Next <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+
     <?php require_once 'includes/modals.php'; ?>
   </div>
   <div id="analytics" class="section-content">
@@ -369,37 +466,75 @@ require_once 'includes/sidebar.php';
     <?php include 'includes/reports_section.php'; ?>
   </div>
   <div id="audit" class="section-content">
-    <h2 class="section-title">Audit Logs</h2>
-    <!-- Filter Presets -->
-    <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
-      <button id="auditFilterAll" class="audit-filter-btn active" data-action="">All Logs</button>
-      <button id="auditFilterSecurity" class="audit-filter-btn" data-action="login">Security</button>
-      <button id="auditFilterUsers" class="audit-filter-btn" data-action="user.">Users</button>
-      <button id="auditFilterMaterials" class="audit-filter-btn" data-action="material.">Materials</button>
-      <button id="auditFilterAuthIds" class="audit-filter-btn" data-action="auth_ids.">Authorized IDs</button>
-      <button id="auditFilterToday" class="audit-filter-btn" data-date="today">Today</button>
-      <button id="auditFilterWeek" class="audit-filter-btn" data-date="week">This Week</button>
+    <div class="audit-header">
+      <h2 class="section-title">Audit Logs</h2>
+      <div class="audit-actions">
+        <button id="auditRefresh" class="audit-btn audit-btn-primary">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <button id="auditExport" class="audit-btn audit-btn-secondary">
+          <i class="fas fa-download"></i> Export CSV
+        </button>
+      </div>
     </div>
-    
-    <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
-      <input id="auditSearch" type="text" placeholder="Search action, entity, ID" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px; min-width:220px;">
-      <select id="auditAction" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px;">
-        <option value="">All Actions</option>
-        <option value="user.">User actions</option>
-        <option value="auth_ids.">Authorized IDs</option>
-        <option value="material.">Materials</option>
-      </select>
-      <input id="auditUserId" type="number" placeholder="User ID" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px; width:120px;">
-      <input id="auditFrom" type="date" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px;">
-      <input id="auditTo" type="date" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px;">
-      <button id="auditRefresh" class="action-btn" style="background:#1d9b3e;color:#fff;">Refresh</button>
-      <button id="auditExport" class="action-btn" style="background:#17a2b8;color:#fff;">Export CSV</button>
+
+    <!-- Quick Filter Pills -->
+    <div class="audit-filters-pills">
+      <button id="auditFilterAll" class="audit-filter-pill active" data-action="">
+        <i class="fas fa-list"></i> All Logs
+      </button>
+      <button id="auditFilterSecurity" class="audit-filter-pill" data-action="login">
+        <i class="fas fa-shield-alt"></i> Security
+      </button>
+      <button id="auditFilterUsers" class="audit-filter-pill" data-action="user.">
+        <i class="fas fa-users"></i> Users
+      </button>
+      <button id="auditFilterMaterials" class="audit-filter-pill" data-action="material.">
+        <i class="fas fa-book"></i> Materials
+      </button>
+      <button id="auditFilterAuthIds" class="audit-filter-pill" data-action="auth_ids.">
+        <i class="fas fa-id-card"></i> Authorized IDs
+      </button>
+      <button id="auditFilterToday" class="audit-filter-pill" data-date="today">
+        <i class="fas fa-calendar-day"></i> Today
+      </button>
+      <button id="auditFilterWeek" class="audit-filter-pill" data-date="week">
+        <i class="fas fa-calendar-week"></i> This Week
+      </button>
     </div>
-    
-    <!-- Pagination / Sorting Controls -->
-    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-      <label>Sort by
-        <select id="auditSortBy" style="margin-left:6px; padding:4px 8px;">
+
+    <!-- Advanced Filters -->
+    <div class="audit-filters-advanced">
+      <div class="audit-filter-group">
+        <i class="fas fa-search"></i>
+        <input id="auditSearch" type="text" placeholder="Search action, entity, ID..." class="audit-input">
+      </div>
+      <div class="audit-filter-group">
+        <i class="fas fa-filter"></i>
+        <select id="auditAction" class="audit-select">
+          <option value="">All Actions</option>
+          <option value="user.">User Actions</option>
+          <option value="auth_ids.">Authorized IDs</option>
+          <option value="material.">Materials</option>
+        </select>
+      </div>
+      <div class="audit-filter-group">
+        <i class="fas fa-user"></i>
+        <input id="auditUserId" type="number" placeholder="User ID" class="audit-input audit-input-small">
+      </div>
+      <div class="audit-filter-group">
+        <i class="fas fa-calendar-alt"></i>
+        <input id="auditFrom" type="date" class="audit-input audit-input-small">
+        <span style="margin: 0 8px; color: #6b7280;">to</span>
+        <input id="auditTo" type="date" class="audit-input audit-input-small">
+      </div>
+    </div>
+
+    <!-- Sorting Controls -->
+    <div class="audit-sorting">
+      <div class="audit-sort-group">
+        <label><i class="fas fa-sort"></i> Sort by</label>
+        <select id="auditSortBy" class="audit-select-small">
           <option value="id">ID</option>
           <option value="created_at">Date</option>
           <option value="user_id">User ID</option>
@@ -407,55 +542,755 @@ require_once 'includes/sidebar.php';
           <option value="entity_type">Entity Type</option>
           <option value="entity_id">Entity ID</option>
         </select>
-      </label>
-      <select id="auditSortDir" style="padding:4px 8px;">
-        <option value="DESC">DESC</option>
-        <option value="ASC">ASC</option>
-      </select>
-      <label style="margin-left:12px;">Page size
-        <select id="auditPageSize" style="margin-left:6px; padding:4px 8px;">
+      </div>
+      <div class="audit-sort-group">
+        <select id="auditSortDir" class="audit-select-small">
+          <option value="DESC">Descending</option>
+          <option value="ASC">Ascending</option>
+        </select>
+      </div>
+      <div class="audit-sort-group">
+        <label>Page size</label>
+        <select id="auditPageSize" class="audit-select-small">
           <option value="20">20</option>
           <option value="50">50</option>
           <option value="100">100</option>
         </select>
-      </label>
+      </div>
     </div>
+
+    <!-- Loading State -->
+    <div id="auditLoading" class="audit-loading" style="display: none;">
+      <i class="fas fa-spinner fa-spin"></i>
+      <span>Loading audit logs...</span>
+    </div>
+
+    <!-- Table Wrapper -->
+    <div id="auditTableWrapper" class="audit-table-wrapper"></div>
     
-    <div id="auditTableWrapper" style="overflow-x:auto; min-height: 120px;"></div>
-    
-    <!-- Pagination Controls -->
-    <div id="auditPagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px; display:none;">
-      <div id="auditPaginationInfo" style="font-size:12px;color:#666;"></div>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <button class="action-btn" id="auditPrevPage" disabled>Prev</button>
-        <button class="action-btn" id="auditNextPage" disabled>Next</button>
+    <!-- Pagination -->
+    <div id="auditPagination" class="audit-pagination" style="display:none;">
+      <div id="auditPaginationInfo" class="audit-pagination-info"></div>
+      <div class="audit-pagination-controls">
+        <button class="audit-btn audit-btn-small" id="auditPrevPage" disabled>
+          <i class="fas fa-chevron-left"></i> Prev
+        </button>
+        <button class="audit-btn audit-btn-small" id="auditNextPage" disabled>
+          Next <i class="fas fa-chevron-right"></i>
+        </button>
       </div>
     </div>
   </div>
   
   <style>
-  .audit-filter-btn {
+  /* Audit Logs Modern Styling */
+  .audit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .audit-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .audit-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .audit-btn-primary {
+    background: var(--color-primary-strong, #1d9b3e);
+    color: white;
+  }
+
+  .audit-btn-primary:hover {
+    background: var(--color-primary-alt, #168a36);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(29, 155, 62, 0.3);
+  }
+
+  .audit-btn-secondary {
+    background: var(--color-info, #17a2b8);
+    color: white;
+  }
+
+  .audit-btn-secondary:hover {
+    background: var(--color-info-alt, #138496);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(23, 162, 184, 0.3);
+  }
+
+  .audit-btn-small {
     padding: 6px 12px;
-    border: 1px solid #ddd;
+    font-size: 13px;
+  }
+
+  .audit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .audit-filters-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .audit-filter-pill {
+    padding: 8px 16px;
+    border: 1px solid #d1d5db;
     border-radius: 20px;
-    background: #f8f9fa;
-    color: #495057;
+    background: white;
+    color: #6b7280;
     cursor: pointer;
     font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .audit-filter-pill:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    transform: translateY(-1px);
+  }
+
+  .audit-filter-pill.active {
+    background: var(--color-primary-strong, #1d9b3e);
+    color: white;
+    border-color: var(--color-primary-strong, #1d9b3e);
+    box-shadow: 0 2px 4px rgba(29, 155, 62, 0.3);
+  }
+
+  .audit-filter-pill.active:hover {
+    background: var(--color-primary-alt, #168a36);
+    border-color: var(--color-primary-alt, #168a36);
+  }
+
+  .audit-filters-advanced {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding: 16px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .audit-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .audit-filter-group i {
+    color: #6b7280;
+    font-size: 14px;
+  }
+
+  .audit-input, .audit-select {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
     transition: all 0.2s ease;
   }
-  .audit-filter-btn:hover {
-    background: #e9ecef;
-    border-color: #adb5bd;
+
+  .audit-input:focus, .audit-select:focus {
+    outline: none;
+    border-color: var(--color-primary-strong, #1d9b3e);
+    box-shadow: 0 0 0 3px rgba(29, 155, 62, 0.1);
   }
-  .audit-filter-btn.active {
-    background: #007bff;
+
+  .audit-input-small {
+    min-width: 140px;
+    flex: 0 0 auto;
+  }
+
+  .audit-sorting {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+  }
+
+  .audit-sort-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .audit-sort-group label {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .audit-select-small {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  .audit-loading {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+  }
+
+  .audit-loading i {
+    font-size: 24px;
+    margin-right: 12px;
+    color: var(--color-primary-strong, #1d9b3e);
+  }
+
+  .audit-table-wrapper {
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    min-height: 200px;
+  }
+
+  .audit-table-wrapper table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .audit-table-wrapper thead {
+    background: #f9fafb;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .audit-table-wrapper th {
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .audit-table-wrapper th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+  }
+
+  .audit-table-wrapper th.sortable:hover {
+    background: #f3f4f6;
+  }
+
+  .audit-table-wrapper .sort-arrow {
+    margin-left: 6px;
+    color: var(--color-primary-strong, #1d9b3e);
+    font-size: 12px;
+  }
+
+  .audit-table-wrapper tbody tr {
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.2s ease;
+  }
+
+  .audit-table-wrapper tbody tr:hover {
+    background: #f9fafb;
+  }
+
+  .audit-table-wrapper tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .audit-table-wrapper td {
+    padding: 14px 16px;
+    font-size: 14px;
+    color: #374151;
+  }
+
+  .audit-action-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: lowercase;
+  }
+
+  .audit-action-badge.auth { background: var(--color-lightblue, #e3f2fd); color: var(--color-blue-dark, #1976d2); }
+  .audit-action-badge.user { background: var(--color-warning-light, #ffeb3b); color: var(--color-warning, #ffc107); }
+  .audit-action-badge.material { background: var(--color-lightgreen, #e8f5e8); color: var(--color-primary-deep, #07522A); }
+  .audit-action-badge.auth_ids { background: #e9d5ff; color: #6b21a8; }
+
+  .audit-entity-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+
+  .audit-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+  }
+
+  .audit-pagination-info {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .audit-pagination-controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9ca3af;
+  }
+
+  .empty-state i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+
+  .empty-state p {
+    font-size: 16px;
+    margin: 0;
+  }
+
+  /* User Management Modern Styling (matching Audit Logs) */
+  .users-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--color-border-soft, #e5e7eb);
+  }
+
+  .users-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .users-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .users-btn-primary {
+    background: var(--color-primary-strong, #1d9b3e);
     color: white;
-    border-color: #007bff;
   }
-  .audit-filter-btn.active:hover {
-    background: #0056b3;
-    border-color: #0056b3;
+
+  .users-btn-primary:hover {
+    background: var(--color-primary-alt, #168a36);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(29, 155, 62, 0.3);
+  }
+
+  .users-btn-secondary {
+    background: var(--color-info, #17a2b8);
+    color: white;
+  }
+
+  .users-btn-secondary:hover {
+    background: var(--color-info-alt, #138496);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(23, 162, 184, 0.3);
+  }
+
+  .users-btn-small {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .users-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .users-tabs-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: var(--color-surface-muted, #f9fafb);
+    border-radius: 8px;
+  }
+
+  .users-tab-pill {
+    padding: 6px 12px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 6px;
+    background: white;
+    color: var(--color-text-muted, #6b7280);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .users-tab-pill:hover {
+    background: var(--color-surface-soft, #f3f4f6);
+    border-color: var(--color-primary-strong, #1d9b3e);
+  }
+
+  .users-tab-pill.active {
+    background: var(--color-primary-strong, #1d9b3e);
+    color: white;
+    border-color: var(--color-primary-strong, #1d9b3e);
+  }
+
+  .users-tab-pill.active:hover {
+    background: var(--color-primary-alt, #168a36);
+    border-color: var(--color-primary-alt, #168a36);
+  }
+
+  .users-filters-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding: 10px;
+    background: var(--color-surface-muted, #f9fafb);
+    border-radius: 8px;
+  }
+
+  .users-filter-pill {
+    padding: 6px 12px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 6px;
+    background: white;
+    color: var(--color-text-muted, #6b7280);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .users-filter-pill:hover {
+    background: var(--color-surface-soft, #f3f4f6);
+    border-color: var(--color-primary-strong, #1d9b3e);
+  }
+
+  .users-filter-pill.active {
+    background: var(--color-primary-strong, #1d9b3e);
+    color: white;
+    border-color: var(--color-primary-strong, #1d9b3e);
+  }
+
+  .users-filter-pill.active:hover {
+    background: var(--color-primary-alt, #168a36);
+    border-color: var(--color-primary-alt, #168a36);
+  }
+
+  .users-filters-advanced {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--color-surface, white);
+    border-radius: 8px;
+    border: 1px solid var(--color-border-soft, #e5e7eb);
+  }
+
+  .users-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .users-filter-group i {
+    color: var(--color-text-muted, #6b7280);
+    font-size: 13px;
+  }
+
+  .users-input, .users-select {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.15s ease;
+  }
+
+  .users-input:focus, .users-select:focus {
+    outline: none;
+    border-color: var(--color-primary-strong, #1d9b3e);
+    box-shadow: 0 0 0 2px rgba(29, 155, 62, 0.1);
+  }
+
+  .users-input-small {
+    min-width: 120px;
+    flex: 0 0 auto;
+  }
+
+  .users-controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: var(--color-surface-muted, #f9fafb);
+    border-radius: 8px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .users-stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .users-stat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--color-surface, white);
+    border: 1px solid var(--color-border-soft, #e5e7eb);
+  }
+
+  .users-stat-badge.active {
+    background: var(--color-lightgreen, #e8f5e8);
+    color: var(--color-primary-deep, #07522A);
+    border-color: var(--color-primary, #28a745);
+  }
+
+  .users-stat-badge.archived {
+    background: var(--color-surface-muted, #f9fafb);
+    color: var(--color-text-muted, #6b7280);
+  }
+
+  .users-stat-badge i {
+    font-size: 14px;
+  }
+
+  .users-stat-badge span {
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .users-sorting {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .users-sort-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .users-sort-group label {
+    font-size: 13px;
+    color: var(--color-text-muted, #6b7280);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .users-select-small {
+    padding: 5px 8px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 5px;
+    font-size: 12px;
+    background: white;
+    cursor: pointer;
+  }
+
+  .users-select-small:hover {
+    border-color: var(--color-primary-strong, #1d9b3e);
+  }
+
+  .users-loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--color-text-muted, #6b7280);
+  }
+
+  .users-loading i {
+    font-size: 24px;
+    margin-right: 12px;
+    color: var(--color-primary-strong, #1d9b3e);
+  }
+
+  .users-table-wrapper {
+    background: var(--color-surface, white);
+    border-radius: 10px;
+    border: 1px solid var(--color-border-soft, #e5e7eb);
+    overflow: hidden;
+    min-height: 200px;
+  }
+
+  .users-table-wrapper table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .users-table-wrapper thead {
+    background: var(--color-surface-muted, #f9fafb);
+    border-bottom: 2px solid var(--color-border-soft, #e5e7eb);
+  }
+
+  .users-table-wrapper th {
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text, #374151);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .users-table-wrapper th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+  }
+
+  .users-table-wrapper th.sortable:hover {
+    background: var(--color-surface-soft, #f3f4f6);
+  }
+
+  .users-table-wrapper .sort-arrow {
+    margin-left: 6px;
+    color: var(--color-primary-strong, #1d9b3e);
+    font-size: 12px;
+  }
+
+  .users-table-wrapper tbody tr {
+    border-bottom: 1px solid var(--color-border-soft, #f3f4f6);
+    transition: background 0.2s ease;
+  }
+
+  .users-table-wrapper tbody tr:hover {
+    background: var(--color-surface-muted, #f9fafb);
+  }
+
+  .users-table-wrapper tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .users-table-wrapper td {
+    padding: 14px 16px;
+    font-size: 14px;
+    color: var(--color-text, #374151);
+  }
+
+  .users-role-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+
+  .users-role-badge.student { background: var(--color-lightgreen, #e8f5e8); color: var(--color-primary-deep, #07522A); }
+  .users-role-badge.teacher { background: var(--color-lightorange, #fff3e0); color: var(--color-orange, #f57c00); }
+  .users-role-badge.coordinator { background: #e9ecef; color: #495057; }
+  .users-role-badge.admin { background: #fee2e2; color: #991b1b; }
+
+  .users-status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .users-status-badge.active { background: var(--color-lightgreen, #e8f5e8); color: var(--color-primary-deep, #07522A); }
+  .users-status-badge.archived { background: #e9ecef; color: #6c757d; }
+
+  .users-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--color-surface-muted, #f9fafb);
+    border-radius: 8px;
+  }
+
+  .users-pagination-info {
+    font-size: 14px;
+    color: var(--color-text-muted, #6b7280);
+    font-weight: 500;
+  }
+
+  .users-pagination-controls {
+    display: flex;
+    gap: 8px;
   }
   </style>
   

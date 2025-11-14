@@ -47,13 +47,9 @@ $offset = ($page - 1) * $pageSize;
 $totalCount = $userManager->getUsersCount($search, $role_filter, $status_filter);
 $users = $userManager->getAllUsers($search, $role_filter, $status_filter, $offset, $pageSize, $sortBy, $sortDir);
 
-// Count total and archived users
-$totalUsers = count($users);
-$archivedUsers = array_filter($users, function($user) {
-    return strtolower($user['status']) === 'archived';
-});
-$archivedCount = count($archivedUsers);
-$activeCount = $totalUsers - $archivedCount;
+// Get actual total counts from database (not just current page)
+$totalActiveCount = $userManager->getUsersCount($search, $role_filter, 'Active');
+$totalArchivedCount = $userManager->getUsersCount($search, $role_filter, 'Archived');
 
 function highlight_term($text, $term) {
     $safe = htmlspecialchars($text ?? '', ENT_QUOTES, 'UTF-8');
@@ -69,38 +65,19 @@ function sort_arrow($key, $currentKey, $dir) {
 }
 ?>
 
-<div class="filter-stats" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-  <button id="pillActive" class="pill pill-active" title="Show Active" type="button">Active Users: <?php echo $activeCount; ?></button>
-  <button id="pillArchived" class="pill pill-archived" title="Show Archived" type="button">Archived Users: <?php echo $archivedCount; ?></button>
-</div>
+<!-- User counts data for JavaScript -->
+<script>
+  window.__userCounts = {
+    active: <?php echo $totalActiveCount; ?>,
+    archived: <?php echo $totalArchivedCount; ?>
+  };
+</script>
 
-<!-- Pagination / Sorting Controls -->
-<div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-  <label>Sort by
-    <select id="userSortBy" style="margin-left:6px; padding:4px 8px;">
-      <option value="firstname" <?= $sortBy==='firstname'?'selected':''; ?>>First name</option>
-      <option value="lastname" <?= $sortBy==='lastname'?'selected':''; ?>>Last name</option>
-      <option value="role" <?= $sortBy==='role'?'selected':''; ?>>Role</option>
-      <option value="email" <?= $sortBy==='email'?'selected':''; ?>>Email</option>
-      <option value="id_number" <?= $sortBy==='id_number'?'selected':''; ?>>ID Number</option>
-      <option value="status" <?= $sortBy==='status'?'selected':''; ?>>Status</option>
-      <option value="created_at" <?= $sortBy==='created_at'?'selected':''; ?>>Created</option>
-    </select>
-  </label>
-  <select id="userSortDir" style="padding:4px 8px;">
-    <option value="ASC" <?= strtoupper($sortDir)==='ASC'?'selected':''; ?>>ASC</option>
-    <option value="DESC" <?= strtoupper($sortDir)==='DESC'?'selected':''; ?>>DESC</option>
-  </select>
-  <label style="margin-left:12px;">Page size
-    <select id="userPageSize" style="margin-left:6px; padding:4px 8px;">
-      <option <?= $pageSize==10?'selected':''; ?>>10</option>
-      <option <?= $pageSize==20?'selected':''; ?>>20</option>
-      <option <?= $pageSize==50?'selected':''; ?>>50</option>
-    </select>
-  </label>
-  <div style="margin-left:auto; display:flex; gap:8px;">
-    <button id="exportCsvBtn" class="action-btn" style="background:#17a2b8;color:#fff;">Export CSV</button>
-  </div>
+<!-- Export CSV Button -->
+<div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+  <button id="exportCsvBtn" class="users-btn users-btn-secondary" style="background:var(--color-info, #17a2b8);color:#fff;">
+    <i class="fas fa-download"></i> Export CSV
+  </button>
 </div>
 
 <!-- Bulk Actions -->

@@ -177,6 +177,12 @@ try {
     // Generate certificate date
     $certificateDate = date('F d, Y');
     
+    // Check if certificates table exists, create if not
+    ensureCertificatesTable($db);
+    
+    // Get or generate unique serial number
+    $serialNumber = getOrCreateCertificateSerial($db, $userId, $courseId, $classId, $studentName, $course['course_title']);
+    
     // Path to certificate template image
     $certificateTemplatePath = __DIR__ . '/Green Achievement Certificate.jpg';
     
@@ -188,7 +194,7 @@ try {
     
     // Generate certificate as PDF (downloadable, professional format)
     // This creates a PDF that embeds the certificate image with student name
-    generateCertificatePDF($certificateTemplatePath, $studentName, $course, $class, $certificateDate);
+    generateCertificatePDF($certificateTemplatePath, $studentName, $course, $class, $certificateDate, $serialNumber);
     
 } catch (Exception $e) {
     error_log("Generate certificate error: " . $e->getMessage());
@@ -451,10 +457,113 @@ function generateCertificateImage($templatePath, $studentName, $course, $class, 
 }
 
 /**
+ * Ensure certificates table exists
+ */
+function ensureCertificatesTable($db) {
+    try {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS certificates (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                serial_number VARCHAR(50) NOT NULL UNIQUE,
+                user_id INT NOT NULL,
+                course_id INT NOT NULL,
+                class_id INT NOT NULL,
+                student_name VARCHAR(255) NOT NULL,
+                course_title VARCHAR(255) NOT NULL,
+                issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_id (user_id),
+                INDEX idx_course_id (course_id),
+                INDEX idx_class_id (class_id),
+                INDEX idx_serial_number (serial_number),
+                INDEX idx_issued_at (issued_at),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+                FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    } catch (Exception $e) {
+        // Table might already exist, ignore error
+        error_log("Certificates table check: " . $e->getMessage());
+    }
+}
+
+/**
+ * Generate unique certificate serial number
+ * Format: CR-YYYYMMDD-XXXXXX (e.g., CR-20251113-A7B9C2)
+ */
+function generateCertificateSerialNumber($db) {
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1 for clarity
+    $datePrefix = date('Ymd'); // YYYYMMDD format
+    $maxAttempts = 50;
+    
+    for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+        // Generate 6-character random suffix
+        $suffix = '';
+        for ($i = 0; $i < 6; $i++) {
+            $suffix .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+        
+        $serialNumber = 'CR-' . $datePrefix . '-' . $suffix;
+        
+        // Check if serial number already exists
+        $stmt = $db->prepare("SELECT id FROM certificates WHERE serial_number = ? LIMIT 1");
+        $stmt->execute([$serialNumber]);
+        if (!$stmt->fetch()) {
+            return $serialNumber;
+        }
+    }
+    
+    // Fallback: add timestamp to ensure uniqueness
+    $timestamp = substr((string)time(), -6);
+    return 'CR-' . $datePrefix . '-' . $timestamp;
+}
+
+/**
+ * Get existing certificate serial number or create new one
+ */
+function getOrCreateCertificateSerial($db, $userId, $courseId, $classId, $studentName, $courseTitle) {
+    // Check if certificate already exists for this user, course, and class
+    $stmt = $db->prepare("
+        SELECT serial_number 
+        FROM certificates 
+        WHERE user_id = ? AND course_id = ? AND class_id = ?
+        ORDER BY issued_at DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$userId, $courseId, $classId]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($existing && !empty($existing['serial_number'])) {
+        // Return existing serial number
+        return $existing['serial_number'];
+    }
+    
+    // Generate new unique serial number
+    $serialNumber = generateCertificateSerialNumber($db);
+    
+    // Store certificate record
+    $insertStmt = $db->prepare("
+        INSERT INTO certificates (serial_number, user_id, course_id, class_id, student_name, course_title, issued_at)
+        VALUES (?, ?, ?, ?, ?, ?, NOW())
+    ");
+    $insertStmt->execute([
+        $serialNumber,
+        $userId,
+        $courseId,
+        $classId,
+        $studentName,
+        $courseTitle
+    ]);
+    
+    return $serialNumber;
+}
+
+/**
  * Generate PDF Certificate (Production-Ready)
  * Creates a downloadable PDF that embeds the certificate image with student name
  */
-function generateCertificatePDF($templatePath, $studentName, $course, $class, $date) {
+function generateCertificatePDF($templatePath, $studentName, $course, $class, $date, $serialNumber = null) {
     // Check if GD library is available
     if (!extension_loaded('gd')) {
         error_log("GD library is not loaded. Please enable GD extension in php.ini");
@@ -497,7 +606,7 @@ function generateCertificatePDF($templatePath, $studentName, $course, $class, $d
     }
     
     // Step 1: Generate the certificate image with student name
-    $certificateImage = generateCertificateImageData($templatePath, $studentName, $course, $class, $date);
+    $certificateImage = generateCertificateImageData($templatePath, $studentName, $course, $class, $date, $serialNumber);
     
     if (!$certificateImage) {
         error_log("Failed to generate certificate image");
@@ -506,13 +615,13 @@ function generateCertificatePDF($templatePath, $studentName, $course, $class, $d
     }
     
     // Step 2: Create PDF that embeds the certificate image
-    generatePDFFromImageData($certificateImage, $studentName, $course);
+    generatePDFFromImageData($certificateImage, $studentName, $course, $serialNumber);
 }
 
 /**
  * Generate certificate image data (returns image as string)
  */
-function generateCertificateImageData($templatePath, $studentName, $course, $class, $date) {
+function generateCertificateImageData($templatePath, $studentName, $course, $class, $date, $serialNumber = null) {
     // Load the certificate template image
     $imageInfo = @getimagesize($templatePath);
     if (!$imageInfo) {
@@ -679,7 +788,7 @@ function generateCertificateImageData($templatePath, $studentName, $course, $cla
  * Generate PDF from image data
  * Creates a proper PDF document that embeds the certificate image
  */
-function generatePDFFromImageData($imageData, $studentName, $course) {
+function generatePDFFromImageData($imageData, $studentName, $course, $serialNumber = null) {
     if (empty($imageData)) {
         error_log("Empty image data");
         http_response_code(500);
@@ -720,7 +829,8 @@ function generatePDFFromImageData($imageData, $studentName, $course) {
     }
     
     // Set headers for PDF download
-    $filename = 'Certificate_' . preg_replace('/[^a-z0-9]/i', '_', $course['course_title']) . '_' . preg_replace('/[^a-z0-9]/i', '_', $studentName) . '.pdf';
+    $serialSuffix = $serialNumber ? '_' . preg_replace('/[^a-z0-9]/i', '_', $serialNumber) : '';
+    $filename = 'Certificate_' . preg_replace('/[^a-z0-9]/i', '_', $course['course_title']) . '_' . preg_replace('/[^a-z0-9]/i', '_', $studentName) . $serialSuffix . '.pdf';
     
     header('Content-Type: application/pdf');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -777,10 +887,11 @@ function generateMinimalPDF($imageData, $width, $height, $x, $y, $imgWidth, $img
     return $pdf;
 }
 
-function generateCertificateHTML($studentName, $course, $class, $date) {
+function generateCertificateHTML($studentName, $course, $class, $date, $serialNumber = null) {
     $courseTitle = htmlspecialchars($course['course_title']);
     $language = htmlspecialchars($course['language'] ?? 'Programming');
     $className = htmlspecialchars($class['class_name'] ?? '');
+    $certId = $serialNumber ? htmlspecialchars($serialNumber) : 'CR-' . htmlspecialchars($course['id'] ?? $course['course_id'] ?? '') . '-' . date('Ymd');
     
     return <<<HTML
 <!DOCTYPE html>
@@ -964,8 +1075,8 @@ function generateCertificateHTML($studentName, $course, $class, $date) {
             
             <div class="signature-box">
                 <div class="signature-line">
-                    <div class="signature-name">Certificate ID</div>
-                    <div class="signature-title">CR-{$course['course_id']}-{$userId}</div>
+                    <div class="signature-name">Certificate Serial Number</div>
+                    <div class="signature-title">{$certId}</div>
                 </div>
             </div>
         </div>

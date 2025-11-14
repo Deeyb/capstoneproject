@@ -10,7 +10,7 @@ $isTeacher = $userRole === 'teacher';
 ?>
 <div class="reports-container">
   <div class="reports-header">
-    <h2 class="section-title">📊 Reports</h2>
+    <h2 class="section-title">Reports</h2>
     <p class="section-subtitle">Generate and export student performance reports</p>
   </div>
 

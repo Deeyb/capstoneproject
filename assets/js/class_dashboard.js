@@ -994,7 +994,7 @@ class ActivityTester {
     }
     
     this.modal.innerHTML = `
-      <div class="modal-card" style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;max-width:1400px;width:98%;max-height:95vh;display:flex;flex-direction:column;font-family:'Inter',sans-serif;">
+      <div class="modal-card activity-quiz-modal" style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;max-width:1400px;width:98%;max-height:95vh;display:flex;flex-direction:column;font-family:'Inter',sans-serif;">
         <!-- STUDENT TEST HEADER -->
         <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);color:white;padding:16px;font-family:'Inter',sans-serif;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">

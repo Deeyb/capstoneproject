@@ -1583,6 +1583,312 @@ body.student-view .score-label {
   border-left: 4px solid #3b82f6;
 }
 
+/* Responsive Activity Quiz Modal - Laptop Optimization */
+.activity-quiz-modal {
+  max-width: 1400px !important;
+  width: 98% !important;
+}
+
+/* Laptop screens (1366px - 1920px) */
+@media screen and (max-width: 1920px) {
+  .activity-quiz-modal {
+    max-width: 1200px !important;
+    width: 95% !important;
+  }
+  
+  .activity-quiz-modal #questionsContent {
+    padding: 24px !important;
+  }
+  
+  .activity-quiz-modal h2 {
+    font-size: 18px !important;
+  }
+  
+  .activity-quiz-modal h3 {
+    font-size: 16px !important;
+  }
+}
+
+/* Smaller laptops (1366px - 1600px) */
+@media screen and (max-width: 1600px) {
+  .activity-quiz-modal {
+    max-width: 1000px !important;
+    width: 92% !important;
+  }
+  
+  .activity-quiz-modal #questionsContent {
+    padding: 20px !important;
+  }
+  
+  .activity-quiz-modal #instructionsSection {
+    padding: 16px !important;
+  }
+  
+  .activity-quiz-modal #submitSection {
+    padding: 14px 20px !important;
+  }
+}
+
+/* Standard laptop screens (1024px - 1366px) */
+@media screen and (max-width: 1366px) {
+  .activity-quiz-modal {
+    max-width: 900px !important;
+    width: 90% !important;
+  }
+  
+  .activity-quiz-modal #questionsContent {
+    padding: 18px !important;
+  }
+  
+  .activity-quiz-modal .choice-container {
+    padding: 12px !important;
+    font-size: 14px !important;
+  }
+  
+  .activity-quiz-modal #submitSection {
+    flex-direction: column !important;
+    gap: 12px !important;
+    align-items: stretch !important;
+  }
+  
+  .activity-quiz-modal #submitSection > div:first-child {
+    text-align: center !important;
+  }
+  
+  .activity-quiz-modal #submitSection > div:last-child {
+    justify-content: center !important;
+  }
+}
+
+/* Tablet and smaller screens */
+@media screen and (max-width: 1024px) {
+  .activity-quiz-modal {
+    max-width: 95% !important;
+    width: 95% !important;
+    max-height: 90vh !important;
+  }
+  
+  .activity-quiz-modal #questionsContent {
+    padding: 16px !important;
+  }
+  
+  .activity-quiz-modal h2 {
+    font-size: 16px !important;
+  }
+  
+  .activity-quiz-modal h3 {
+    font-size: 15px !important;
+  }
+  
+  .activity-quiz-modal .choice-container {
+    padding: 10px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Responsive Coding Activity Interface - Laptop Optimization */
+.codestem-coding-interface {
+  display: flex !important;
+  height: calc(100vh - 200px) !important;
+  min-height: 600px !important;
+  gap: 0 !important;
+  background: #f8fafc !important;
+}
+
+.codestem-left-panel {
+  width: 350px !important;
+  background: #fff !important;
+  border-right: 1px solid #e5e7eb !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex-shrink: 0 !important;
+}
+
+.codestem-right-panel {
+  width: 320px !important;
+  background: #fff !important;
+  border-left: 1px solid #e5e7eb !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex-shrink: 0 !important;
+  overflow-y: auto !important;
+}
+
+/* Code editor center panel */
+.codestem-coding-interface > div:nth-child(2) {
+  flex: 1 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Laptop screens (1366px - 1920px) */
+@media screen and (max-width: 1920px) {
+  .codestem-coding-interface {
+    height: calc(100vh - 180px) !important;
+    min-height: 550px !important;
+  }
+  
+  .codestem-left-panel {
+    width: 320px !important;
+  }
+  
+  .codestem-right-panel {
+    width: 300px !important;
+  }
+  
+  .codestem-left-panel > div:first-child,
+  .codestem-right-panel > div:first-child {
+    padding: 20px !important;
+  }
+  
+  .codestem-left-panel > div:last-child,
+  .codestem-right-panel > div:last-child {
+    padding: 20px !important;
+  }
+  
+  .codestem-left-panel h3,
+  .codestem-right-panel h3 {
+    font-size: 16px !important;
+  }
+  
+  .codestem-left-panel h4,
+  .codestem-right-panel h4 {
+    font-size: 15px !important;
+  }
+  
+  .codestem-left-panel p,
+  .codestem-left-panel div,
+  .codestem-right-panel p,
+  .codestem-right-panel div {
+    font-size: 13px !important;
+  }
+}
+
+/* Smaller laptops (1366px - 1600px) */
+@media screen and (max-width: 1600px) {
+  .codestem-coding-interface {
+    height: calc(100vh - 160px) !important;
+    min-height: 500px !important;
+  }
+  
+  .codestem-left-panel {
+    width: 300px !important;
+  }
+  
+  .codestem-right-panel {
+    width: 280px !important;
+  }
+  
+  .codestem-left-panel > div:first-child,
+  .codestem-right-panel > div:first-child {
+    padding: 18px !important;
+  }
+  
+  .codestem-left-panel > div:last-child,
+  .codestem-right-panel > div:last-child {
+    padding: 18px !important;
+  }
+  
+  .codestem-left-panel h3,
+  .codestem-right-panel h3 {
+    font-size: 15px !important;
+  }
+  
+  .codestem-left-panel h4,
+  .codestem-right-panel h4 {
+    font-size: 14px !important;
+  }
+}
+
+/* Standard laptop screens (1024px - 1366px) */
+@media screen and (max-width: 1366px) {
+  .codestem-coding-interface {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: calc(100vh - 120px) !important;
+  }
+  
+  .codestem-left-panel {
+    width: 100% !important;
+    max-height: 35vh !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+  
+  .codestem-right-panel {
+    width: 100% !important;
+    max-height: 30vh !important;
+    border-left: none !important;
+    border-top: 1px solid #e5e7eb !important;
+    order: 3 !important;
+  }
+  
+  .codestem-left-panel > div:first-child,
+  .codestem-right-panel > div:first-child {
+    padding: 16px !important;
+  }
+  
+  .codestem-left-panel > div:last-child,
+  .codestem-right-panel > div:last-child {
+    padding: 16px !important;
+  }
+  
+  /* Code editor area - takes remaining space in middle */
+  .codestem-coding-interface > div:nth-child(2) {
+    flex: 1 !important;
+    min-height: 400px !important;
+    order: 2 !important;
+  }
+}
+
+/* Tablet and smaller screens */
+@media screen and (max-width: 1024px) {
+  .codestem-coding-interface {
+    max-height: calc(100vh - 100px) !important;
+  }
+  
+  .codestem-left-panel {
+    max-height: 30vh !important;
+  }
+  
+  .codestem-right-panel {
+    max-height: 25vh !important;
+  }
+  
+  .codestem-left-panel > div:first-child,
+  .codestem-right-panel > div:first-child {
+    padding: 14px !important;
+  }
+  
+  .codestem-left-panel > div:last-child,
+  .codestem-right-panel > div:last-child {
+    padding: 14px !important;
+  }
+  
+  .codestem-left-panel h3,
+  .codestem-right-panel h3 {
+    font-size: 14px !important;
+  }
+  
+  .codestem-left-panel h4,
+  .codestem-right-panel h4 {
+    font-size: 13px !important;
+  }
+  
+  .codestem-left-panel p,
+  .codestem-left-panel div,
+  .codestem-right-panel p,
+  .codestem-right-panel div {
+    font-size: 12px !important;
+  }
+  
+  .codestem-coding-interface > div:nth-child(2) {
+    min-height: 350px !important;
+  }
+}
+
 body.student-view .activity-card .start-activity-btn,
 body.student-view .start-activity-btn {
   background: linear-gradient(135deg, #1d9b3e 0%, #16a34a 100%) !important;

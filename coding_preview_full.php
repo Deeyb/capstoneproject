@@ -9,14 +9,19 @@ $activityId = isset($_GET['activity_id']) ? (int)$_GET['activity_id'] : 0;
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CodeRegal Coding Preview</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/class_dashboard.css">
   <style>
     html, body { height:100%; margin:0; background:#0f172a; overflow:hidden; }
     .preview-wrap { position:fixed; inset:0; overflow:auto; }
     #root { height:100vh; padding:0; margin:0; }
     /* Ensure Monaco container has proper dimensions */
     #previewMonacoContainer { flex:1 !important; min-height:0 !important; position:relative !important; width:100% !important; height:100% !important; }
-    /* Ensure Codestem interface fills viewport exactly */
+    /* Ensure Codestem interface fills viewport exactly - but allow responsive overrides */
     .codestem-coding-interface { height:100vh !important; min-height:100vh !important; max-height:100vh !important; margin:0 !important; padding:0 !important; }
+    /* Allow responsive breakpoints to override height on smaller screens */
+    @media screen and (max-width: 1366px) {
+      .codestem-coding-interface { height: auto !important; min-height: auto !important; max-height: calc(100vh - 120px) !important; }
+    }
     .back-btn { position:fixed; top:14px; right:14px; z-index:99999; width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#0d1322; color:#e5e7eb; border:1px solid rgba(255,255,255,0.18); cursor:pointer; box-shadow:0 10px 24px rgba(0,0,0,0.45); transition:transform .12s ease, background .12s ease, box-shadow .12s ease; }
     .back-btn:hover { background:#121a2f; transform:scale(1.04); box-shadow:0 14px 32px rgba(0,0,0,0.5); }
     .back-btn:active { transform:scale(0.98); }

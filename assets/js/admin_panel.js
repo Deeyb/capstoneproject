@@ -1477,9 +1477,17 @@
       return html;
     }
 
-    // User table
+    // User table - with debouncing to prevent rapid multiple calls
+    let loadUsersTimeout = null;
     function loadUsers() {
+        // Clear any pending load
+        if (loadUsersTimeout) {
+            clearTimeout(loadUsersTimeout);
+            loadUsersTimeout = null;
+        }
+        
         const wrapper = document.getElementById('userTableWrapper');
+        const loadingEl = document.getElementById('usersLoading');
         if (!wrapper) return; // Not on Admin Users page (e.g., Coordinator)
         const search = document.getElementById('userSearchInput')?.value || '';
         const role = document.getElementById('userRoleSelect')?.value || '';
@@ -1488,7 +1496,11 @@
         const sortDir = document.getElementById('userSortDir')?.value || 'ASC';
         const pageSize = document.getElementById('userPageSize')?.value || 10;
         const page = window.__userTablePage || 1;
-        wrapper.innerHTML = '<div style="text-align:center;padding:30px 0;">Loading...</div>';
+        
+        // Show loading
+        if (loadingEl) loadingEl.style.display = 'block';
+        if (wrapper) wrapper.innerHTML = '';
+        
         const url = 'user_table_ajax.php?search=' + encodeURIComponent(search)
           + '&role=' + encodeURIComponent(role)
           + '&status=' + encodeURIComponent(status)
@@ -1496,13 +1508,54 @@
           + '&sortDir=' + encodeURIComponent(sortDir)
           + '&pageSize=' + encodeURIComponent(pageSize)
           + '&page=' + encodeURIComponent(page);
-        fetch(url)
-            .then(res => res.text())
-            .then(html => { wrapper.innerHTML = html; attachUserActions(); })
+        fetch(url, { 
+            credentials: 'same-origin',
+            cache: 'no-cache'
+        })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                return res.text();
+            })
+            .then(html => { 
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (!html || html.trim() === '') {
+                    throw new Error('Empty response from server');
+                }
+                wrapper.innerHTML = html; 
+                attachUserActions();
+                // Update user counts
+                updateUserCounts();
+            })
             .catch(error => {
-                wrapper.innerHTML = '<div style="text-align:center;padding:30px 0;color:#dc3545;">Failed to load users. Please try again.</div>';
-                showErrorToast('Failed to load users');
+                if (loadingEl) loadingEl.style.display = 'none';
+                wrapper.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load users. Please try again.</p></div>';
+                // Only show one error toast, not duplicate
+                if (!window.__userLoadErrorShown) {
+                    window.__userLoadErrorShown = true;
+                    showErrorToast('Failed to load users: ' + (error.message || 'Network error'));
+                    setTimeout(() => { window.__userLoadErrorShown = false; }, 3000);
+                }
+                console.error('Load users error:', error);
             });
+    }
+    
+    // Create debounced version
+    const debouncedLoadUsers = function() {
+        if (loadUsersTimeout) clearTimeout(loadUsersTimeout);
+        loadUsersTimeout = setTimeout(() => {
+            loadUsers();
+        }, 150);
+    };
+    
+    function updateUserCounts() {
+        // Get counts from server data (set by user_table_ajax.php)
+        const counts = window.__userCounts || { active: 0, archived: 0 };
+        const activeEl = document.getElementById('activeUsersCount');
+        const archivedEl = document.getElementById('archivedUsersCount');
+        if (activeEl) activeEl.textContent = counts.active || '0';
+        if (archivedEl) archivedEl.textContent = counts.archived || '0';
     }
 
     // Authorized IDs table loader
@@ -1848,19 +1901,19 @@
     }
     const _userSearchInput = document.getElementById('userSearchInput');
     if (_userSearchInput) {
-        _userSearchInput.addEventListener('input', function() { loadUsers(); });
+        _userSearchInput.addEventListener('input', function() { debouncedLoadUsers(); });
     }
     const _userRoleSelect = document.getElementById('userRoleSelect');
     if (_userRoleSelect) {
-        _userRoleSelect.addEventListener('change', function() { loadUsers(); });
+        _userRoleSelect.addEventListener('change', function() { debouncedLoadUsers(); });
     }
     const _userStatusSelect = document.getElementById('userStatusSelect');
     if (_userStatusSelect) {
-        _userStatusSelect.addEventListener('change', function() { loadUsers(); });
+        _userStatusSelect.addEventListener('change', function() { debouncedLoadUsers(); });
     }
     const _userFilterBtn = document.getElementById('userFilterBtn');
     if (_userFilterBtn) {
-        _userFilterBtn.addEventListener('click', function() { loadUsers(); });
+        _userFilterBtn.addEventListener('click', function() { debouncedLoadUsers(); });
     }
 
     // Sub-tabs switching (with Archived views)
@@ -1870,42 +1923,36 @@
     const tabAuthorizedArchived = document.getElementById('tabAuthorizedArchived');
     if (tabUsers && tabAuthorized) {
         tabUsers.onclick = function(){
-            document.getElementById('usersToolbar').style.display = 'flex';
             document.getElementById('userTableWrapper').style.display = 'block';
             document.getElementById('authIdsWrapper').style.display = 'none';
-            tabUsers.style.background = '#1d9b3e';
-            if (tabUsersArchived) tabUsersArchived.style.background = '#6c757d';
-            tabAuthorized.style.background = '#6c757d';
-            if (tabAuthorizedArchived) tabAuthorizedArchived.style.background = '#6c757d';
+            // Update tab pills
+            document.querySelectorAll('.users-tab-pill').forEach(p => p.classList.remove('active'));
+            tabUsers.classList.add('active');
             // Reset filters
             const statusSel = document.getElementById('userStatusSelect');
             if (statusSel) statusSel.value = '';
             window.__userTablePage = 1;
-            loadUsers();
+            debouncedLoadUsers();
         };
         if (tabUsersArchived) {
             tabUsersArchived.onclick = function(){
-                document.getElementById('usersToolbar').style.display = 'flex';
                 document.getElementById('userTableWrapper').style.display = 'block';
                 document.getElementById('authIdsWrapper').style.display = 'none';
-                tabUsers.style.background = '#6c757d';
-                tabUsersArchived.style.background = '#1d9b3e';
-                tabAuthorized.style.background = '#6c757d';
-                if (tabAuthorizedArchived) tabAuthorizedArchived.style.background = '#6c757d';
+                // Update tab pills
+                document.querySelectorAll('.users-tab-pill').forEach(p => p.classList.remove('active'));
+                tabUsersArchived.classList.add('active');
                 const statusSel = document.getElementById('userStatusSelect');
                 if (statusSel) statusSel.value = 'Archived';
                 window.__userTablePage = 1;
-                loadUsers();
+                debouncedLoadUsers();
             };
         }
         tabAuthorized.onclick = function(){
-            document.getElementById('usersToolbar').style.display = 'none';
             document.getElementById('userTableWrapper').style.display = 'none';
             document.getElementById('authIdsWrapper').style.display = 'block';
-            tabAuthorized.style.background = '#1d9b3e';
-            tabUsers.style.background = '#6c757d';
-            if (tabUsersArchived) tabUsersArchived.style.background = '#6c757d';
-            if (tabAuthorizedArchived) tabAuthorizedArchived.style.background = '#6c757d';
+            // Update tab pills
+            document.querySelectorAll('.users-tab-pill').forEach(p => p.classList.remove('active'));
+            tabAuthorized.classList.add('active');
             const params = new URLSearchParams(window.__authParams || {});
             params.delete('status');
             window.__authParams = Object.fromEntries(params.entries());
@@ -1913,13 +1960,11 @@
         };
         if (tabAuthorizedArchived) {
             tabAuthorizedArchived.onclick = function(){
-                document.getElementById('usersToolbar').style.display = 'none';
                 document.getElementById('userTableWrapper').style.display = 'none';
                 document.getElementById('authIdsWrapper').style.display = 'block';
-                tabAuthorized.style.background = '#6c757d';
-                tabUsers.style.background = '#6c757d';
-                if (tabUsersArchived) tabUsersArchived.style.background = '#6c757d';
-                tabAuthorizedArchived.style.background = '#1d9b3e';
+                // Update tab pills
+                document.querySelectorAll('.users-tab-pill').forEach(p => p.classList.remove('active'));
+                tabAuthorizedArchived.classList.add('active');
                 const params = new URLSearchParams(window.__authParams || {});
                 params.set('status', 'archived');
                 window.__authParams = Object.fromEntries(params.entries());
@@ -1933,7 +1978,7 @@
     document.addEventListener('change', function(e) {
         if (e.target && ['userSortBy','userSortDir','userPageSize'].includes(e.target.id)) {
             window.__userTablePage = 1;
-        loadUsers();
+            debouncedLoadUsers();
         }
     });
 
@@ -1989,13 +2034,97 @@
         // Delete
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.onclick = function() {
-                showConfirm('Are you sure you want to delete this user?', () => {
-                    fetch('user_action_ajax.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: 'action=delete&id=' + encodeURIComponent(this.getAttribute('data-id'))
-                    }).then(() => loadUsers());
-                });
+                const userId = this.getAttribute('data-id');
+                const userName = this.closest('tr')?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'this user';
+                
+                // Use showConfirmation for better warning with title
+                if (typeof showConfirmation === 'function') {
+                    showConfirmation(
+                        'Delete User',
+                        `Are you sure you want to delete ${userName}? This action cannot be undone and will permanently remove the user from the system.`,
+                        () => {
+                            // Disable button during deletion
+                            const originalText = this.textContent;
+                            this.disabled = true;
+                            this.textContent = 'Deleting...';
+                            
+                            fetch('user_action_ajax.php', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: 'action=delete&id=' + encodeURIComponent(userId)
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.text();
+                            })
+                            .then(result => {
+                                // Check if result is JSON
+                                let data;
+                                try {
+                                    data = JSON.parse(result);
+                                } catch (e) {
+                                    // If not JSON, assume success if result is 'success'
+                                    data = { success: result === 'success' || result.trim() === 'success' };
+                                }
+                                
+                                if (data.success || result === 'success' || result.trim() === 'success') {
+                                    showNotification('success', 'User Deleted', `${userName} has been successfully deleted.`);
+                                    loadUsers();
+                                } else {
+                                    throw new Error(data.message || 'Failed to delete user');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Delete user error:', error);
+                                showNotification('error', 'Delete Failed', error.message || 'Failed to delete user. Please try again.');
+                                this.textContent = originalText;
+                                this.disabled = false;
+                            });
+                        }
+                    );
+                } else {
+                    // Fallback to old showConfirm if showConfirmation is not available
+                    showConfirm('Are you sure you want to delete this user? This action cannot be undone.', () => {
+                        const originalText = this.textContent;
+                        this.disabled = true;
+                        this.textContent = 'Deleting...';
+                        
+                        fetch('user_action_ajax.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: 'action=delete&id=' + encodeURIComponent(userId)
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.text();
+                        })
+                        .then(result => {
+                            let data;
+                            try {
+                                data = JSON.parse(result);
+                            } catch (e) {
+                                data = { success: result === 'success' || result.trim() === 'success' };
+                            }
+                            
+                            if (data.success || result === 'success' || result.trim() === 'success') {
+                                showNotification('success', 'User Deleted', 'User has been successfully deleted.');
+                                loadUsers();
+                            } else {
+                                throw new Error(data.message || 'Failed to delete user');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Delete user error:', error);
+                            showNotification('error', 'Delete Failed', error.message || 'Failed to delete user. Please try again.');
+                            this.textContent = originalText;
+                            this.disabled = false;
+                        });
+                    });
+                }
             };
         });
         // Archive
@@ -2164,15 +2293,52 @@
             importForm.onsubmit = function(e){
                 e.preventDefault();
                 const formData = new FormData(importForm);
-                fetch('import_authorized_ids.php', { method: 'POST', body: formData })
-                  .then(r => r.json())
+                const fileInput = importForm.querySelector('input[type="file"]');
+                
+                // Validate file is selected
+                if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+                    showNotification('error', 'Import Failed', 'Please select a CSV file to import');
+                    return;
+                }
+                
+                // Show loading state
+                const submitBtn = importForm.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn ? submitBtn.textContent : 'Import';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Importing...';
+                }
+                
+                const res = document.getElementById('importAuthIdsResult');
+                if (res) res.textContent = 'Uploading and processing...';
+                
+                fetch('import_authorized_ids.php', { 
+                    method: 'POST', 
+                    body: formData,
+                    credentials: 'same-origin'
+                })
+                  .then(response => {
+                      // Check if response is JSON
+                      const contentType = response.headers.get('content-type') || '';
+                      if (!contentType.includes('application/json')) {
+                          return response.text().then(text => {
+                              throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+                          });
+                      }
+                      return response.json();
+                  })
                   .then(result => {
-                      const res = document.getElementById('importAuthIdsResult');
                       if (res) res.textContent = result.message || 'Done';
+                      
                       if (result.success) {
                           showNotification('success', 'Import Complete', result.message || 'Authorized IDs imported');
-                          document.getElementById('importAuthIdsModal').style.display = 'none';
-                          // refresh whichever tab is active
+                          // Reset form
+                          importForm.reset();
+                          // Close modal after a short delay
+                          setTimeout(() => {
+                              document.getElementById('importAuthIdsModal').style.display = 'none';
+                          }, 1500);
+                          // Refresh whichever tab is active
                           if (document.getElementById('authIdsWrapper') && document.getElementById('authIdsWrapper').style.display !== 'none') {
                               loadAuthorizedIds();
                           } else {
@@ -2182,17 +2348,23 @@
                           showNotification('error', 'Import Failed', result.message || 'Error importing file');
                       }
                   })
-                  .catch(() => {
-                      showNotification('error', 'Import Failed', 'Network or server error');
+                  .catch(error => {
+                      console.error('Import error:', error);
+                      if (res) res.textContent = 'Error: ' + error.message;
+                      showNotification('error', 'Import Failed', error.message || 'Network or server error. Please check the console for details.');
+                  })
+                  .finally(() => {
+                      // Re-enable button
+                      if (submitBtn) {
+                          submitBtn.disabled = false;
+                          submitBtn.textContent = originalBtnText;
+                      }
                   });
             };
         }
 
-        // Quick filter pills
-        const pillActive = document.getElementById('pillActive');
-        const pillArchived = document.getElementById('pillArchived');
-        if (pillActive) pillActive.onclick = () => { document.getElementById('userStatusSelect').value = 'Active'; loadUsers(); };
-        if (pillArchived) pillArchived.onclick = () => { document.getElementById('userStatusSelect').value = 'Archived'; loadUsers(); };
+        // Quick filter pills - bind only once, not on every table reload
+        // This is handled globally below
 
         // Clickable sortable headers
         document.querySelectorAll('.users-table thead th.sortable').forEach(th => {
@@ -2227,18 +2399,80 @@
     const editUserForm = document.getElementById('editUserForm');
     if (editUserForm) {
         editUserForm.onsubmit = function(e) {
-        e.preventDefault();
-        const form = e.target;
-        const data = new URLSearchParams(new FormData(form)).toString();
-        fetch('user_action_ajax.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'action=edit&' + data
-        }).then(() => {
-            document.getElementById('editUserModal').style.display = 'none';
-            loadUsers();
-        });
-    };
+            e.preventDefault();
+            const form = e.target;
+            const data = new URLSearchParams(new FormData(form)).toString();
+            
+            // Get user name for notification
+            const firstName = form.firstname?.value?.trim() || '';
+            const lastName = form.lastname?.value?.trim() || '';
+            const userName = `${firstName} ${lastName}`.trim() || 'User';
+            
+            // Disable submit button during submission
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn ? submitBtn.textContent : 'Save Changes';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving...';
+            }
+            
+            fetch('user_action_ajax.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'action=edit&' + data
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.text();
+            })
+            .then(result => {
+                // Check if result is JSON
+                let data;
+                try {
+                    data = JSON.parse(result);
+                } catch (e) {
+                    // If not JSON, assume success if result is 'success'
+                    data = { success: result === 'success' || result.trim() === 'success' };
+                }
+                
+                if (data.success || result === 'success' || result.trim() === 'success') {
+                    showNotification('success', 'User Updated', `${userName}'s information has been successfully updated.`);
+                    
+                    // Re-enable button first (in case modal doesn't close)
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalBtnText;
+                    }
+                    
+                    // Close modal and reload users
+                    const modal = document.getElementById('editUserModal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                    loadUsers();
+                } else {
+                    throw new Error(data.message || 'Failed to update user');
+                }
+            })
+            .catch(error => {
+                console.error('Edit user error:', error);
+                showNotification('error', 'Update Failed', error.message || 'Failed to update user. Please try again.');
+                // Re-enable button on error
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                }
+            })
+            .finally(() => {
+                // Always re-enable button as a safety measure
+                if (submitBtn && submitBtn.disabled) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                }
+            });
+        };
     }
     // Close modals on outside click
     window.onclick = function(event) {
@@ -2471,6 +2705,44 @@
     })();
 
     // Settings dropdown functionality moved to dark mode section above
+
+    // Bind filter pills once (not inside attachUserActions to avoid duplicates)
+    (function bindFilterPillsOnce() {
+        if (window.__filterPillsBound) return;
+        window.__filterPillsBound = true;
+        
+        // Use event delegation on the users section to handle dynamically added pills
+        const usersSection = document.getElementById('users');
+        if (usersSection) {
+            usersSection.addEventListener('click', function(e) {
+                const pill = e.target.closest('.users-filter-pill');
+                if (!pill) return;
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Remove active from all pills
+                document.querySelectorAll('.users-filter-pill').forEach(p => p.classList.remove('active'));
+                // Add active to clicked pill
+                pill.classList.add('active');
+                
+                const role = pill.getAttribute('data-role') || '';
+                const status = pill.getAttribute('data-status') || '';
+                
+                // Update filters
+                const roleSel = document.getElementById('userRoleSelect');
+                const statusSel = document.getElementById('userStatusSelect');
+                if (roleSel) roleSel.value = role;
+                if (statusSel) statusSel.value = status;
+                
+                window.__userTablePage = 1;
+                debouncedLoadUsers();
+            });
+        }
+    })();
+    
+    // Use debounced version for event listeners, but keep original for direct calls
+    window.loadUsers = loadUsers; // Keep original available
 
     // Initial loads
     updateDashboardStats();
@@ -3961,35 +4233,79 @@
   var currentSortBy = 'id';
   var currentSortDir = 'DESC';
   
+  function getActionIcon(action) {
+    if (!action) return 'fa-circle';
+    if (action.includes('login') || action.includes('logout')) return 'fa-sign-in-alt';
+    if (action.includes('user.')) return 'fa-user';
+    if (action.includes('auth_ids.')) return 'fa-id-card';
+    if (action.includes('material.')) return 'fa-book';
+    return 'fa-circle';
+  }
+
+  function getActionBadgeClass(action) {
+    if (!action) return 'auth';
+    if (action.includes('login') || action.includes('logout')) return 'auth';
+    if (action.includes('user.')) return 'user';
+    if (action.includes('auth_ids.')) return 'auth_ids';
+    if (action.includes('material.')) return 'material';
+    return 'auth';
+  }
+
+  function formatDateTime(dateStr) {
+    if (!dateStr) return '';
+    var date = new Date(dateStr);
+    var now = new Date();
+    var diff = now - date;
+    var minutes = Math.floor(diff / 60000);
+    var hours = Math.floor(diff / 3600000);
+    var days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return minutes + 'm ago';
+    if (hours < 24) return hours + 'h ago';
+    if (days < 7) return days + 'd ago';
+    
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  }
+
   function renderTable(data, pagination){
     var wrapper = document.getElementById('auditTableWrapper');
+    var loadingEl = document.getElementById('auditLoading');
     if (!wrapper) return;
+    
+    // Hide loading
+    if (loadingEl) loadingEl.style.display = 'none';
     
     var rows = data || [];
     if (!Array.isArray(rows) || rows.length===0) {
-      wrapper.innerHTML = '<div class="empty-state">No logs found.</div>';
+      wrapper.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No logs found.</p></div>';
       var paginationEl = document.getElementById('auditPagination');
       if (paginationEl) paginationEl.style.display = 'none';
       return;
     }
     
-    var html = '<table style="min-width:800px;width:100%"><thead><tr>'+
+    var html = '<table><thead><tr>'+
       '<th class="sortable" data-sort="id">ID <span class="sort-arrow">' + (currentSortBy==='id' ? (currentSortDir==='ASC'?'▲':'▼') : '') + '</span></th>'+
       '<th class="sortable" data-sort="created_at">Time <span class="sort-arrow">' + (currentSortBy==='created_at' ? (currentSortDir==='ASC'?'▲':'▼') : '') + '</span></th>'+
       '<th class="sortable" data-sort="user_id">User <span class="sort-arrow">' + (currentSortBy==='user_id' ? (currentSortDir==='ASC'?'▲':'▼') : '') + '</span></th>'+
       '<th class="sortable" data-sort="action">Action <span class="sort-arrow">' + (currentSortBy==='action' ? (currentSortDir==='ASC'?'▲':'▼') : '') + '</span></th>'+
       '<th class="sortable" data-sort="entity_type">Entity <span class="sort-arrow">' + (currentSortBy==='entity_type' ? (currentSortDir==='ASC'?'▲':'▼') : '') + '</span></th>'+
       '<th class="sortable" data-sort="entity_id">Entity ID <span class="sort-arrow">' + (currentSortBy==='entity_id' ? (currentSortDir==='ASC'?'▲':'▼') : '') + '</span></th>'+
-      '<th>IP</th></tr></thead><tbody>';
+      '<th>IP Address</th></tr></thead><tbody>';
     rows.forEach(function(r){
+      var actionIcon = getActionIcon(r.action || '');
+      var actionBadgeClass = getActionBadgeClass(r.action || '');
+      var timeAgo = formatDateTime(r.created_at);
+      var fullTime = r.created_at || '';
+      
       html += '<tr>'+
-        '<td>'+ (r.id||'') +'</td>'+
-        '<td>'+ (r.created_at||'') +'</td>'+
-        '<td>'+ (r.user_id||'') +'</td>'+
-        '<td>'+ (r.action||'') +'</td>'+
-        '<td>'+ (r.entity_type||'') +'</td>'+
-        '<td>'+ (r.entity_id||'') +'</td>'+
-        '<td>'+ (r.ip||'') +'</td>'+
+        '<td><strong style="color: #6b7280;">#' + (r.id||'') + '</strong></td>'+
+        '<td><div style="display:flex;flex-direction:column;"><span style="font-weight:500;">' + timeAgo + '</span><span style="font-size:12px;color:#9ca3af;">' + fullTime + '</span></div></td>'+
+        '<td><span style="font-weight:600;color:#3b82f6;">User ' + (r.user_id||'') + '</span></td>'+
+        '<td><span class="audit-action-badge ' + actionBadgeClass + '"><i class="fas ' + actionIcon + '" style="margin-right:4px;"></i>' + (r.action||'') + '</span></td>'+
+        '<td><span class="audit-entity-badge">' + (r.entity_type||'') + '</span></td>'+
+        '<td><code style="background:#f3f4f6;padding:4px 8px;border-radius:4px;font-size:12px;">' + (r.entity_id||'') + '</code></td>'+
+        '<td><span style="font-family:monospace;font-size:12px;color:#6b7280;">' + (r.ip||'') + '</span></td>'+
       '</tr>';
     });
     html += '</tbody></table>';
@@ -4010,6 +4326,13 @@
   }
   
   function fetchLogs(){
+    var loadingEl = document.getElementById('auditLoading');
+    var wrapper = document.getElementById('auditTableWrapper');
+    
+    // Show loading
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (wrapper) wrapper.innerHTML = '';
+    
     var q = (document.getElementById('auditSearch')||{}).value||'';
     var action = (document.getElementById('auditAction')||{}).value||'';
     var uid = (document.getElementById('auditUserId')||{}).value||'';
@@ -4037,9 +4360,10 @@
     fetch('audit_logs_ajax.php?'+params.toString(), { credentials:'same-origin' })
       .then(function(r){ return r.json(); })
       .then(function(res){ 
+        if (loadingEl) loadingEl.style.display = 'none';
         if (res && res.success) {
           renderTable(res.data, res.pagination);
-} else {
+        } else {
           renderTable([]);
           if (res && res.message) {
             showErrorToast(res.message);
@@ -4047,8 +4371,10 @@
         }
       })
       .catch(function(error){ 
+        if (loadingEl) loadingEl.style.display = 'none';
         renderTable([]);
         showErrorToast('Failed to load audit logs');
+        console.error('Audit logs fetch error:', error);
       });
   }
 
@@ -4079,10 +4405,10 @@
     if (nextBtn) nextBtn.onclick = function(){ currentPage++; fetchLogs(); };
     
     // Handle filter preset buttons
-    document.querySelectorAll('.audit-filter-btn').forEach(function(btn){
+    document.querySelectorAll('.audit-filter-pill').forEach(function(btn){
       btn.addEventListener('click', function(){
         // Remove active class from all buttons
-        document.querySelectorAll('.audit-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.querySelectorAll('.audit-filter-pill').forEach(function(b){ b.classList.remove('active'); });
         // Add active class to clicked button
         this.classList.add('active');
         
@@ -4123,7 +4449,7 @@
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', function(){ 
         // Clear active state from preset buttons when manually changing filters
-        document.querySelectorAll('.audit-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.querySelectorAll('.audit-filter-pill').forEach(function(b){ b.classList.remove('active'); });
         currentPage = 1; 
         setTimeout(fetchLogs, 300); 
       });
@@ -4253,14 +4579,25 @@
     showToast(message, 'info');
   };
   
-  // Override fetch to catch network errors
+  // Override fetch to catch network errors (but only if not already handled)
+  // This prevents duplicate error messages when the calling code already handles errors
   var originalFetch = window.fetch;
   window.fetch = function(){
-    return originalFetch.apply(this, arguments).catch(function(error){
+    var args = arguments;
+    var url = args[0];
+    var options = args[1] || {};
+    
+    // Check if this fetch already has error handling (has .catch in the chain)
+    // We'll only show a toast if the error is truly unhandled
+    return originalFetch.apply(this, args).catch(function(error){
+      // Only show toast for network errors that aren't already being handled
+      // Check if error is a network error and if the calling code might not handle it
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        showToast('Network error. Please check your connection.', 'error');
+        // Don't show duplicate errors - let the calling code handle it
+        // Only log to console for debugging
+        console.error('Fetch network error:', error.message, 'URL:', url);
       }
-      throw error;
+      throw error; // Always re-throw so calling code can handle it
     });
   };
 })();

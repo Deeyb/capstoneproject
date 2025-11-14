@@ -1546,7 +1546,12 @@ function viewOutline(courseId) {
         if (act === 'mat-view') {
           const url = btn.getAttribute('data-url');
           const type = btn.getAttribute('data-type');
-          if (!url) return;
+          if (!url) {
+            console.warn('⚠️ [Material View] No URL provided');
+            return;
+          }
+          
+          console.log('📄 [Material View] Opening material:', { url, type });
           
           // Convert relative URLs to absolute URLs
           let absoluteUrl = url;
@@ -1562,12 +1567,18 @@ function viewOutline(courseId) {
             }
           }
           
+          console.log('📄 [Material View] Absolute URL:', absoluteUrl);
+          
           if (type === 'link') {
             // Open external link in a new tab (original behavior)
             window.open(absoluteUrl, '_blank');
           } else if (type === 'pdf') {
-            // Open PDF in modal viewer (add view=true parameter)
-            const viewUrl = absoluteUrl + (absoluteUrl.includes('?') ? '&' : '?') + 'view=true';
+            // Open PDF in modal viewer (add view=true parameter if not present)
+            let viewUrl = absoluteUrl;
+            if (!viewUrl.includes('view=true')) {
+              viewUrl = viewUrl + (viewUrl.includes('?') ? '&' : '?') + 'view=true';
+            }
+            console.log('📄 [Material View] Opening PDF viewer with URL:', viewUrl);
             showPDFViewer(viewUrl);
           } else if (type === 'page' || /material_page_view\.php/i.test(url)) {
             // Open material page in fullscreen iframe viewer (clean header, X close button)
@@ -12431,33 +12442,83 @@ function showPDFViewer(url) {
   // Create download URL (remove view=true parameter)
   const downloadUrl = url.replace(/[?&]view=true/, '').replace(/[?&]$/, '');
   
+  // Ensure URL is absolute and has view=true parameter
+  let viewUrl = url;
+  if (!viewUrl.includes('view=true')) {
+    viewUrl = viewUrl + (viewUrl.includes('?') ? '&' : '?') + 'view=true';
+  }
+  
+  // Ensure absolute URL
+  if (!viewUrl.startsWith('http')) {
+    const currentPath = window.location.pathname;
+    const projectPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+    viewUrl = window.location.origin + projectPath + viewUrl;
+  }
+  
+  console.log('📄 [PDF Viewer] Opening PDF:', viewUrl);
+  
   const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  modal.className = 'modal pdf-viewer-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;';
   modal.innerHTML = `
-    <div class="modal-card" style="max-width:98%;width:98%;height:96vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;">
+    <div class="modal-card" style="max-width:98%;width:98%;height:96vh;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
       <div style="padding:10px 12px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa;">
         <strong style="font-size:16px;color:#333;">📄 PDF Viewer</strong>
         <div style="display:flex;gap:8px;align-items:center;">
-          <button class="action-btn" id="pdfViewerFullscreen" title="Fullscreen (F)" style="padding:6px 12px;background:#343a40;color:#fff;">Fullscreen</button>
+          <button class="action-btn" id="pdfViewerFullscreen" title="Fullscreen (F)" style="padding:6px 12px;background:#343a40;color:#fff;border:none;border-radius:4px;cursor:pointer;">Fullscreen</button>
           <a href="${downloadUrl}" target="_blank" style="padding:6px 12px;background:#007bff;color:#fff;text-decoration:none;border-radius:4px;font-size:12px;">Download</a>
-          <button class="action-btn btn-gray" id="pdfViewerClose" style="padding:6px 12px;">Close</button>
+          <button class="action-btn btn-gray" id="pdfViewerClose" style="padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Close</button>
         </div>
       </div>
       <div id="pdfContainer" style="flex:1;overflow:hidden;background:#525659;position:relative;">
-        <iframe id="pdfFrame" src="${url}" style="width:100%;height:100%;border:0;" title="PDF Viewer" onload="console.log('PDF iframe loaded successfully')" onerror="console.error('PDF iframe failed to load')"></iframe>
-        <div id="pdfError" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;text-align:center;display:none;">
-          <p>Unable to display PDF in browser.</p>
+        <iframe id="pdfFrame" src="${viewUrl}" style="width:100%;height:100%;border:0;" title="PDF Viewer" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+        <div id="pdfError" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;text-align:center;display:none;background:rgba(0,0,0,0.8);padding:20px;border-radius:8px;">
+          <p style="margin:0 0 10px 0;">Unable to display PDF in browser.</p>
           <a href="${downloadUrl}" target="_blank" style="color:#4fc3f7;text-decoration:underline;">Click here to download</a>
+        </div>
+        <div id="pdfLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;text-align:center;">
+          <p style="margin:0;">Loading PDF...</p>
         </div>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
   
+  // Hide loading after iframe loads
+  const iframe = modal.querySelector('#pdfFrame');
+  const loadingDiv = modal.querySelector('#pdfLoading');
+  const errorDiv = modal.querySelector('#pdfError');
+  
+  if (iframe) {
+    iframe.onload = function() {
+      console.log('✅ [PDF Viewer] PDF iframe loaded successfully');
+      if (loadingDiv) loadingDiv.style.display = 'none';
+      // Check if iframe content is valid (not an error page)
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        if (iframeDoc && iframeDoc.body) {
+          const bodyText = iframeDoc.body.textContent || '';
+          if (bodyText.includes('Invalid file') || bodyText.includes('Not found') || bodyText.includes('Forbidden')) {
+            console.error('❌ [PDF Viewer] PDF load error detected');
+            if (errorDiv) errorDiv.style.display = 'block';
+            if (iframe) iframe.style.display = 'none';
+          }
+        }
+      } catch (e) {
+        // Cross-origin or other error - assume PDF loaded if no error div shows
+        console.log('ℹ️ [PDF Viewer] Cannot access iframe content (cross-origin), assuming PDF loaded');
+      }
+    };
+    iframe.onerror = function() {
+      console.error('❌ [PDF Viewer] PDF iframe failed to load');
+      if (loadingDiv) loadingDiv.style.display = 'none';
+      if (errorDiv) errorDiv.style.display = 'block';
+      if (iframe) iframe.style.display = 'none';
+    };
+  }
+  
   // Show error message if iframe fails to load after 5 seconds
   setTimeout(() => {
-    const iframe = modal.querySelector('#pdfFrame');
     const errorDiv = modal.querySelector('#pdfError');
     if (iframe && iframe.contentDocument && iframe.contentDocument.body && iframe.contentDocument.body.textContent.includes('Invalid file')) {
       errorDiv.style.display = 'block';
@@ -12469,7 +12530,6 @@ function showPDFViewer(url) {
   const fsBtn = modal.querySelector('#pdfViewerFullscreen');
   const card = modal.querySelector('.modal-card');
   const container = modal.querySelector('#pdfContainer');
-  const iframe = modal.querySelector('#pdfFrame');
 
   function isFullscreenActive() {
     return document.fullscreenElement === card || document.fullscreenElement === container;
