@@ -1555,14 +1555,22 @@ function viewOutline(courseId) {
           
           // Convert relative URLs to absolute URLs
           let absoluteUrl = url;
-          if (!url.startsWith('http')) {
-            // Handle relative URLs - if it starts with material_download.php or material_page_view.php, it's relative to project root
-            if (url.startsWith('material_download.php') || url.startsWith('material_page_view.php')) {
-              // Get the current path and use it as base
+          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            // Check if it's an external domain (e.g., www.youtube.com, drive.google.com)
+            // External domains typically don't start with http but contain a dot and domain-like structure
+            const isExternalDomain = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}/.test(url.trim());
+            
+            if (isExternalDomain) {
+              // External domain - prepend https://
+              absoluteUrl = 'https://' + url.trim().replace(/^https?:\/\//, '');
+              console.log('📄 [Material View] Detected external domain, converted to:', absoluteUrl);
+            } else if (url.startsWith('material_download.php') || url.startsWith('material_page_view.php')) {
+              // Handle relative URLs - if it starts with material_download.php or material_page_view.php, it's relative to project root
               const currentPath = window.location.pathname;
               const projectPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
               absoluteUrl = window.location.origin + projectPath + url;
             } else {
+              // Other relative URLs
               absoluteUrl = window.location.origin + '/' + url.replace(/^\.\//, '');
             }
           }
@@ -1570,16 +1578,46 @@ function viewOutline(courseId) {
           console.log('📄 [Material View] Absolute URL:', absoluteUrl);
           
           if (type === 'link') {
-            // Open external link in a new tab (original behavior)
-            window.open(absoluteUrl, '_blank');
+            // Use openMaterialViewer for links (same as Teacher side) instead of just window.open
+            const materialData = {
+              url: absoluteUrl,
+              filename: btn.getAttribute('data-filename') || 'Link',
+              type: 'link'
+            };
+            
+            // Check if openMaterialViewer exists
+            if (typeof openMaterialViewer === 'function') {
+              openMaterialViewer(materialData);
+            } else {
+              // Fallback to opening in new tab
+              window.open(absoluteUrl, '_blank');
+            }
           } else if (type === 'pdf') {
-            // Open PDF in modal viewer (add view=true parameter if not present)
+            // SIMPLE SOLUTION: Open PDF in new tab (Coordinator side only)
+            // This is the most reliable approach and user is okay with it
             let viewUrl = absoluteUrl;
-            if (!viewUrl.includes('view=true')) {
+            
+            // Ensure view=true is properly added for inline viewing
+            if (!viewUrl.includes('view=true') && !viewUrl.includes('view=1')) {
               viewUrl = viewUrl + (viewUrl.includes('?') ? '&' : '?') + 'view=true';
             }
-            console.log('📄 [Material View] Opening PDF viewer with URL:', viewUrl);
-            showPDFViewer(viewUrl);
+            
+            // Validate URL format
+            if (!viewUrl.includes('material_download.php')) {
+              console.error('❌ [Material View] Invalid PDF URL format:', viewUrl);
+              if (typeof window.showNotification === 'function') {
+                window.showNotification('error', 'Invalid PDF URL', 'The PDF URL format is incorrect.');
+              }
+              return;
+            }
+            
+            console.log('📄 [Material View] Opening PDF in new tab (Coordinator side)');
+            console.log('📄 [Material View] Original URL:', url);
+            console.log('📄 [Material View] Absolute URL:', absoluteUrl);
+            console.log('📄 [Material View] View URL:', viewUrl);
+            
+            // Open PDF in new tab - simple and reliable
+            window.open(viewUrl, '_blank');
           } else if (type === 'page' || /material_page_view\.php/i.test(url)) {
             // Open material page in fullscreen iframe viewer (clean header, X close button)
             const overlay = document.createElement('div');
@@ -12438,6 +12476,271 @@ function updateMatchingPair(questionIndex, pairIndex, field, value) {
 
 // ======================== MATERIAL VIEWERS ========================
 
+// Material viewer function (same pattern as class_dashboard.js and teacher_material_viewers.js)
+function openMaterialViewer(material) {
+  try {
+    let url = (material && (material.url || material.link || material.href)) || '';
+    const title = escapeHtml((material && (material.filename || material.title)) || 'Material');
+    if (!url) { 
+      console.error('❌ [Material Viewer] No URL provided');
+      return; 
+    }
+    
+    // Normalize relative URL and add inline view for our download endpoint
+    try {
+      // Check if URL contains material_download.php (works for both relative and absolute URLs)
+      if (/material_download\.php/i.test(url)) {
+        // Only add view=true if it's not already present
+        if (!url.includes('view=true') && !url.includes('view=1')) {
+          url += (url.indexOf('?') === -1 ? '?' : '&') + 'view=true';
+        }
+      }
+      // Convert to absolute URL if not already
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = new URL(url, window.location.href).toString();
+      } else {
+        // Already absolute, just ensure it's a proper URL object
+        url = new URL(url).toString();
+      }
+    } catch (_) {
+      // If URL parsing fails, try to make it absolute anyway
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        try {
+          url = new URL(url, window.location.href).toString();
+        } catch (__) {}
+      }
+    }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.25);width:96%;height:90vh;display:flex;flex-direction:column;overflow:hidden;';
+    
+    wrap.innerHTML = ''+
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);font-family:\'Inter\',sans-serif;">'+
+        '<div style="display:flex;align-items:center;gap:10px;">'+
+          '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#1d9b3e,#28a745);display:flex;align-items:center;justify-content:center;color:#fff;"><i class="fas fa-file-pdf"></i></div>'+
+          '<div style="font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw;font-family:\'Inter\',sans-serif;">'+ title +'</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<button id="matCloseBtn" style="background:#6b7280;color:#fff;border:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;font-family:\'Inter\',sans-serif;">Close</button>'+
+        '</div>'+
+      '</div>'+
+      '<div id="matViewerBody" style="flex:1;background:#f8fafc;font-family:\'Inter\',sans-serif;"></div>';
+    overlay.appendChild(wrap);
+    document.body.appendChild(overlay);
+
+    const close = () => { if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    wrap.querySelector('#matCloseBtn').addEventListener('click', close);
+    const esc = (e)=>{ if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } };
+    document.addEventListener('keydown', esc);
+
+    const body = wrap.querySelector('#matViewerBody');
+    const lower = url.toLowerCase();
+    const materialType = (material && material.type) ? material.type.toLowerCase() : '';
+    const materialFilename = (material && material.filename) ? material.filename.toLowerCase() : '';
+    
+    // Check file type (same as Teacher side)
+    const isPdf = lower.endsWith('.pdf') || materialType === 'pdf' || materialFilename.endsWith('.pdf');
+    const isVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || materialType === 'video' || materialFilename.match(/\.(mp4|webm)$/);
+    const isImage = lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.gif') || materialFilename.match(/\.(png|jpg|jpeg|gif)$/);
+    const isYouTube = /youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\//.test(lower);
+    const isGoogleDrive = /drive\.google\.com/.test(lower);
+    const isGoogleDriveFolder = /drive\.google\.com\/drive\/folders\//.test(lower);
+    const isLink = materialType === 'link';
+    
+    if (isPdf) {
+      // Direct iframe approach (same as Teacher side)
+      console.log('📄 [Material Viewer] Setting up PDF iframe');
+      console.log('📄 [Material Viewer] PDF URL:', url);
+      console.log('📄 [Material Viewer] URL contains material_download.php:', /material_download\.php/i.test(url));
+      console.log('📄 [Material Viewer] URL contains view=true:', url.includes('view=true'));
+      
+      const iframe = document.createElement('iframe');
+      // Ensure URL has view=true for inline viewing
+      let src = url;
+      if (!src.includes('view=true') && !src.includes('view=1')) {
+        src += (src.indexOf('?') === -1 ? '?' : '&') + 'view=true';
+        console.log('📄 [Material Viewer] Added view=true to URL:', src);
+      }
+      // Add PDF viewer parameters
+      src = src + (src.indexOf('#') === -1 ? '#toolbar=1&navpanes=0' : '');
+      iframe.src = src;
+      iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
+      iframe.setAttribute('type', 'application/pdf');
+      iframe.setAttribute('title', 'PDF Viewer');
+      console.log('📄 [Material Viewer] Loading PDF iframe with src:', src);
+      body.appendChild(iframe);
+      
+      // Success handler
+      iframe.onload = function() {
+        console.log('✅ [Material Viewer] PDF iframe loaded successfully');
+      };
+      
+      // Error handling
+      iframe.onerror = function() {
+        console.error('❌ [Material Viewer] PDF iframe failed to load');
+        body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
+          '<div style="text-align:center;padding:20px;">'+
+            '<div style="font-size:48px;color:#dc3545;margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i></div>'+
+            '<h3 style="color:#0f172a;margin-bottom:8px;">PDF Load Error</h3>'+
+            '<p style="color:#64748b;margin-bottom:16px;">Unable to load PDF. Please try downloading instead.</p>'+
+            '<a href="' + url.replace(/[?&]view=true/, '').replace(/[?&]$/, '') + '" target="_blank" style="text-decoration:none;background:#1d9b3e;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;">Download PDF</a>'+
+          '</div>'+
+        '</div>';
+      };
+      
+      // Timeout fallback - if iframe doesn't load after 5 seconds, show error
+      setTimeout(() => {
+        try {
+          // Check if iframe has loaded content
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (!iframeDoc || !iframeDoc.body || iframeDoc.body.innerHTML.trim() === '') {
+            console.warn('⚠️ [Material Viewer] PDF iframe may not have loaded properly after 5 seconds');
+          }
+        } catch (e) {
+          // Cross-origin - can't check, assume it's loading
+          console.log('ℹ️ [Material Viewer] Cannot check iframe content (cross-origin), assuming PDF is loading');
+        }
+      }, 5000);
+    } else if (isVideo) {
+      const video = document.createElement('video');
+      video.controls = true;
+      video.style.cssText = 'width:100%;height:100%;background:#000;';
+      const source = document.createElement('source');
+      source.src = url;
+      source.type = lower.endsWith('.mp4') ? 'video/mp4' : 'video/webm';
+      video.appendChild(source);
+      body.appendChild(video);
+    } else if (isImage) {
+      body.style.display = 'flex';
+      body.style.alignItems = 'center';
+      body.style.justifyContent = 'center';
+      body.style.background = '#fff';
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = title;
+      img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;display:block;';
+      body.appendChild(img);
+    } else if (isGoogleDriveFolder) {
+      body.style.display = 'flex';
+      body.style.alignItems = 'center';
+      body.style.justifyContent = 'center';
+      body.style.background = '#fff';
+      const folderCard = document.createElement('div');
+      folderCard.style.cssText = 'background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:20px;max-width:520px;width:92%;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,0.08)';
+      folderCard.innerHTML = '<div style="font-size:42px;color:#1d9b3e;margin-bottom:10px;"><i class="fas fa-folder"></i></div>'+
+        '<div style="font-weight:700;color:#0f172a;margin-bottom:6px;">Google Drive Folder</div>'+
+        '<div style="color:#64748b;margin-bottom:14px;">Folders cannot be embedded directly. Please use individual file links instead.</div>'+
+        '<div style="display:flex;gap:10px;justify-content:center;">'+
+          '<a href="'+url+'" target="_blank" style="text-decoration:none;background:#1d9b3e;color:#fff;padding:8px 12px;border-radius:8px;font-weight:600;">Open Folder</a>'+
+        '</div>';
+      body.appendChild(folderCard);
+    } else if (isGoogleDrive) {
+      try {
+        let embedUrl = '';
+        let fileId = null;
+        
+        if (/\/file\/d\/([a-zA-Z0-9_-]+)/.test(url)) {
+          fileId = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)[1];
+        } else if (/[?&]id=([a-zA-Z0-9_-]+)/.test(url)) {
+          fileId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)[1];
+        }
+        
+        if (fileId) {
+          embedUrl = 'https://drive.google.com/file/d/' + fileId + '/preview';
+          const iframe = document.createElement('iframe');
+          iframe.src = embedUrl;
+          iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
+          iframe.onerror = function() {
+            body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
+              '<div style="text-align:center;padding:20px;">'+
+                '<div style="font-size:48px;color:#dc3545;margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i></div>'+
+                '<h3 style="color:#0f172a;margin-bottom:8px;">Google Drive Access Issue</h3>'+
+                '<p style="color:#64748b;margin-bottom:16px;">This file may be private or restricted. Please check the sharing settings.</p>'+
+                '<a href="'+url+'" target="_blank" style="text-decoration:none;background:#1d9b3e;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;">Open in Google Drive</a>'+
+              '</div>'+
+            '</div>';
+          };
+          body.appendChild(iframe);
+        } else {
+          throw new Error('Could not extract file ID from Google Drive URL');
+        }
+      } catch (error) {
+        body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
+          '<div style="text-align:center;padding:20px;">'+
+            '<div style="font-size:48px;color:#dc3545;margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i></div>'+
+            '<h3 style="color:#0f172a;margin-bottom:8px;">Invalid Google Drive Link</h3>'+
+            '<p style="color:#64748b;margin-bottom:16px;">Could not process this Google Drive URL. Please check the link format.</p>'+
+            '<a href="'+url+'" target="_blank" style="text-decoration:none;background:#1d9b3e;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;">Open in Google Drive</a>'+
+          '</div>'+
+        '</div>';
+      }
+    } else if (isYouTube) {
+      try {
+        let videoId = null;
+        let embedUrl = '';
+        
+        if (/[?&]v=([^&]+)/.test(url)) {
+          videoId = url.match(/[?&]v=([^&]+)/)[1];
+        } else if (/youtu\.be\/([^?]+)/.test(url)) {
+          videoId = url.match(/youtu\.be\/([^?]+)/)[1];
+        } else if (/youtube\.com\/embed\/([^?]+)/.test(url)) {
+          videoId = url.match(/youtube\.com\/embed\/([^?]+)/)[1];
+        }
+        
+        if (videoId) {
+          embedUrl = 'https://www.youtube.com/embed/' + videoId;
+          const iframe = document.createElement('iframe');
+          iframe.src = embedUrl;
+          iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
+          iframe.allowFullscreen = true;
+          body.appendChild(iframe);
+        } else {
+          throw new Error('Could not extract video ID from YouTube URL');
+        }
+      } catch (error) {
+        body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
+          '<div style="text-align:center;padding:20px;">'+
+            '<div style="font-size:48px;color:#dc3545;margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i></div>'+
+            '<h3 style="color:#0f172a;margin-bottom:8px;">Invalid YouTube Link</h3>'+
+            '<p style="color:#64748b;margin-bottom:16px;">Could not process this YouTube URL. Please check the link format.</p>'+
+            '<a href="'+url+'" target="_blank" style="text-decoration:none;background:#dc3545;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;">Open in YouTube</a>'+
+          '</div>'+
+        '</div>';
+      }
+    } else if (isLink) {
+      // Generic link - show fallback card with option to open
+      body.style.display = 'flex';
+      body.style.alignItems = 'center';
+      body.style.justifyContent = 'center';
+      body.style.background = '#fff';
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:20px;max-width:520px;width:92%;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,0.08)';
+      card.innerHTML = '<div style="font-size:42px;color:#1d9b3e;margin-bottom:10px;"><i class="fas fa-link"></i></div>'+
+        '<div style="font-weight:700;color:#0f172a;margin-bottom:6px;">External Link</div>'+
+        '<div style="color:#64748b;margin-bottom:14px;">This link will open in a new tab.</div>'+
+        '<div style="display:flex;gap:10px;justify-content:center;">'+
+          '<a href="'+url+'" target="_blank" style="text-decoration:none;background:#1d9b3e;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;">Open Link</a>'+
+        '</div>';
+      body.appendChild(card);
+    } else {
+      // Fallback for other types - try iframe
+      const iframe = document.createElement('iframe');
+      iframe.src = url;
+      iframe.referrerPolicy = 'no-referrer-when-downgrade';
+      iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
+      body.appendChild(iframe);
+    }
+  } catch (error) {
+    console.error('❌ [Material Viewer] Error:', error);
+    if (typeof window.showNotification === 'function') {
+      window.showNotification('error', 'Preview Error', 'Unable to open material preview.');
+    }
+  }
+}
+
 function showPDFViewer(url) {
   // Create download URL (remove view=true parameter)
   const downloadUrl = url.replace(/[?&]view=true/, '').replace(/[?&]$/, '');
@@ -12455,7 +12758,18 @@ function showPDFViewer(url) {
     viewUrl = window.location.origin + projectPath + viewUrl;
   }
   
-  console.log('📄 [PDF Viewer] Opening PDF:', viewUrl);
+  // Validate URL before proceeding
+  if (!viewUrl || !viewUrl.includes('material_download.php')) {
+    console.error('❌ [PDF Viewer] Invalid URL:', viewUrl);
+    if (typeof window.showNotification === 'function') {
+      window.showNotification('error', 'Invalid PDF URL', 'Cannot open PDF: Invalid URL format.');
+    }
+    return;
+  }
+  
+  console.log('📄 [PDF Viewer] Opening PDF');
+  console.log('📄 [PDF Viewer] URL:', viewUrl);
+  console.log('📄 [PDF Viewer] Has view=true:', viewUrl.includes('view=true'));
   
   const modal = document.createElement('div');
   modal.className = 'modal pdf-viewer-modal';
@@ -12471,7 +12785,10 @@ function showPDFViewer(url) {
         </div>
       </div>
       <div id="pdfContainer" style="flex:1;overflow:hidden;background:#525659;position:relative;">
-        <iframe id="pdfFrame" src="${viewUrl}" style="width:100%;height:100%;border:0;" title="PDF Viewer" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+        <iframe id="pdfFrame" src="${viewUrl}" style="width:100%;height:100%;border:0;" title="PDF Viewer" type="application/pdf"></iframe>
+        <object id="pdfObject" data="${viewUrl}" type="application/pdf" style="width:100%;height:100%;display:none;border:0;">
+          <embed id="pdfEmbed" src="${viewUrl}" type="application/pdf" style="width:100%;height:100%;display:none;" />
+        </object>
         <div id="pdfError" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;text-align:center;display:none;background:rgba(0,0,0,0.8);padding:20px;border-radius:8px;">
           <p style="margin:0 0 10px 0;">Unable to display PDF in browser.</p>
           <a href="${downloadUrl}" target="_blank" style="color:#4fc3f7;text-decoration:underline;">Click here to download</a>
@@ -12490,31 +12807,104 @@ function showPDFViewer(url) {
   const errorDiv = modal.querySelector('#pdfError');
   
   if (iframe) {
+    // Try iframe first
+    let iframeLoaded = false;
+    let fallbackUsed = false;
+    
     iframe.onload = function() {
-      console.log('✅ [PDF Viewer] PDF iframe loaded successfully');
-      if (loadingDiv) loadingDiv.style.display = 'none';
-      // Check if iframe content is valid (not an error page)
-      try {
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-        if (iframeDoc && iframeDoc.body) {
-          const bodyText = iframeDoc.body.textContent || '';
-          if (bodyText.includes('Invalid file') || bodyText.includes('Not found') || bodyText.includes('Forbidden')) {
-            console.error('❌ [PDF Viewer] PDF load error detected');
-            if (errorDiv) errorDiv.style.display = 'block';
-            if (iframe) iframe.style.display = 'none';
+      console.log('✅ [PDF Viewer] PDF iframe loaded');
+      iframeLoaded = true;
+      
+      // Wait a bit to check if PDF actually rendered
+      setTimeout(() => {
+        if (loadingDiv) loadingDiv.style.display = 'none';
+        
+        // Check if iframe content is valid (not an error page)
+        try {
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+          if (iframeDoc && iframeDoc.body) {
+            const bodyText = iframeDoc.body.textContent || '';
+            const bodyHTML = iframeDoc.body.innerHTML || '';
+            
+            // Check for error messages
+            if (bodyText.includes('Invalid file') || bodyText.includes('Not found') || bodyText.includes('Forbidden') || bodyText.includes('Server error')) {
+              console.error('❌ [PDF Viewer] Error page detected in iframe');
+              if (!fallbackUsed) {
+                // Try object/embed fallback
+                console.log('🔄 [PDF Viewer] Trying object/embed fallback...');
+                const pdfObject = modal.querySelector('#pdfObject');
+                const pdfEmbed = modal.querySelector('#pdfEmbed');
+                if (pdfObject && pdfEmbed) {
+                  iframe.style.display = 'none';
+                  pdfObject.style.display = 'block';
+                  pdfEmbed.style.display = 'block';
+                  fallbackUsed = true;
+                  return;
+                }
+              }
+              if (errorDiv) errorDiv.style.display = 'block';
+              if (iframe) iframe.style.display = 'none';
+            } else {
+              // Check if it's showing HTML page instead of PDF
+              if (bodyHTML.includes('<html') && !bodyHTML.includes('pdf') && bodyHTML.length > 1000) {
+                console.warn('⚠️ [PDF Viewer] Iframe loaded HTML page instead of PDF, trying fallback...');
+                if (!fallbackUsed) {
+                  const pdfObject = modal.querySelector('#pdfObject');
+                  const pdfEmbed = modal.querySelector('#pdfEmbed');
+                  if (pdfObject && pdfEmbed) {
+                    iframe.style.display = 'none';
+                    pdfObject.style.display = 'block';
+                    pdfEmbed.style.display = 'block';
+                    fallbackUsed = true;
+                    return;
+                  }
+                }
+              } else {
+                console.log('✅ [PDF Viewer] PDF content appears valid');
+              }
+            }
           }
+        } catch (e) {
+          // Cross-origin - can't check content, assume PDF loaded
+          console.log('ℹ️ [PDF Viewer] Cannot access iframe content (cross-origin), assuming PDF loaded');
         }
-      } catch (e) {
-        // Cross-origin or other error - assume PDF loaded if no error div shows
-        console.log('ℹ️ [PDF Viewer] Cannot access iframe content (cross-origin), assuming PDF loaded');
-      }
+      }, 500);
     };
+    
     iframe.onerror = function() {
-      console.error('❌ [PDF Viewer] PDF iframe failed to load');
+      console.error('❌ [PDF Viewer] PDF iframe failed to load, trying fallback...');
+      if (!fallbackUsed) {
+        const pdfObject = modal.querySelector('#pdfObject');
+        const pdfEmbed = modal.querySelector('#pdfEmbed');
+        if (pdfObject && pdfEmbed) {
+          iframe.style.display = 'none';
+          pdfObject.style.display = 'block';
+          pdfEmbed.style.display = 'block';
+          fallbackUsed = true;
+          if (loadingDiv) loadingDiv.style.display = 'none';
+          return;
+        }
+      }
       if (loadingDiv) loadingDiv.style.display = 'none';
       if (errorDiv) errorDiv.style.display = 'block';
       if (iframe) iframe.style.display = 'none';
     };
+    
+    // Fallback: if iframe doesn't load after 3 seconds, try object/embed
+    setTimeout(() => {
+      if (!iframeLoaded && !fallbackUsed) {
+        console.log('⏱️ [PDF Viewer] Iframe timeout, trying object/embed fallback...');
+        const pdfObject = modal.querySelector('#pdfObject');
+        const pdfEmbed = modal.querySelector('#pdfEmbed');
+        if (pdfObject && pdfEmbed) {
+          iframe.style.display = 'none';
+          pdfObject.style.display = 'block';
+          pdfEmbed.style.display = 'block';
+          fallbackUsed = true;
+          if (loadingDiv) loadingDiv.style.display = 'none';
+        }
+      }
+    }, 3000);
   }
   
   // Show error message if iframe fails to load after 5 seconds
