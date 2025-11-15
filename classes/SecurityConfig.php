@@ -105,7 +105,10 @@ class SecurityConfig {
         $csp .= "font-src 'self' data: blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com; ";
         $csp .= "img-src 'self' data: https:; ";
         $csp .= "worker-src 'self' blob: data: https://cdn.jsdelivr.net; "; // Allow web workers for Monaco Editor
-        $csp .= "child-src 'self' blob:; "; // Legacy directive for iframes
+        
+        $frameSources = "'self' blob: https://*.youtube.com https://www.youtube.com https://youtu.be https://player.vimeo.com https://drive.google.com https://docs.google.com https://*.googleusercontent.com https://view.officeapps.live.com";
+        $csp .= "child-src $frameSources; "; // Legacy directive for iframes
+        $csp .= "frame-src $frameSources; "; // Explicit allow list for modern browsers
         $csp .= "frame-ancestors 'self'; "; // Modern directive controlling who can embed our pages
         $csp .= "connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com;";
         

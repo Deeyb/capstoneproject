@@ -1553,34 +1553,21 @@ function viewOutline(courseId) {
           
           console.log('📄 [Material View] Opening material:', { url, type });
           
-          // Convert relative URLs to absolute URLs
-          let absoluteUrl = url;
-          if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            // Check if it's an external domain (e.g., www.youtube.com, drive.google.com)
-            // External domains typically don't start with http but contain a dot and domain-like structure
-            const isExternalDomain = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}/.test(url.trim());
-            
-            if (isExternalDomain) {
-              // External domain - prepend https://
-              absoluteUrl = 'https://' + url.trim().replace(/^https?:\/\//, '');
-              console.log('📄 [Material View] Detected external domain, converted to:', absoluteUrl);
-            } else if (url.startsWith('material_download.php') || url.startsWith('material_page_view.php')) {
-              // Handle relative URLs - if it starts with material_download.php or material_page_view.php, it's relative to project root
-              const currentPath = window.location.pathname;
-              const projectPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
-              absoluteUrl = window.location.origin + projectPath + url;
-            } else {
-              // Other relative URLs
-              absoluteUrl = window.location.origin + '/' + url.replace(/^\.\//, '');
+          const normalizedUrl = resolveCoordinatorMaterialUrl(url, 'Material View');
+          if (!normalizedUrl) {
+            console.error('❌ [Material View] Unable to resolve material URL', { url, type });
+            if (typeof window.showNotification === 'function') {
+              window.showNotification('error', 'Invalid URL', 'Unable to resolve material link.');
             }
+            return;
           }
           
-          console.log('📄 [Material View] Absolute URL:', absoluteUrl);
+          console.log('📄 [Material View] Normalized URL:', normalizedUrl);
           
           if (type === 'link') {
             // Use openMaterialViewer for links (same as Teacher side) instead of just window.open
             const materialData = {
-              url: absoluteUrl,
+              url: normalizedUrl,
               filename: btn.getAttribute('data-filename') || 'Link',
               type: 'link'
             };
@@ -1590,35 +1577,61 @@ function viewOutline(courseId) {
               openMaterialViewer(materialData);
             } else {
               // Fallback to opening in new tab
-              window.open(absoluteUrl, '_blank');
+              window.open(normalizedUrl, '_blank', 'noopener');
             }
           } else if (type === 'pdf') {
-            // SIMPLE SOLUTION: Open PDF in new tab (Coordinator side only)
-            // This is the most reliable approach and user is okay with it
-            let viewUrl = absoluteUrl;
+            // USE SAME MODAL IFRAME APPROACH AS TEACHER/STUDENT (MOST RELIABLE)
+            console.log('📄 [Material View] Opening PDF using modal viewer (same as Teacher/Student)');
+            console.log('📄 [Material View] Original URL:', url);
+            console.log('📄 [Material View] Normalized URL:', normalizedUrl);
             
-            // Ensure view=true is properly added for inline viewing
-            if (!viewUrl.includes('view=true') && !viewUrl.includes('view=1')) {
-              viewUrl = viewUrl + (viewUrl.includes('?') ? '&' : '?') + 'view=true';
-            }
+            // Ensure view=true is added for inline viewing
+            let viewUrl = ensureMaterialDownloadViewParam(normalizedUrl);
+            const isDownloadEndpoint = /material_download\.php/i.test(viewUrl);
+            const isDirectPdf = /\.pdf(?:$|[?#])/i.test(viewUrl);
             
-            // Validate URL format
-            if (!viewUrl.includes('material_download.php')) {
-              console.error('❌ [Material View] Invalid PDF URL format:', viewUrl);
+            if (!isDownloadEndpoint && !isDirectPdf) {
+              console.error('❌ [Material View] PDF URL does not look valid:', viewUrl);
               if (typeof window.showNotification === 'function') {
                 window.showNotification('error', 'Invalid PDF URL', 'The PDF URL format is incorrect.');
               }
               return;
             }
             
-            console.log('📄 [Material View] Opening PDF in new tab (Coordinator side)');
-            console.log('📄 [Material View] Original URL:', url);
-            console.log('📄 [Material View] Absolute URL:', absoluteUrl);
             console.log('📄 [Material View] View URL:', viewUrl);
             
-            // Open PDF in new tab - simple and reliable
-            window.open(viewUrl, '_blank');
-          } else if (type === 'page' || /material_page_view\.php/i.test(url)) {
+            // Use openMaterialViewer (modal iframe) - EXACTLY like Teacher/Student side
+            const materialData = {
+              url: viewUrl,
+              filename: btn.getAttribute('data-filename') || 'PDF Document',
+              type: 'pdf'
+            };
+            
+            if (typeof openMaterialViewer === 'function') {
+              console.log('📄 [Material View] Calling openMaterialViewer with:', materialData);
+              openMaterialViewer(materialData);
+            } else {
+              console.error('❌ [Material View] openMaterialViewer function not found!');
+              // Fallback: try direct iframe in modal
+              const overlay = document.createElement('div');
+              overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;';
+              const wrap = document.createElement('div');
+              wrap.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.25);width:96%;height:90vh;display:flex;flex-direction:column;overflow:hidden;';
+              wrap.innerHTML = ''+
+                '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;">'+
+                  '<strong>PDF Viewer</strong>'+
+                  '<button id="pdfCloseBtn" style="background:#6b7280;color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;">Close</button>'+
+                '</div>'+
+                '<iframe src="' + viewUrl + '#toolbar=1&navpanes=0" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
+              overlay.appendChild(wrap);
+              document.body.appendChild(overlay);
+              const close = () => { if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+              overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+              wrap.querySelector('#pdfCloseBtn').addEventListener('click', close);
+              const esc = (e)=>{ if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } };
+              document.addEventListener('keydown', esc);
+            }
+          } else if (type === 'page' || /material_page_view\.php/i.test(normalizedUrl)) {
             // Open material page in fullscreen iframe viewer (clean header, X close button)
             const overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:stretch;justify-content:stretch;';
@@ -1628,7 +1641,7 @@ function viewOutline(courseId) {
               '<button id="coordMatCloseBtn" aria-label="Close" title="Close" '+
               'style="position:absolute;top:10px;right:12px;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#6b7280;border:none;color:#fff;cursor:pointer;z-index:10001;">' +
               '<span style="font-size:16px;line-height:1;">&#10005;</span></button>' +
-              '<iframe src="' + absoluteUrl + '" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
+              '<iframe src="' + normalizedUrl + '" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
             overlay.appendChild(wrap);
             document.body.appendChild(overlay);
             const close = () => { if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
@@ -1638,10 +1651,10 @@ function viewOutline(courseId) {
             document.addEventListener('keydown', esc);
           } else if (type === 'code') {
             // Open code in modal viewer
-            showCodeViewer(absoluteUrl);
+            showCodeViewer(normalizedUrl);
           } else {
             // Download file
-            window.open(absoluteUrl, '_blank');
+            window.open(normalizedUrl, '_blank', 'noopener');
           }
           return;
         }
@@ -3212,10 +3225,30 @@ function initCoordinatorUploads() {
     });
   }
 }
+// VERSION CHECK - Force reload if old version detected
+if (typeof window.__UPLOADS_VERSION === 'undefined') {
+  window.__UPLOADS_VERSION = '2.0';
+  console.log('🎨 [Uploads] NEW DESIGN VERSION 2.0 LOADED');
+}
+
 function loadCoordinatorUploads() {
+  console.log('🚀 [Uploads] loadCoordinatorUploads() called - NEW VERSION 2.0');
+  console.log('🚀 [Uploads] Current version:', window.__UPLOADS_VERSION);
   const list = document.getElementById('uploadsList');
-  if (!list) return;
+  if (!list) {
+    console.error('❌ [Uploads] uploadsList element not found!');
+    return;
+  }
+  console.log('✅ [Uploads] uploadsList element found, setting loading state');
   list.innerHTML = '<div class="loading-spinner">Loading...</div>';
+  
+  // Helper function for HTML escaping
+  const escapeHtml = (text) => {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
   
   // Get search and filter values
   const searchInput = document.getElementById('uploadsSearch');
@@ -3252,67 +3285,187 @@ function loadCoordinatorUploads() {
     })
     .then(data=>{
       console.log('🔍 [Uploads] Response data:', data);
+      console.log('🎨 [Uploads] Using NEW MODERN DESIGN with grid layout');
       if (data && data.success && Array.isArray(data.data)) {
         if (data.data.length > 0) {
-        list.innerHTML = `
-          <table>
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Type</th>
-                <th>Topic</th>
-                <th>Module</th>
-                <th>Course</th>
-                <th>Size</th>
-                <th>Uploaded</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.data.map(m => {
-                const filename = m.filename || m.url || 'Material';
-                const type = (m.type || 'file').toLowerCase();
-                const courseTitle = m.course_title || '';
-                const moduleTitle = m.module_title || '';
-                const lessonTitle = m.lesson_title || '';
-                const size = m.size_bytes ? (Math.round(m.size_bytes/1024) + ' KB') : '';
-                const uploaded = m.created_at ? new Date(m.created_at).toLocaleString() : '';
-                return `
-                <tr>
-                  <td class="material-filename">${filename}</td>
-                  <td><span class="material-type ${type}">${type.toUpperCase()}</span></td>
-                  <td class="material-lesson">${lessonTitle}</td>
-                  <td class="material-module">${moduleTitle}</td>
-                  <td class="material-course">${courseTitle}</td>
-                  <td class="material-size">${size}</td>
-                  <td class="material-uploaded">${uploaded}</td>
-                  <td class="material-actions">
-                    <button class="action-btn archive" onclick="archiveMaterial(${m.id}, this, event); return false;">Archive</button>
-                  </td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>`;
+          console.log(`🎨 [Uploads] Rendering ${data.data.length} materials with new design`);
+          // Get type icon and color mapping
+          const getTypeInfo = (type) => {
+            const t = (type || 'file').toLowerCase();
+            const icons = {
+              'pdf': { icon: 'fa-file-pdf', color: '#dc3545', bg: '#f8d7da' },
+              'link': { icon: 'fa-link', color: '#17a2b8', bg: '#d1ecf1' },
+              'page': { icon: 'fa-file-alt', color: '#007bff', bg: '#cce5ff' },
+              'code': { icon: 'fa-code', color: '#6f42c1', bg: '#e2d9f3' },
+              'video': { icon: 'fa-video', color: '#e83e8c', bg: '#f8d7e6' },
+              'file': { icon: 'fa-file', color: '#6c757d', bg: '#e9ecef' }
+            };
+            return icons[t] || icons['file'];
+          };
+          
+          list.innerHTML = `
+            <div class="uploads-grid-container">
+              <div class="uploads-table-header">
+                <div class="uploads-header-cell" style="grid-column: 1;">File</div>
+                <div class="uploads-header-cell" style="grid-column: 2;">Type</div>
+                <div class="uploads-header-cell" style="grid-column: 3;">Topic</div>
+                <div class="uploads-header-cell" style="grid-column: 4;">Module</div>
+                <div class="uploads-header-cell" style="grid-column: 5;">Course</div>
+                <div class="uploads-header-cell" style="grid-column: 6;">Size</div>
+                <div class="uploads-header-cell" style="grid-column: 7;">Uploaded</div>
+                <div class="uploads-header-cell" style="grid-column: 8;">Actions</div>
+              </div>
+              <div class="uploads-table-body">
+                ${data.data.map((m, index) => {
+                  const filename = m.filename || m.url || 'Material';
+                  const type = (m.type || 'file').toLowerCase();
+                  const courseTitle = m.course_title || '';
+                  const moduleTitle = m.module_title || '';
+                  const lessonTitle = m.lesson_title || '';
+                  const size = m.size_bytes ? (Math.round(m.size_bytes/1024) + ' KB') : '';
+                  const uploaded = m.created_at ? new Date(m.created_at).toLocaleString() : '';
+                  const typeInfo = getTypeInfo(type);
+                  const materialUrl = m.url || '';
+                  const materialId = m.id;
+                  
+                  // Truncate long filenames
+                  const displayFilename = filename.length > 50 ? filename.substring(0, 47) + '...' : filename;
+                  
+                  return `
+                  <div class="uploads-row" data-material-id="${materialId}" style="animation-delay: ${index * 0.03}s;">
+                    <div class="uploads-cell material-filename-cell" title="${escapeHtml(filename)}">
+                      <div class="material-filename-content">
+                        <i class="fas ${typeInfo.icon}" style="color: ${typeInfo.color}; margin-right: 8px;"></i>
+                        <span class="material-filename-text">${escapeHtml(displayFilename)}</span>
+                      </div>
+                    </div>
+                    <div class="uploads-cell">
+                      <span class="material-type-badge ${type}" style="background: ${typeInfo.bg}; color: ${typeInfo.color};">
+                        <i class="fas ${typeInfo.icon}"></i>
+                        ${type.toUpperCase()}
+                      </span>
+                    </div>
+                    <div class="uploads-cell material-lesson-cell" title="${escapeHtml(lessonTitle)}">
+                      ${escapeHtml(lessonTitle || '-')}
+                    </div>
+                    <div class="uploads-cell material-module-cell" title="${escapeHtml(moduleTitle)}">
+                      ${escapeHtml(moduleTitle || '-')}
+                    </div>
+                    <div class="uploads-cell material-course-cell" title="${escapeHtml(courseTitle)}">
+                      ${escapeHtml(courseTitle || '-')}
+                    </div>
+                    <div class="uploads-cell material-size-cell">
+                      ${size || '<span style="color: #adb5bd;">-</span>'}
+                    </div>
+                    <div class="uploads-cell material-uploaded-cell">
+                      <span class="upload-time">${uploaded || '-'}</span>
+                    </div>
+                    <div class="uploads-cell material-actions-cell">
+                      <div class="material-actions-group">
+                        ${materialUrl && (type === 'pdf' || type === 'link' || type === 'page') ? `
+                          <button class="material-action-btn view-btn" 
+                                  data-material-url="${escapeHtml(materialUrl)}" 
+                                  data-material-type="${escapeHtml(type)}" 
+                                  data-material-filename="${escapeHtml(filename)}"
+                                  onclick="viewMaterialFromUploads(this.dataset.materialUrl, this.dataset.materialType, this.dataset.materialFilename, event); return false;" 
+                                  title="View">
+                            <i class="fas fa-eye"></i>
+                          </button>
+                        ` : ''}
+                        <button class="material-action-btn archive-btn" 
+                                data-material-id="${materialId}"
+                                onclick="archiveMaterial(${materialId}, this, event); return false;" 
+                                title="Archive">
+                          <i class="fas fa-archive"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+            <div class="uploads-footer">
+              <div class="uploads-count">
+                <i class="fas fa-file"></i>
+                <span>${data.data.length} material${data.data.length !== 1 ? 's' : ''} found</span>
+              </div>
+            </div>`;
         } else {
           console.log('ℹ️ [Uploads] No materials found (empty array)');
-          list.innerHTML = '<div class="empty-state"><i class="fas fa-upload"></i>No materials found</div>';
+          list.innerHTML = `
+            <div class="uploads-empty-state">
+              <div class="empty-icon">
+                <i class="fas fa-upload"></i>
+              </div>
+              <h3>No Materials Found</h3>
+              <p>No materials match your search criteria. Try adjusting your filters.</p>
+            </div>`;
         }
       } else {
         console.warn('⚠️ [Uploads] Invalid response format:', data);
-        list.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>Invalid response format</div>';
+        list.innerHTML = `
+          <div class="uploads-empty-state">
+            <div class="empty-icon error">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3>Error Loading Materials</h3>
+            <p>Invalid response format. Please refresh the page.</p>
+          </div>`;
       }
     })
     .catch(err => {
       console.error('❌ [Uploads] Error loading uploads:', err);
-      list.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>Failed to load: ' + (err.message || 'Unknown error') + '</div>';
+      list.innerHTML = `
+        <div class="uploads-empty-state">
+          <div class="empty-icon error">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <h3>Error Loading Materials</h3>
+          <p>Failed to load materials: ${escapeHtml(err.message || 'Unknown error')}</p>
+        </div>`;
     });
 }
+function viewMaterialFromUploads(url, type, filename, ev) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  
+  console.log('👁️ [Uploads] Viewing material:', { url, type, filename });
+  
+  // Normalize URL
+  const normalizedUrl = resolveCoordinatorMaterialUrl(url, 'Uploads View');
+  if (!normalizedUrl) {
+    console.error('❌ [Uploads] Unable to resolve material URL');
+    if (typeof window.showNotification === 'function') {
+      window.showNotification('error', 'Invalid URL', 'Unable to resolve material link.');
+    }
+    return;
+  }
+  
+  // Use openMaterialViewer for consistent viewing experience
+  const materialData = {
+    url: normalizedUrl,
+    filename: filename || 'Material',
+    type: type || 'file'
+  };
+  
+  if (typeof openMaterialViewer === 'function') {
+    openMaterialViewer(materialData);
+  } else {
+    // Fallback to opening in new tab
+    window.open(normalizedUrl, '_blank', 'noopener');
+  }
+}
+
 function archiveMaterial(id, btnEl, ev) {
   if (ev && ev.preventDefault) ev.preventDefault();
   if (ev && ev.stopPropagation) ev.stopPropagation();
   coordinatorConfirm('Archive this material?', function(){
-    const itemRef = btnEl && btnEl.closest ? btnEl.closest('tr') : null;
-    if (itemRef) { itemRef.style.transition = 'opacity 150ms ease'; itemRef.style.opacity = '0.4'; }
+    const itemRef = btnEl && btnEl.closest ? btnEl.closest('.uploads-row') : null;
+    if (itemRef) { 
+      itemRef.style.transition = 'opacity 150ms ease, transform 150ms ease'; 
+      itemRef.style.opacity = '0.4';
+      itemRef.style.transform = 'scale(0.98)';
+    }
     const fd = new FormData();
     fd.append('id', id);
     fd.append('archived', '1');
@@ -3321,15 +3474,42 @@ function archiveMaterial(id, btnEl, ev) {
       .then(data=>{
         if (data.success) {
           if (typeof window.showNotification === 'function') window.showNotification('success','Archived','Material archived');
-          if (itemRef && itemRef.parentElement) itemRef.parentElement.removeChild(itemRef);
+          if (itemRef) {
+            itemRef.style.transition = 'opacity 300ms ease, transform 300ms ease, max-height 300ms ease';
+            itemRef.style.opacity = '0';
+            itemRef.style.transform = 'translateX(-20px)';
+            itemRef.style.maxHeight = itemRef.offsetHeight + 'px';
+            setTimeout(() => {
+              if (itemRef && itemRef.parentElement) itemRef.parentElement.removeChild(itemRef);
+              // Update count
+              const countEl = document.querySelector('.uploads-count span');
+              if (countEl) {
+                const current = parseInt(countEl.textContent) || 0;
+                if (current > 0) {
+                  countEl.textContent = (current - 1) + ' material' + (current - 1 !== 1 ? 's' : '') + ' found';
+                }
+              }
+            }, 300);
+          }
           loadCoordinatorUploads();
           if (typeof loadArchivedMaterials === 'function') loadArchivedMaterials();
         } else {
           if (typeof window.showNotification === 'function') window.showNotification('error','Error', data.message || 'Failed to archive material');
-          if (itemRef) { itemRef.style.opacity=''; itemRef.style.transition=''; }
+          if (itemRef) { 
+            itemRef.style.opacity=''; 
+            itemRef.style.transition='';
+            itemRef.style.transform='';
+          }
         }
       })
-      .catch(()=>{ if (typeof window.showNotification === 'function') window.showNotification('error','Error','Network error'); if (itemRef) { itemRef.style.opacity=''; itemRef.style.transition=''; } });
+      .catch(()=>{ 
+        if (typeof window.showNotification === 'function') window.showNotification('error','Error','Network error'); 
+        if (itemRef) { 
+          itemRef.style.opacity=''; 
+          itemRef.style.transition='';
+          itemRef.style.transform='';
+        }
+      });
   });
 }
 function loadArchivedCourses() {
@@ -12476,6 +12656,55 @@ function updateMatchingPair(questionIndex, pairIndex, field, value) {
 
 // ======================== MATERIAL VIEWERS ========================
 
+function resolveCoordinatorMaterialUrl(rawUrl, debugContext) {
+  if (!rawUrl) {
+    console.error('❌ [Material View] Missing URL to resolve', { debugContext });
+    return '';
+  }
+
+  let url = String(rawUrl).trim();
+  const contextLabel = debugContext || 'Material View';
+
+  try {
+    // Already absolute (http/https) - normalize via URL constructor
+    if (/^https?:\/\//i.test(url)) {
+      return new URL(url).toString();
+    }
+
+    // Protocol-relative URL (e.g., //example.com/file.pdf)
+    if (/^\/\//.test(url)) {
+      return window.location.protocol + url;
+    }
+
+    // Bare domain without protocol (e.g., www.youtube.com/watch?v=...)
+    const bareDomainPattern = /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/|$)/;
+    if (bareDomainPattern.test(url) && url.indexOf(' ') === -1) {
+      return new URL('https://' + url.replace(/^https?:\/\//i, '')).toString();
+    }
+
+    // Relative paths (material_download.php, uploads/materials/..., ./file.pdf, etc.)
+    return new URL(url, window.location.href).toString();
+  } catch (error) {
+    console.error('⚠️ [' + contextLabel + '] Failed to normalize URL', { rawUrl, error });
+    return url;
+  }
+}
+
+function ensureMaterialDownloadViewParam(url) {
+  if (!url) {
+    return url;
+  }
+  try {
+    if (/material_download\.php/i.test(url) && !/[?&]view=(?:true|1)/i.test(url)) {
+      const separator = url.includes('?') ? '&' : '?';
+      return url + separator + 'view=true';
+    }
+  } catch (error) {
+    console.warn('⚠️ [Material View] Failed to inspect URL for view=true parameter', { url, error });
+  }
+  return url;
+}
+
 // Material viewer function (same pattern as class_dashboard.js and teacher_material_viewers.js)
 function openMaterialViewer(material) {
   try {
@@ -12558,52 +12787,150 @@ function openMaterialViewer(material) {
       console.log('📄 [Material Viewer] URL contains view=true:', url.includes('view=true'));
       
       const iframe = document.createElement('iframe');
-      // Ensure URL has view=true for inline viewing
+      // Ensure URL has view=true for inline viewing - use URL object to avoid double ? issues
       let src = url;
-      if (!src.includes('view=true') && !src.includes('view=1')) {
-        src += (src.indexOf('?') === -1 ? '?' : '&') + 'view=true';
-        console.log('📄 [Material Viewer] Added view=true to URL:', src);
+      try {
+        const urlObj = new URL(src);
+        // Check if view parameter already exists
+        if (!urlObj.searchParams.has('view') || urlObj.searchParams.get('view') !== 'true') {
+          urlObj.searchParams.set('view', 'true');
+        }
+        src = urlObj.toString();
+        console.log('📄 [Material Viewer] Normalized URL with view=true:', src);
+      } catch (e) {
+        // Fallback to string manipulation if URL parsing fails
+        if (!src.includes('view=true') && !src.includes('view=1')) {
+          src += (src.indexOf('?') === -1 ? '?' : '&') + 'view=true';
+          console.log('📄 [Material Viewer] Added view=true to URL (fallback):', src);
+        }
       }
-      // Add PDF viewer parameters
-      src = src + (src.indexOf('#') === -1 ? '#toolbar=1&navpanes=0' : '');
-      iframe.src = src;
+      // Add PDF viewer parameters (fragment, not query)
+      if (!src.includes('#')) {
+        src += '#toolbar=1&navpanes=0';
+      }
+      
+      console.log('📄 [Material Viewer] Final iframe src:', src);
+      console.log('📄 [Material Viewer] Current window location:', window.location.href);
+      
+      // DIRECT APPROACH: Load iframe immediately (no pre-check that might fail due to session issues)
+      // The iframe will handle session cookies automatically since it's same-origin
+      console.log('📄 [Material Viewer] Loading PDF iframe directly (same-origin, session should work)');
+      
+      // Configure iframe
       iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
       iframe.setAttribute('type', 'application/pdf');
       iframe.setAttribute('title', 'PDF Viewer');
-      console.log('📄 [Material Viewer] Loading PDF iframe with src:', src);
+      iframe.setAttribute('allow', 'fullscreen');
+      // NO SANDBOX - it blocks PDF rendering
+      iframe.setAttribute('referrerpolicy', 'same-origin');
+      
+      // Set src and append immediately
+      iframe.src = src;
       body.appendChild(iframe);
       
-      // Success handler
+      // Set up event handlers
+      let loadTimeout = null;
+      let hasLoaded = false;
+      
+      // Success handler - check if HTML was loaded instead of PDF
       iframe.onload = function() {
-        console.log('✅ [Material Viewer] PDF iframe loaded successfully');
+        hasLoaded = true;
+        if (loadTimeout) {
+          clearTimeout(loadTimeout);
+          loadTimeout = null;
+        }
+        console.log('✅ [Material Viewer] PDF iframe onload fired');
+        
+        // Wait a bit then check content
+        setTimeout(() => {
+          try {
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (iframeDoc && iframeDoc.body) {
+              const bodyText = iframeDoc.body.textContent || '';
+              const bodyHTML = iframeDoc.body.innerHTML || '';
+              const bodyTitle = iframeDoc.title || '';
+              
+              console.log('📄 [Material Viewer] Iframe content check:', {
+                hasBody: !!iframeDoc.body,
+                bodyTextLength: bodyText.length,
+                bodyTitle: bodyTitle,
+                bodyHTMLPreview: bodyHTML.substring(0, 200)
+              });
+              
+              // Check for backend error messages
+              if (bodyText.includes('Forbidden') || bodyText.includes('Not found') || bodyText.includes('Invalid file') || bodyText.includes('Server error')) {
+                console.error('❌ [Material Viewer] Backend error detected:', bodyText);
+                showPdfError(body, url, 'Backend error: ' + bodyText);
+                return;
+              }
+              
+              // Check if HTML page was loaded (dashboard/login redirect)
+              const isHtmlPage = bodyHTML.includes('<html') && (
+                bodyHTML.includes('Coordinator Dashboard') || 
+                bodyHTML.includes('login.php') || 
+                bodyHTML.includes('CodeRegal') || 
+                bodyHTML.includes('Header (match Teacher/Admin exactly)') ||
+                bodyTitle.includes('Login') ||
+                bodyTitle.includes('Dashboard')
+              );
+              
+              if (isHtmlPage) {
+                console.error('❌ [Material Viewer] HTML page detected instead of PDF!');
+                console.error('❌ [Material Viewer] This means session/auth failed - page redirected');
+                showPdfError(body, url, 'Session expired or authentication failed. The server redirected to login/dashboard instead of showing the PDF. Please refresh the coordinator dashboard page (press F5), then try viewing the PDF again.');
+                return;
+              }
+              
+              // Check if it's a small HTML error page
+              if (bodyHTML.includes('<html') && bodyText.length < 200 && !bodyHTML.includes('pdf')) {
+                console.warn('⚠️ [Material Viewer] Small HTML page detected - might be error page');
+                showPdfError(body, url, 'Server returned an error page instead of PDF. Please check if the file exists and you have permission.');
+                return;
+              }
+              
+              // PDF should load - if we get here and it's not HTML, assume success
+              if (!bodyHTML.includes('<html') || bodyText.length > 5000) {
+                console.log('✅ [Material Viewer] PDF appears to have loaded successfully');
+              } else {
+                console.warn('⚠️ [Material Viewer] Content type unclear');
+              }
+            }
+          } catch (e) {
+            // Cross-origin or other access issue - but onload fired, so assume PDF loaded
+            console.log('ℹ️ [Material Viewer] Cannot access iframe content (cross-origin), but onload fired - assuming PDF loaded');
+          }
+        }, 1500); // Give it more time to load
       };
       
-      // Error handling
-      iframe.onerror = function() {
-        console.error('❌ [Material Viewer] PDF iframe failed to load');
-        body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
-          '<div style="text-align:center;padding:20px;">'+
+      // Error handler
+      iframe.onerror = function(error) {
+        console.error('❌ [Material Viewer] PDF iframe onerror fired:', error);
+        showPdfError(body, url, 'Iframe failed to load. Please try downloading the PDF instead.');
+      };
+      
+      // Timeout fallback
+      loadTimeout = setTimeout(() => {
+        if (!hasLoaded) {
+          console.error('❌ [Material Viewer] PDF iframe timeout - onload never fired');
+          showPdfError(body, url, 'PDF took too long to load. Please check your connection or try downloading.');
+        }
+      }, 10000);
+      
+      // Helper function to show error
+      function showPdfError(container, pdfUrl, message) {
+        const downloadUrl = pdfUrl.replace(/[?&]view=true/, '').replace(/[?&]$/, '');
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fff;">'+
+          '<div style="text-align:center;padding:20px;max-width:500px;">'+
             '<div style="font-size:48px;color:#dc3545;margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i></div>'+
             '<h3 style="color:#0f172a;margin-bottom:8px;">PDF Load Error</h3>'+
-            '<p style="color:#64748b;margin-bottom:16px;">Unable to load PDF. Please try downloading instead.</p>'+
-            '<a href="' + url.replace(/[?&]view=true/, '').replace(/[?&]$/, '') + '" target="_blank" style="text-decoration:none;background:#1d9b3e;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;">Download PDF</a>'+
+            '<p style="color:#64748b;margin-bottom:16px;">' + (message || 'Unable to load PDF. Please try downloading instead.') + '</p>'+
+            '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;">'+
+              '<a href="' + downloadUrl + '" target="_blank" style="text-decoration:none;background:#1d9b3e;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;">Download PDF</a>'+
+              '<a href="' + pdfUrl + '" target="_blank" style="text-decoration:none;background:#007bff;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;">Open in New Tab</a>'+
+            '</div>'+
           '</div>'+
         '</div>';
-      };
-      
-      // Timeout fallback - if iframe doesn't load after 5 seconds, show error
-      setTimeout(() => {
-        try {
-          // Check if iframe has loaded content
-          const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-          if (!iframeDoc || !iframeDoc.body || iframeDoc.body.innerHTML.trim() === '') {
-            console.warn('⚠️ [Material Viewer] PDF iframe may not have loaded properly after 5 seconds');
-          }
-        } catch (e) {
-          // Cross-origin - can't check, assume it's loading
-          console.log('ℹ️ [Material Viewer] Cannot check iframe content (cross-origin), assuming PDF is loading');
-        }
-      }, 5000);
+      }
     } else if (isVideo) {
       const video = document.createElement('video');
       video.controls = true;

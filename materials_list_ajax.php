@@ -43,6 +43,7 @@ try {
     if (isset($_GET['module_id'])) $filters['module_id'] = (int)$_GET['module_id'];
     if (isset($_GET['lesson_id'])) $filters['lesson_id'] = (int)$_GET['lesson_id'];
     if (isset($_GET['archived'])) $filters['archived'] = (int)$_GET['archived'] ? 1 : 0;
+    if (isset($_GET['type']) && !empty($_GET['type'])) $filters['type'] = $_GET['type'];
     $rows = $svc->listAllMaterials($filters);
     error_log("🔍 [materials_list_ajax] Found " . count($rows) . " materials with filters: " . json_encode($filters));
     echo json_encode(['success'=>true,'data'=>$rows]);

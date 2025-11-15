@@ -187,11 +187,20 @@ class User {
 
     public function idNumberExists() {
         try {
-            $stmt = $this->db->prepare("SELECT id FROM users WHERE id_number = ?");
-            $stmt->execute([$this->idNumber]);
-            $result = $stmt->fetch();
-            error_log('idNumberExists: ' . $this->idNumber . ' result: ' . print_r($result, true));
-            return $result !== false;
+            // Trim and normalize the ID number for comparison
+            $idNumber = trim($this->idNumber ?? '');
+            if (empty($idNumber)) {
+                return false;
+            }
+            
+            $stmt = $this->db->prepare("SELECT id FROM users WHERE TRIM(id_number) = ?");
+            $stmt->execute([$idNumber]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $exists = !empty($result);
+            error_log('idNumberExists: Checking "' . $idNumber . '" - Result: ' . ($exists ? 'EXISTS (ID: ' . ($result['id'] ?? 'N/A') . ')' : 'NOT FOUND'));
+            
+            return $exists;
         } catch (PDOException $e) {
             error_log("Error checking ID number: " . $e->getMessage());
             return false;

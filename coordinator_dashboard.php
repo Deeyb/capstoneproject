@@ -244,7 +244,8 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <!-- Load shared profile and coordinator scripts -->
   <script src="assets/js/shared_profile.js?v=<?php echo time(); ?>"></script>
   <script>window.__CR_COORDINATOR_V2 = true;</script>
-  <script src="assets/js/coordinator.js?v=<?php echo time(); ?>"></script>
+  <script>window.__UPLOADS_DESIGN_VERSION = '2.0';</script>
+  <script src="assets/js/coordinator.js?v=<?php echo time(); ?>&v2=<?php echo time(); ?>"></script>
   <script src="assets/js/reports_module.js?v=<?php echo time(); ?>"></script>
   <script>
     // Initialize coordinator dashboard when DOM is ready

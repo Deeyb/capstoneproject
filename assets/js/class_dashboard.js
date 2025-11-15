@@ -10349,6 +10349,10 @@ async function showGradingModal(activityId, activityTitle) {
     const essayQuestions = data.essay_questions || [];
     const firstEssayQuestion = essayQuestions.length > 0 ? essayQuestions[0].question_text : null;
     
+    // Initialize submission IDs set for real-time polling
+    currentSubmissionIds = new Set(submissions.map(s => s.attempt_id));
+    console.log('📋 [REAL-TIME] Initial submissions:', currentSubmissionIds.size);
+    
     // Debug logging for essay questions
     console.log('🔍 [GRADING MODAL] Essay questions data:', {
       essayQuestions: essayQuestions,
@@ -10395,11 +10399,23 @@ async function showGradingModal(activityId, activityTitle) {
         <!-- Header -->
         <div style="padding:24px 28px;background:#1d9b3e;color:white;display:flex;justify-content:space-between;align-items:center;font-family:inherit;">
           <div>
-            <h2 style="margin:0;font-size:20px;font-weight:600;font-family:inherit;">Grade Submissions</h2>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <h2 style="margin:0;font-size:20px;font-weight:600;font-family:inherit;">Grade Submissions</h2>
+              <span id="realtime-indicator" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;">
+                <span style="display:inline-block;width:8px;height:8px;background:#10b981;border-radius:50%;animation:pulse 2s infinite;"></span>
+                Live
+              </span>
+            </div>
             <p style="margin:4px 0 0 0;font-size:14px;opacity:0.95;font-family:inherit;">${escapeHtml(activityTitle)}</p>
           </div>
           <button onclick="closeGradingModal()" style="background:rgba(255,255,255,0.15);color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:22px;transition:background 0.2s;font-family:inherit;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">&times;</button>
         </div>
+        <style>
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        </style>
         
         <!-- Content -->
         <div style="flex:1;overflow-y:auto;padding:28px;font-family:inherit;">
@@ -10590,6 +10606,9 @@ async function showGradingModal(activityId, activityTitle) {
     };
     document.addEventListener('keydown', escapeHandler);
     
+    // Start real-time polling for new submissions
+    startGradingPolling(activityId);
+    
     console.log('🔍 [GRADING MODAL] Modal setup complete');
     
   } catch (error) {
@@ -10607,7 +10626,262 @@ async function showGradingModal(activityId, activityTitle) {
   }
 }
 
+// Real-time polling for new submissions
+let gradingPollInterval = null;
+let currentSubmissionIds = new Set();
+
+function startGradingPolling(activityId) {
+  // Clear any existing polling
+  if (gradingPollInterval) {
+    clearInterval(gradingPollInterval);
+    gradingPollInterval = null;
+  }
+  
+  console.log('🔄 [REAL-TIME] Starting polling for activity:', activityId);
+  
+  // Poll every 3 seconds for new submissions
+  gradingPollInterval = setInterval(async () => {
+    const modal = document.getElementById('gradingModal');
+    if (!modal) {
+      // Modal closed, stop polling
+      stopGradingPolling();
+      return;
+    }
+    
+    try {
+      const response = await fetch(`get_activity_submissions.php?activity_id=${encodeURIComponent(activityId)}&class_id=${encodeURIComponent(window.__CLASS_ID__ || '')}&_t=${Date.now()}`, {
+        credentials: 'same-origin'
+      });
+      
+      if (!response.ok) {
+        console.warn('⚠️ [REAL-TIME] Failed to fetch submissions:', response.status);
+        return;
+      }
+      
+      const data = await response.json();
+      if (!data.success || !data.submissions) {
+        return;
+      }
+      
+      const newSubmissions = data.submissions || [];
+      const newSubmissionIds = new Set(newSubmissions.map(s => s.attempt_id));
+      
+      // Find new submissions (not in current set)
+      const newSubs = newSubmissions.filter(s => !currentSubmissionIds.has(s.attempt_id));
+      
+      if (newSubs.length > 0) {
+        console.log('✨ [REAL-TIME] New submissions detected:', newSubs.length);
+        
+        // Update current set
+        newSubs.forEach(s => currentSubmissionIds.add(s.attempt_id));
+        
+        // Show notification
+        if (typeof window.showNotification === 'function') {
+          window.showNotification('info', 'New Submission', `${newSubs.length} new submission${newSubs.length > 1 ? 's' : ''} received!`);
+        }
+        
+        // Add new submissions to UI
+        addNewSubmissionsToModal(newSubs, data);
+      }
+    } catch (error) {
+      console.error('❌ [REAL-TIME] Polling error:', error);
+    }
+  }, 3000); // Poll every 3 seconds
+}
+
+function stopGradingPolling() {
+  if (gradingPollInterval) {
+    clearInterval(gradingPollInterval);
+    gradingPollInterval = null;
+    console.log('🛑 [REAL-TIME] Stopped polling');
+  }
+  currentSubmissionIds.clear();
+}
+
+function addNewSubmissionsToModal(newSubmissions, data) {
+  const modal = document.getElementById('gradingModal');
+  if (!modal) return;
+  
+  const contentDiv = modal.querySelector('div[style*="flex:1;overflow-y:auto"]');
+  if (!contentDiv) return;
+  
+  // Check if "No submissions" message exists and remove it
+  const noSubmissionsDiv = contentDiv.querySelector('div[style*="text-align:center"]');
+  if (noSubmissionsDiv) {
+    noSubmissionsDiv.remove();
+  }
+  
+  // Get or create submissions container
+  let submissionsContainer = contentDiv.querySelector('div[style*="display:flex;flex-direction:column;gap:24px"]');
+  if (!submissionsContainer) {
+    // Create container if it doesn't exist
+    submissionsContainer = document.createElement('div');
+    submissionsContainer.style.cssText = 'display:flex;flex-direction:column;gap:24px;';
+    contentDiv.insertBefore(submissionsContainer, contentDiv.firstChild);
+  }
+  
+  const maxScore = data.submissions?.[0]?.max_score || 0;
+  const activityInstructions = data.activity_instructions || null;
+  const essayQuestions = data.essay_questions || [];
+  const firstEssayQuestion = essayQuestions.length > 0 ? essayQuestions[0].question_text : null;
+  
+  // Add each new submission with animation
+  newSubmissions.forEach((sub, idx) => {
+    const submissionHTML = renderSubmissionHTML(sub, maxScore, activityInstructions, firstEssayQuestion, idx);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = submissionHTML;
+    const submissionElement = tempDiv.firstElementChild;
+    
+    // Add animation for new submission
+    submissionElement.style.opacity = '0';
+    submissionElement.style.transform = 'translateY(-20px)';
+    submissionElement.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    
+    submissionsContainer.appendChild(submissionElement);
+    
+    // Animate in
+    setTimeout(() => {
+      submissionElement.style.opacity = '1';
+      submissionElement.style.transform = 'translateY(0)';
+    }, 50);
+    
+    // Add highlight effect
+    submissionElement.style.background = '#fef3c7';
+    submissionElement.style.border = '2px solid #f59e0b';
+    setTimeout(() => {
+      submissionElement.style.background = '';
+      submissionElement.style.border = '';
+    }, 3000);
+  });
+}
+
+// Helper function to render submission HTML (extracted from showGradingModal)
+function renderSubmissionHTML(sub, maxScore, activityInstructions, firstEssayQuestion, idx) {
+  // Extract file info
+  let downloadUrl = '';
+  let canView = false;
+  
+  if (sub.upload_info && sub.upload_info.filePath) {
+    const filePath = sub.upload_info.filePath;
+    if (filePath.includes('download_activity_file.php')) {
+      downloadUrl = filePath;
+    } else {
+      downloadUrl = `download_activity_file.php?f=${encodeURIComponent(filePath)}`;
+    }
+    
+    const fileName = (sub.upload_info.fileName || '').toLowerCase();
+    const fileType = (sub.upload_info.fileType || '').toLowerCase();
+    canView = fileName.endsWith('.pdf') || 
+             fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+             fileType.includes('pdf') ||
+             fileType.includes('image');
+  }
+  
+  return `
+    <div class="submission-card" data-attempt-id="${sub.attempt_id}" style="border:1px solid #e5e7eb;border-radius:12px;padding:24px;background:#ffffff;transition:all 0.2s;box-shadow:0 2px 4px rgba(0,0,0,0.05);font-family:inherit;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';this.style.borderColor='#d1d5db'" onmouseout="this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)';this.style.borderColor='#e5e7eb'">
+      <!-- Student Info -->
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #f3f4f6;">
+        <div>
+          <h4 style="margin:0 0 8px 0;font-size:16px;font-weight:600;color:#111827;font-family:inherit;">${escapeHtml(sub.student_name)}</h4>
+          <p style="margin:0 0 6px 0;font-size:13px;color:#6b7280;font-family:inherit;">ID: ${escapeHtml(sub.id_number || 'N/A')}</p>
+          <p style="margin:0;font-size:13px;color:#9ca3af;font-family:inherit;">${new Date(sub.submitted_at).toLocaleString()}</p>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:6px;font-family:inherit;">Current Score</div>
+          <div id="score-display-${sub.attempt_id}" data-attempt-id="${sub.attempt_id}" style="font-size:20px;font-weight:700;color:${sub.score !== null ? '#1d9b3e' : '#f59e0b'};font-family:inherit;">
+            ${sub.score !== null ? `${sub.score}/${sub.max_score || maxScore}` : '<span style="font-size:15px;">Not graded</span>'}
+          </div>
+        </div>
+      </div>
+      
+      <!-- File Info (for upload-based) -->
+      ${sub.upload_info ? `
+        <div style="margin-bottom:24px;padding:16px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <i class="fas fa-file-pdf" style="font-size:24px;color:#ef4444;"></i>
+            <div style="flex:1;min-width:250px;">
+              <div style="font-weight:600;color:#111827;margin-bottom:6px;font-size:15px;font-family:inherit;">${escapeHtml(sub.upload_info.fileName || 'Uploaded file')}</div>
+              <div style="font-size:13px;color:#6b7280;display:flex;gap:16px;flex-wrap:wrap;font-family:inherit;">
+                <span>Size: ${formatFileSize(sub.upload_info.fileSize || 0)}</span>
+                ${sub.upload_info.fileType ? `<span>Type: ${escapeHtml(sub.upload_info.fileType)}</span>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;">
+              ${canView && downloadUrl ? `
+                <a href="${downloadUrl}" target="_blank" style="background:#10b981;color:white;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:8px;transition:background 0.2s;font-family:inherit;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                  <i class="fas fa-eye"></i> View
+                </a>
+              ` : ''}
+              ${downloadUrl ? `
+                <a href="${downloadUrl}" download style="background:#3b82f6;color:white;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:8px;transition:background 0.2s;font-family:inherit;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                  <i class="fas fa-download"></i> Download
+                </a>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      ` : ''}
+      
+      <!-- Student's Essay Response (for essay activities) -->
+      ${sub.essay_text ? `
+        <div style="margin-bottom:24px;padding:20px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;">
+          <div style="display:flex;align-items:start;gap:12px;">
+            <i class="fas fa-file-alt" style="font-size:20px;color:#3b82f6;margin-top:2px;flex-shrink:0;"></i>
+            <div style="flex:1;">
+              <div style="font-weight:600;color:#111827;margin-bottom:12px;font-size:15px;font-family:inherit;">Student's Essay Response</div>
+              <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;max-height:400px;overflow-y:auto;font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap;word-wrap:break-word;font-family:inherit;">
+                ${escapeHtml(sub.essay_text)}
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+      
+      <!-- Grading Form -->
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+        <!-- Score Section -->
+        <div style="flex:0 0 180px;display:flex;flex-direction:column;">
+          <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:12px;font-family:inherit;">Score (0 - ${sub.max_score || maxScore})</label>
+          <input type="number" 
+                 id="score-${sub.attempt_id}" 
+                 min="0" 
+                 max="${sub.max_score || maxScore}" 
+                 step="0.5"
+                 value="${sub.score !== null ? sub.score : ''}"
+                 placeholder="0"
+                 style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;font-weight:600;text-align:center;transition:border-color 0.2s;font-family:inherit;box-sizing:border-box;" 
+                 onfocus="this.style.borderColor='#1d9b3e';this.style.outline='none'" 
+                 onblur="this.style.borderColor='#e5e7eb'">
+        </div>
+        
+        <!-- Feedback Section -->
+        <div style="flex:1;min-width:300px;display:flex;flex-direction:column;">
+          <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:12px;font-family:inherit;">Feedback (optional)</label>
+          <textarea id="feedback-${sub.attempt_id}" 
+                    placeholder="Add feedback for the student..."
+                    rows="3"
+                    style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;resize:vertical;font-family:inherit;transition:border-color 0.2s;line-height:1.5;box-sizing:border-box;" 
+                    onfocus="this.style.borderColor='#1d9b3e';this.style.outline='none'" 
+                    onblur="this.style.borderColor='#e5e7eb'"></textarea>
+        </div>
+        
+        <!-- Save Button Section -->
+        <div style="flex:0 0 160px;display:flex;flex-direction:column;justify-content:flex-end;">
+          <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:12px;font-family:inherit;opacity:0;pointer-events:none;">Action</label>
+          <button onclick="saveGrade(${sub.attempt_id}, ${sub.max_score || maxScore})" 
+                  style="background:#1d9b3e;color:white;border:none;padding:14px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background 0.2s;width:100%;font-family:inherit;box-sizing:border-box;" 
+                  onmouseover="this.style.background='#16a34a'" 
+                  onmouseout="this.style.background='#1d9b3e'">
+            <i class="fas fa-save"></i> Save Grade
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function closeGradingModal() {
+  stopGradingPolling(); // Stop polling when modal closes
   const modal = document.getElementById('gradingModal');
   if (modal) {
     modal.remove();

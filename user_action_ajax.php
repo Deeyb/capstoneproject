@@ -27,9 +27,97 @@ require_once __DIR__ . '/classes/AdminService.php';
 require_once __DIR__ . '/classes/User.php';
 require_once __DIR__ . '/classes/AuditLogService.php';
 require_once __DIR__ . '/classes/PasswordResetController.php';
+require_once __DIR__ . '/classes/RateLimiter.php';
 
 header('Content-Type: application/json');
 
+$db = (new Database())->getConnection();
+$user = new User($db);
+$rateLimiter = new RateLimiter($db);
+
+// Helper function to get client IP
+function getClientIP() {
+    $ipKeys = ['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'];
+    foreach ($ipKeys as $key) {
+        if (array_key_exists($key, $_SERVER) === true) {
+            foreach (explode(',', $_SERVER[$key]) as $ip) {
+                $ip = trim($ip);
+                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
+                    return $ip;
+                }
+            }
+        }
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+// PUBLIC ENDPOINTS - Allow ID and email checks during registration (no auth required)
+// SECURITY: Rate limited to prevent enumeration attacks
+// Check ID number uniqueness (AJAX) - PUBLIC for registration
+if (isset($_POST['check_id'])) {
+    $clientIP = getClientIP();
+    
+    // Rate limiting: Max 20 checks per minute per IP to prevent abuse
+    if (!$rateLimiter->isAllowed($clientIP, 'id_check', 20, 60)) {
+        http_response_code(429); // Too Many Requests
+        echo json_encode(['error' => 'Too many requests. Please wait a moment and try again.']);
+        exit();
+    }
+    
+    $rateLimiter->recordAttempt($clientIP, 'id_check');
+    
+    $idNumber = trim($_POST['check_id'] ?? '');
+    if (empty($idNumber)) {
+        echo json_encode(['id_used' => false, 'error' => 'ID number is required']);
+        exit();
+    }
+    
+    // Validate format before checking database
+    if (!preg_match('/^KLD-\d{2}-\d{6}$/', $idNumber)) {
+        echo json_encode(['id_used' => false, 'error' => 'Invalid ID format']);
+        exit();
+    }
+    
+    $user->setIdNumber($idNumber);
+    $used = $user->idNumberExists();
+    error_log('🔍 [ID Check] IP: ' . $clientIP . ' | ID: "' . $idNumber . '" - Used: ' . ($used ? 'YES' : 'NO'));
+    echo json_encode(['id_used' => $used]);
+    exit();
+}
+
+// Check email uniqueness (AJAX) - PUBLIC for registration
+if (isset($_POST['check_email'])) {
+    $clientIP = getClientIP();
+    
+    // Rate limiting: Max 20 checks per minute per IP to prevent abuse
+    if (!$rateLimiter->isAllowed($clientIP, 'email_check', 20, 60)) {
+        http_response_code(429); // Too Many Requests
+        echo json_encode(['error' => 'Too many requests. Please wait a moment and try again.']);
+        exit();
+    }
+    
+    $rateLimiter->recordAttempt($clientIP, 'email_check');
+    
+    $email = trim($_POST['check_email'] ?? '');
+    if (empty($email)) {
+        echo json_encode(['email_used' => false, 'error' => 'Email is required']);
+        exit();
+    }
+    
+    // Validate format before checking database
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(['email_used' => false, 'error' => 'Invalid email format']);
+        exit();
+    }
+    
+    $user->setEmail($email);
+    $used = $user->emailExists();
+    error_log('🔍 [Email Check] IP: ' . $clientIP . ' | Email: "' . $email . '" - Used: ' . ($used ? 'YES' : 'NO'));
+    echo json_encode(['email_used' => $used]);
+    exit();
+}
+
+// ADMIN-ONLY ENDPOINTS - Require admin authentication for other actions
 $isAdmin = false;
 if (isset($_SESSION['user_role']) && strtoupper($_SESSION['user_role']) === 'ADMIN') {
     $isAdmin = true;
@@ -40,9 +128,7 @@ if (!$isAdmin) {
     exit;
 }
 
-$db = (new Database())->getConnection();
 $adminService = new AdminService($db);
-$user = new User($db);
 $audit = new AuditLogService($db);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -104,22 +190,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         echo $result;
         exit;
     }
-}
-
-// Check ID number uniqueness (AJAX)
-if (isset($_POST['check_id'])) {
-    $user->setIdNumber($_POST['check_id']);
-    $used = $user->idNumberExists();
-    echo json_encode(['id_used' => $used]);
-    exit();
-}
-
-// Check email uniqueness (AJAX)
-if (isset($_POST['check_email'])) {
-    $user->setEmail($_POST['check_email']);
-    $used = $user->emailExists();
-    echo json_encode(['email_used' => $used]);
-    exit();
 }
 
 echo json_encode(['error' => 'Invalid request']); 
