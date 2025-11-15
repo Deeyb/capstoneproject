@@ -61,16 +61,29 @@ if (empty($_SESSION['user_id'])) {
 }
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
-$userRole = strtolower(trim($_SESSION['user_role'] ?? ''));
 
-// Only teachers and admins can use this script
-if (!in_array($userRole, ['teacher', 'admin'])) {
-    die('❌ Access denied. Only teachers and admins can use this script.');
-}
-
+// Initialize database connection first
 $db = (new Database())->getConnection();
 if (!$db) {
     die('❌ Database connection failed.');
+}
+
+// Get user role from session, or query database if not set
+$userRole = strtolower(trim($_SESSION['user_role'] ?? ''));
+if (empty($userRole) && $userId > 0) {
+    try {
+        $roleStmt = $db->prepare("SELECT LOWER(TRIM(role)) as role FROM users WHERE id = ? LIMIT 1");
+        $roleStmt->execute([$userId]);
+        $userRole = $roleStmt->fetchColumn() ?: '';
+    } catch (Exception $e) {
+        error_log("Error fetching user role: " . $e->getMessage());
+        die('❌ Error: Could not verify user role.');
+    }
+}
+
+// Only teachers and admins can use this script
+if (!in_array($userRole, ['teacher', 'admin'])) {
+    die('❌ Access denied. Only teachers and admins can use this script. Your role: ' . htmlspecialchars($userRole ?: 'unknown'));
 }
 
 // Handle delete action
@@ -214,32 +227,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_class'])) {
 }
 
 // Get user's classes (for teachers) or all classes (for admins)
-if ($userRole === 'admin') {
-    $classesStmt = $db->prepare("
-        SELECT c.id, c.name, c.code, c.created_at, 
-               u.firstname, u.lastname, u.middlename,
-               COUNT(DISTINCT cs.student_user_id) as student_count
-        FROM classes c
-        LEFT JOIN users u ON c.owner_user_id = u.id
-        LEFT JOIN class_students cs ON c.id = cs.class_id
-        GROUP BY c.id
-        ORDER BY c.created_at DESC
-    ");
-    $classesStmt->execute();
-} else {
-    $classesStmt = $db->prepare("
-        SELECT c.id, c.name, c.code, c.created_at,
-               COUNT(DISTINCT cs.student_user_id) as student_count
-        FROM classes c
-        LEFT JOIN class_students cs ON c.id = cs.class_id
-        WHERE c.owner_user_id = ?
-        GROUP BY c.id
-        ORDER BY c.created_at DESC
-    ");
-    $classesStmt->execute([$userId]);
+$classes = [];
+$queryError = null;
+$debugInfo = [];
+
+try {
+    // First, check if classes table exists and has data
+    $checkStmt = $db->query("SELECT COUNT(*) as total FROM classes");
+    $totalClasses = $checkStmt ? (int)$checkStmt->fetch(PDO::FETCH_ASSOC)['total'] : 0;
+    $debugInfo['total_classes_in_db'] = $totalClasses;
+    
+    if ($userRole === 'admin') {
+        $query = "
+            SELECT c.id, c.name, c.code, c.created_at, c.status,
+                   u.firstname, u.lastname, u.middlename,
+                   COUNT(DISTINCT cs.student_user_id) as student_count
+            FROM classes c
+            LEFT JOIN users u ON c.owner_user_id = u.id
+            LEFT JOIN class_students cs ON c.id = cs.class_id
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+        ";
+        $classesStmt = $db->prepare($query);
+        $classesStmt->execute();
+        $debugInfo['query_type'] = 'admin_all_classes';
+    } else {
+        $query = "
+            SELECT c.id, c.name, c.code, c.created_at, c.status,
+                   COUNT(DISTINCT cs.student_user_id) as student_count
+            FROM classes c
+            LEFT JOIN class_students cs ON c.id = cs.class_id
+            WHERE c.owner_user_id = ?
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+        ";
+        $classesStmt = $db->prepare($query);
+        $classesStmt->execute([$userId]);
+        $debugInfo['query_type'] = 'teacher_owned_classes';
+        $debugInfo['teacher_user_id'] = $userId;
+    }
+    
+    $classes = $classesStmt->fetchAll(PDO::FETCH_ASSOC);
+    $debugInfo['classes_found'] = count($classes);
+    $debugInfo['query_success'] = true;
+    
+    // Log debug info
+    error_log("test_delete_class.php - User ID: $userId, Role: $userRole, Total in DB: $totalClasses, Found: " . count($classes));
+    
+} catch (Exception $e) {
+    $queryError = $e->getMessage();
+    $debugInfo['query_success'] = false;
+    $debugInfo['error'] = $queryError;
+    error_log("Error fetching classes: " . $queryError);
+    error_log("Stack trace: " . $e->getTraceAsString());
 }
 
-$classes = $classesStmt->fetchAll(PDO::FETCH_ASSOC);
+// Check for debug mode (via URL parameter ?debug=1)
+$showDebug = isset($_GET['debug']) && $_GET['debug'] == '1';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -396,11 +440,65 @@ $classes = $classesStmt->fetchAll(PDO::FETCH_ASSOC);
             <strong>This action CANNOT be undone!</strong>
         </div>
         
+        <?php if ($showDebug): ?>
+            <div style="background: #e7f3ff; border: 2px solid #2196F3; border-radius: 5px; padding: 15px; margin-bottom: 20px; font-family: monospace; font-size: 0.9em;">
+                <strong>🔍 DEBUG INFORMATION:</strong><br>
+                <pre><?php echo htmlspecialchars(print_r($debugInfo, true)); ?></pre>
+                <?php if ($queryError): ?>
+                    <div style="color: #d32f2f; margin-top: 10px;">
+                        <strong>❌ Query Error:</strong> <?php echo htmlspecialchars($queryError); ?>
+                    </div>
+                <?php endif; ?>
+                <div style="margin-top: 10px;">
+                    <strong>User Info:</strong><br>
+                    - User ID: <?php echo htmlspecialchars($userId); ?><br>
+                    - User Role: <?php echo htmlspecialchars($userRole); ?><br>
+                    - Session Role: <?php echo htmlspecialchars($_SESSION['user_role'] ?? 'NOT SET'); ?><br>
+                    - Database Connected: <?php echo $db ? 'YES' : 'NO'; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+        
         <div class="class-list">
-            <?php if (empty($classes)): ?>
+            <?php if (!empty($queryError)): ?>
+                <div class="no-classes" style="background: #ffebee; border: 2px solid #f44336; padding: 20px; border-radius: 5px;">
+                    <p style="color: #c62828;"><strong>❌ Database Query Error:</strong></p>
+                    <p style="margin-top: 10px; color: #6c757d; font-size: 0.9em;">
+                        <?php echo htmlspecialchars($queryError); ?>
+                    </p>
+                    <p style="margin-top: 10px; color: #6c757d; font-size: 0.9em;">
+                        Check your database connection and table structure.
+                    </p>
+                    <p style="margin-top: 10px;">
+                        <a href="?debug=1" style="color: #2196F3; text-decoration: underline;">Show Debug Info</a> | 
+                        <a href="<?php echo $userRole === 'admin' ? 'admin_panel.php' : 'teacher_dashboard.php'; ?>" class="back-link">← Back to Dashboard</a>
+                    </p>
+                </div>
+            <?php elseif (empty($classes)): ?>
                 <div class="no-classes">
-                    <p>No classes found.</p>
-                    <a href="teacher_dashboard.php" class="back-link">← Back to Dashboard</a>
+                    <p><strong>No classes found.</strong></p>
+                    <?php if ($userRole === 'admin'): ?>
+                        <p style="margin-top: 10px; color: #6c757d; font-size: 0.9em;">
+                            You are logged in as <strong>Admin</strong>.
+                            <?php if (isset($debugInfo['total_classes_in_db']) && $debugInfo['total_classes_in_db'] > 0): ?>
+                                <br>There are <?php echo $debugInfo['total_classes_in_db']; ?> classes in the database, but the query returned 0 results.
+                                <br>This might be a query issue. <a href="?debug=1" style="color: #2196F3;">Show Debug Info</a>
+                            <?php else: ?>
+                                <br>There are currently no classes in the database.
+                            <?php endif; ?>
+                        </p>
+                    <?php else: ?>
+                        <p style="margin-top: 10px; color: #6c757d; font-size: 0.9em;">
+                            You don't have any classes to delete.
+                            <?php if (isset($debugInfo['total_classes_in_db']) && $debugInfo['total_classes_in_db'] > 0): ?>
+                                <br>There are classes in the database, but none belong to you (User ID: <?php echo $userId; ?>).
+                            <?php endif; ?>
+                        </p>
+                    <?php endif; ?>
+                    <p style="margin-top: 10px;">
+                        <a href="?debug=1" style="color: #2196F3; text-decoration: underline;">Show Debug Info</a> | 
+                        <a href="<?php echo $userRole === 'admin' ? 'admin_panel.php' : 'teacher_dashboard.php'; ?>" class="back-link">← Back to Dashboard</a>
+                    </p>
                 </div>
             <?php else: ?>
                 <?php foreach ($classes as $class): ?>
@@ -417,6 +515,9 @@ $classes = $classesStmt->fetchAll(PDO::FETCH_ASSOC);
                         <div class="class-info">
                             <span>📅 Created: <?php echo date('M d, Y', strtotime($class['created_at'])); ?></span>
                             <span>👥 Students: <?php echo (int)$class['student_count']; ?></span>
+                            <?php if (isset($class['status'])): ?>
+                                <span>📊 Status: <?php echo htmlspecialchars(strtoupper($class['status'])); ?></span>
+                            <?php endif; ?>
                             <?php if ($userRole === 'admin' && isset($class['firstname'])): ?>
                                 <span>👤 Owner: <?php echo htmlspecialchars(trim(($class['firstname'] ?? '') . ' ' . ($class['lastname'] ?? ''))); ?></span>
                             <?php endif; ?>

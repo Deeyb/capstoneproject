@@ -3,6 +3,8 @@
  * Activity Notification Service
  * Handles email notifications for activity-related events (unlock, due date reminders, etc.)
  */
+require_once __DIR__ . '/EnvironmentLoader.php';
+
 class ActivityNotificationService {
     private $db;
     
@@ -288,9 +290,15 @@ class ActivityNotificationService {
      * Build HTML email body
      */
     private function buildEmailBody($studentName, $activity, $class, $startDate, $dueDate, $activityType) {
-        $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://')
-            . ($_SERVER['HTTP_HOST'] ?? 'localhost')
-            . rtrim(dirname($_SERVER['PHP_SELF'] ?? '/'), '/');
+        // Use APP_URL from environment, fallback to current domain
+        EnvironmentLoader::load();
+        $appUrl = EnvironmentLoader::get('APP_URL', '');
+        if (empty($appUrl)) {
+            $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https://' : 'http://';
+            $appUrl = $protocol . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+                . rtrim(dirname($_SERVER['PHP_SELF'] ?? '/'), '/');
+        }
+        $baseUrl = rtrim($appUrl, '/');
         
         $classUrl = $baseUrl . '/class_dashboard.php?class_id=' . $class['id'];
         

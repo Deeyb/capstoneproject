@@ -2,6 +2,8 @@
 /**
  * Email Service - OOP approach for email operations
  */
+require_once __DIR__ . '/EnvironmentLoader.php';
+
 class EmailService {
     private $db;
     
@@ -192,7 +194,13 @@ class EmailService {
      * Get verification email body
      */
     private function getVerificationEmailBody($token) {
-        $url = "http://localhost/capstoneproject/verify_email.php?token=" . $token;
+        // Use APP_URL from environment, fallback to current domain
+        $appUrl = EnvironmentLoader::get('APP_URL', '');
+        if (empty($appUrl)) {
+            $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https://' : 'http://';
+            $appUrl = $protocol . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        }
+        $url = rtrim($appUrl, '/') . "/verify_email.php?token=" . $token;
         return "Please click the following link to verify your email: $url";
     }
     
@@ -200,7 +208,13 @@ class EmailService {
      * Get reset email body
      */
     private function getResetEmailBody($token) {
-        $url = "http://localhost/capstoneproject/reset_password.php?token=" . $token;
+        // Use APP_URL from environment, fallback to current domain
+        $appUrl = EnvironmentLoader::get('APP_URL', '');
+        if (empty($appUrl)) {
+            $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https://' : 'http://';
+            $appUrl = $protocol . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        }
+        $url = rtrim($appUrl, '/') . "/reset_password.php?token=" . $token;
         return "Please click the following link to reset your password: $url";
     }
     

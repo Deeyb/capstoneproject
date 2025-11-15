@@ -94,10 +94,16 @@ class PasswordResetController {
 
                         $mail->isHTML(true);
                         $mail->Subject = 'Code Regal Password Reset Link';
-                        $resetLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://')
-                            . ($_SERVER['HTTP_HOST'] ?? 'localhost')
-                            . rtrim(dirname($_SERVER['PHP_SELF'] ?? '/'), '/')
-                            . "/reset_password.php?token=$token";
+                        
+                        // Use APP_URL from environment, fallback to current domain
+                        EnvironmentLoader::load();
+                        $appUrl = EnvironmentLoader::get('APP_URL', '');
+                        if (empty($appUrl)) {
+                            $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https://' : 'http://';
+                            $appUrl = $protocol . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+                                . rtrim(dirname($_SERVER['PHP_SELF'] ?? '/'), '/');
+                        }
+                        $resetLink = rtrim($appUrl, '/') . "/reset_password.php?token=$token";
                         $mail->Body    = "<h2>Password Reset Request</h2>"
                             . "<p>Click the link below to reset your password. This link will expire in 5 minutes.</p>"
                             . "<p><a href='$resetLink'>$resetLink</a></p>"

@@ -19,7 +19,7 @@ if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
                 header('Location: admin_panel.php');
                 break;
             case 'teacher':
-                header('Location: Teacher_dashboard.php?section=my-classes');
+                header('Location: teacher_dashboard.php?section=my-classes');
                 break;
             case 'coordinator':
                 header('Location: coordinator_dashboard.php');
@@ -177,6 +177,6 @@ if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/registration.js"></script>
+    <script src="assets/js/registration.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

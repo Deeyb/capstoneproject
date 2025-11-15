@@ -380,6 +380,7 @@
         return false;
     }
     function sendVerificationCode() {
+        console.log('[SEND CODE] Starting verification code request...');
         const email = document.getElementById('email').value.trim();
         const sendBtn = document.getElementById('sendCodeBtn');
         const btnText = sendBtn.querySelector('.btn-text');
@@ -404,7 +405,11 @@
         if (csrfToken) {
             body += `&csrf_token=${encodeURIComponent(csrfToken)}`;
         }
-        fetch('/capstoneproject/send_verification.php', {
+        // Build absolute URL to avoid path issues
+        const verificationUrl = new URL('send_verification.php', window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/'));
+        console.log('[SEND CODE] Fetching from:', verificationUrl.toString());
+        
+        fetch(verificationUrl.toString(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body,

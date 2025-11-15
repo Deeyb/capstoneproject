@@ -17,7 +17,7 @@ class Auth {
                         header('Location: admin_panel.php');
                         break;
                     case 'teacher':
-                        header('Location: Teacher_dashboard.php?section=my-classes');
+                        header('Location: teacher_dashboard.php?section=my-classes');
                         break;
                     case 'coordinator':
                         header('Location: coordinator_dashboard.php');

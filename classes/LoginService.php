@@ -230,7 +230,7 @@ class LoginService {
             case 'STUDENT':
                 return 'student_dashboard.php?section=myclasses';
             case 'TEACHER':
-                return 'Teacher_dashboard.php?section=my-classes'; // Match actual filename
+                return 'teacher_dashboard.php?section=my-classes'; // Match actual filename
             case 'COORDINATOR':
                 return 'coordinator_dashboard.php';
             default:
