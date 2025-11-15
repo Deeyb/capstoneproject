@@ -89,7 +89,7 @@ class UIHelpers {
      * @return string HTML link tag for favicon
      */
     public static function getFavicon() {
-        return '<link rel="icon" type="image/svg+xml" href="Photos/CodeRegal.svg">';
+        return '<link rel="icon" type="image/svg+xml" href="Photos/CodeRegalWB.svg">';
     }
 }
 

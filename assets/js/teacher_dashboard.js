@@ -479,10 +479,28 @@
         var fd = new FormData(); fd.append('action','unarchive'); fd.append('id', id);
         fetch('class_manage.php', { method:'POST', credentials:'same-origin', body: fd })
           .then(function(r){ return r.json().catch(function(){ return {}; }); })
-          .then(function(j){ if (j && j.success){ loadArchived(); if (typeof __teacherLoadActive === 'function') __teacherLoadActive(); }
-            else { alert('Unarchive failed'); }
+          .then(function(j){ 
+            if (j && j.success){ 
+              if (typeof window.showNotification === 'function') {
+                window.showNotification('success', 'Restored', 'Class unarchived successfully');
+              }
+              loadArchived(); 
+              if (typeof __teacherLoadActive === 'function') __teacherLoadActive(); 
+            } else { 
+              if (typeof window.showNotification === 'function') {
+                window.showNotification('error', 'Error', 'Failed to unarchive class');
+              } else {
+                alert('Unarchive failed');
+              }
+            }
           })
-          .catch(function(){ alert('Unarchive failed'); });
+          .catch(function(){ 
+            if (typeof window.showNotification === 'function') {
+              window.showNotification('error', 'Error', 'Network error. Failed to unarchive class');
+            } else {
+              alert('Unarchive failed');
+            }
+          });
       });
     });
   }
@@ -2303,7 +2321,7 @@ function ensureCodeRegalTerminal(needsInput){
         
         modal.innerHTML = '<div style="width:90%;max-width:900px;background:#0b1220;color:#e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.35);overflow:hidden;">' +
 			'<div style="display:flex;align-items:center;justify-content:space-between;background:#0f172a;padding:10px 14px;border-bottom:1px solid #1f2937;">' +
-			  '<div style="font-weight:700;">CodeRegal Terminal</div>' +
+			  '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#60a5fa;font-size:16px;">&lt;/&gt;</span><div style="font-weight:700;">CodeRegal Terminal</div></div>' +
 			  '<button id="crTermClose" style="background:#1f2937;color:#e5e7eb;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">Close</button>' +
 			'</div>' +
             stdinSection +
@@ -2457,7 +2475,7 @@ function openCodeRegalTerminalModal(needsInput, promptsAndInputs) {
                       '<input type="text" id="playTerminalInputField" class="terminal-inline-input" autocomplete="off" spellcheck="false" placeholder="" />';
     }
     
-    modal.innerHTML = '\n        <div class="play-terminal-card">\n            <div class="play-terminal-header">\n                <div class="play-terminal-header-text">CodeChum Terminal</div>\n                <button class="play-terminal-close" id="playTerminalClose">✕</button>\n            </div>\n            <div class="play-terminal-body" id="' + terminalBodyId + '">' + bodyInitial + '</div>\n        </div>\n    ';
+    modal.innerHTML = '\n        <div class="play-terminal-card">\n            <div class="play-terminal-header">\n                <div class="play-terminal-header-content">\n                    <span style="color: #60a5fa; font-size: 16px; margin-right: 6px;">&lt;/&gt;</span>\n                    <div class="play-terminal-header-text">CodeRegal Terminal</div>\n                </div>\n                <button class="play-terminal-close" id="playTerminalClose">✕</button>\n            </div>\n            <div class="play-terminal-body" id="' + terminalBodyId + '">' + bodyInitial + '</div>\n        </div>\n    ';
     document.body.appendChild(modal);
     
     // Close handlers

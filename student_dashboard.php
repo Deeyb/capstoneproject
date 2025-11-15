@@ -105,6 +105,7 @@ $current_section = $_GET['section'] ?? 'myclasses';
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Student Dashboard - Interactive Learning Management System</title>
+  <link rel="icon" type="image/svg+xml" href="Photos/CodeRegalWB.svg">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <!-- Shared UI Styles -->

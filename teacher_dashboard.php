@@ -65,6 +65,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Instructor Homepage</title>
+  <link rel="icon" type="image/svg+xml" href="Photos/CodeRegalWB.svg">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <!-- Shared UI Styles -->
@@ -233,7 +234,7 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
           <div id="playTerminalSidebar" class="play-terminal-sidebar" style="display:none;">
             <div class="play-terminal-header-bar">
               <div class="play-terminal-title">
-                <span class="play-terminal-icon"><></span>
+                <span class="play-terminal-icon">&lt;/&gt;</span>
                 <span>CodeRegal Terminal</span>
               </div>
               <button id="playClearTerminal" class="play-terminal-clear-btn" title="Clear terminal">

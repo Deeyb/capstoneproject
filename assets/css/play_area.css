@@ -139,6 +139,18 @@
   font-size: 14px;
 }
 
+.play-terminal-header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.play-terminal-logo {
+  height: 24px;
+  width: auto;
+  display: block;
+}
+
 .play-terminal-header-text {
   color: #60a5fa; /* bluish like CodeChum */
   letter-spacing: 0.3px;

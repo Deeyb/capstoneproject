@@ -67,9 +67,10 @@ if (empty($_SESSION['user_id'])) {
 $userId = (int)($_SESSION['user_id'] ?? 0);
 $userRole = strtolower((string)($_SESSION['user_role'] ?? 'student'));
 
-if ($userRole !== 'teacher') {
+// Allow both teacher and admin
+if ($userRole !== 'teacher' && $userRole !== 'admin') {
     http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Access denied. Teacher only.']);
+    echo json_encode(['success' => false, 'message' => 'Access denied. Teacher or Admin only.']);
     exit;
 }
 
@@ -84,13 +85,24 @@ if ($classId <= 0) {
 try {
     $db = (new Database())->getConnection();
     
-    // Verify teacher owns this class
-    $stmt = $db->prepare("SELECT id FROM classes WHERE id = ? AND owner_user_id = ? AND status = 'active'");
-    $stmt->execute([$classId, $userId]);
-    if (!$stmt->fetch()) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Access denied']);
-        exit;
+    // Verify teacher owns this class (skip for admin)
+    if ($userRole !== 'admin') {
+        $stmt = $db->prepare("SELECT id FROM classes WHERE id = ? AND owner_user_id = ? AND status = 'active'");
+        $stmt->execute([$classId, $userId]);
+        if (!$stmt->fetch()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Access denied']);
+            exit;
+        }
+    } else {
+        // For admin, just verify class exists and is active
+        $stmt = $db->prepare("SELECT id FROM classes WHERE id = ? AND status = 'active'");
+        $stmt->execute([$classId]);
+        if (!$stmt->fetch()) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Class not found']);
+            exit;
+        }
     }
     
     // Get all enrolled students with status

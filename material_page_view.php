@@ -50,6 +50,7 @@ $content = @file_get_contents($path) ?: '';
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content Page</title>
+  <link rel="icon" type="image/svg+xml" href="Photos/CodeRegalWB.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -313,7 +314,7 @@ $content = @file_get_contents($path) ?: '';
         const outElId = 'terminalBody_' + Date.now();
         modal.innerHTML = `
           <div class="terminal-card" style="max-width: 700px;">
-            <div class="terminal-header"><div>CodeRegal Terminal</div><button class="terminal-close">✕</button></div>
+            <div class="terminal-header"><div style="display:flex;align-items:center;gap:8px;"><span style="color:#60a5fa;font-size:16px;">&lt;/&gt;</span><div>CodeRegal Terminal</div></div><button class="terminal-close">✕</button></div>
             ${needsInput ? `
             <div style="padding: 12px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
               <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057; font-size: 13px;">Program Input (stdin):</label>

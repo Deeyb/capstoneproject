@@ -8381,7 +8381,7 @@ function renderCodingPreview(activity){
       terminalModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
       terminalModal.innerHTML = '<div class="play-terminal-card" style="width:90vw;max-width:980px;height:70vh;min-height:420px;background:#0f172a;color:#e5e7eb;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;overflow:hidden;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;background:#0f172a;padding:10px 14px;border-bottom:1px solid #1f2937;">' +
-        '<div style="font-weight:700;">CodeRegal Terminal</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#60a5fa;font-size:16px;">&lt;/&gt;</span><div style="font-weight:700;">CodeRegal Terminal</div></div>' +
         '<button id="previewTermClose" style="background:#1f2937;color:#e5e7eb;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">✕</button>' +
         '</div>' +
         '<pre id="' + terminalBodyId + '" style="margin:0;white-space:pre-wrap;padding:14px;flex:1;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,monospace;background:#0b1220;color:#e5e7eb;">' + bodyInitial + '</pre>' +

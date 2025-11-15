@@ -25,7 +25,7 @@
                     '<input type="text" id="playTerminalInputField" class="terminal-inline-input" autocomplete="off" spellcheck="false" />';
     }
 
-    modal.innerHTML = '\n      <div class="play-terminal-card">\n        <div class="play-terminal-header">\n          <div class="play-terminal-header-text">CodeRegal Terminal</div>\n          <button class="play-terminal-close" id="playTerminalClose">✕</button>\n        </div>\n        <div class="play-terminal-body" id="' + terminalBodyId + '">' + bodyInitial + '</div>\n      </div>\n    ';
+    modal.innerHTML = '\n      <div class="play-terminal-card">\n        <div class="play-terminal-header">\n          <div class="play-terminal-header-content">\n            <span style="color: #60a5fa; font-size: 16px; margin-right: 6px;">&lt;/&gt;</span>\n            <div class="play-terminal-header-text">CodeRegal Terminal</div>\n          </div>\n          <button class="play-terminal-close" id="playTerminalClose">✕</button>\n        </div>\n        <div class="play-terminal-body" id="' + terminalBodyId + '">' + bodyInitial + '</div>\n      </div>\n    ';
     document.body.appendChild(modal);
 
     var closeBtn = modal.querySelector('#playTerminalClose');

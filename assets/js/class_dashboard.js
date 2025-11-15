@@ -4475,6 +4475,11 @@ function loadTopicsFromCourse() {
                 }
               }
               
+              // Determine activity label (LABORATORY for coding, LECTURE for others)
+              const isCodingActivity = activityType === 'coding';
+              const activityLabel = isCodingActivity ? 'LABORATORY' : 'LECTURE';
+              const labelClass = isCodingActivity ? 'activity-label-laboratory' : 'activity-label-lecture';
+              
               // STUDENT FORMAT - Enhanced interactive design
               return `
                 <div class="activity-card student-format ${statusClass}" data-activity-id="${activity.id}" data-max-score="${maxScore}">
@@ -4484,6 +4489,7 @@ function loadTopicsFromCourse() {
                     <div class="activity-header-row">
                       <div class="activity-title">
                         ${activityTitle}
+                        <span class="${labelClass}">${activityLabel}</span>
                       </div>
                     </div>
                     <div class="activity-info-grid">
@@ -4632,13 +4638,21 @@ function loadTopicsFromCourse() {
               // Get activity type for grading button
               const activityType = String(activity.type || activity.activity_type || '').toLowerCase();
               
+              // Determine activity label (LABORATORY for coding, LECTURE for others)
+              const isCodingActivityTeacher = activityType === 'coding';
+              const activityLabelTeacher = isCodingActivityTeacher ? 'LABORATORY' : 'LECTURE';
+              const labelClassTeacher = isCodingActivityTeacher ? 'activity-label-laboratory' : 'activity-label-lecture';
+              
               return `
                 <div class="activity-card teacher-format ${isLocked ? 'activity-locked' : 'activity-open'}" data-activity-id="${activity.id}" data-max-score="${maxScore}">
                   <div class="activity-left-border ${isLocked ? 'border-locked' : 'border-open'}"></div>
                   ${teacherStatusBadge ? `<div class="activity-status-badge-top-right">${teacherStatusBadge}</div>` : ''}
                   <div class="activity-content">
                     <div class="activity-header-row">
-                      <div class="activity-title">${activityTitle}</div>
+                      <div class="activity-title">
+                        ${activityTitle}
+                        <span class="${labelClassTeacher}">${activityLabelTeacher}</span>
+                      </div>
                     </div>
                     <div class="activity-info-grid">
                       <div class="activity-dates">
@@ -5165,6 +5179,12 @@ function loadTopicContent(item, lessonId) {
               }
             }
             
+            // Determine activity label (LABORATORY for coding, LECTURE for others)
+            const activityTypeForLabel = String(activity.type || activity.activity_type || activity.kind || '').toLowerCase().trim();
+            const isCodingActivityForLabel = activityTypeForLabel === 'coding';
+            const activityLabel = isCodingActivityForLabel ? 'LABORATORY' : 'LECTURE';
+            const labelClass = isCodingActivityForLabel ? 'activity-label-laboratory' : 'activity-label-lecture';
+            
             contentHtml += `
               <div class="activity-card student-format ${statusClass}" data-activity-id="${activity.id}" data-max-score="${activity.max_score || 0}">
                 <div class="activity-left-border ${isLocked ? 'border-locked' : isClosed ? 'border-closed' : isAvailable ? 'border-open' : 'border-upcoming'}"></div>
@@ -5173,6 +5193,7 @@ function loadTopicContent(item, lessonId) {
                   <div class="activity-header-row">
                     <div class="activity-title">
                       ${title}
+                      <span class="${labelClass}">${activityLabel}</span>
                     </div>
                   </div>
                   <div class="activity-info-grid">
@@ -5261,6 +5282,11 @@ function loadTopicContent(item, lessonId) {
             const typeCheckForGrading = String(activityTypeForGrading || activity.type || activity.activity_type || activity.kind || '').toLowerCase().trim();
             const isManualGradingForGrading = typeCheckForGrading === 'upload_based' || typeCheckForGrading === 'essay' || typeCheckForGrading === 'upload-based' || typeCheckForGrading === 'upload based';
             
+            // Determine activity label (LABORATORY for coding, LECTURE for others)
+            const isCodingActivityForLabelTeacher = activityTypeForGrading === 'coding';
+            const activityLabelForTeacher = isCodingActivityForLabelTeacher ? 'LABORATORY' : 'LECTURE';
+            const labelClassForTeacher = isCodingActivityForLabelTeacher ? 'activity-label-laboratory' : 'activity-label-lecture';
+            
             console.log('🔍 [loadTopicContent] Manual Grading Check:', {
               activityId: activity.id,
               activityTitle: title,
@@ -5276,7 +5302,10 @@ function loadTopicContent(item, lessonId) {
                 ${teacherStatusBadge ? `<div class="activity-status-badge-top-right">${teacherStatusBadge}</div>` : ''}
                 <div class="activity-content">
                   <div class="activity-header-row">
-                    <div class="activity-title">${title}</div>
+                    <div class="activity-title">
+                      ${title}
+                      <span class="${labelClassForTeacher}">${activityLabelForTeacher}</span>
+                    </div>
                   </div>
                   <div class="activity-info-grid">
                     <div class="activity-dates">

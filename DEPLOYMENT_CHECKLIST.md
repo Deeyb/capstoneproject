@@ -474,3 +474,28 @@ If something goes wrong:
 **Last Updated:** 2025-11-15
 **Version:** 1.0
 
+---
+
+## 🔔 GITHUB UPDATE REMINDER
+
+### ⚠️ KAPAG MAG-UPDATE SA GITHUB:
+
+**SABIHAN MO AKO BAGO MAG-COMMIT/PUSH:**
+- "UPDATE KANA NGA MUNA SA GITHUB" o
+- "SABIHAN ULIT KITA KAPAG MAG UPDATE ULIT TAYO HA"
+
+**Para maiwasan ang:**
+- ❌ Ma-push ang sensitive files (.env, config files)
+- ❌ Ma-push ang test/debug files
+- ❌ Ma-push ang temporary files
+- ❌ Ma-push ang malaking backup files
+
+**Ako na mag-check:**
+- ✅ Git status
+- ✅ .gitignore compliance
+- ✅ Sensitive data check
+- ✅ Proper commit message
+- ✅ Safe push
+
+**Last GitHub Update:** 2025-11-15 (Commit: dbe218c)
+

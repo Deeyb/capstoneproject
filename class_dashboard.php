@@ -111,6 +111,7 @@ if ($userRole === 'student') {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Class Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="Photos/CodeRegalWB.svg">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     /* Prevent layout jumps by setting initial dimensions */
@@ -698,12 +699,39 @@ if ($userRole === 'student') {
             fetch('class_manage.php', { method:'POST', credentials:'same-origin', body: fd })
               .then(function(r){ return r.json().catch(function(){ return {}; }); })
               .then(function(j){ if (j && j.success){
+                  try { 
+                    if (window.parent && typeof window.parent.showNotification === 'function') {
+                      window.parent.showNotification('success', 'Archived', 'Class archived successfully');
+                    } else if (typeof window.showNotification === 'function') {
+                      window.showNotification('success', 'Archived', 'Class archived successfully');
+                    }
+                  } catch(_){ }
                   try { if (window.parent && window.parent.loadArchivedForSection) window.parent.loadArchivedForSection(); } catch(_){ }
                   try { if (window.parent && window.parent.__teacherLoadActive) window.parent.__teacherLoadActive(); } catch(_){ }
                   try { if (window.parent && window.parent.exitEmbeddedClass) window.parent.exitEmbeddedClass(); else window.location.href='teacher_dashboard.php?section=my-classes'; } catch(_){ window.location.href='teacher_dashboard.php?section=my-classes'; }
-                } else { alert('Archive failed'); }
+                } else { 
+                  try {
+                    if (window.parent && typeof window.parent.showNotification === 'function') {
+                      window.parent.showNotification('error', 'Error', 'Failed to archive class');
+                    } else if (typeof window.showNotification === 'function') {
+                      window.showNotification('error', 'Error', 'Failed to archive class');
+                    } else {
+                      alert('Archive failed');
+                    }
+                  } catch(_){ alert('Archive failed'); }
+                }
               })
-              .catch(function(){ alert('Archive failed'); });
+              .catch(function(){ 
+                try {
+                  if (window.parent && typeof window.parent.showNotification === 'function') {
+                    window.parent.showNotification('error', 'Error', 'Network error. Failed to archive class');
+                  } else if (typeof window.showNotification === 'function') {
+                    window.showNotification('error', 'Error', 'Network error. Failed to archive class');
+                  } else {
+                    alert('Archive failed');
+                  }
+                } catch(_){ alert('Archive failed'); }
+              });
           });
         }
       })();
