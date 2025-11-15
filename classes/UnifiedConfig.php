@@ -5,6 +5,8 @@
  */
 class UnifiedConfig {
     // Database Configuration
+    // NOTE: These are fallback defaults only. Actual DB connection uses config/Database.php
+    // which reads from environment variables (.env file) for live hosting compatibility.
     const DB_HOST = 'localhost';
     const DB_NAME = 'coderegal_db';
     const DB_USER = 'root';

@@ -10,6 +10,9 @@ class UnifiedErrorHandler {
     private $logErrors = true;
     
     private function __construct() {
+        // Load dependencies first
+        require_once __DIR__ . '/../config/Database.php';
+        
         $this->db = (new Database())->getConnection();
         $this->debugMode = defined('DEBUG_MODE') ? DEBUG_MODE : false;
         $this->logErrors = defined('LOG_ERRORS') ? LOG_ERRORS : true;

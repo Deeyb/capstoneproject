@@ -1,5 +1,6 @@
 # Environment variables for the application
+# NOTE: JDoodle credentials are now loaded from .env file via EnvironmentLoader
 # Get your credentials from: https://www.jdoodle.com/api-compiler
-# IMPORTANT: After updating, RESTART Apache/XAMPP!
-SetEnv JDOODLE_CLIENT_ID "e70976e1f74c2e424295ed0aeca5576b"
-SetEnv JDOODLE_CLIENT_SECRET "9ea972b469148f3734af001842c38cdf9d708c0001186aa9b3496905e5ff659d"
+# Add them to your .env file:
+# JDOODLE_CLIENT_ID=your_client_id
+# JDOODLE_CLIENT_SECRET=your_client_secret

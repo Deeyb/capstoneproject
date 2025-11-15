@@ -14,13 +14,30 @@ class EnvironmentLoader {
         if (self::$loaded) return;
 
         $envPath = __DIR__ . '/../' . self::$envFile;
-        error_log('ENV PATH: ' . $envPath);
-        error_log('ENV EXISTS: ' . (file_exists($envPath) ? 'YES' : 'NO'));
-        if (!file_exists($envPath)) return;
+        
+        // Check debug mode without calling self::get() to avoid circular dependency
+        // Check $_ENV, $_SERVER, and getenv() directly
+        $appDebug = $_ENV['APP_DEBUG'] ?? $_SERVER['APP_DEBUG'] ?? getenv('APP_DEBUG');
+        $appEnv = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? getenv('APP_ENV');
+        $isDebug = ($appDebug === 'true') || ($appEnv === 'development');
+        
+        // Only log in debug mode (not in production)
+        if ($isDebug) {
+            error_log('ENV PATH: ' . $envPath);
+            error_log('ENV EXISTS: ' . (file_exists($envPath) ? 'YES' : 'NO'));
+        }
+        
+        if (!file_exists($envPath)) {
+            self::$loaded = true; // Mark as loaded even if file doesn't exist
+            return;
+        }
 
         $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
-            error_log('ENV LINE: ' . $line);
+            // Only log in debug mode (never log actual values in production)
+            if ($isDebug) {
+                error_log('ENV LINE: ' . $line);
+            }
             if (strpos(trim($line), '#') === 0) continue;
             if (strpos($line, '=') !== false) {
                 list($key, $value) = explode('=', $line, 2);

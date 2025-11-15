@@ -37,9 +37,25 @@ class CourseService {
         $this->db = $database;
         $this->ensureSchema();
         $this->attemptService = new ActivityAttemptService($database);
-        // JDoodle config via env
-        $this->jdoodleClientId = getenv('JDOODLE_CLIENT_ID') ?: '';
-        $this->jdoodleClientSecret = getenv('JDOODLE_CLIENT_SECRET') ?: '';
+        // JDoodle config via env - use EnvironmentLoader to ensure .env is loaded
+        require_once __DIR__ . '/EnvironmentLoader.php';
+        EnvironmentLoader::load();
+        $this->jdoodleClientId = EnvironmentLoader::get('JDOODLE_CLIENT_ID', '');
+        $this->jdoodleClientSecret = EnvironmentLoader::get('JDOODLE_CLIENT_SECRET', '');
+        
+        // DEEP DEBUG: Log credential loading status
+        error_log(sprintf(
+            "[CourseService] JDoodle Credentials Load: clientId_length=%d, clientSecret_length=%d, clientId_prefix=%s, has_env_file=%s",
+            strlen($this->jdoodleClientId),
+            strlen($this->jdoodleClientSecret),
+            substr($this->jdoodleClientId, 0, 8) . '...',
+            file_exists(__DIR__ . '/../.env') ? 'YES' : 'NO'
+        ));
+        
+        // Validate credentials are loaded
+        if (empty($this->jdoodleClientId) || empty($this->jdoodleClientSecret)) {
+            error_log("[CourseService] ⚠️ WARNING: JDoodle credentials are EMPTY! Check .env file.");
+        }
     }
 
     private function scheduleTableExists(): bool {
@@ -1068,16 +1084,32 @@ class CourseService {
     private function jdoodleRequest(array $payload): array {
         $url = 'https://api.jdoodle.com/v1/execute';
         
-        // Debug logging - CREDIT TRACKING
+        // DEEP DEBUG: Log full payload details (masked secrets)
+        $clientId = $payload['clientId'] ?? '';
+        $clientSecret = $payload['clientSecret'] ?? '';
         error_log(sprintf(
-            "JDoodle Request [CREDIT USED]: language=%s, stdin_length=%d, code_length=%d, has_clientId=%s, timestamp=%s, call_stack=%s",
+            "[JDoodle Request] DEEP DEBUG: language=%s, stdin_length=%d, code_length=%d, clientId_length=%d, clientId_prefix=%s, clientSecret_length=%d, has_clientId=%s, has_clientSecret=%s, timestamp=%s",
             $payload['language'] ?? 'unknown',
             strlen($payload['stdin'] ?? ''),
             strlen($payload['script'] ?? ''),
-            !empty($payload['clientId']) ? 'yes' : 'no',
-            date('Y-m-d H:i:s'),
-            json_encode(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3))
+            strlen($clientId),
+            substr($clientId, 0, 8) . '...',
+            strlen($clientSecret),
+            !empty($clientId) ? 'YES' : 'NO',
+            !empty($clientSecret) ? 'YES' : 'NO',
+            date('Y-m-d H:i:s')
         ));
+        
+        // CRITICAL: Check if credentials are empty
+        if (empty($clientId) || empty($clientSecret)) {
+            error_log("[JDoodle Request] ❌ ERROR: Missing credentials! clientId=" . (!empty($clientId) ? 'SET' : 'EMPTY') . ", clientSecret=" . (!empty($clientSecret) ? 'SET' : 'EMPTY'));
+            return [
+                'success' => false,
+                'error' => 'Unauthorized Request',
+                'message' => 'JDoodle API credentials not configured. Please check your .env file.',
+                'data' => ['error' => 'Unauthorized Request', 'output' => 'X Error\nUnauthorized Request']
+            ];
+        }
         
         $ch = curl_init($url);
         $headers = ['Content-Type: application/json'];
@@ -1098,31 +1130,42 @@ class CourseService {
             return ['success'=>false,'status'=>$status,'error'=>'cURL error','message'=>$curlError];
         }
         
-        error_log("JDoodle HTTP Status: " . $status);
-        error_log("JDoodle Response (first 500 chars): " . substr($response, 0, 500));
+        error_log("[JDoodle Response] HTTP Status: " . $status);
+        error_log("[JDoodle Response] Raw (first 500 chars): " . substr($response, 0, 500));
         
         $data = json_decode($response, true);
         if ($data === null && trim((string)$response) !== 'null') {
             // Not JSON; include raw for debugging
-            error_log("JDoodle Non-JSON Response: " . substr($response, 0, 500));
+            error_log("[JDoodle Response] ❌ Non-JSON Response: " . substr($response, 0, 500));
             return ['success'=>($status>=200 && $status<300), 'status'=>$status, 'raw'=>$response];
         }
         
+        // DEEP DEBUG: Log full response structure
+        error_log("[JDoodle Response] Parsed JSON keys: " . (is_array($data) ? implode(', ', array_keys($data)) : 'NOT_ARRAY'));
+        if (isset($data['error'])) {
+            error_log("[JDoodle Response] ❌ ERROR field: " . substr($data['error'], 0, 300));
+        }
+        if (isset($data['output'])) {
+            error_log("[JDoodle Response] Output: " . substr($data['output'], 0, 300));
+        }
+        if (isset($data['statusCode'])) {
+            error_log("[JDoodle Response] StatusCode: " . $data['statusCode']);
+        }
+        
         if ($status >= 200 && $status < 300) {
-            // Log successful response details
-            if (isset($data['output'])) {
-                error_log("JDoodle Output: " . substr($data['output'], 0, 200));
-            }
-            if (isset($data['error'])) {
-                error_log("JDoodle Error: " . substr($data['error'], 0, 200));
-            }
-            if (isset($data['statusCode'])) {
-                error_log("JDoodle StatusCode: " . $data['statusCode']);
+            // Check if JDoodle returned an error in the response body (even with 200 status)
+            if (isset($data['error']) && (stripos($data['error'], 'unauthorized') !== false || stripos($data['error'], 'invalid') !== false || stripos($data['error'], 'credential') !== false)) {
+                error_log("[JDoodle Response] ⚠️ JDoodle API returned error in response body: " . $data['error']);
+                return [
+                    'success' => false,
+                    'error' => $data['error'],
+                    'data' => $data
+                ];
             }
             return ['success'=>true,'data'=>$data];
         }
         
-        error_log("JDoodle HTTP Error Response: " . json_encode($data));
+        error_log("[JDoodle Response] ❌ HTTP Error Response: " . json_encode($data));
         return ['success'=>false,'status'=>$status,'data'=>$data];
     }
 
