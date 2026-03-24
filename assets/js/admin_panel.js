@@ -400,6 +400,304 @@
         }
     }
 
+    let backupLoaderCount = 0;
+    let backupAlertTimer = null;
+    let backupButtonLabel = null;
+
+    function initSystemBackupSection() {
+        const section = document.getElementById('backup');
+        if (!section) return;
+
+        if (!window.__backupHandlersBound) {
+            window.__backupHandlersBound = true;
+            const createBtn = document.getElementById('backupCreateBtn');
+            if (createBtn) {
+                backupButtonLabel = createBtn.innerHTML;
+                createBtn.addEventListener('click', function() {
+                    if (createBtn.disabled) return;
+                    if (!confirm('Generate a fresh system backup now?')) {
+                        return;
+                    }
+                    createSystemBackup();
+                });
+            }
+            const refreshBtn = document.getElementById('backupRefreshBtn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => loadSystemBackupList(true));
+            }
+            const tableBody = document.getElementById('backupTableBody');
+            if (tableBody && !tableBody.__backupBound) {
+                tableBody.__backupBound = true;
+                tableBody.addEventListener('click', function(e) {
+                    const btn = e.target.closest('[data-backup-action]');
+                    if (!btn) return;
+                    const file = btn.getAttribute('data-file');
+                    if (!file) return;
+                    const action = btn.getAttribute('data-backup-action');
+                    if (action === 'download') {
+                        downloadSystemBackup(file);
+                    } else if (action === 'delete') {
+                        if (confirm(`Delete backup "${file}"? This cannot be undone.`)) {
+                            deleteSystemBackup(file);
+                        }
+                    }
+                });
+            }
+        }
+        loadSystemBackupList();
+    }
+
+    function toggleBackupLoader(show, label) {
+        const loader = document.getElementById('backupLoading');
+        if (!loader) return;
+        if (show) {
+            backupLoaderCount++;
+            loader.style.display = 'flex';
+            const text = loader.querySelector('span');
+            if (text && label) {
+                text.textContent = label;
+            }
+        } else {
+            backupLoaderCount = Math.max(0, backupLoaderCount - 1);
+            if (backupLoaderCount === 0) {
+                loader.style.display = 'none';
+            }
+        }
+    }
+
+    function setBackupButtonBusy(isBusy) {
+        const btn = document.getElementById('backupCreateBtn');
+        if (!btn) return;
+        if (backupButtonLabel === null) {
+            backupButtonLabel = btn.innerHTML;
+        }
+        btn.disabled = isBusy;
+        if (isBusy) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating backup...';
+        } else {
+            btn.innerHTML = backupButtonLabel;
+        }
+    }
+
+    async function createSystemBackup() {
+        setBackupButtonBusy(true);
+        toggleBackupLoader(true, 'Creating backup, please wait...');
+        showBackupAlert('info', 'Generating backup, please wait...');
+        const formData = new FormData();
+        formData.append('action', 'create');
+        try {
+            const response = await fetch('admin_backup.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to create backup.');
+            }
+            const backupName = data.backup && data.backup.name ? data.backup.name : 'backup file';
+            showBackupAlert('success', `Backup "${backupName}" created successfully.`);
+            loadSystemBackupList(true);
+        } catch (error) {
+            showBackupAlert('error', error.message || 'Backup failed.');
+        } finally {
+            setBackupButtonBusy(false);
+            toggleBackupLoader(false);
+        }
+    }
+
+    async function loadSystemBackupList(force) {
+        const tableBody = document.getElementById('backupTableBody');
+        if (!tableBody) return;
+        if (force) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="backup-empty">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Refreshing backups...
+                    </td>
+                </tr>`;
+        }
+        toggleBackupLoader(true, 'Loading backups...');
+        try {
+            const response = await fetch('admin_backup.php?action=list', {
+                credentials: 'same-origin',
+                cache: 'no-cache'
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Unable to load backups.');
+            }
+            renderBackupRows(data.files || []);
+            updateBackupStats(data.stats || {});
+            if ((data.files || []).length === 0) {
+                showBackupAlert('info', 'No backups found. Generate one to get started.');
+            } else {
+                showBackupAlert('', '');
+            }
+        } catch (error) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="backup-empty error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        ${error.message}
+                    </td>
+                </tr>`;
+            showBackupAlert('error', error.message || 'Unable to load backups.');
+        } finally {
+            toggleBackupLoader(false);
+        }
+    }
+
+    async function deleteSystemBackup(fileName) {
+        toggleBackupLoader(true, 'Deleting backup...');
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('file', fileName);
+        try {
+            const response = await fetch('admin_backup.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to delete backup.');
+            }
+            showBackupAlert('success', data.message || 'Backup deleted.');
+            loadSystemBackupList(true);
+        } catch (error) {
+            showBackupAlert('error', error.message || 'Unable to delete backup.');
+        } finally {
+            toggleBackupLoader(false);
+        }
+    }
+
+    function downloadSystemBackup(fileName) {
+        const url = 'admin_backup.php?action=download&file=' + encodeURIComponent(fileName);
+        window.location.href = url;
+    }
+
+    function renderBackupRows(files) {
+        const tableBody = document.getElementById('backupTableBody');
+        if (!tableBody) return;
+        if (!files.length) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="backup-empty">
+                        <i class="fas fa-archive"></i>
+                        No backups yet. Click "Generate Backup" to create the first snapshot.
+                    </td>
+                </tr>`;
+            return;
+        }
+        const rows = files.map(file => {
+            const safeName = escapeBackupHtml(file.name);
+            const created = file.created_at ? new Date(file.created_at * 1000).toLocaleString() : '—';
+            const typeLabel = file.type ? file.type.toUpperCase() : 'SQL';
+            const sizeLabel = file.size_readable || formatBackupBytes(file.size_bytes);
+            return `
+                <tr>
+                    <td>
+                        <strong>${safeName}</strong>
+                    </td>
+                    <td>${created}</td>
+                    <td>${sizeLabel}</td>
+                    <td>${typeLabel}</td>
+                    <td class="backup-actions-cell">
+                        <button class="backup-action-btn download" data-backup-action="download" data-file="${escapeBackupAttr(file.name)}">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <button class="backup-action-btn delete" data-backup-action="delete" data-file="${escapeBackupAttr(file.name)}">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>`;
+        }).join('');
+        tableBody.innerHTML = rows;
+    }
+
+    function updateBackupStats(stats) {
+        const directory = stats.directory || 'storage/backups';
+        const dbName = stats.database || '—';
+        const totalSize = stats.total_size_readable || formatBackupBytes(stats.total_size_bytes || 0);
+        const count = typeof stats.count === 'number' ? stats.count : 0;
+        const lastFile = stats.last_file || null;
+
+        const dbNameEl = document.getElementById('backupDbName');
+        const directoryEl = document.getElementById('backupDirectory');
+        const countEl = document.getElementById('backupCount');
+        const sizeEl = document.getElementById('backupTotalSize');
+        const lastRunEl = document.getElementById('backupLastRun');
+        const lastNoteEl = document.getElementById('backupLastFileNote');
+
+        if (dbNameEl) dbNameEl.textContent = dbName;
+        if (directoryEl) directoryEl.textContent = directory;
+        if (countEl) countEl.textContent = count;
+        if (sizeEl) sizeEl.textContent = `${totalSize} total`;
+
+        if (lastFile && lastRunEl) {
+            lastRunEl.textContent = new Date(lastFile.created_at * 1000).toLocaleString();
+            if (lastNoteEl) {
+                lastNoteEl.textContent = lastFile.name || '';
+            }
+        } else if (lastRunEl) {
+            lastRunEl.textContent = 'No backups yet';
+            if (lastNoteEl) {
+                lastNoteEl.textContent = '—';
+            }
+        }
+    }
+
+    function showBackupAlert(type, message) {
+        const alertBox = document.getElementById('backupAlert');
+        if (!alertBox) return;
+        if (!message) {
+            alertBox.style.display = 'none';
+            alertBox.textContent = '';
+            return;
+        }
+        alertBox.className = 'backup-alert';
+        if (type) {
+            alertBox.classList.add(type);
+        }
+        alertBox.textContent = message;
+        alertBox.style.display = 'block';
+        if (backupAlertTimer) {
+            clearTimeout(backupAlertTimer);
+        }
+        backupAlertTimer = setTimeout(() => {
+            alertBox.style.display = 'none';
+        }, 6000);
+    }
+
+    function formatBackupBytes(bytes) {
+        if (!bytes || isNaN(bytes)) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let power = Math.floor(Math.log(bytes) / Math.log(1024));
+        power = Math.min(power, units.length - 1);
+        const value = bytes / Math.pow(1024, power);
+        return `${value.toFixed(value >= 10 ? 0 : 2)} ${units[power]}`;
+    }
+
+    function escapeBackupHtml(value) {
+        if (value === null || value === undefined) return '';
+        return value.toString().replace(/[&<>"']/g, function(match) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            };
+            return map[match];
+        });
+    }
+
+    function escapeBackupAttr(value) {
+        return escapeBackupHtml(value).replace(/"/g, '&quot;');
+    }
+
     function applyDashboardRefreshRate(rateSec) {
         try { rateSec = parseInt(rateSec, 10); } catch(e) { rateSec = 10; }
         dashboardRefreshRateSec = Math.max(0, rateSec || 0);
@@ -2676,6 +2974,8 @@
                     console.error('❌ [Admin] Reports Module not available! Check if reports_module.js is loaded.');
                 }
             }, 200); // Increased timeout to ensure DOM is ready
+        } else if (sectionId === 'backup') {
+            initSystemBackupSection();
         }
     }
 

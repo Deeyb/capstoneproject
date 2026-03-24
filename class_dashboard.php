@@ -257,7 +257,7 @@ if ($userRole === 'student') {
       </div>
       
       <div class="nav-right">
-        <?php if (strtolower($userRole) !== 'student'): ?>
+        <?php if (strtolower($userRole) !== 'student' && strtolower($userRole) !== 'coordinator' && strtolower($userRole) !== 'teacher'): ?>
         <button class="btn-create-activity" id="createActivityBtn">
           <i class="fas fa-plus"></i> Create activity
         </button>

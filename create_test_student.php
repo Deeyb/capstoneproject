@@ -4,7 +4,7 @@
  * Creates a test student account for testing purposes (bypasses email verification)
  * 
  * Usage: Run this file in browser or via command line
- * Example: http://localhost/capstoneproject/create_test_student.php
+ * Example: z
  */
 
 require_once __DIR__ . '/config/Database.php';

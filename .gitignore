@@ -20,6 +20,8 @@ backup_*.sql
 backup_coderegal_db.sql
 *.tar
 *.zip
+storage/backups/*
+!storage/backups/.gitkeep
 
 # Logs
 *.log

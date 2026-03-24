@@ -49,6 +49,9 @@ $profilePhotoUrl = $profileService->getProfilePhotoUrl($_SESSION['user_id']);
     <li data-section="audit">
       <i class="fas fa-list"></i> Audit Logs
     </li>
+    <li data-section="backup">
+      <i class="fas fa-cloud-download-alt"></i> System Backup
+    </li>
     <li data-section="settings">
       <i class="fas fa-cog"></i> Settings
     </li>
