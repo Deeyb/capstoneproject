@@ -581,7 +581,82 @@ require_once 'includes/sidebar.php';
       </div>
     </div>
   </div>
-  
+  <div id="backup" class="section-content" style="display:none;">
+    <div class="backup-hero">
+      <div>
+        <h2 class="section-title">System Backup & Recovery</h2>
+        <p class="backup-subtitle">
+          Generate on-demand database snapshots and keep copies on your server for disaster recovery.
+        </p>
+      </div>
+      <div class="backup-actions">
+        <button id="backupCreateBtn" class="backup-btn primary">
+          <i class="fas fa-hdd"></i>
+          Generate Backup
+        </button>
+        <button id="backupRefreshBtn" class="backup-btn ghost">
+          <i class="fas fa-sync-alt"></i>
+          Refresh List
+        </button>
+      </div>
+    </div>
+    <div id="backupAlert" class="backup-alert" style="display:none;"></div>
+    <div class="backup-grid">
+      <div class="backup-card">
+        <h4><i class="fas fa-database"></i> Database</h4>
+        <p id="backupDbName" class="backup-card-value">—</p>
+        <span class="backup-card-note">Active schema</span>
+      </div>
+      <div class="backup-card">
+        <h4><i class="fas fa-folder-open"></i> Backup Folder</h4>
+        <p id="backupDirectory" class="backup-card-value">storage/backups</p>
+        <span class="backup-card-note">Server path</span>
+      </div>
+      <div class="backup-card">
+        <h4><i class="fas fa-save"></i> Stored Backups</h4>
+        <p class="backup-card-value">
+          <span id="backupCount">0</span>
+          <small id="backupTotalSize">0 B total</small>
+        </p>
+        <span class="backup-card-note">Auto-sorted newest first</span>
+      </div>
+      <div class="backup-card">
+        <h4><i class="fas fa-clock"></i> Last Backup</h4>
+        <p id="backupLastRun" class="backup-card-value">No backups yet</p>
+        <span class="backup-card-note" id="backupLastFileNote">—</span>
+      </div>
+    </div>
+    <div class="backup-table-wrapper">
+      <div id="backupLoading" class="backup-loading" style="display:none;">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>Processing backup...</span>
+      </div>
+      <table class="backup-table">
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Created</th>
+            <th>Size</th>
+            <th>Type</th>
+            <th style="width: 140px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="backupTableBody">
+          <tr>
+            <td colspan="5" class="backup-empty">
+              <i class="fas fa-archive"></i>
+              No backups yet. Click "Generate Backup" to create the first snapshot.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="backup-footnote">
+        <i class="fas fa-info-circle"></i>
+        Backups contain the full database structure and data. Store a copy off-site to stay safe.
+      </p>
+    </div>
+  </div>
+ 
   <style>
   /* Audit Logs Modern Styling */
   .audit-header {
@@ -1291,6 +1366,225 @@ require_once 'includes/sidebar.php';
   .users-pagination-controls {
     display: flex;
     gap: 8px;
+  }
+  /* Backup Section */
+  #backup.section-content {
+    display: none;
+  }
+  .backup-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .backup-subtitle {
+    margin: 8px 0 0;
+    color: #6b7280;
+    max-width: 560px;
+  }
+  .backup-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .backup-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+  .backup-btn.primary {
+    background: #1d9b3e;
+    color: #fff;
+  }
+  .backup-btn.primary:hover {
+    background: #168a36;
+    box-shadow: 0 6px 16px rgba(29, 155, 62, 0.25);
+  }
+  .backup-btn.ghost {
+    background: transparent;
+    border: 1px solid #d1d5db;
+    color: #374151;
+  }
+  .backup-btn.ghost:hover {
+    border-color: #1d9b3e;
+    color: #1d9b3e;
+  }
+  .backup-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .backup-alert {
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-weight: 500;
+  }
+  .backup-alert.success {
+    background: #e8f5e8;
+    color: #065f46;
+    border: 1px solid #34d399;
+  }
+  .backup-alert.error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #f87171;
+  }
+  .backup-alert.info {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #60a5fa;
+  }
+  .backup-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  .backup-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .backup-card h4 {
+    margin: 0 0 10px 0;
+    color: #374151;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .backup-card-value {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .backup-card-value small {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-left: 6px;
+  }
+  .backup-card-note {
+    font-size: 12px;
+    color: #9ca3af;
+  }
+  .backup-table-wrapper {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 0;
+    overflow: hidden;
+  }
+  .backup-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #1d9b3e;
+    font-weight: 500;
+  }
+  .backup-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .backup-table th,
+  .backup-table td {
+    padding: 14px 18px;
+    text-align: left;
+  }
+  .backup-table thead {
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .backup-table tbody tr + tr {
+    border-top: 1px solid #f3f4f6;
+  }
+  .backup-empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: #9ca3af;
+  }
+  .backup-empty i {
+    display: block;
+    font-size: 36px;
+    margin-bottom: 10px;
+  }
+  .backup-empty.error {
+    color: #b91c1c;
+  }
+  .backup-actions-cell {
+    display: flex;
+    gap: 8px;
+  }
+  .backup-action-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+  }
+  .backup-action-btn.download {
+    background: #1d4ed8;
+    color: #fff;
+  }
+  .backup-action-btn.download:hover {
+    background: #1e40af;
+  }
+  .backup-action-btn.delete {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+  .backup-action-btn.delete:hover {
+    background: #fecaca;
+  }
+  .backup-footnote {
+    margin: 0;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #6b7280;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+  }
+  .backup-footnote i {
+    margin-right: 6px;
+    color: #2563eb;
+  }
+  @media (max-width: 640px) {
+    .backup-actions {
+      width: 100%;
+    }
+    .backup-actions .backup-btn {
+      flex: 1;
+      justify-content: center;
+    }
+    .backup-table th,
+    .backup-table td {
+      padding: 10px 12px;
+    }
+    .backup-actions-cell {
+      flex-direction: column;
+    }
+    .backup-action-btn {
+      width: 100%;
+      justify-content: center;
+    }
   }
   </style>
   

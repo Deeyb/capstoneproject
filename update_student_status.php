@@ -84,13 +84,30 @@ $input = json_decode(file_get_contents('php://input'), true);
 $classId = isset($input['class_id']) ? (int)$input['class_id'] : 0;
 $studentId = isset($input['student_id']) ? (int)$input['student_id'] : 0;
 $status = isset($input['status']) ? trim($input['status']) : '';
+$studentIdsInput = $input['student_ids'] ?? [];
+$bulkStudentIds = [];
 
-if ($classId <= 0 || $studentId <= 0) {
+if (is_array($studentIdsInput)) {
+    foreach ($studentIdsInput as $sid) {
+        $sid = (int)$sid;
+        if ($sid > 0) {
+            $bulkStudentIds[] = $sid;
+        }
+    }
+}
+
+$targetStudentIds = $bulkStudentIds;
+if (empty($targetStudentIds) && $studentId > 0) {
+    $targetStudentIds = [$studentId];
+}
+$isBulkOperation = count($targetStudentIds) > 1;
+
+if ($classId <= 0 || empty($targetStudentIds)) {
     if (ob_get_level()) {
         ob_clean();
     }
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Invalid class ID or student ID']);
+    echo json_encode(['success' => false, 'message' => 'Invalid class ID or student ID(s)']);
     exit;
 }
 
@@ -139,32 +156,58 @@ try {
         exit;
     }
     
-    // Verify student is enrolled in this class
-    $checkStmt = $db->prepare("SELECT id FROM class_students WHERE class_id = ? AND student_user_id = ?");
-    $checkStmt->execute([$classId, $studentId]);
-    if (!$checkStmt->fetch()) {
+    // Verify student(s) is enrolled in this class
+    $placeholders = implode(',', array_fill(0, count($targetStudentIds), '?'));
+    $verifyStmt = $db->prepare("
+        SELECT student_user_id 
+        FROM class_students 
+        WHERE class_id = ? AND student_user_id IN ($placeholders)
+    ");
+    $verifyStmt->execute(array_merge([$classId], $targetStudentIds));
+    $foundIds = $verifyStmt->fetchAll(PDO::FETCH_COLUMN);
+    $foundIds = array_map('intval', $foundIds);
+    
+    if (empty($foundIds)) {
         if (ob_get_level()) {
             ob_clean();
         }
         http_response_code(404);
-        echo json_encode(['success' => false, 'message' => 'Student not found in this class']);
+        echo json_encode(['success' => false, 'message' => 'Student(s) not found in this class']);
         exit;
     }
     
-    // Update student status
-    $updateStmt = $db->prepare("
-        UPDATE class_students 
-        SET status = ? 
-        WHERE class_id = ? AND student_user_id = ?
-    ");
-    $result = $updateStmt->execute([$status, $classId, $studentId]);
+    // Use only the IDs that actually belong to the class
+    $targetStudentIds = $foundIds;
+    $isBulkOperation = count($targetStudentIds) > 1;
+    $placeholders = implode(',', array_fill(0, count($targetStudentIds), '?'));
     
-    if (!$result) {
-        throw new Exception('Failed to update student status');
+    $affectedRows = 0;
+    if ($status === 'rejected') {
+        // Remove rejected students from the class entirely
+        $deleteStmt = $db->prepare("
+            DELETE FROM class_students 
+            WHERE class_id = ? AND student_user_id IN ($placeholders)
+        ");
+        $deleteStmt->execute(array_merge([$classId], $targetStudentIds));
+        $affectedRows = $deleteStmt->rowCount();
+    } else {
+        $statusFilter = '';
+        if ($status === 'accepted') {
+            $statusFilter = " AND status = 'pending'";
+        }
+        $updateStmt = $db->prepare("
+            UPDATE class_students 
+            SET status = ? 
+            WHERE class_id = ? AND student_user_id IN ($placeholders)
+            $statusFilter
+        ");
+        $updateStmt->execute(array_merge([$status, $classId], $targetStudentIds));
+        $affectedRows = $updateStmt->rowCount();
     }
     
     // Log the action
-    error_log("Teacher {$userId} updated student {$studentId} status to '{$status}' in class {$classId}");
+    $targetList = implode(',', $targetStudentIds);
+    error_log("Teacher {$userId} updated student(s) {$targetList} status to '{$status}' in class {$classId}");
     
     if (ob_get_level()) {
         ob_clean();
@@ -172,8 +215,12 @@ try {
     
     echo json_encode([
         'success' => true,
-        'message' => "Student status updated to '{$status}'",
-        'status' => $status
+        'message' => $isBulkOperation 
+            ? "Student statuses updated to '{$status}'"
+            : "Student status updated to '{$status}'",
+        'status' => $status,
+        'updated_count' => $affectedRows,
+        'removed_ids' => $status === 'rejected' ? $targetStudentIds : null
     ]);
     exit;
     

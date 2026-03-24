@@ -1111,9 +1111,8 @@ function viewOutline(courseId) {
           if (!lessonId) return;
           let type;
           // OPTIMIZED: Show prompt immediately with default options, fetch types in background
-          // Matches backend material_types response exactly: PDF, Link, Page
+          // Matches backend material_types response exactly: Link, Page (PDF removed)
           const defaultOpts = [
-            {value:'pdf',label:'PDF'}, 
             {value:'link',label:'Link'}, 
             {value:'page',label:'Page'}
           ];
@@ -1127,7 +1126,7 @@ function viewOutline(courseId) {
               .catch(()=>null);
           })();
           
-          outlinePrompt({ title: 'Material type', label: 'Type', options: defaultOpts, value: 'pdf' }, function(val){
+          outlinePrompt({ title: 'Material type', label: 'Type', options: defaultOpts, value: 'link' }, function(val){
             type = (val||'link').toLowerCase();
             if (!type) return;
 

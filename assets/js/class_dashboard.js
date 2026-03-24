@@ -11997,6 +11997,8 @@ function showEnrolledStudentsModal() {
 
 function renderEnrolledStudentsList(container, students, fontFamily) {
   const classId = window.__CLASS_ID__ || getClassIdFromURL();
+  const userRole = (window.__USER_ROLE__ || '').toLowerCase();
+  const canManageEnrollments = userRole === 'teacher';
   
   // Group students by status
   const grouped = {
@@ -12020,6 +12022,7 @@ function renderEnrolledStudentsList(container, students, fontFamily) {
   const acceptedCount = grouped.accepted.length;
   const pendingCount = grouped.pending.length;
   const rejectedCount = grouped.rejected.length;
+  const pendingIds = grouped.pending.map(student => Number(student.student_id || student.id)).filter(Boolean);
   
   // Function to render student row
   const renderStudentRow = (student) => {
@@ -12060,36 +12063,40 @@ function renderEnrolledStudentsList(container, students, fontFamily) {
           </span>
         </td>
         <td style="padding: 16px;">
-          <div style="display: flex; gap: 8px;">
-            ${status === 'pending' ? `
-              <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'accepted', this)" 
-                      style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
-                      onmouseover="this.style.background='#059669';"
-                      onmouseout="this.style.background='#10b981';">
-                <i class="fas fa-check"></i> Accept
-              </button>
-              <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'rejected', this)" 
-                      style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
-                      onmouseover="this.style.background='#dc2626';"
-                      onmouseout="this.style.background='#ef4444';">
-                <i class="fas fa-times"></i> Reject
-              </button>
-            ` : status === 'rejected' ? `
-              <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'accepted', this)" 
-                      style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
-                      onmouseover="this.style.background='#059669';"
-                      onmouseout="this.style.background='#10b981';">
-                <i class="fas fa-check"></i> Accept
-              </button>
-            ` : `
-              <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'rejected', this)" 
-                      style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
-                      onmouseover="this.style.background='#dc2626';"
-                      onmouseout="this.style.background='#ef4444';">
-                <i class="fas fa-times"></i> Reject
-              </button>
-            `}
-          </div>
+          ${canManageEnrollments ? `
+            <div style="display: flex; gap: 8px;">
+              ${status === 'pending' ? `
+                <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'accepted', this)" 
+                        style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
+                        onmouseover="this.style.background='#059669';"
+                        onmouseout="this.style.background='#10b981';">
+                  <i class="fas fa-check"></i> Accept
+                </button>
+                <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'rejected', this)" 
+                        style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
+                        onmouseover="this.style.background='#dc2626';"
+                        onmouseout="this.style.background='#ef4444';">
+                  <i class="fas fa-times"></i> Reject
+                </button>
+              ` : status === 'rejected' ? `
+                <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'accepted', this)" 
+                        style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
+                        onmouseover="this.style.background='#059669';"
+                        onmouseout="this.style.background='#10b981';">
+                  <i class="fas fa-check"></i> Accept
+                </button>
+              ` : `
+                <button onclick="updateStudentStatus(${classId}, ${student.student_id}, 'rejected', this)" 
+                        style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: ${fontFamily}; transition: all 0.2s;"
+                        onmouseover="this.style.background='#dc2626';"
+                        onmouseout="this.style.background='#ef4444';">
+                  <i class="fas fa-times"></i> Reject
+                </button>
+              `}
+            </div>
+          ` : `
+            <span style="color: #9ca3af; font-size: 12px; font-family: ${fontFamily};">No actions available</span>
+          `}
         </td>
       </tr>
     `;
@@ -12201,6 +12208,17 @@ function renderEnrolledStudentsList(container, students, fontFamily) {
           ${renderTable(grouped.accepted, 'No enrolled students yet.', 'users')}
         </div>
         <div id="${pendingContentId}" style="display: none;">
+          ${canManageEnrollments && pendingCount > 0 ? `
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+              <button id="${tabId}_acceptAllBtn"
+                      onclick="acceptAllPendingStudents(${classId}, '${tabId}', this)"
+                      style="padding: 10px 16px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: ${fontFamily}; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;"
+                      onmouseover="this.style.background='#059669';"
+                      onmouseout="this.style.background='#10b981';">
+                <i class="fas fa-users"></i> Accept All Pending (${pendingCount})
+              </button>
+            </div>
+          ` : ''}
           ${renderTable(grouped.pending, 'No pending enrollments.', 'clock')}
         </div>
         <div id="${rejectedContentId}" style="display: none;">
@@ -12209,10 +12227,27 @@ function renderEnrolledStudentsList(container, students, fontFamily) {
       </div>
     </div>
   `;
+  window.__enrolledModalState = {
+    ...(window.__enrolledModalState || {}),
+    classId,
+    tabId,
+    pendingIds,
+    pendingCount,
+    totalCount,
+    lastRenderedAt: Date.now()
+  };
+  if (!window.__enrolledModalState.activeTab) {
+    window.__enrolledModalState.activeTab = 'accepted';
+  }
 }
 
 // Function to switch between tabs (must be global for onclick handlers)
 window.switchEnrolledTab = function(tab, tabId) {
+  if (!window.__enrolledModalState) {
+    window.__enrolledModalState = {};
+  }
+  window.__enrolledModalState.activeTab = tab;
+  window.__enrolledModalState.tabId = tabId;
   const acceptedTab = document.getElementById(tabId + '_accepted');
   const pendingTab = document.getElementById(tabId + '_pending');
   const rejectedTab = document.getElementById(tabId + '_rejected');
@@ -12252,6 +12287,61 @@ window.switchEnrolledTab = function(tab, tabId) {
     rejectedContent.style.display = 'block';
   }
 }
+
+window.acceptAllPendingStudents = async function(classId, tabId, buttonElement) {
+  const modal = document.getElementById('enrolledStudentsModal');
+  if (!modal) {
+    alert('Modal not found. Please refresh the page.');
+    return;
+  }
+  
+  const state = window.__enrolledModalState || {};
+  const pendingIds = state.classId === classId ? (state.pendingIds || []) : [];
+  
+  if (!pendingIds.length) {
+    alert('No pending students to accept.');
+    return;
+  }
+  
+  const plural = pendingIds.length === 1 ? '' : 's';
+  if (!confirm(`Accept all ${pendingIds.length} pending student${plural}?`)) {
+    return;
+  }
+  
+  const originalHTML = buttonElement.innerHTML;
+  buttonElement.disabled = true;
+  buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Accepting...';
+  
+  try {
+    const response = await fetch('update_student_status.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        class_id: classId,
+        student_ids: pendingIds,
+        status: 'accepted'
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      window.__enrolledModalState.activeTab = 'pending';
+      refreshEnrolledStudentsModal(modal, classId, 'pending', tabId);
+    } else {
+      alert('Error: ' + (data.message || 'Failed to accept all pending students'));
+    }
+  } catch (error) {
+    console.error('Error accepting all pending students:', error);
+    alert('Failed to accept all pending students. Please try again.');
+  } finally {
+    buttonElement.disabled = false;
+    buttonElement.innerHTML = originalHTML;
+  }
+};
 
 async function updateStudentStatus(classId, studentId, status, buttonElement) {
   const originalHTML = buttonElement.innerHTML;
