@@ -82,22 +82,6 @@ A comprehensive full-stack Learning Management System designed to facilitate onl
 - **SQL Injection Prevention** (Prepared Statements)
 - **Session Management**
 
-## 📸 Screenshots
-
-> **Note**: Add screenshots of your application here. Consider including:
-> 
-> - Dashboard views for different user roles (Admin, Coordinator, Teacher, Student)
-> - Real-time code editor interface with Monaco Editor
-> - Activity submission and grading interface
-> - Progress tracking dashboard with analytics
-> - Admin panel with user management
-> - Mobile-responsive views
-
-<!-- Add your screenshots here:
-![Dashboard](screenshots/dashboard.png)
-![Code Editor](screenshots/code-editor.png)
--->
-
 ## 🚀 Installation
 
 ### Prerequisites
